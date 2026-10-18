@@ -67,7 +67,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: shellcheck
-        run: shellcheck infra/gcp/*.sh infra/ci/*.sh
+        run: shellcheck infra/gcp/*.sh infra/ci/*.sh infra/backup/*.sh
       - name: hadolint
         run: docker run --rm -i hadolint/hadolint:v2.12.0 < backend/Dockerfile
       - name: bootstrap dry-run (prints, changes nothing)

@@ -26,6 +26,12 @@ WIF_PROVIDER="github-actions"
 BUDGET_NAME="tristhana-monthly"
 KEEPWARM_JOB="tristhana-keepwarm"
 HOSTING_SITE="tristhana" # https://tristhana.web.app (Mini App, UI-03)
+BACKUP_SA="tristhana-backup"
+BACKUP_JOB="tristhana-backup"
+BACKUP_SCHEDULE="tristhana-backup-weekly"
+BACKUP_BUCKET="${PROJECT_ID}-tristhana-backups"
+# Official image, pinned by digest (it runs with the backup credentials).
+BACKUP_IMAGE="docker.io/library/postgres@sha256:aa90e97ee862e558111d34cfb8b2c4bec768c2b039fb791341686928560263b3"
 # Read by the service. database-url: the tristhana_app role via the Supabase session pooler.
 # field-encryption-keys: the keyring for private fields such as ladies' holiday (ADR-0016).
 SECRETS=(telegram-bot-token telegram-webhook-secret database-url field-encryption-keys)
@@ -35,6 +41,8 @@ MIGRATE_SECRET="database-url-migrate"
 RUN_SA_EMAIL="${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
 DEPLOY_SA_EMAIL="${DEPLOY_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
 MIGRATE_SA_EMAIL="${MIGRATE_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+BACKUP_SA_EMAIL="${BACKUP_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WIF_POOL_ID="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL}"
 
 DRY_RUN=false
@@ -168,6 +176,59 @@ if ! exists "${gc[@]}" scheduler jobs describe "$KEEPWARM_JOB" --location "$REGI
 else
   run "${gc[@]}" scheduler jobs update http "$KEEPWARM_JOB" --location "$REGION" \
     --uri "${service_url}/api/v1/health/db"
+fi
+
+step "Weekly database backup (Cloud Run Job ${BACKUP_JOB} → gs://${BACKUP_BUCKET}; infra/backup/README.md)"
+# Private bucket in the same region; dumps expire after 90 days.
+if ! exists gcloud storage buckets describe "gs://${BACKUP_BUCKET}" --project "$PROJECT_ID"; then
+  run gcloud storage buckets create "gs://${BACKUP_BUCKET}" --project "$PROJECT_ID" \
+    --location "$REGION" --default-storage-class STANDARD \
+    --uniform-bucket-level-access --public-access-prevention
+fi
+lifecycle="$(mktemp)"
+trap 'rm -f "$policy" "$lifecycle"' EXIT
+echo '{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 90}}]}' >"$lifecycle"
+run gcloud storage buckets update "gs://${BACKUP_BUCKET}" --project "$PROJECT_ID" \
+  --lifecycle-file "$lifecycle"
+if ! exists "${gc[@]}" iam service-accounts describe "$BACKUP_SA_EMAIL"; then
+  run "${gc[@]}" iam service-accounts create "$BACKUP_SA" --display-name "Tristhana DB backup (Cloud Run Job)"
+fi
+# Create and read objects (the mount needs list/get), never delete or overwrite.
+for role in roles/storage.objectCreator roles/storage.objectViewer; do
+  run gcloud storage buckets add-iam-policy-binding "gs://${BACKUP_BUCKET}" --project "$PROJECT_ID" \
+    --member "serviceAccount:${BACKUP_SA_EMAIL}" --role "$role"
+done
+# database-url-backup: role tristhana_backup (read-only, infra/supabase/backup_role.sql), value
+# added by the owner via stdin. supabase-ca: the public CA cert, added from the repo here.
+for secret in database-url-backup supabase-ca; do
+  if ! exists "${gc[@]}" secrets describe "$secret"; then
+    run "${gc[@]}" secrets create "$secret" --replication-policy automatic
+  fi
+  run "${gc[@]}" secrets add-iam-policy-binding "$secret" \
+    --member "serviceAccount:${BACKUP_SA_EMAIL}" --role roles/secretmanager.secretAccessor
+done
+if $DRY_RUN || [[ -z "$("${gc[@]}" secrets versions list supabase-ca --format 'value(name)' --limit 1)" ]]; then
+  run "${gc[@]}" secrets versions add supabase-ca --data-file "$REPO_ROOT/infra/supabase/certs/supabase-ca.crt"
+fi
+# The script travels base64-encoded: gcloud splits --args on commas.
+script_b64="$(base64 -w0 "$REPO_ROOT/infra/backup/backup.sh")"
+run "${gc[@]}" run jobs deploy "$BACKUP_JOB" --region "$REGION" --image "$BACKUP_IMAGE" \
+  --service-account "$BACKUP_SA_EMAIL" --execution-environment gen2 \
+  --cpu 1 --memory 512Mi --max-retries 1 --task-timeout 600s \
+  --command sh --args "-c,echo ${script_b64} | base64 -d | sh" \
+  --set-env-vars "BACKUP_DIR=/backups,PGSSLMODE=verify-full,PGSSLROOTCERT=/ca/supabase-ca.crt" \
+  --set-secrets "DATABASE_URL=database-url-backup:latest,/ca/supabase-ca.crt=supabase-ca:latest" \
+  --clear-volumes --clear-volume-mounts \
+  --add-volume "name=backups,type=cloud-storage,bucket=${BACKUP_BUCKET}" \
+  --add-volume-mount "volume=backups,mount-path=/backups"
+run "${gc[@]}" run jobs add-iam-policy-binding "$BACKUP_JOB" --region "$REGION" \
+  --member "serviceAccount:${BACKUP_SA_EMAIL}" --role roles/run.invoker
+if ! exists "${gc[@]}" scheduler jobs describe "$BACKUP_SCHEDULE" --location "$REGION"; then
+  run "${gc[@]}" scheduler jobs create http "$BACKUP_SCHEDULE" --location "$REGION" \
+    --schedule "0 3 * * 0" --time-zone "Etc/UTC" --http-method POST \
+    --uri "https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${BACKUP_JOB}:run" \
+    --oauth-service-account-email "$BACKUP_SA_EMAIL" \
+    --description "Weekly pg_dump of schema tristhana (Sundays 03:00 UTC)"
 fi
 
 step "Firebase Hosting for the Mini App (site ${HOSTING_SITE})"
