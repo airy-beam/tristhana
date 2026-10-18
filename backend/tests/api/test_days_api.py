@@ -54,7 +54,7 @@ def test_put_get_delete_round_trip_including_ladies(api: TestClient) -> None:
     put = api.put(f"/api/v1/me/days/{today}", json={"status": "ladies"}, headers=_auth())
 
     assert put.status_code == 200
-    assert put.json() == {"date": today.isoformat(), "status": "ladies"}
+    assert put.json() == {"date": today.isoformat(), "status": "ladies", "practices": []}
     assert api.get("/api/v1/me/days", headers=_auth()).json()["days"] == [put.json()]
 
     for _ in range(2):  # idempotent

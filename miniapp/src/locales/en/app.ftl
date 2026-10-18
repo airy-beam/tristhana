@@ -43,3 +43,62 @@ today-private-note = Only you see this. Others see “Rest day”.
 today-clear = Clear
 today-save-failed = Couldn't save. Try again in a moment.
 today-load-failed = Couldn't load today's status. Try again in a moment.
+
+# Practice details on a practiced day (PR-02, PR-03, PR-05). Matches the bot's wording.
+practice-title = Practice
+practice-same-as-last = 🔁 Same as last time
+context-mysore = Mysore
+context-led = Led
+context-private = 1:1
+context-self = Self-practice
+practice-online = 🌐 Online
+practice-length = Length
+practice-duration = Duration
+preset-short = ☀️ Short: sun salutations, standing, finishing
+preset-half-primary = ½ Primary → Navasana
+preset-full-primary = Full Primary
+preset-other = 🎯 Other…
+length-pick-range = Series
+length-pick-end = Last asana
+length-full-series = Full series
+duration-min = { $min } min
+duration-none = No duration
+practice-start-time = Start time
+practice-clear = Remove details
+series-name =
+    { $n ->
+        [1] Primary
+        [2] Intermediate
+        [3] Advanced A
+        [4] Advanced B
+        [5] Advanced C
+       *[6] Advanced D
+    }
+series-lower =
+    { $n ->
+        [1] Primary
+        [2] Intermediate
+        [3] Advanced A
+        [4] Advanced B
+        [5] Advanced C
+       *[6] Advanced D
+    }
+series-half =
+    { $n ->
+        [1] Primary
+        [2] Intermediate
+        [3] Advanced A
+        [4] Advanced B
+        [5] Advanced C
+       *[6] Advanced D
+    }
+half-first = { $series }, 1st half
+half-second = { $series }, 2nd half
+length-only = Only { $series }
+length-summary =
+    { $kind ->
+        [short] Short practice
+        [full-one] Full { $range }
+        [full] { $range } (full)
+       *[to] { $range } → { $asana }
+    }

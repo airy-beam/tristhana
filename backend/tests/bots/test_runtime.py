@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.methods import SendMessage, SendPhoto
 from aiogram.types import BufferedInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 
-from tests.fakes import FixedClock, InMemoryAccounts, day_use_cases
+from tests.fakes import FixedClock, InMemoryAccounts, day_use_cases, practice_use_cases
 from tristhana.application.accounts import EnsureAccount
 from tristhana.bots.telegram.runtime import BotRuntime, build_runtime, webhook_reply
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
@@ -16,7 +16,11 @@ TOKEN = "123456:TEST-token-for-unit-tests-only_xxxxxxxxxxx"
 
 def _runtime(**defaults: object) -> BotRuntime:
     runtime = build_runtime(
-        TOKEN, EnsureAccount(InMemoryAccounts(), FixedClock()), day_use_cases(), FluentTranslator()
+        TOKEN,
+        EnsureAccount(InMemoryAccounts(), FixedClock()),
+        day_use_cases(),
+        practice_use_cases(),
+        FluentTranslator(),
     )
     if defaults:
         bot = Bot(TOKEN, default=DefaultBotProperties(**defaults))  # type: ignore[arg-type]

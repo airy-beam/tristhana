@@ -16,6 +16,10 @@ type ErrorCode = Literal[
     "invalid_range",
     "date_in_future",
     "date_too_early",
+    "day_not_practiced",
+    "invalid_length",
+    "invalid_practice",
+    "timezone_unknown",
     "unavailable",
 ]
 

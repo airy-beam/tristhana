@@ -1,28 +1,27 @@
 """Day-status screens (PR-01, PR-04): `/log`, the status picker, the week picker.
 
 Every tap edits the same message (the webhook reply, ADR-0012) and answers the callback in
-parallel. One DB statement per tap besides the account lookup.
+parallel. One DB statement per tap besides the account lookup. Saving 🧘 Practiced opens
+the practice-details screen (PR-02, `practice.py`).
 """
 
-import asyncio
-import logging
-from dataclasses import dataclass
 from datetime import date, timedelta
 
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.methods import EditMessageText, SendMessage
+from aiogram.methods import SendMessage
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from tristhana.application.policies import Principal
-from tristhana.application.ports.i18n import DateArg, Translator
+from tristhana.application.ports.i18n import Translator
+from tristhana.bots.telegram import practice_callbacks as pcb
 from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encode
-from tristhana.bots.telegram.runtime import DayUseCases
+from tristhana.bots.telegram.practice import PracticeScreens, register_practice
+from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases
+from tristhana.bots.telegram.screens import Reply, Screen, answered, day_label, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
-
-log = logging.getLogger(__name__)
 
 WEEK = 7
 # Grid order: Practiced alone on top; "No practice" last, next to Travel (ashtanga-expert).
@@ -43,17 +42,13 @@ _WEEK_EMOJI: dict[DayStatus | None, str] = {
     DayStatus.SKIPPED: "🌱",
 }
 
-type Reply = SendMessage | EditMessageText
 
-
-@dataclass(frozen=True, slots=True)
-class Screen:
-    text: str
-    markup: InlineKeyboardMarkup
-
-
-def register(router: Router, days: DayUseCases, translator: Translator) -> None:
-    screens = _Screens(days, translator)
+def register(
+    router: Router, days: DayUseCases, practices: PracticeUseCases, translator: Translator
+) -> None:
+    screens = DayScreens(days, translator)
+    screens.practice = PracticeScreens(days, practices, translator, screens)
+    register_practice(router, screens.practice)
 
     @router.message(Command("log"))
     async def on_log(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
@@ -63,43 +58,28 @@ def register(router: Router, days: DayUseCases, translator: Translator) -> None:
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
     async def on_day(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
-        # Answer first, in parallel with the work; awaited before the webhook response,
-        # since Cloud Run throttles the CPU afterwards.
-        answering = asyncio.ensure_future(_answer(callback))
-        try:
-            screen = await screens.handle(Principal(account), cb) if cb else None
-        finally:
-            await answering
-        if screen is None:
+        if cb is None:
+            await answered(callback, _nothing())
             return None
-        if cb is not None and cb.action == "today":
+        screen = await answered(callback, screens.handle(Principal(account), cb))
+        if cb.action == "today":
             # "Log today" sits under the /start greeting: keep that message (and its "Open
             # the app" button) and start a new one.
             return SendMessage(
                 chat_id=callback.from_user.id, text=screen.text, reply_markup=screen.markup
             )
-        return _show(callback, screen)
+        return show(callback, screen)
 
 
-async def _answer(callback: CallbackQuery) -> None:
-    try:
-        await callback.answer()
-    except Exception as e:  # the edit still goes out; a spinner is not worth a failure
-        log.warning("answerCallbackQuery failed: %s", type(e).__name__)
+async def _nothing() -> None:
+    return None
 
 
-def _show(callback: CallbackQuery, screen: Screen) -> Reply:
-    message = callback.message
-    if isinstance(message, Message):
-        return message.edit_text(screen.text, reply_markup=screen.markup)
-    # Too old to edit (InaccessibleMessage): send the screen as a new message.
-    return SendMessage(chat_id=callback.from_user.id, text=screen.text, reply_markup=screen.markup)
-
-
-class _Screens:
+class DayScreens:
     def __init__(self, days: DayUseCases, translator: Translator) -> None:
         self._days = days
         self._t = translator
+        self.practice: PracticeScreens | None = None  # set by `register`
 
     async def handle(self, principal: Principal, cb: DayCallback) -> Screen:
         match cb.action, cb.day, cb.status:
@@ -127,31 +107,49 @@ class _Screens:
             view = await self._days.get.execute(principal, day, day)
             current = view.days[0].status if view.days else None
         locale = principal.account.locale
-        label = self._day(locale, day, today)
+        label = self.day(locale, day, today)
         text = self._t.t(locale, "log-prompt", day=label)
         if note:
             text = self._t.t(locale, note, day=label) + "\n\n" + text
         rows = [[self._status_button(locale, day, s, current) for s in row] for row in _GRID]
-        last = [self._button(locale, "log-another-day", DayCallback("week", today))]
+        last = [self._button(locale, "log-another-day", encode(DayCallback("week", today)))]
+        if current is DayStatus.PRACTICED:
+            last.insert(0, self._button(locale, "practice-details", _details(day)))
         if current is not None:
-            last.append(self._button(locale, "log-clear", DayCallback("clear", day)))
+            last.append(self._button(locale, "log-clear", encode(DayCallback("clear", day))))
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=[*rows, last]))
 
     async def saved(self, principal: Principal, day: date, status: DayStatus) -> Screen:
-        locale = principal.account.locale
-        today, zone_known = self._days.get.today(principal)
+        today, _ = self._days.get.today(principal)
         try:
             await self._days.set.execute(principal, day, status)
         except DateInFuture:  # a stale keyboard after a zone change, or a forged tap
             return await self.week(principal, today, note="log-date-future")
         except DateTooEarly:
             return await self.week(principal, today, note="log-date-too-early")
+        if status is DayStatus.PRACTICED and self.practice is not None:
+            return await self.practice.details(principal, day)
+        locale = principal.account.locale
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    self._button(locale, "log-change", _open(day)),
+                    self._button(locale, "log-another-day", encode(DayCallback("week", today))),
+                ]
+            ]
+        )
+        return Screen("\n\n".join(self.saved_lines(principal, day, status)), markup)
+
+    def saved_lines(self, principal: Principal, day: date, status: DayStatus) -> list[str]:
+        """ "✓ Today, Sun, Oct 18: 🧘 Practiced" + the cheer, privacy note, zone hint."""
+        locale = principal.account.locale
+        today, zone_known = self._days.get.today(principal)
         label = self._t.t(locale, f"status-{status.value}")
         lines = [
             self._t.t(
                 locale,
                 "log-saved",
-                day=self._day(locale, day, today),
+                day=self.day(locale, day, today),
                 label=label,
                 status=status.value,
             )
@@ -160,15 +158,7 @@ class _Screens:
             lines.append(self._t.t(locale, "log-private-note"))
         if not zone_known:
             lines.append(self._t.t(locale, "log-zone-hint"))
-        markup = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    self._button(locale, "log-change", DayCallback("open", day)),
-                    self._button(locale, "log-another-day", DayCallback("week", today)),
-                ]
-            ]
-        )
-        return Screen("\n\n".join(lines), markup)
+        return lines
 
     async def week(self, principal: Principal, end: date, note: str | None = None) -> Screen:
         today, _ = self._days.get.today(principal)
@@ -189,8 +179,8 @@ class _Screens:
         days = [d for d in days if d >= MIN_LOG_DATE]
         buttons = [
             InlineKeyboardButton(
-                text=f"{_WEEK_EMOJI.get(logged.get(d), '·')} {self._day(locale, d, today)}",
-                callback_data=encode(DayCallback("open", d)),
+                text=f"{_WEEK_EMOJI.get(logged.get(d), '·')} {self.day(locale, d, today)}",
+                callback_data=_open(d),
             )
             for d in days
         ]
@@ -198,10 +188,10 @@ class _Screens:
         earlier = end - timedelta(days=WEEK)
         paging: list[InlineKeyboardButton] = []
         if earlier >= MIN_LOG_DATE:
-            paging.append(self._button(locale, "log-earlier", DayCallback("week", earlier)))
+            paging.append(self._button(locale, "log-earlier", encode(DayCallback("week", earlier))))
         if end < today:
             later = min(end + timedelta(days=WEEK), today)
-            paging.append(self._button(locale, "log-later", DayCallback("week", later)))
+            paging.append(self._button(locale, "log-later", encode(DayCallback("week", later))))
         return InlineKeyboardMarkup(inline_keyboard=[*rows, paging] if paging else rows)
 
     def _status_button(
@@ -213,14 +203,19 @@ class _Screens:
             callback_data=encode(DayCallback("set", day, status)),
         )
 
-    def _button(self, locale: Locale, key: str, cb: DayCallback) -> InlineKeyboardButton:
-        return InlineKeyboardButton(text=self._t.t(locale, key), callback_data=encode(cb))
+    def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
+        return InlineKeyboardButton(text=self._t.t(locale, key), callback_data=data)
 
-    def _day(self, locale: Locale, day: date, today: date) -> str:
-        rel = "today" if day == today else "yesterday" if day == today - timedelta(1) else "other"
-        return self._t.t(
-            locale, "day-label", rel=rel, date=DateArg(day, with_year=day.year != today.year)
-        )
+    def day(self, locale: Locale, day: date, today: date) -> str:
+        return day_label(self._t, locale, day, today)
+
+
+def _open(day: date) -> str:
+    return encode(DayCallback("open", day))
+
+
+def _details(day: date) -> str:
+    return pcb.encode(pcb.PracticeCallback("open", day))
 
 
 def log_today_button(translator: Translator, locale: Locale) -> InlineKeyboardButton:

@@ -28,12 +28,17 @@ function stubApi(days: Days, writeStatus = 200): Request[] {
     "fetch",
     vi.fn((request: Request) => {
       seen.push(request);
-      if (request.method === "GET") return Promise.resolve(json(days));
+      if (request.method === "GET") {
+        const deleted = seen.some((r) => r.method === "DELETE");
+        return Promise.resolve(json(deleted ? { ...days, days: [] } : days));
+      }
       if (writeStatus === 0) return new Promise<Response>(() => undefined);
       if (writeStatus !== 200 && writeStatus !== 204)
         return Promise.resolve(json({ code: "unavailable" }, writeStatus));
       return Promise.resolve(
-        request.method === "DELETE" ? json(null, 204) : json({ date: TODAY, status: "rest" }),
+        request.method === "DELETE"
+          ? json(null, 204)
+          : json({ date: TODAY, status: "rest", practices: [] }),
       );
     }),
   );
@@ -45,7 +50,7 @@ function renderCard() {
   return render(
     <QueryClientProvider client={client}>
       <L10nProvider locale="en">
-        <TodayCard />
+        <TodayCard zone="Asia/Almaty" locale="en" />
       </L10nProvider>
     </QueryClientProvider>,
   );
@@ -63,8 +68,8 @@ describe("TodayCard", () => {
       today: TODAY,
       timezone_known: true,
       days: [
-        { date: "2026-10-17", status: "rest" },
-        { date: TODAY, status: "moon" },
+        { date: "2026-10-17", status: "rest", practices: [] },
+        { date: TODAY, status: "moon", practices: [] },
       ],
     });
 
@@ -110,7 +115,7 @@ describe("TodayCard", () => {
     const seen = stubApi({
       today: TODAY,
       timezone_known: true,
-      days: [{ date: TODAY, status: "ladies" }],
+      days: [{ date: TODAY, status: "ladies", practices: [] }],
     });
     renderCard();
 

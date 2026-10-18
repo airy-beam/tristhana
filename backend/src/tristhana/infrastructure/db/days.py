@@ -6,14 +6,15 @@ from datetime import date
 from typing import Protocol
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, exists, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.infrastructure.crypto import UnreadableSeal
 from tristhana.infrastructure.db.engine import connection
-from tristhana.infrastructure.db.tables import day_log
+from tristhana.infrastructure.db.practice import to_practice
+from tristhana.infrastructure.db.tables import day_log, practice
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +50,21 @@ class SqlDayLogRepository:
             index_elements=[day_log.c.account_id, day_log.c.local_date],
             set_={**values, "updated_at": func.now()},
         )
+        stale = delete(practice).where(
+            practice.c.account_id == account_id, practice.c.local_date == day.local_date
+        )
+        if day.status is DayStatus.PRACTICED:
+            # Details left over from a status change racing a save (or an old revision) go
+            # when the day becomes practiced again; this snapshot still sees the old status.
+            stale = stale.where(
+                exists().where(
+                    day_log.c.account_id == account_id,
+                    day_log.c.local_date == day.local_date,
+                    day_log.c.status != "practiced",
+                )
+            )
+        # Same statement: a day that is no longer practiced loses its details (PR-02).
+        stmt = stmt.add_cte(stale.cte("gone"))
         async with connection(self._engine) as conn:
             await conn.execute(stmt)
         return day
@@ -62,22 +78,49 @@ class SqlDayLogRepository:
 
     async def list_range(self, account_id: UUID, start: date, end: date) -> list[DayLog]:
         stmt = (
-            select(day_log.c.local_date, day_log.c.status, day_log.c.sealed_status)
+            select(
+                day_log.c.local_date,
+                day_log.c.status,
+                day_log.c.sealed_status,
+                practice.c.slot,
+                practice.c.context,
+                practice.c.online,
+                practice.c.series,
+                practice.c.end_item,
+                practice.c.first_part,
+                practice.c.duration_min,
+                practice.c.start_time,
+                practice.c.timezone,
+            )
+            .select_from(
+                day_log.outerjoin(
+                    practice,
+                    and_(
+                        practice.c.account_id == day_log.c.account_id,
+                        practice.c.local_date == day_log.c.local_date,
+                        # Also hides a row left by a rare status/details race.
+                        day_log.c.status == "practiced",
+                    ),
+                )
+            )
             .where(
                 day_log.c.account_id == account_id,
                 day_log.c.local_date.between(start, end),
             )
-            .order_by(day_log.c.local_date)
+            .order_by(day_log.c.local_date, practice.c.slot)
         )
         async with connection(self._engine) as conn:
             rows = (await conn.execute(stmt)).all()
-        return [
-            DayLog(
+        days: dict[date, DayLog] = {}
+        for row in rows:
+            day = days.get(row.local_date) or DayLog(
                 row.local_date,
                 self._status(account_id, row.local_date, row.status, row.sealed_status),
             )
-            for row in rows
-        ]
+            if row.slot is not None:
+                day = DayLog(day.local_date, day.status, (*day.practices, to_practice(row)))
+            days[row.local_date] = day
+        return list(days.values())
 
     def _status(
         self, account_id: UUID, local_date: date, status: str, sealed: bytes | None

@@ -117,3 +117,41 @@ body {
   font: inherit;
   font-size: 15px;
 }
+
+.details {
+  margin-top: var(--space);
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--c-hint) 30%, transparent);
+}
+
+.details h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.details .label {
+  display: block;
+  margin: 12px 0 6px;
+  color: var(--c-hint);
+  font-size: 13px;
+}
+
+.details select,
+.details input[type="time"] {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--c-hint) 40%, transparent);
+  border-radius: 10px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: inherit;
+}
+
+.details .time .hint {
+  display: block;
+  margin-top: 4px;
+}

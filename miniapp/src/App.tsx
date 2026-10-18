@@ -43,7 +43,7 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
               setShowDetails(true);
             }}
           >
-            {me && <TodayCard />}
+            {me && <TodayCard zone={me.timezone} locale={me.locale} />}
           </Home>
         )}
       </Session>

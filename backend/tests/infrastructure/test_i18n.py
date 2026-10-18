@@ -45,3 +45,27 @@ def test_dates_are_localized_and_the_caller_decides_the_year() -> None:
     assert t.t("en", "day-label", rel="other", date=DateArg(day)) == "Sun, Oct 18"
     assert t.t("ru", "day-label", rel="today", date=DateArg(day)) == "Сегодня, вс, 18 окт."
     assert "2026" in t.t("en", "day-label", rel="other", date=DateArg(day, with_year=True))
+
+
+@pytest.mark.parametrize(
+    ("day", "at", "zone", "locale", "label"),
+    [
+        ("2026-10-19", "06:30", "Asia/Almaty", "en", "06:30 Almaty (UTC+5)"),
+        ("2026-10-19", "06:30", "Asia/Almaty", "ru", "06:30 Алматы (UTC+5)"),
+        ("2026-10-19", "04:30", "Asia/Kolkata", "en", "04:30 Kolkata (UTC+5:30)"),
+        ("2026-10-19", "05:00", "Asia/Kathmandu", "en", "05:00 Kathmandu (UTC+5:45)"),
+        ("2026-03-28", "06:30", "Europe/Berlin", "en", "06:30 Berlin (UTC+1)"),  # before DST
+        ("2026-03-29", "06:30", "Europe/Berlin", "en", "06:30 Berlin (UTC+2)"),  # DST day
+        ("2026-10-19", "06:30", "UTC", "en", "06:30 UTC"),
+    ],
+)
+def test_time_labels_carry_city_and_the_offset_on_that_date(
+    day: str, at: str, zone: str, locale: str, label: str
+) -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+
+    arg = TimeArg(date.fromisoformat(day), time.fromisoformat(at), zone)
+
+    assert FluentTranslator().t(locale, "time-label", time=arg) == label  # type: ignore[arg-type]

@@ -11,6 +11,7 @@ from enum import StrEnum
 from zoneinfo import ZoneInfo
 
 from tristhana.domain.locale import Locale
+from tristhana.domain.practice import Practice
 
 MIN_LOG_DATE = date(2000, 1, 1)
 MAX_RANGE_DAYS = 371  # a heatmap year plus a week
@@ -40,6 +41,7 @@ REST_LIKE = frozenset(
 class DayLog:
     local_date: date
     status: DayStatus
+    practices: tuple[Practice, ...] = ()  # only on a practiced day
 
 
 class DateInFuture(ValueError):
