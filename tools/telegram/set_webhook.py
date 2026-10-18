@@ -1,5 +1,5 @@
-"""Register (or inspect) the prod bot's webhook and Mini App menu button. Run after a deploy
-that has the secrets.
+"""Register (or inspect) the prod bot's webhook, Mini App menu button and command menu. Run
+after a deploy that has the secrets.
 
     python3 tools/telegram/set_webhook.py          # setWebhook
     python3 tools/telegram/set_webhook.py --info   # getWebhookInfo
@@ -11,10 +11,12 @@ Rotation: add a new secret version → redeploy → run this again.
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 PROJECT = "braided-trees-444417-u6"
@@ -25,6 +27,11 @@ ALLOWED_UPDATES = ["message", "callback_query"]
 MINIAPP_URL = "https://tristhana.web.app"
 # Menu button text can't vary per user language, so it uses the name (same in en and ru).
 MENU_BUTTON_TEXT = "Tristhana"
+# Command descriptions come from the bot's Fluent files (`command-<name> = …`, one line each).
+LOCALES_DIR = (
+    Path(__file__).resolve().parents[2] / "backend/src/tristhana/infrastructure/i18n/locales"
+)
+COMMANDS = ("log", "help", "start")
 
 
 def gcloud(*args: str) -> str:
@@ -59,6 +66,21 @@ def menu_button_payload(miniapp_url: str) -> dict[str, Any]:
             "web_app": {"url": miniapp_url},
         }
     }
+
+
+def commands_payloads(locales_dir: Path = LOCALES_DIR) -> list[dict[str, Any]]:
+    """setMyCommands bodies: English as the default, Russian for ru clients."""
+    payloads: list[dict[str, Any]] = []
+    for locale in ("en", "ru"):
+        text = (locales_dir / locale / "bot.ftl").read_text(encoding="utf-8")
+        found = dict(re.findall(r"^command-([a-z]+) = (.+)$", text, re.MULTILINE))
+        payload: dict[str, Any] = {
+            "commands": [{"command": c, "description": found[c]} for c in COMMANDS]
+        }
+        if locale != "en":
+            payload["language_code"] = locale
+        payloads.append(payload)
+    return payloads
 
 
 def call(token: str, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -96,6 +118,13 @@ def main() -> int:
         print("setChatMenuButton:", "ok" if menu.get("ok") else menu.get("description", "failed"))
         if not menu.get("ok"):
             return 1
+        for payload in commands_payloads():
+            result = call(token, "setMyCommands", payload)
+            label = payload.get("language_code", "default")
+            outcome = "ok" if result.get("ok") else result.get("description")
+            print(f"setMyCommands ({label}):", outcome)
+            if not result.get("ok"):
+                return 1
 
     info = call(token, "getWebhookInfo").get("result", {})
     for key in ("url", "pending_update_count", "last_error_date", "last_error_message"):

@@ -5,9 +5,12 @@ from datetime import datetime
 from sqlalchemy import (
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
+    LargeBinary,
     MetaData,
+    PrimaryKeyConstraint,
     Table,
     Text,
     Uuid,
@@ -60,4 +63,27 @@ identity = Table(
     ),
     _timestamp("created_at"),
     CheckConstraint("provider IN ('telegram')", name="provider"),
+)
+
+# PR-01. `status` is the public value: a ladies' holiday is stored as 'rest', and every
+# 'rest' row carries `sealed_status` (the true value, encrypted), so the two are
+# indistinguishable here (ADR-0016). 'ladies' is not a valid plain value.
+day_log = Table(
+    "day_log",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("local_date", Date(), nullable=False),
+    Column("status", Text(), nullable=False),
+    Column("sealed_status", LargeBinary()),
+    Column("timezone", Text()),  # zone "today" was computed in; NULL = provisional guess
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    PrimaryKeyConstraint("account_id", "local_date"),
+    CheckConstraint(
+        "status IN ('practiced', 'rest', 'moon', 'sick', 'travel', 'skipped')", name="status"
+    ),
+    CheckConstraint("(status = 'rest') = (sealed_status IS NOT NULL)", name="sealed_rest"),
+    # key id (1) + nonce (24) + 1-byte payload + tag (16): every seal has the same length.
+    CheckConstraint("octet_length(sealed_status) = 42", name="sealed_length"),
+    CheckConstraint("local_date >= '2000-01-01'", name="local_date_min"),
 )

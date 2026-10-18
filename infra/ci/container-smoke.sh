@@ -50,6 +50,10 @@ for loc in LOCALES:
     Locale.parse(loc).plural_form(5)
 import aiogram  # noqa: F401  (imports in the slim image)
 import asyncpg  # noqa: F401  (C extension in the slim image)
+from tristhana.infrastructure.crypto import FieldCipher  # libsodium in the slim image
+import base64
+cipher = FieldCipher("1:" + base64.b64encode(bytes(32)).decode())
+assert cipher.open(cipher.seal(b"l", b"aad"), b"aad") == b"l", "field cipher"
 from alembic.script import ScriptDirectory
 from tristhana.infrastructure.db.migrate import alembic_config
 heads = ScriptDirectory.from_config(alembic_config("postgresql://unused")).get_heads()

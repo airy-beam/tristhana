@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import createClient from "openapi-fetch";
 
 import { rawInitData } from "../telegram";
@@ -72,6 +72,7 @@ export function useMe() {
 
 /** Reports the device zone; the server keeps it only if none is set yet. */
 export function useReportDeviceTimezone() {
+  const client = useQueryClient();
   return useMutation({
     mutationFn: async (timezone: string): Promise<Me> => {
       const { data, error, response } = await api.POST("/api/v1/me/device-timezone", {
@@ -79,6 +80,71 @@ export function useReportDeviceTimezone() {
       });
       if (!data) fail(response, error);
       return data;
+    },
+    onSuccess: (me) => {
+      client.setQueryData(["me"], me);
+      // "Today" may have been computed in the provisional zone before this landed.
+      void client.invalidateQueries({ queryKey: ["days"] });
+    },
+  });
+}
+
+export type DayStatus = components["schemas"]["DayStatus"];
+export type Days = components["schemas"]["Days"];
+
+/** Grid order as in the bot: Practiced first, "No practice" last (ashtanga-expert). */
+export const DAY_STATUSES: readonly DayStatus[] = [
+  "practiced",
+  "rest",
+  "moon",
+  "ladies",
+  "sick",
+  "travel",
+  "skipped",
+];
+
+const DAYS_KEY = ["days", "recent"] as const;
+
+/** The last 7 days and the server's "today" (PR-01). */
+export function useDays() {
+  return useQuery({
+    queryKey: DAYS_KEY,
+    queryFn: async (): Promise<Days> => {
+      const { data, error, response } = await api.GET("/api/v1/me/days");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+function withDay(days: Days, date: string, status: DayStatus | null): Days {
+  const others = days.days.filter((d) => d.date !== date);
+  const next = status ? [...others, { date, status }] : others;
+  return { ...days, days: next.sort((a, b) => a.date.localeCompare(b.date)) };
+}
+
+/** Sets (status) or clears (null) a day, optimistically; rolls back if the server refuses. */
+export function useSetDay() {
+  const client = useQueryClient();
+  return useMutation({
+    // One at a time, in tap order: the last tap wins and a rollback can't undo a later tap.
+    scope: { id: "day" },
+    mutationFn: async ({ date, status }: { date: string; status: DayStatus | null }) => {
+      const params = { path: { date } };
+      const { error, response } = status
+        ? await api.PUT("/api/v1/me/days/{date}", { params, body: { status } })
+        : await api.DELETE("/api/v1/me/days/{date}", { params });
+      if (!response.ok) fail(response, error);
+    },
+    onMutate: async ({ date, status }) => {
+      await client.cancelQueries({ queryKey: DAYS_KEY });
+      const before = client.getQueryData<Days>(DAYS_KEY);
+      if (before) client.setQueryData(DAYS_KEY, withDay(before, date, status));
+      return { before };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.before) client.setQueryData(DAYS_KEY, context.before);
     },
   });
 }

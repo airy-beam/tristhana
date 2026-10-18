@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import { useHealth } from "../api/client";
 import { haptics, useMainButton } from "../telegram";
@@ -10,9 +10,11 @@ interface HomeProps {
   /** Server version/commit: always in dev, after a long press in production. */
   showDetails: boolean;
   onGreetingLongPress?: () => void;
+  /** Cards shown under the subtitle (e.g. today's status). */
+  children?: ReactNode;
 }
 
-export function Home({ firstName, showDetails, onGreetingLongPress }: HomeProps) {
+export function Home({ firstName, showDetails, onGreetingLongPress, children }: HomeProps) {
   const { l10n } = useLocalization();
   const health = useHealth();
   const { refetch } = health;
@@ -43,6 +45,7 @@ export function Home({ firstName, showDetails, onGreetingLongPress }: HomeProps)
       <Localized id="home-subtitle">
         <p className="hint" />
       </Localized>
+      {children}
       {health.isError ? (
         <Localized id="home-server-offline">
           <p className="status" role="status" />

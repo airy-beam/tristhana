@@ -27,7 +27,8 @@ BUDGET_NAME="tristhana-monthly"
 KEEPWARM_JOB="tristhana-keepwarm"
 HOSTING_SITE="tristhana" # https://tristhana.web.app (Mini App, UI-03)
 # Read by the service. database-url: the tristhana_app role via the Supabase session pooler.
-SECRETS=(telegram-bot-token telegram-webhook-secret database-url)
+# field-encryption-keys: the keyring for private fields such as ladies' holiday (ADR-0016).
+SECRETS=(telegram-bot-token telegram-webhook-secret database-url field-encryption-keys)
 # Read only by the migrations job: the postgres role (DDL).
 MIGRATE_SECRET="database-url-migrate"
 

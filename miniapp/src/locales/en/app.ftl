@@ -3,7 +3,7 @@
 # Home: greeting with the Telegram first name (display only).
 home-greeting = Namaste, { $name } 🙏
 home-greeting-anon = Namaste 🙏
-home-subtitle = Your Ashtanga practice companion. Practice log and stats are coming soon.
+home-subtitle = Your Ashtanga practice companion. Stats are coming soon.
 
 # Home: server status (dev, or after a long press on the greeting).
 home-server-status = Server { $version } · { $commit }
@@ -29,3 +29,17 @@ practice-days =
 
 # Shown when the Telegram session is older than 24 hours (or can't be verified).
 session-expired = This session has expired. Close Tristhana and open it again from the bot.
+
+# Home: today's status card (PR-01). Status labels match the bot.
+today-title = Today
+status-practiced = 🧘 Practiced
+status-rest = 😌 Rest day
+status-moon = 🌙 Moon day
+status-ladies = 🌸 Ladies' holiday
+status-sick = 🤒 Sick / injury
+status-travel = ✈️ Travel
+status-skipped = 🌱 No practice
+today-private-note = Only you see this. Others see “Rest day”.
+today-clear = Clear
+today-save-failed = Couldn't save. Try again in a moment.
+today-load-failed = Couldn't load today's status. Try again in a moment.

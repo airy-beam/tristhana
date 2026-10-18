@@ -1,12 +1,15 @@
 """In-memory adapters for tests above the infrastructure layer."""
 
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
+from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.accounts import IdentityTaken
 from tristhana.application.ports.storage import StorageUnavailable
+from tristhana.bots.telegram.runtime import DayUseCases
 from tristhana.domain.accounts import Account, IdentityKey, NewAccount, ProfileUpdate
+from tristhana.domain.days import DayLog
 
 NOW = datetime(2026, 10, 18, 6, 0, tzinfo=UTC)
 
@@ -84,8 +87,37 @@ class InMemoryAccounts:
 
 
 @dataclass
+class InMemoryDays:
+    rows: dict[tuple[UUID, date], tuple[DayLog, str | None]] = field(
+        default_factory=dict[tuple[UUID, date], tuple[DayLog, str | None]]
+    )
+    down: bool = False
+
+    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> DayLog:
+        self._check()
+        self.rows[(account_id, day.local_date)] = (day, timezone)
+        return day
+
+    async def delete(self, account_id: UUID, local_date: date) -> None:
+        self._check()
+        self.rows.pop((account_id, local_date), None)
+
+    async def list_range(self, account_id: UUID, start: date, end: date) -> list[DayLog]:
+        self._check()
+        found = [
+            d for (a, when), (d, _) in self.rows.items() if a == account_id and start <= when <= end
+        ]
+        return sorted(found, key=lambda d: d.local_date)
+
+    def _check(self) -> None:
+        if self.down:
+            raise StorageUnavailable
+
+
+@dataclass
 class InMemoryStorage:
     repo: InMemoryAccounts = field(default_factory=InMemoryAccounts)
+    day_repo: InMemoryDays = field(default_factory=InMemoryDays)
     started: bool = False
 
     async def start(self) -> None:
@@ -101,3 +133,14 @@ class InMemoryStorage:
     @property
     def accounts(self) -> InMemoryAccounts:
         return self.repo
+
+    @property
+    def days(self) -> InMemoryDays:
+        return self.day_repo
+
+
+def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:
+    repo, clock = repo or InMemoryDays(), clock or FixedClock()
+    return DayUseCases(
+        get=GetDays(repo, clock), set=SetDayStatus(repo, clock), clear=ClearDayStatus(repo)
+    )

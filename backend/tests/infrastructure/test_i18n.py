@@ -32,3 +32,16 @@ def test_greeting_renders(locale: str, word: str) -> None:
 def test_unknown_key_raises() -> None:
     with pytest.raises(KeyError):
         FluentTranslator().t("en", "no-such-key")
+
+
+def test_dates_are_localized_and_the_caller_decides_the_year() -> None:
+    from datetime import date
+
+    from tristhana.application.ports.i18n import DateArg
+
+    t = FluentTranslator()
+    day = date(2026, 10, 18)
+
+    assert t.t("en", "day-label", rel="other", date=DateArg(day)) == "Sun, Oct 18"
+    assert t.t("ru", "day-label", rel="today", date=DateArg(day)) == "Сегодня, вс, 18 окт."
+    assert "2026" in t.t("en", "day-label", rel="other", date=DateArg(day, with_year=True))
