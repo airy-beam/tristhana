@@ -22,6 +22,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url=None if settings.app_env == "prod" else "/docs",
         redoc_url=None,
     )
+    app.state.settings = settings
     app.include_router(v1.router)
     return app
 
