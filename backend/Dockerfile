@@ -13,10 +13,10 @@ WORKDIR /src/backend
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY backend/src ./src
-RUN uv sync --locked --no-dev --no-editable
 # Babel (via fluent.runtime) ships CLDR data for ~1,000 locales (~32 MB); keep root and our UI
 # locales only. Adding a language? Add it here; the container smoke test checks every LOCALES entry.
-RUN find /app/.venv/lib/python3.13/site-packages/babel/locale-data -name '*.dat' \
+RUN uv sync --locked --no-dev --no-editable \
+    && find /app/.venv/lib/python3.13/site-packages/babel/locale-data -name '*.dat' \
       ! -name root.dat ! -name 'en.dat' ! -name 'en_*.dat' ! -name 'ru.dat' ! -name 'ru_*.dat' \
       -delete
 
