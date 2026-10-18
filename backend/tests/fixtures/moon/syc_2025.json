@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "source": "Sharath Yoga Centre (Mysuru), moon days posted for 2025",
+    "compare": "date + phase only: SYC never marks kshaya",
+    "policy": "The generator wins (decision 2026-10-18). Each difference below was reviewed and carries a reason."
+  },
+  "dates": [
+    ["2025-01-13", "purnima"], ["2025-01-29", "amavasya"],
+    ["2025-02-12", "purnima"], ["2025-02-28", "amavasya"],
+    ["2025-03-14", "purnima"], ["2025-03-29", "amavasya"],
+    ["2025-04-12", "purnima"], ["2025-04-27", "amavasya"],
+    ["2025-05-12", "purnima"], ["2025-05-27", "amavasya"],
+    ["2025-06-11", "purnima"], ["2025-06-25", "amavasya"],
+    ["2025-07-10", "purnima"], ["2025-07-24", "amavasya"],
+    ["2025-08-09", "purnima"], ["2025-08-23", "amavasya"],
+    ["2025-09-07", "purnima"], ["2025-09-21", "amavasya"],
+    ["2025-10-07", "purnima"], ["2025-10-21", "amavasya"],
+    ["2025-11-05", "purnima"], ["2025-11-20", "amavasya"],
+    ["2025-12-04", "purnima"], ["2025-12-19", "amavasya"]
+  ],
+  "known_differences": [
+    {
+      "syc": ["2025-02-28", "amavasya"],
+      "generator": ["2025-02-27", "kshaya_amavasya"],
+      "reason": "Kshaya Amavasya in Mysuru: tithi 30 starts after sunrise on 27 Feb and ends before sunrise on 28 Feb. The generator observes a kshaya tithi on the earlier day; SYC observed the 28th. (The kshaya Purnima of 4 Dec 2025 matches SYC.)"
+    }
+  ]
+}

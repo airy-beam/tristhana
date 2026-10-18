@@ -7,6 +7,8 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi>=0.143.5",
     "pydantic-settings>=2.16.0",
+    "pyswisseph>=2.10.3.2",
+    "tzdata>=2026.5",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -36,7 +38,8 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not slow'"
+markers = ["slow: long golden runs (full 2025-2100 parity); run with -m slow"]
 
 [tool.importlinter]
 root_package = "tristhana"
@@ -47,6 +50,7 @@ name = "Hexagonal layers: adapters -> application -> domain"
 type = "layers"
 layers = [
     "tristhana.api | tristhana.bots | tristhana.jobs | tristhana.infrastructure",
+    "tristhana.moon",
     "tristhana.application",
     "tristhana.domain",
 ]
@@ -86,3 +90,31 @@ source_modules = [
     "tristhana.main",
 ]
 forbidden_modules = ["aiogram"]
+
+[[tool.importlinter.contracts]]
+name = "swisseph is imported only in tristhana.moon"
+type = "forbidden"
+source_modules = [
+    "tristhana.domain",
+    "tristhana.application",
+    "tristhana.infrastructure",
+    "tristhana.api",
+    "tristhana.bots",
+    "tristhana.jobs",
+    "tristhana.main",
+]
+forbidden_modules = ["swisseph"]
+
+[[tool.importlinter.contracts]]
+name = "moon is pure computation (no frameworks, no wiring)"
+type = "forbidden"
+source_modules = ["tristhana.moon"]
+forbidden_modules = [
+    "fastapi",
+    "starlette",
+    "uvicorn",
+    "pydantic_settings",
+    "tristhana.settings",
+    "tristhana.logs",
+    "tristhana.main",
+]
