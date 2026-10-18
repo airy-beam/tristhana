@@ -9,4 +9,4 @@ def test_importing_moon_or_the_app_does_not_load_swisseph() -> None:
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
 
-    assert out.stdout.strip() == "False"
+    assert out.stdout.strip().splitlines()[-1] == "False"

@@ -1,6 +1,7 @@
 """`tristhana-dev`: run the app locally with auto-reload on :8000.
 
-The Telegram bot (polling mode) joins here once the bot adapter exists.
+With TELEGRAM_MODE=polling and the @tristhana_dev_bot token in backend/.env, the bot runs
+long polling inside the same process (see backend/.env.example).
 """
 
 
