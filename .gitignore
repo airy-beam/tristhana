@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# Public build-time config for the Mini App (no secrets: only VITE_* public values).
+!miniapp/.env.production
 *.pem
 *service-account*.json
 secrets/

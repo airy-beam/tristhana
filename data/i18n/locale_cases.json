@@ -1,0 +1,9 @@
+{
+  "_comment": "Locale negotiation cases shared by backend (domain/locale.py) and Mini App (src/i18n/negotiate.ts) tests, so the two rules cannot drift. Decision 2026-10-18: ru/be/kk/ky -> ru, else en.",
+  "cases": [
+    ["ru", "ru"], ["ru-RU", "ru"], ["RU", "ru"], ["ru_RU", "ru"],
+    ["be", "ru"], ["kk", "ru"], ["ky", "ru"],
+    ["uk", "en"], ["en", "en"], ["en-GB", "en"], ["de", "en"],
+    ["", "en"], [null, "en"]
+  ]
+}

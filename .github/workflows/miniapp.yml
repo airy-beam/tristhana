@@ -1,0 +1,40 @@
+name: miniapp
+
+on:
+  push:
+    branches: [main]
+    paths: ["miniapp/**", "data/i18n/**", ".github/workflows/miniapp.yml"]
+  pull_request:
+    paths: ["miniapp/**", "data/i18n/**", ".github/workflows/miniapp.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: miniapp-${{ github.ref }}
+  cancel-in-progress: false
+
+# Third-party actions are pinned by commit SHA (tag in the comment).
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: miniapp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: miniapp/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: generated API types match openapi.json
+        run: npm run check:api
+      - run: npm run build
+      - name: bundle budget (NF-09)
+        run: npm run check:bundle

@@ -1,0 +1,69 @@
+/* Semantic tokens mapped to Telegram theme variables (bound by the SDK), with fallbacks for
+   a plain browser. Telegram-native look: no web fonts, no icon font (NF-09). */
+:root {
+  --c-bg: var(--tg-theme-bg-color, #ffffff);
+  --c-text: var(--tg-theme-text-color, #000000);
+  --c-hint: var(--tg-theme-hint-color, #707579);
+  --c-link: var(--tg-theme-link-color, #3390ec);
+  --c-accent: var(--tg-theme-button-color, #3390ec);
+  --c-accent-text: var(--tg-theme-button-text-color, #ffffff);
+  --c-surface: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  --space: 16px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: var(--tg-theme-bg-color, #212121);
+    --c-text: var(--tg-theme-text-color, #ffffff);
+    --c-hint: var(--tg-theme-hint-color, #aaaaaa);
+    --c-link: var(--tg-theme-link-color, #8774e1);
+    --c-accent: var(--tg-theme-button-color, #8774e1);
+    --c-surface: var(--tg-theme-secondary-bg-color, #181818);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font:
+    16px/1.4 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.screen {
+  min-height: var(--tg-viewport-stable-height, 100vh);
+  padding: calc(var(--space) * 1.5) var(--space);
+}
+
+.screen h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.hint {
+  color: var(--c-hint);
+  margin: 0 0 var(--space);
+}
+
+.status {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--c-surface);
+  color: var(--c-hint);
+  font-size: 13px;
+}

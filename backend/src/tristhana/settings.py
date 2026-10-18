@@ -31,10 +31,27 @@ class Settings(BaseSettings):
     seed_dir: Path = _REPO_SEED_DIR
     git_sha: str = "dev"  # set at image build / deploy time
 
+    # Exact browser origins allowed to call the API (comma-separated; empty = CORS off).
+    cors_origins: str = ""
+
     # Telegram (injected from Secret Manager in prod; backend/.env in dev).
     telegram_bot_token: SecretStr | None = None
     telegram_webhook_secret: SecretStr | None = None
     telegram_mode: TelegramMode = "webhook"  # dev: "polling" with @tristhana_dev_bot
+
+    @field_validator("cors_origins")
+    @classmethod
+    def _exact_origins(cls, value: str) -> str:
+        for origin in (o.strip() for o in value.split(",") if o.strip()):
+            if origin == "*" or origin.endswith("/") or "://" not in origin:
+                raise ValueError(
+                    f"cors_origins: exact origins like https://x.web.app, got {origin!r}"
+                )
+        return value
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @field_validator("telegram_bot_token", "telegram_webhook_secret", mode="before")
     @classmethod
