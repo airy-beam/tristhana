@@ -1,0 +1,247 @@
+# Series and shared blocks (AC-01). Source of truth for content: notes `08 Asana Catalog`.
+# Order of `items` is the practice order. Items are identified by `asana` + `variant`
+# (natural key, ADR-0010), never by position.
+# stop: a practice can end here · optional: only when enabled (teacher/shala) ·
+# milestone: given by a teacher (progression, PR-08). Optional items are never stops.
+# Practice order: opening -> standing -> series -> backbending -> finishing.
+# Advanced C is pending (owner will provide it); Advanced D is a placeholder. Both stay empty.
+sequences:
+  - slug: opening
+    kind: block
+    status: confirmed
+    names: {en: Opening (sun salutations), ru: Вступление (приветствия солнцу)}
+    items:
+      - {asana: surya-namaskara, variant: a}
+      - {asana: surya-namaskara, variant: b}
+  - slug: standing
+    kind: block
+    status: confirmed
+    names: {en: Standing sequence, ru: Стоячие асаны}
+    items:
+      - {asana: padangusthasana}
+      - {asana: pada-hastasana}
+      - {asana: utthita-trikonasana, variant: a}
+      - {asana: utthita-trikonasana, variant: b}
+      - {asana: utthita-parsvakonasana, variant: a}
+      - {asana: utthita-parsvakonasana, variant: b}
+      - {asana: prasarita-padottanasana, variant: a}
+      - {asana: prasarita-padottanasana, variant: b}
+      - {asana: prasarita-padottanasana, variant: c}
+      - {asana: prasarita-padottanasana, variant: d}
+      - {asana: parsvottanasana, stop: true}
+  - slug: primary
+    kind: series
+    number: 1
+    status: confirmed
+    names: {en: Primary series, ru: Первая серия}
+    traditional_name: {latin: Yoga Chikitsa, iast: Yoga Cikitsā, ru: Йога Чикитса}
+    items:
+      - {asana: utthita-hasta-padangusthasana, stop: true}
+      - {asana: ardha-baddha-padmottanasana, stop: true}
+      - {asana: utkatasana, stop: true}
+      - {asana: virabhadrasana, variant: a}
+      - {asana: virabhadrasana, variant: b, stop: true}
+      - {asana: dandasana}
+      - {asana: paschimottanasana, variant: a}
+      - {asana: paschimottanasana, variant: b}
+      - {asana: paschimottanasana, variant: c, stop: true}
+      - {asana: paschimottanasana, variant: d, optional: true}
+      - {asana: purvottanasana, stop: true}
+      - {asana: ardha-baddha-padma-paschimottanasana, stop: true}
+      - {asana: triang-mukhaikapada-paschimottanasana, stop: true}
+      - {asana: janu-sirsasana, variant: a, stop: true}
+      - {asana: janu-sirsasana, variant: b, stop: true}
+      - {asana: janu-sirsasana, variant: c, stop: true}
+      - {asana: marichyasana, variant: a, stop: true}
+      - {asana: marichyasana, variant: b, stop: true}
+      - {asana: marichyasana, variant: c, stop: true}
+      - {asana: marichyasana, variant: d, stop: true}
+      - {asana: navasana, stop: true}
+      - {asana: bhujapidasana, stop: true}
+      - {asana: kurmasana, stop: true}
+      - {asana: supta-kurmasana, stop: true}
+      - {asana: garbha-pindasana, stop: true}
+      - {asana: kukkutasana, stop: true}
+      - {asana: baddha-konasana, variant: a}
+      - {asana: baddha-konasana, variant: b, stop: true}
+      - {asana: upavistha-konasana, variant: a}
+      - {asana: upavistha-konasana, variant: b, stop: true}
+      - {asana: supta-konasana, stop: true}
+      - {asana: supta-padangusthasana, stop: true}
+      - {asana: ubhaya-padangusthasana, stop: true}
+      - {asana: urdhva-mukha-paschimottanasana, stop: true}
+      - {asana: setu-bandhasana, stop: true}
+  - slug: intermediate
+    kind: series
+    number: 2
+    status: confirmed
+    names: {en: Intermediate series, ru: Вторая серия}
+    traditional_name: {latin: Nadi Shodhana, iast: Nāḍī Śodhana, ru: Нади Шодхана}
+    items:
+      - {asana: pasasana, stop: true}
+      - {asana: krounchasana, stop: true}
+      - {asana: salabhasana, variant: a}
+      - {asana: salabhasana, variant: b, stop: true}
+      - {asana: bhekasana, stop: true}
+      - {asana: dhanurasana, stop: true}
+      - {asana: parsva-dhanurasana, stop: true}
+      - {asana: ustrasana, stop: true}
+      - {asana: laghu-vajrasana, stop: true}
+      - {asana: kapotasana, variant: a}
+      - {asana: kapotasana, variant: b, stop: true}
+      - {asana: supta-vajrasana, stop: true}
+      - {asana: bakasana, variant: a}
+      - {asana: bakasana, variant: b, stop: true}
+      - {asana: bharadvajasana, stop: true}
+      - {asana: ardha-matsyendrasana, stop: true}
+      - {asana: eka-pada-sirsasana, stop: true}
+      - {asana: dwi-pada-sirsasana, stop: true}
+      - {asana: yoganidrasana, stop: true}
+      - {asana: tittibhasana, variant: a}
+      - {asana: tittibhasana, variant: b}
+      - {asana: tittibhasana, variant: c, stop: true}
+      - {asana: pincha-mayurasana, stop: true}
+      - {asana: karandavasana, stop: true}
+      - {asana: mayurasana, stop: true}
+      - {asana: nakrasana, stop: true}
+      - {asana: vatayanasana, stop: true}
+      - {asana: parighasana, stop: true}
+      - {asana: gomukhasana, variant: a}
+      - {asana: gomukhasana, variant: b, stop: true}
+      - {asana: supta-urdhva-pada-vajrasana, stop: true}
+      - {asana: mukta-hasta-sirsasana, variant: a}
+      - {asana: mukta-hasta-sirsasana, variant: b}
+      - {asana: mukta-hasta-sirsasana, variant: c, stop: true}
+      - {asana: baddha-hasta-sirsasana, variant: a}
+      - {asana: baddha-hasta-sirsasana, variant: b}
+      - {asana: baddha-hasta-sirsasana, variant: c}
+      - {asana: baddha-hasta-sirsasana, variant: d, stop: true}
+  - slug: advanced-a
+    kind: series
+    number: 3
+    status: confirmed
+    names: {en: Advanced A (third series), ru: Третья серия (Advanced A)}
+    traditional_name: {latin: Sthira Bhaga, iast: Sthira Bhāga, ru: Стхира Бхага}
+    items:
+      - {asana: vasisthasana, stop: true}
+      - {asana: visvamitrasana, stop: true}
+      - {asana: kasyapasana, stop: true}
+      - {asana: chakorasana, stop: true}
+      - {asana: bhairavasana, stop: true}
+      - {asana: skandasana, stop: true}
+      - {asana: durvasana, stop: true}
+      - {asana: urdhva-kukkutasana, variant: a}
+      - {asana: urdhva-kukkutasana, variant: b}
+      - {asana: urdhva-kukkutasana, variant: c, stop: true}
+      - {asana: galavasana, stop: true}
+      - {asana: eka-pada-bakasana, variant: a}
+      - {asana: eka-pada-bakasana, variant: b, stop: true}
+      - {asana: koundinyasana, variant: a}
+      - {asana: koundinyasana, variant: b, stop: true}
+      - {asana: astavakrasana, variant: a}
+      - {asana: astavakrasana, variant: b, stop: true}
+      - {asana: purna-matsyendrasana, stop: true}
+      - {asana: viranchyasana, variant: a}
+      - {asana: viranchyasana, variant: b, stop: true}
+      - {asana: viparita-dandasana, stop: true}
+      - {asana: eka-pada-viparita-dandasana, stop: true}
+      - {asana: viparita-salabhasana, stop: true}
+      - {asana: ganda-bherundasana, stop: true}
+      - {asana: hanumanasana, variant: a}
+      - {asana: hanumanasana, variant: b, stop: true}
+      - {asana: supta-trivikramasana, stop: true}
+      - {asana: dighasana, variant: a}
+      - {asana: dighasana, variant: b, stop: true}
+      - {asana: trivikramasana, stop: true}
+      - {asana: natarajasana, stop: true}
+      - {asana: raja-kapotasana, stop: true}
+      - {asana: eka-pada-raja-kapotasana, stop: true}
+  - slug: advanced-b
+    kind: series
+    number: 4
+    status: confirmed
+    names: {en: Advanced B (fourth series), ru: Четвертая серия (Advanced B)}
+    traditional_name: {latin: Sthira Bhaga, iast: Sthira Bhāga, ru: Стхира Бхага}
+    items:
+      - {asana: mula-bandhasana, stop: true}
+      - {asana: nahusasana, variant: a, stop: true}
+      - {asana: nahusasana, variant: b, stop: true}
+      - {asana: nahusasana, variant: c, stop: true}
+      - {asana: vrschikasana, stop: true}
+      - {asana: shayanasana, stop: true}
+      - {asana: buddhasana, stop: true}
+      - {asana: kapilasana, stop: true}
+      - {asana: akarna-dhanurasana, variant: a, stop: true}
+      - {asana: akarna-dhanurasana, variant: b, stop: true}
+      - {asana: padangustha-dhanurasana, variant: a, stop: true}
+      - {asana: padangustha-dhanurasana, variant: b, stop: true}
+      - {asana: marichyasana, variant: e, stop: true}
+      - {asana: marichyasana, variant: f, stop: true}
+      - {asana: marichyasana, variant: g, stop: true}
+      - {asana: marichyasana, variant: h, stop: true}
+      - {asana: tadasana, stop: true}
+      - {asana: samanasana, stop: true}
+      - {asana: punga-kukkutasana, stop: true}
+      - {asana: parsva-bakasana, stop: true}
+      - {asana: eka-pada-dhanurasana, variant: a, stop: true}
+      - {asana: eka-pada-dhanurasana, variant: b, stop: true}
+      - {asana: eka-pada-kapotasana, variant: a, stop: true}
+      - {asana: eka-pada-kapotasana, variant: b, stop: true}
+      - {asana: paryangasana, variant: a, stop: true}
+      - {asana: paryangasana, variant: b, stop: true}
+      - {asana: parivrttasana, variant: a, stop: true}
+      - {asana: parivrttasana, variant: b, stop: true}
+      - {asana: yoni-dandasana, variant: a, stop: true}
+      - {asana: yoni-dandasana, variant: b, stop: true}
+      - {asana: yoga-dandasana, stop: true}
+      - {asana: bhuja-dandasana, stop: true}
+      - {asana: parsva-dandasana, stop: true}
+      - {asana: adho-dandasana, stop: true}
+      - {asana: urdhva-dandasana, stop: true}
+      - {asana: sama-konasana, stop: true}
+      - {asana: omkarasana, stop: true}
+  - slug: advanced-c
+    kind: series
+    number: 5
+    status: pending
+    names: {en: Advanced C (fifth series), ru: Пятая серия (Advanced C)}
+    traditional_name: {latin: Sthira Bhaga, iast: Sthira Bhāga, ru: Стхира Бхага}
+    items: []
+  - slug: advanced-d
+    kind: series
+    number: 6
+    status: placeholder
+    names: {en: Advanced D (sixth series), ru: Шестая серия (Advanced D)}
+    traditional_name: {latin: Sthira Bhaga, iast: Sthira Bhāga, ru: Стхира Бхага}
+    items: []
+  - slug: backbending
+    kind: block
+    status: confirmed
+    names: {en: Backbending, ru: Прогибы}
+    items:
+      - {asana: urdhva-dhanurasana}
+      - {asana: drop-backs, optional: true, milestone: true}
+      - {asana: standing-up, optional: true, milestone: true}
+      - {asana: vrksasana, optional: true}
+      - {asana: viparita-chakrasana, optional: true}
+      - {asana: paschimottanasana}
+  - slug: finishing
+    kind: block
+    status: confirmed
+    names: {en: Finishing sequence, ru: Завершающая последовательность}
+    items:
+      - {asana: salamba-sarvangasana}
+      - {asana: halasana}
+      - {asana: karnapidasana}
+      - {asana: urdhva-padmasana}
+      - {asana: pindasana}
+      - {asana: matsyasana}
+      - {asana: uttana-padasana}
+      - {asana: sirsasana, variant: a}
+      - {asana: sirsasana, variant: b}
+      - {asana: balasana, optional: true}
+      - {asana: baddha-padmasana}
+      - {asana: yoga-mudra}
+      - {asana: padmasana}
+      - {asana: utpluthih}
+      - {asana: savasana}
