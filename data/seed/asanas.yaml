@@ -3,7 +3,7 @@
 # from IAST (ś/ṣ→ш, c→ч, j→дж, ṛ→ри, consonant+h→х, no length marks, no ё).
 # Slugs are permanent natural keys (ADR-0010): never rename a slug once released.
 # Owner review pending: set meta.reviewed_by/reviewed_on after reviewing
-# `08b Asana Catalog Review (generated).md`. Entries marked "REVIEW:" need a specific answer.
+# `08b Asana Catalog Review (generated).md`. Mark open questions with a "# REVIEW:" comment.
 meta: {schema_version: 1, reviewed_by: null, reviewed_on: null}
 
 asanas:
@@ -63,15 +63,15 @@ asanas:
   - slug: ardha-baddha-padma-paschimottanasana
     names: {latin: Ardha Baddha Padma Paschimottanasana, iast: Ardha Baddha Padma Paścimottānāsana, ru: Ардха Баддха Падма Пашчимоттанасана}
     meaning: {en: Seated half bound lotus forward bend, ru: Наклон вперед сидя в связанном полулотосе}
-  # REVIEW: RU follows the Latin word breaks; strict IAST would give «Тирьянг Мукхаикапада».
+  # Owner 2026-10-18: RU strictly from IAST (Tiryaṅ…), not from the Latin display.
   - slug: triang-mukhaikapada-paschimottanasana
-    names: {latin: Triang Mukhaikapada Paschimottanasana, iast: Tiryaṅmukhaikapāda Paścimottānāsana, ru: Трианг Мукхаикапада Пашчимоттанасана}
+    names: {latin: Triang Mukhaikapada Paschimottanasana, iast: Tiryaṅmukhaikapāda Paścimottānāsana, ru: Тирьянг Мукхаикапада Пашчимоттанасана}
     meaning: {en: Forward bend with one leg folded back, ru: "Наклон вперед с одной ногой, согнутой назад"}
   - slug: janu-sirsasana
     names: {latin: Janu Sirsasana, iast: Jānu Śīrṣāsana, ru: Джану Ширшасана}
     meaning: {en: Head-to-knee pose, ru: Голова к колену}
     variants: [a, b, c]
-  # REVIEW: RU «Маричиасана» (catalog example) vs «Маричьясана» (y→ь, like Кашьяпасана).
+  # Owner 2026-10-18: RU «Маричиасана» (community spelling, exception to y→ь).
   - slug: marichyasana
     names: {latin: Marichyasana, iast: Marīcyāsana, ru: Маричиасана}
     meaning: {en: Pose of the sage Marichi, ru: Поза мудреца Маричи}
@@ -253,7 +253,7 @@ asanas:
   - slug: purna-matsyendrasana
     names: {latin: Purna Matsyendrasana, iast: Pūrṇa Matsyendrāsana, ru: Пурна Матсьендрасана}
     meaning: {en: Full lord of the fishes pose, ru: Полная поза Матсьендры}
-  # REVIEW: RU «Виранчьясана» (community, matches Latin) vs «Виринчьясана» (from IAST Viriñci).
+  # Owner 2026-10-18: RU «Виранчьясана» (community spelling, matches the Latin).
   - slug: viranchyasana
     names: {latin: Viranchyasana, iast: Viriñcyāsana, ru: Виранчьясана}
     meaning: {en: Pose of Viranchi (Brahma), ru: Поза Виранчи (Брахмы)}
@@ -277,7 +277,7 @@ asanas:
   - slug: supta-trivikramasana
     names: {latin: Supta Trivikramasana, iast: Supta Trivikramāsana, ru: Супта Тривикрамасана}
     meaning: {en: Reclining pose of Trivikrama (Vishnu), ru: Поза Тривикрамы (Вишну) лежа}
-  # REVIEW: no authoritative IAST known (Dīrghāsana "long pose"?); IAST left empty until sourced.
+  # Owner 2026-10-18: IAST left empty until there is an authoritative source.
   - slug: dighasana
     names: {latin: Dighasana, iast: null, ru: Дигхасана}
     meaning: {en: Long pose, ru: Удлиненная поза}
@@ -323,15 +323,15 @@ asanas:
     names: {latin: Padangustha Dhanurasana, iast: Pādāṅguṣṭha Dhanurāsana, ru: Падангуштха Дханурасана}
     meaning: {en: Big toe bow pose, ru: Поза лука с захватом больших пальцев}
     variants: [a, b]
-  # REVIEW: meaning follows Light on Yoga (tāḍa = mountain); check against the KPJAYI chart.
+  # Owner 2026-10-18: meaning "mountain" (tāḍa), as in Light on Yoga.
   - slug: tadasana
     names: {latin: Tadasana, iast: Tāḍāsana, ru: Тадасана}
     meaning: {en: Mountain pose, ru: Поза горы}
-  # REVIEW: meaning of Samanasana (samāna, the "equalising" breath?) is uncertain.
+  # Owner 2026-10-18: meaning from samāna, the equalising breath.
   - slug: samanasana
     names: {latin: Samanasana, iast: Samānāsana, ru: Саманасана}
     meaning: {en: Pose of samana (equalising breath), ru: Поза саманы (выравнивающего дыхания)}
-  # REVIEW: meaning uncertain ("proud" vs paṅgu "lame", as in Pungu Mayurasana).
+  # Owner 2026-10-18: meaning "proud rooster".
   - slug: punga-kukkutasana
     names: {latin: Punga Kukkutasana, iast: Puṅga Kukkuṭāsana, ru: Пунга Куккутасана}
     meaning: {en: Proud rooster pose, ru: Поза гордого петуха}
@@ -346,7 +346,7 @@ asanas:
     names: {latin: Eka Pada Kapotasana, iast: Eka Pāda Kapotāsana, ru: Эка Пада Капотасана}
     meaning: {en: One-legged pigeon pose, ru: Поза голубя на одной ноге}
     variants: [a, b]
-  # REVIEW: RU «Парьянгасана» (follows Latin) vs «Парьянкасана» (from IAST paryaṅka, couch).
+  # Owner 2026-10-18: RU «Парьянгасана» (follows the Latin); IAST paryaṅka (couch).
   - slug: paryangasana
     names: {latin: Paryangasana, iast: Paryaṅkāsana, ru: Парьянгасана}
     meaning: {en: Couch pose, ru: Поза ложа}
