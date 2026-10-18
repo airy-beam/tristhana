@@ -3,10 +3,22 @@ name: backend
 on:
   push:
     branches: [main]
-    paths: ["backend/**", "data/seed/**", ".github/workflows/backend.yml"]
+    paths:
+      ["backend/**", "data/seed/**", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
   pull_request:
-    paths: ["backend/**", "data/seed/**", ".github/workflows/backend.yml"]
+    paths:
+      ["backend/**", "data/seed/**", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
+  workflow_dispatch: # redeploy main
 
+permissions:
+  contents: read
+
+# One run per ref at a time, in order: an older image can never deploy after a newer one.
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false
+
+# Third-party actions are pinned by commit SHA (tag in the comment).
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -14,8 +26,8 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
       - run: uv sync --locked
@@ -26,3 +38,96 @@ jobs:
       - run: uv run pytest
       - name: full moon-day parity (2025-2100, all cities)
         run: uv run pytest -m slow -q
+
+  image:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # WIF; the provider only accepts tokens from refs/heads/main
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    env:
+      PUSH: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: shellcheck
+        run: shellcheck infra/gcp/*.sh infra/ci/*.sh
+      - name: hadolint
+        run: docker run --rm -i hadolint/hadolint:v2.12.0 < backend/Dockerfile
+      - name: bootstrap dry-run (prints, changes nothing)
+        run: infra/gcp/bootstrap.sh --dry-run > /dev/null
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: backend/Dockerfile
+          build-args: GIT_SHA=${{ github.sha }}
+          tags: tristhana:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: container smoke test
+        run: ENGINE=docker infra/ci/container-smoke.sh tristhana:ci
+      - if: env.PUSH == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - if: env.PUSH == 'true'
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - name: push
+        id: push
+        if: env.PUSH == 'true'
+        env:
+          REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev
+          REPO: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/tristhana/backend
+        run: |
+          gcloud auth configure-docker "$REGISTRY" --quiet
+          docker tag tristhana:ci "$REPO:$GITHUB_SHA"
+          docker push "$REPO:$GITHUB_SHA"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$REPO:$GITHUB_SHA")"
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: image
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SERVICE: tristhana-api
+      REGION: ${{ vars.GCP_REGION }}
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      RUN_SA: ${{ vars.GCP_RUN_SA }}
+    steps:
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - name: deploy
+        env:
+          IMAGE: ${{ needs.image.outputs.image }}
+        run: |
+          gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --quiet \
+            --image "$IMAGE" --service-account "$RUN_SA" \
+            --set-env-vars "APP_ENV=prod,GIT_SHA=$GITHUB_SHA"
+      - name: smoke (new revision serves /api/v1/health)
+        run: |
+          url="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" \
+            --format 'value(status.url)')/api/v1/health"
+          for _ in $(seq 1 30); do
+            if body="$(curl -fsS -w '\n%{time_total}' "$url")" \
+              && [[ "$(head -1 <<<"$body")" == *"\"commit\":\"$GITHUB_SHA\""* ]]; then
+              echo "first request: $(tail -1 <<<"$body") s (from a US runner; RTT dominates)"
+              for _ in $(seq 1 10); do curl -fsS -o /dev/null -w '%{time_total}\n' "$url"; done \
+                | sort -n | sed -n '5p' | xargs -I{} echo "warm p50: {} s"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "health did not report commit $GITHUB_SHA" >&2
+          exit 1

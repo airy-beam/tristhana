@@ -1,0 +1,9 @@
+# Allowlist: the image needs only the backend package and the seed data.
+*
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/README.md
+!backend/src
+!data/seed
+**/__pycache__
+**/*.pyc

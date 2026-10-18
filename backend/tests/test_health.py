@@ -9,7 +9,12 @@ def test_health_reports_ok_and_version(client: TestClient) -> None:
     response = client.get("/api/v1/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": __version__}
+    assert response.json() == {"status": "ok", "version": __version__, "commit": "dev"}
+
+
+def test_health_reports_the_deployed_commit() -> None:
+    with TestClient(create_app(Settings(app_env="test", git_sha="abc1234"))) as deployed:
+        assert deployed.get("/api/v1/health").json()["commit"] == "abc1234"
 
 
 def test_openapi_schema_lists_health(client: TestClient) -> None:

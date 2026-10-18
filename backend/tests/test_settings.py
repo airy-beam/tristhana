@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from tristhana.settings import AppEnv, LogFormat, Settings
@@ -13,3 +15,21 @@ def test_log_format_defaults_by_environment(app_env: AppEnv, expected: LogFormat
 
 def test_explicit_log_format_wins() -> None:
     assert Settings(app_env="prod", log_format="console").effective_log_format == "console"
+
+
+def test_runtime_defaults() -> None:
+    settings = Settings()
+
+    assert settings.port == 8080
+    assert settings.git_sha == "dev"
+    assert (settings.seed_dir / "asanas.yaml").is_file()
+
+
+def test_runtime_settings_from_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("PORT", "9000")
+    monkeypatch.setenv("SEED_DIR", str(tmp_path))
+    monkeypatch.setenv("GIT_SHA", "abc1234")
+
+    settings = Settings()
+
+    assert (settings.port, settings.seed_dir, settings.git_sha) == (9000, tmp_path, "abc1234")
