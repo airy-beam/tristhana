@@ -22,6 +22,7 @@ DEPLOY_SA="tristhana-deploy"
 WIF_POOL="github"
 WIF_PROVIDER="github-actions"
 BUDGET_NAME="tristhana-monthly"
+KEEPWARM_JOB="tristhana-keepwarm"
 SECRETS=(telegram-bot-token telegram-webhook-secret)
 
 RUN_SA_EMAIL="${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -56,7 +57,7 @@ step "APIs"
 run "${gc[@]}" services enable \
   iam.googleapis.com cloudresourcemanager.googleapis.com run.googleapis.com \
   artifactregistry.googleapis.com secretmanager.googleapis.com iamcredentials.googleapis.com \
-  sts.googleapis.com billingbudgets.googleapis.com
+  sts.googleapis.com billingbudgets.googleapis.com cloudscheduler.googleapis.com
 
 step "Artifact Registry repo ${AR_REPO} (${REGION}) with cleanup policy"
 if ! exists "${gc[@]}" artifacts repositories describe "$AR_REPO" --location "$REGION"; then
@@ -125,6 +126,18 @@ if ! exists "${gc[@]}" run services describe "$SERVICE" --region "$REGION"; then
     --min-instances 0 --max-instances 2 --cpu 1 --memory 512Mi --concurrency 80 \
     --timeout 60s --cpu-boost --cpu-throttling --ingress all --port 8080 \
     --allow-unauthenticated
+fi
+
+step "Keep-warm ping (Cloud Scheduler, every 10 min; free tier: 3 jobs per billing account)"
+# An instance kept alive by pings already has aiogram loaded (~3 s import, UI-01 spec).
+if ! exists "${gc[@]}" scheduler jobs describe "$KEEPWARM_JOB" --location "$REGION"; then
+  service_url="https://SERVICE_URL"
+  if ! $DRY_RUN; then
+    service_url="$("${gc[@]}" run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')"
+  fi
+  run "${gc[@]}" scheduler jobs create http "$KEEPWARM_JOB" --location "$REGION" \
+    --schedule "*/10 * * * *" --time-zone "Etc/UTC" --uri "${service_url}/api/v1/health" \
+    --http-method GET --attempt-deadline 30s --description "Keep one tristhana-api instance warm"
 fi
 
 step "Budget \$5/month (alerts only; it does not cap spend)"

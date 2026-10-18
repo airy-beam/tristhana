@@ -39,6 +39,11 @@ assert compute_moon_days(mysuru, day, day) == [MoonDay(day, MoonDayKind.PURNIMA)
 seed = Path(os.environ["SEED_DIR"])
 load_catalog(seed / "asanas.yaml", seed / "sequences.yaml")
 ZoneInfo("Asia/Almaty")
+locales = files("tristhana.infrastructure.i18n") / "locales"
+assert all((locales / loc / "bot.ftl").is_file() for loc in ("en", "ru")), ".ftl missing"
+from tristhana.infrastructure.i18n.fluent import FluentTranslator
+assert FluentTranslator().t("ru", "start-greeting").startswith("Намасте"), "fluent"
+import aiogram  # noqa: F401  (imports in the slim image)
 print("ok")
 PY
 
@@ -47,6 +52,35 @@ bytes="$("$engine" image inspect --format '{{.Size}}' "$image")"
 mb=$(( bytes / 1024 / 1024 ))
 echo "image size: ${mb} MB (budget ${max_mb} MB)"
 (( mb <= max_mb )) || fail "image is ${mb} MB > ${max_mb} MB"
+
+# Telegram webhook with fake credentials: /start must come back as a webhook reply.
+webhook_check() {
+  echo "== telegram webhook (fake token; aiogram preloaded at startup)"
+  local bot="${name}-bot" port started body ms
+  "$engine" run -d --rm --name "$bot" -p 127.0.0.1::8080 \
+    -e TELEGRAM_BOT_TOKEN=123456:smoke-token-not-real_xxxxxxxxxxxxxxx \
+    -e TELEGRAM_WEBHOOK_SECRET=smoke-secret "$image" >/dev/null
+  port="$("$engine" port "$bot" 8080 | head -1 | sed 's/.*://')"
+  started=$(date +%s%N)
+  for _ in $(seq 1 300); do
+    curl -fsS "http://127.0.0.1:${port}/api/v1/health" >/dev/null 2>&1 && break
+    sleep 0.05
+  done
+  echo "ready (incl. aiogram preload) after $(( ($(date +%s%N) - started) / 1000000 )) ms"
+  local update='{"update_id":1,"message":{"message_id":1,"date":1760000000,
+    "chat":{"id":42,"type":"private"},"from":{"id":42,"is_bot":false,"first_name":"A",
+    "language_code":"ru"},"text":"/start","entities":[{"type":"bot_command","offset":0,"length":6}]}}'
+  for i in 1 2; do
+    started=$(date +%s%N)
+    body="$(curl -fsS "http://127.0.0.1:${port}/telegram/webhook" \
+      -H 'Content-Type: application/json' -H 'X-Telegram-Bot-Api-Secret-Token: smoke-secret' \
+      -d "${update/\"update_id\":1/\"update_id\":$i}")"
+    ms=$(( ($(date +%s%N) - started) / 1000000 ))
+    echo "/start #$i answered in ${ms} ms"
+  done
+  "$engine" rm -f "$bot" >/dev/null
+  [[ "$body" == *'"method":"sendMessage"'* && "$body" == *'Намасте'* ]] || fail "webhook reply: $body"
+}
 
 echo "== start and /api/v1/health"
 "$engine" run -d --rm --name "$name" -p 127.0.0.1::8080 -e GIT_SHA=smoke "$image" >/dev/null
@@ -59,6 +93,7 @@ for _ in $(seq 1 100); do
     echo "first 200 after ${ms} ms: $body"
     [[ "$body" == *'"commit":"smoke"'* ]] || fail "health does not report GIT_SHA"
     "$engine" logs "$name" 2>&1 | head -3
+    webhook_check
     echo "PASS"
     exit 0
   fi
