@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "additionalDirectories": [
+      "/home/pumpkin_vibe/Documents/pumpkin_notes/02_projects/tristhana_bot",
+      "/home/pumpkin_vibe/Documents/pumpkin_notes/attachments"
+    ],
+    "allow": [
+      "Bash(uv sync:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run pyright:*)",
+      "Bash(uv run lint-imports:*)",
+      "Bash(uv run alembic:*)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(python3 tools/render_diagrams.py:*)",
+      "Edit(/home/pumpkin_vibe/Documents/pumpkin_notes/02_projects/tristhana_bot/**)",
+      "Write(/home/pumpkin_vibe/Documents/pumpkin_notes/02_projects/tristhana_bot/**)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/secrets/**)",
+      "Read(./**/*service-account*.json)",
+      "Bash(git push --force:*)",
+      "Bash(gcloud run services delete:*)",
+      "Bash(gcloud projects delete:*)"
+    ]
+  }
+}
