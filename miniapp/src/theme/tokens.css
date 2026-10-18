@@ -67,3 +67,53 @@ body {
   color: var(--c-hint);
   font-size: 13px;
 }
+
+.card {
+  margin: var(--space) 0;
+  padding: var(--space);
+  border-radius: 14px;
+  background: var(--c-surface);
+}
+
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  min-height: 40px; /* comfortable tap target */
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--c-accent);
+  color: var(--c-accent-text);
+}
+
+.card .hint {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.link {
+  margin-top: 12px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--c-link);
+  font: inherit;
+  font-size: 15px;
+}

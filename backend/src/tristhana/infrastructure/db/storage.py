@@ -6,17 +6,21 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 from uuid import UUID
 
 from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileUpdate
+from tristhana.domain.days import DayLog
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
+
+    from tristhana.infrastructure.db.days import Cipher
 
 log = logging.getLogger(__name__)
 
@@ -25,17 +29,26 @@ WARMUP_TIMEOUT_S = 2.0
 
 class PostgresStorage:
     def __init__(
-        self, url: str, *, ca_file: Path | None, pool_size: int, max_overflow: int
+        self,
+        url: str,
+        *,
+        ca_file: Path | None,
+        pool_size: int,
+        max_overflow: int,
+        cipher: Cipher,
     ) -> None:
         self._url = url
+        self._cipher = cipher
         self._ca_file = ca_file
         self._pool_size = pool_size
         self._max_overflow = max_overflow
         self._engine: AsyncEngine | None = None
         self._accounts: AccountRepository | None = None
+        self._days: DayLogRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
+        from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.engine import build_engine
 
         self._engine = build_engine(
@@ -45,6 +58,7 @@ class PostgresStorage:
             max_overflow=self._max_overflow,
         )
         self._accounts = SqlAccountRepository(self._engine)
+        self._days = SqlDayLogRepository(self._engine, self._cipher)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -73,6 +87,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._accounts
 
+    @property
+    def days(self) -> DayLogRepository:
+        if self._days is None:
+            raise RuntimeError("storage not started")
+        return self._days
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -96,6 +116,10 @@ class UnconfiguredStorage:
     def accounts(self) -> AccountRepository:
         return _UnavailableAccounts()
 
+    @property
+    def days(self) -> DayLogRepository:
+        return _UnavailableDays()
+
 
 class _UnavailableAccounts:
     async def find_by_identity(self, key: IdentityKey) -> NoReturn:
@@ -110,4 +134,15 @@ class _UnavailableAccounts:
         raise StorageUnavailable("not configured")
 
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableDays:
+    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, account_id: UUID, local_date: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def list_range(self, account_id: UUID, start: date, end: date) -> NoReturn:
         raise StorageUnavailable("not configured")

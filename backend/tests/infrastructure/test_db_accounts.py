@@ -17,6 +17,7 @@ from tristhana.domain.accounts import (
     NewAccount,
     ProfileUpdate,
 )
+from tristhana.infrastructure.crypto import MissingCipher
 from tristhana.infrastructure.db import migrate
 from tristhana.infrastructure.db.accounts import SqlAccountRepository
 from tristhana.infrastructure.db.engine import asyncpg_url, build_engine, connection
@@ -91,7 +92,11 @@ async def test_timezone_is_set_only_once(engine: AsyncEngine) -> None:
 
 async def test_unreachable_database_is_storage_unavailable() -> None:
     storage = PostgresStorage(
-        "postgresql://nobody:x@127.0.0.1:9/none", ca_file=None, pool_size=1, max_overflow=0
+        "postgresql://nobody:x@127.0.0.1:9/none",
+        ca_file=None,
+        pool_size=1,
+        max_overflow=0,
+        cipher=MissingCipher(),
     )
     await storage.start()  # logs a warning, never raises
     try:
@@ -130,6 +135,8 @@ async def test_app_role_has_dml_but_no_ddl(migrated_url: str, engine: AsyncEngin
         repo = SqlAccountRepository(app_engine)
         created = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
         assert await repo.find_by_identity(KEY) == created
+        async with app_engine.connect() as conn:  # day_log (0002) via default privileges
+            await conn.execute(text("SELECT 1 FROM tristhana.day_log LIMIT 0"))
         async with app_engine.connect() as conn:
             with pytest.raises(ProgrammingError, match="permission denied"):
                 await conn.execute(text("CREATE TABLE tristhana.nope (id int)"))

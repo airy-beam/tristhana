@@ -82,5 +82,14 @@ def test_prod_database_needs_the_ca_file() -> None:
     with pytest.raises(ValidationError, match="database_ca_file"):
         Settings(app_env="prod", database_url=url)  # pyright: ignore[reportArgumentType]
 
-    ok = Settings(app_env="prod", database_url=url, database_ca_file="/app/certs/ca.crt")  # pyright: ignore[reportArgumentType]
+    ca = "/app/certs/ca.crt"
+    with pytest.raises(ValidationError, match="field_encryption_keys"):
+        Settings(app_env="prod", database_url=url, database_ca_file=ca)  # pyright: ignore[reportArgumentType]
+
+    ok = Settings(
+        app_env="prod",
+        database_url=url,  # pyright: ignore[reportArgumentType]
+        database_ca_file=ca,  # pyright: ignore[reportArgumentType]
+        field_encryption_keys="1:" + "A" * 43 + "=",  # pyright: ignore[reportArgumentType]
+    )
     assert ok.database_ca_file is not None

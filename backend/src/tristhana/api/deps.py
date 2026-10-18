@@ -7,6 +7,7 @@ from fastapi.security import APIKeyHeader
 from tristhana.api import initdata
 from tristhana.api.errors import ApiError
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
@@ -36,6 +37,18 @@ def ensure_account(request: Request) -> EnsureAccount:
 
 def record_device_timezone(request: Request) -> RecordDeviceTimezone:
     return cast(RecordDeviceTimezone, request.app.state.record_device_timezone)
+
+
+def get_days(request: Request) -> GetDays:
+    return cast(GetDays, request.app.state.get_days)
+
+
+def set_day_status(request: Request) -> SetDayStatus:
+    return cast(SetDayStatus, request.app.state.set_day_status)
+
+
+def clear_day_status(request: Request) -> ClearDayStatus:
+    return cast(ClearDayStatus, request.app.state.clear_day_status)
 
 
 async def principal(

@@ -9,7 +9,14 @@ from pydantic import BaseModel
 from tristhana.application.ports.storage import StorageUnavailable
 
 type ErrorCode = Literal[
-    "auth_missing", "auth_invalid", "auth_expired", "invalid_timezone", "unavailable"
+    "auth_missing",
+    "auth_invalid",
+    "auth_expired",
+    "invalid_timezone",
+    "invalid_range",
+    "date_in_future",
+    "date_too_early",
+    "unavailable",
 ]
 
 

@@ -10,13 +10,16 @@ dependencies = [
     "asyncpg>=0.30",
     "fastapi>=0.143.5",
     "fluent-runtime>=0.4",
+    "httptools>=0.6",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.16.0",
+    "pynacl>=1.5",
     "pyswisseph>=2.10.3.2",
     "pyyaml>=6.0.3",
     "sqlalchemy[asyncio]>=2.0.40",
     "tzdata>=2026.5",
-    "uvicorn[standard]>=0.54.0",
+    "uvicorn>=0.54.0",
+    "uvloop>=0.21",
 ]
 
 [project.scripts]
@@ -93,6 +96,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.17.1",
     "types-pyyaml>=6.0.12.20260906",
+    "watchfiles>=1.0",
 ]
 
 [[tool.importlinter.contracts]]
@@ -178,7 +182,7 @@ forbidden_modules = ["fluent"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "sqlalchemy, asyncpg and alembic are imported only in tristhana.infrastructure"
+name = "sqlalchemy, asyncpg, alembic and nacl are imported only in tristhana.infrastructure"
 type = "forbidden"
 # The composition root (main) wires adapters, so only direct imports are forbidden.
 allow_indirect_imports = true
@@ -191,4 +195,4 @@ source_modules = [
     "tristhana.moon",
     "tristhana.main",
 ]
-forbidden_modules = ["sqlalchemy", "asyncpg", "alembic"]
+forbidden_modules = ["sqlalchemy", "asyncpg", "alembic", "nacl"]

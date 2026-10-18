@@ -17,8 +17,9 @@ from tristhana import __version__
 from tristhana.api import v1
 from tristhana.api.errors import install_error_handlers
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.storage import Storage
-from tristhana.bots.telegram.runtime import BotRuntime, build_runtime
+from tristhana.bots.telegram.runtime import BotRuntime, DayUseCases, build_runtime
 from tristhana.bots.telegram.webhook import make_webhook_router
 from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
@@ -52,7 +53,7 @@ def create_app(settings: Settings | None = None, storage: Storage | None = None)
             CORSMiddleware,
             allow_origins=settings.cors_origin_list,
             allow_credentials=False,
-            allow_methods=["GET", "POST", "PATCH", "DELETE"],
+            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
             allow_headers=["Authorization", "Content-Type"],
             max_age=7200,
         )
@@ -76,11 +77,15 @@ def create_app(settings: Settings | None = None, storage: Storage | None = None)
 def _storage(settings: Settings) -> Storage:
     if settings.database_url is None:
         return UnconfiguredStorage()
+    from tristhana.infrastructure.crypto import FieldCipher, MissingCipher
+
+    keys = settings.field_encryption_keys
     return PostgresStorage(
         settings.database_url.get_secret_value(),
         ca_file=settings.database_ca_file,
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
+        cipher=FieldCipher(keys.get_secret_value()) if keys else MissingCipher(),
     )
 
 
@@ -103,11 +108,20 @@ class _Services:
     async def lifespan(self, app: FastAPI) -> AsyncGenerator[None]:
         # The aiogram import (CPU, in a thread) overlaps the DB warm-up's network wait.
         await asyncio.gather(self._storage.start(), self._bot.preimport())
-        ensure = EnsureAccount(self._storage.accounts, SystemClock())
+        clock = SystemClock()
+        ensure = EnsureAccount(self._storage.accounts, clock)
+        days = DayUseCases(
+            get=GetDays(self._storage.days, clock),
+            set=SetDayStatus(self._storage.days, clock),
+            clear=ClearDayStatus(self._storage.days),
+        )
         app.state.storage = self._storage
         app.state.ensure_account = ensure
         app.state.record_device_timezone = RecordDeviceTimezone(self._storage.accounts)
+        app.state.get_days, app.state.set_day_status = days.get, days.set
+        app.state.clear_day_status = days.clear
         self._bot.ensure_account = ensure
+        self._bot.days = days
         try:
             async with self._bot.lifespan():
                 yield
@@ -123,17 +137,19 @@ class _LazyBot:
         self._settings = settings
         self._runtime: BotRuntime | None = None
         self.ensure_account: EnsureAccount | None = None  # set in the lifespan
+        self.days: DayUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
             token = self._settings.telegram_bot_token
             if token is None:
                 raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
-            if self.ensure_account is None:
+            if self.ensure_account is None or self.days is None:
                 raise RuntimeError("bot used before startup")
             self._runtime = build_runtime(
                 token.get_secret_value(),
                 self.ensure_account,
+                self.days,
                 FluentTranslator(),
                 self._settings.miniapp_url,
             )

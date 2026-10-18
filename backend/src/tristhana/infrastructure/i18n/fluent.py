@@ -6,6 +6,7 @@ from functools import cache
 from importlib.resources import files
 from typing import TYPE_CHECKING
 
+from tristhana.application.ports.i18n import DateArg
 from tristhana.domain.locale import Locale
 
 if TYPE_CHECKING:
@@ -15,17 +16,27 @@ _LOCALES_DIR = files("tristhana.infrastructure.i18n") / "locales"
 
 
 class FluentTranslator:
-    def t(self, locale: Locale, key: str, **args: str | int) -> str:
+    def t(self, locale: Locale, key: str, **args: str | int | DateArg) -> str:
         bundle = _bundle(locale)
         if not bundle.has_message(key):
             raise KeyError(f"no message {key!r} in locale {locale!r}")
         pattern = bundle.get_message(key).value
         if pattern is None:
             raise KeyError(f"message {key!r} in locale {locale!r} has no value")
-        text, errors = bundle.format_pattern(pattern, args)
+        values = {
+            k: _format_date(v, locale) if isinstance(v, DateArg) else v for k, v in args.items()
+        }
+        text, errors = bundle.format_pattern(pattern, values)
         if errors:
             raise ValueError(f"{locale}/{key}: {errors}")
         return str(text)
+
+
+def _format_date(arg: DateArg, locale: Locale) -> str:
+    # fluent.runtime's DATETIME ignores weekday/day/month options, so format with Babel.
+    from babel.dates import format_skeleton
+
+    return str(format_skeleton("yMMMEd" if arg.with_year else "MMMEd", arg.day, locale=locale))
 
 
 def message_ids(locale: Locale) -> set[str]:

@@ -6,6 +6,7 @@ import type { Locale } from "./i18n/negotiate";
 import { Home } from "./screens/Home";
 import { NotInTelegram } from "./screens/NotInTelegram";
 import { Session } from "./screens/Session";
+import { TodayCard } from "./screens/TodayCard";
 import { markReady } from "./telegram";
 
 const queryClient = new QueryClient({
@@ -41,7 +42,9 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             onGreetingLongPress={() => {
               setShowDetails(true);
             }}
-          />
+          >
+            {me && <TodayCard />}
+          </Home>
         )}
       </Session>
     </QueryClientProvider>

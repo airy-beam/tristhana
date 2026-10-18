@@ -101,6 +101,31 @@ describe("Session", () => {
     expect(seen.map((r) => new URL(r.url).pathname)).toEqual(["/api/v1/me"]);
   });
 
+  it("refreshes the days once the zone is reported (today may move)", async () => {
+    deviceZone("Asia/Almaty");
+    const seen = stubApi({
+      "/api/v1/me": () => json(ME),
+      "/api/v1/me/device-timezone": () => json({ ...ME, timezone: "Asia/Almaty" }),
+      "/api/v1/me/days": () => json({ today: "2026-10-19", timezone_known: true, days: [] }),
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["days", "recent"], {
+      today: "2026-10-18",
+      timezone_known: false,
+      days: [],
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <Session launchLocale="en">{() => <p>ok</p>}</Session>
+      </QueryClientProvider>,
+    );
+
+    await vi.waitFor(() => {
+      expect(client.getQueryState(["days", "recent"])?.isInvalidated).toBe(true);
+    });
+    expect(seen.some((r) => r.url.endsWith("/device-timezone"))).toBe(true);
+  });
+
   it("does not report a zone when one is already set", async () => {
     const seen = stubApi({ "/api/v1/me": () => json({ ...ME, timezone: "Europe/Moscow" }) });
 

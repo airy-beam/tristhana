@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Protocol
 
 from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.days import DayLogRepository
 
 
 class StorageUnavailable(Exception):
@@ -25,6 +26,9 @@ class Storage(Protocol):
 
     @property
     def accounts(self) -> AccountRepository: ...
+
+    @property
+    def days(self) -> DayLogRepository: ...
 
 
 class Clock(Protocol):

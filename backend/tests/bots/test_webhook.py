@@ -93,7 +93,7 @@ def test_help_and_fallback(bot_client: TestClient) -> None:
     help_text = _post(bot_client, _update("/help", language_code="ru")).json()["text"]
     other = _post(bot_client, _update("hello", language_code="en")).json()["text"]
 
-    assert "/start" in help_text
+    assert "/log" in help_text
     assert other.startswith("I can't answer messages yet")
 
 
@@ -209,15 +209,18 @@ def test_start_offers_the_mini_app_when_configured() -> None:
     with TestClient(create_app(settings, InMemoryStorage())) as client:
         body = _post(client, _update("/start", language_code="ru")).json()
 
-    [[button]] = body["reply_markup"]["inline_keyboard"]
-    assert button["web_app"] == {"url": "https://tristhana.web.app"}
-    assert button["text"] == "Открыть приложение"
+    [[log_today], [app]] = body["reply_markup"]["inline_keyboard"]
+    assert log_today == {"text": "📝 Отметить сегодня", "callback_data": "d1:t"}
+    assert app["web_app"] == {"url": "https://tristhana.web.app"}
+    assert app["text"] == "Открыть приложение"
 
 
-def test_start_has_no_button_without_a_mini_app_url(bot_client: TestClient) -> None:
+def test_start_has_only_log_today_without_a_mini_app_url(bot_client: TestClient) -> None:
     body = _post(bot_client, _update("/start")).json()
 
-    assert "reply_markup" not in body
+    assert body["reply_markup"]["inline_keyboard"] == [
+        [{"text": "📝 Log today", "callback_data": "d1:t"}]
+    ]
 
 
 def test_first_message_creates_the_account(

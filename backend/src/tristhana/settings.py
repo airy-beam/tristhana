@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     db_pool_size: int = 3
     db_max_overflow: int = 2
 
+    # Field-level encryption keyring (ADR-0016): "<id>:<base64 32 bytes>[,…]", first = active.
+    # Unset: private values (ladies' holiday) are unavailable, never stored in plain text.
+    field_encryption_keys: SecretStr | None = None
+
     # Dev only: GET /dev/telegram-init-data signs initData for ANY user id with the bot token,
     # for the Mini App's browser mock. Explicit opt-in on top of APP_ENV=dev; refused in prod.
     dev_init_data: bool = False
@@ -75,7 +79,13 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
-    @field_validator("telegram_bot_token", "telegram_webhook_secret", "database_url", mode="before")
+    @field_validator(
+        "telegram_bot_token",
+        "telegram_webhook_secret",
+        "database_url",
+        "field_encryption_keys",
+        mode="before",
+    )
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         # Strip stray whitespace (e.g. a newline from `echo`); blank means "not configured".
@@ -96,6 +106,8 @@ class Settings(BaseSettings):
             raise ValueError("dev_init_data is for local development only")
         if self.app_env == "prod" and self.database_url and self.database_ca_file is None:
             raise ValueError("database_ca_file is required in prod (TLS verify-full, ADR-0014)")
+        if self.app_env == "prod" and self.database_url and self.field_encryption_keys is None:
+            raise ValueError("field_encryption_keys is required in prod with a database (ADR-0016)")
         secret = self.telegram_webhook_secret
         if secret is not None and not _WEBHOOK_SECRET.fullmatch(secret.get_secret_value()):
             raise ValueError("telegram_webhook_secret: 1-256 chars of A-Z a-z 0-9 _ -")

@@ -60,3 +60,13 @@ def test_menu_button_opens_the_mini_app() -> None:
 
     assert payload["menu_button"]["type"] == "web_app"
     assert payload["menu_button"]["web_app"] == {"url": "https://tristhana.web.app"}
+
+
+def test_command_menu_is_localized_from_the_bot_ftl() -> None:
+    default, ru = _tool().commands_payloads()
+
+    assert [c["command"] for c in default["commands"]] == ["log", "help", "start"]
+    assert "language_code" not in default
+    assert ru["language_code"] == "ru"
+    assert all(c["description"] for c in default["commands"] + ru["commands"])
+    assert default["commands"][0]["description"] != ru["commands"][0]["description"]
