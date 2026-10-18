@@ -92,7 +92,7 @@ for _ in $(seq 1 100); do
     ms=$(( ($(date +%s%N) - start) / 1000000 ))
     echo "first 200 after ${ms} ms: $body"
     [[ "$body" == *'"commit":"smoke"'* ]] || fail "health does not report GIT_SHA"
-    "$engine" logs "$name" 2>&1 | head -3
+    "$engine" logs "$name" 2>&1 | sed -n 1,3p # sed reads everything: no SIGPIPE under pipefail
     webhook_check
     echo "PASS"
     exit 0
