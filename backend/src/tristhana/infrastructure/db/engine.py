@@ -39,9 +39,19 @@ def connect_args(ca_file: Path | None) -> dict[str, Any]:
         "server_settings": {"application_name": "tristhana"},
     }
     if ca_file is not None:
-        # verify-full against the pinned Supabase CA (hostname checked by default).
-        args["ssl"] = ssl.create_default_context(cafile=str(ca_file))
+        args["ssl"] = tls_context(ca_file)
     return args
+
+
+def tls_context(ca_file: Path) -> ssl.SSLContext:
+    """verify-full against the pinned CA: chain and hostname are checked.
+
+    Python 3.13 also enables VERIFY_X509_STRICT, which rejects Supabase's root CA (2021) for
+    lacking a keyUsage extension; libpq doesn't apply that rule. Only that flag is dropped.
+    """
+    context = ssl.create_default_context(cafile=str(ca_file))
+    context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    return context
 
 
 def build_engine(
