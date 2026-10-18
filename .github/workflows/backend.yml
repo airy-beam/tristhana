@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      ["backend/**", "data/seed/**", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
+      ["backend/**", "data/seed/**", "data/i18n/**", "miniapp/src/api/openapi.json", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
   pull_request:
     paths:
-      ["backend/**", "data/seed/**", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
+      ["backend/**", "data/seed/**", "data/i18n/**", "miniapp/src/api/openapi.json", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
   workflow_dispatch: # redeploy main
 
 permissions:
@@ -35,6 +35,8 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pyright
       - run: uv run lint-imports
+      - name: OpenAPI contract is up to date (miniapp/src/api/openapi.json)
+        run: uv run tristhana-openapi --check
       - run: uv run pytest
       - name: full moon-day parity (2025-2100, all cities)
         run: uv run pytest -m slow -q

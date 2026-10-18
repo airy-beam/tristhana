@@ -10,6 +10,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from tristhana import __version__
 from tristhana.api import v1
@@ -37,6 +38,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=bot.lifespan,
     )
     app.state.settings = settings
+    if settings.cors_origin_list:
+        # Exact origins, no credentials (bearer tokens, not cookies); the long max_age means
+        # one preflight per session instead of one per request.
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origin_list,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PATCH", "DELETE"],
+            allow_headers=["Authorization", "Content-Type"],
+            max_age=7200,
+        )
     app.include_router(v1.router)
 
     secret = settings.telegram_webhook_secret

@@ -36,10 +36,10 @@ A Telegram bot + Telegram Mini App (later web/mobile) for the **Ashtanga yoga** 
 - **Secrets:** never commit them. Use `.env` locally (git-ignored) and Secret Manager in the cloud.
 
 ## Commands
-> Backend commands exist (CI: `.github/workflows/backend.yml`). Mini App commands arrive with the Mini App skeleton.
+> CI: `.github/workflows/backend.yml` and `miniapp.yml`. API contract: `cd backend && uv run tristhana-openapi` → `miniapp/src/api/openapi.json`, then `cd miniapp && npm run gen:api`.
 - Backend: `cd backend && uv sync` · `uv run pytest` · `uv run ruff check . && uv run ruff format .` · `uv run pyright` · `uv run lint-imports`
 - Run locally: `cd backend && uv run tristhana-dev` (API on :8000, `/docs`; the bot in polling mode joins once the Telegram adapter exists). Config: copy `backend/.env.example` → `backend/.env`.
-- Mini App: `cd miniapp && npm ci` · `npm run dev` · `npm test` · `npm run build` · `npm run gen:api`
+- Mini App: `cd miniapp && npm ci` · `npm run dev` (mocked Telegram; `/api` proxied to :8000) · `npm test` · `npm run lint` · `npm run typecheck` · `npm run build && npm run check:bundle` · `npm run gen:api`
 - Diagrams: `python3 tools/render_diagrams.py`
 
 ## How we work
