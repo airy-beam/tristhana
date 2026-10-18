@@ -24,3 +24,5 @@ jobs:
       - run: uv run pyright
       - run: uv run lint-imports
       - run: uv run pytest
+      - name: full moon-day parity (2025-2100, all cities)
+        run: uv run pytest -m slow -q
