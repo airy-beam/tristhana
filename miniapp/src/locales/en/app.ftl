@@ -10,8 +10,9 @@ home-server-status = Server { $version } · { $commit }
 home-server-loading = Connecting to the server…
 home-server-offline = Can't reach the server right now. Your data is safe. Try again in a moment.
 
-# Telegram main button.
+# Telegram main button, and its result when server details are hidden.
 home-check-connection = Check connection
+home-connection-ok = Connection is fine ✓
 
 # Shown if the app fails to start (plain text, outside React).
 startup-failed = Something went wrong. Please reopen Tristhana.

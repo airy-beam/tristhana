@@ -117,6 +117,26 @@ describe("Home", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
   });
 
+  it("shows the check result even when server details are hidden", async () => {
+    stubFetch(healthy);
+    renderHome("ru", "Аня", false);
+    await vi.waitFor(() => {
+      expect(vi.mocked(fetch)).toHaveBeenCalledOnce();
+    });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    const onClick = vi.mocked(useMainButton).mock.lastCall?.[1];
+
+    act(() => {
+      onClick?.();
+    });
+
+    expect(await screen.findByText(/Связь в порядке/)).toBeInTheDocument();
+    // The main button showed its loader while checking, and is enabled again afterwards.
+    const loadingFlags = vi.mocked(useMainButton).mock.calls.map((call) => call[2]);
+    expect(loadingFlags).toContain(true);
+    expect(vi.mocked(useMainButton).mock.lastCall?.[2]).toBe(false);
+  });
+
   it("a long press on the greeting reveals details; a scroll cancels it", () => {
     vi.useFakeTimers();
     stubFetch(healthy);

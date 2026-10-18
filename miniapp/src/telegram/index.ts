@@ -66,8 +66,9 @@ export const haptics = {
   },
 };
 
-/** Shows Telegram's main button with `text` while the component is mounted. */
-export function useMainButton(text: string, onClick: () => void): void {
+/** Shows Telegram's main button with `text` while the component is mounted; `loading` shows
+ * its spinner and disables it. */
+export function useMainButton(text: string, onClick: () => void, loading = false): void {
   useEffect(() => {
     if (!mainButton.setParams.isAvailable()) return;
     mainButton.setParams({ text, isVisible: true, isEnabled: true });
@@ -77,4 +78,8 @@ export function useMainButton(text: string, onClick: () => void): void {
       mainButton.setParams.ifAvailable({ isVisible: false });
     };
   }, [text, onClick]);
+
+  useEffect(() => {
+    mainButton.setParams.ifAvailable({ isLoaderVisible: loading, isEnabled: !loading });
+  }, [loading]);
 }
