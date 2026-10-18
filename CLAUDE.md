@@ -37,10 +37,11 @@ A Telegram bot + Telegram Mini App (later web/mobile) for the **Ashtanga yoga** 
 
 ## Commands
 > CI: `.github/workflows/backend.yml` and `miniapp.yml`. API contract: `cd backend && uv run tristhana-openapi` → `miniapp/src/api/openapi.json`, then `cd miniapp && npm run gen:api`.
-- Backend: `cd backend && uv sync` · `uv run pytest` · `uv run ruff check . && uv run ruff format .` · `uv run pyright` · `uv run lint-imports`
-- Run locally: `cd backend && uv run tristhana-dev` (API on :8000, `/docs`; the bot in polling mode joins once the Telegram adapter exists). Config: copy `backend/.env.example` → `backend/.env`.
+- Backend: `cd backend && uv sync` · `uv run pytest` · `uv run ruff check . && uv run ruff format .` · `uv run pyright` · `uv run lint-imports` · full moon parity: `uv run pytest -m slow`
+- Run locally: `cd backend && uv run tristhana-dev` (API on :8000, `/docs`; with `TELEGRAM_MODE=polling` + the dev bot token in `backend/.env`, @tristhana_dev_bot long-polls in the same process). Config: copy `backend/.env.example` → `backend/.env`.
 - Mini App: `cd miniapp && npm ci` · `npm run dev` (mocked Telegram; `/api` proxied to :8000) · `npm test` · `npm run lint` · `npm run typecheck` · `npm run build && npm run check:bundle` · `npm run gen:api`
 - Diagrams: `python3 tools/render_diagrams.py`
+- Ops (☁️ ask the owner first): `infra/gcp/bootstrap.sh --dry-run`, then without the flag · `python3 tools/telegram/set_webhook.py [--info]` (webhook + menu button) · container check: `ENGINE=podman infra/ci/container-smoke.sh IMAGE` · catalog review table: `cd backend && uv run python ../tools/catalog/render_review.py <notes-dir>`
 
 ## How we work
 - Check `09 Roadmap.md` for the current phase. Work items reference requirement IDs.
