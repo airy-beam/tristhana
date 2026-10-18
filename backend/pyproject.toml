@@ -1,0 +1,88 @@
+[project]
+name = "tristhana"
+version = "0.1.0"
+description = "Tristhana: Ashtanga yoga practice platform (API + Telegram bot)"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.143.5",
+    "pydantic-settings>=2.16.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+tristhana-dev = "tristhana.dev:main"
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S", "PT", "TID"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.importlinter]
+root_package = "tristhana"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Hexagonal layers: adapters -> application -> domain"
+type = "layers"
+layers = [
+    "tristhana.api | tristhana.bots | tristhana.jobs | tristhana.infrastructure",
+    "tristhana.application",
+    "tristhana.domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain and application are pure (no frameworks, no wiring)"
+type = "forbidden"
+source_modules = ["tristhana.domain", "tristhana.application"]
+forbidden_modules = [
+    "fastapi",
+    "starlette",
+    "uvicorn",
+    "pydantic_settings",
+    "tristhana.settings",
+    "tristhana.logs",
+    "tristhana.main",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "import-linter>=2.15",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[[tool.importlinter.contracts]]
+name = "aiogram is imported only in bots.telegram"
+type = "forbidden"
+source_modules = [
+    "tristhana.domain",
+    "tristhana.application",
+    "tristhana.infrastructure",
+    "tristhana.api",
+    "tristhana.jobs",
+    "tristhana.main",
+]
+forbidden_modules = ["aiogram"]
