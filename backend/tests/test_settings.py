@@ -64,3 +64,8 @@ def test_telegram_secrets_are_stripped(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert secret is not None
     assert secret.get_secret_value() == "abc-123"
+
+
+def test_miniapp_url_must_be_https() -> None:
+    with pytest.raises(ValueError, match="miniapp_url"):
+        Settings(miniapp_url="http://tristhana.web.app")

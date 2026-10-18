@@ -116,7 +116,7 @@ jobs:
         run: |
           gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --quiet \
             --image "$IMAGE" --service-account "$RUN_SA" \
-            --set-env-vars "APP_ENV=prod,GIT_SHA=$GITHUB_SHA" \
+            --set-env-vars "APP_ENV=prod,GIT_SHA=$GITHUB_SHA,CORS_ORIGINS=https://tristhana.web.app,MINIAPP_URL=https://tristhana.web.app" \
             --set-secrets "TELEGRAM_BOT_TOKEN=telegram-bot-token:latest,TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret:latest"
       - name: smoke (new revision serves /api/v1/health)
         run: |

@@ -8,14 +8,14 @@ from aiogram import F, Router
 from aiogram.enums import ChatType
 from aiogram.filters import Command, CommandStart
 from aiogram.methods import SendMessage
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.start import StartCommand, StartUseCase
 from tristhana.domain.locale import Locale, negotiate_locale
 
 
-def build_router(start: StartUseCase, translator: Translator) -> Router:
+def build_router(start: StartUseCase, translator: Translator, miniapp_url: str = "") -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
 
@@ -27,7 +27,13 @@ def build_router(start: StartUseCase, translator: Translator) -> Router:
         result = await start.execute(
             StartCommand(telegram_user_id=user.id, language_code=user.language_code)
         )
-        return message.answer(translator.t(result.locale, "start-greeting"))
+        text = translator.t(result.locale, "start-greeting")
+        if not miniapp_url:
+            return message.answer(text)
+        button = InlineKeyboardButton(
+            text=translator.t(result.locale, "start-open-app"), web_app=WebAppInfo(url=miniapp_url)
+        )
+        return message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[button]]))
 
     @router.message(Command("help"))
     async def on_help(message: Message) -> SendMessage:  # pyright: ignore[reportUnusedFunction]

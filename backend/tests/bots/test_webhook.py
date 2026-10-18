@@ -193,3 +193,19 @@ def test_polling_failure_is_logged_and_shutdown_is_clean(monkeypatch: pytest.Mon
         logging.getLogger(tristhana.main.__name__).removeHandler(handler)
 
     assert "telegram polling stopped: RuntimeError" in messages
+
+
+def test_start_offers_the_mini_app_when_configured() -> None:
+    settings = _settings(miniapp_url="https://tristhana.web.app")
+    with TestClient(create_app(settings)) as client:
+        body = _post(client, _update("/start", language_code="ru")).json()
+
+    [[button]] = body["reply_markup"]["inline_keyboard"]
+    assert button["web_app"] == {"url": "https://tristhana.web.app"}
+    assert button["text"] == "Открыть приложение"
+
+
+def test_start_has_no_button_without_a_mini_app_url(bot_client: TestClient) -> None:
+    body = _post(bot_client, _update("/start")).json()
+
+    assert "reply_markup" not in body

@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     seed_dir: Path = _REPO_SEED_DIR
     git_sha: str = "dev"  # set at image build / deploy time
 
+    # Mini App URL for the /start button and the menu button (empty = no button). Telegram
+    # only opens HTTPS web apps.
+    miniapp_url: str = ""
+
     # Exact browser origins allowed to call the API (comma-separated; empty = CORS off).
     cors_origins: str = ""
 
@@ -38,6 +42,13 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = None
     telegram_webhook_secret: SecretStr | None = None
     telegram_mode: TelegramMode = "webhook"  # dev: "polling" with @tristhana_dev_bot
+
+    @field_validator("miniapp_url")
+    @classmethod
+    def _https_only(cls, value: str) -> str:
+        if value and not value.startswith("https://"):
+            raise ValueError("miniapp_url must be an https:// URL (Telegram requirement)")
+        return value
 
     @field_validator("cors_origins")
     @classmethod

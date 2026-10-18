@@ -81,7 +81,10 @@ class _LazyBot:
             if token is None:
                 raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
             self._runtime = build_runtime(
-                token.get_secret_value(), StartUseCase(), FluentTranslator()
+                token.get_secret_value(),
+                StartUseCase(),
+                FluentTranslator(),
+                self._settings.miniapp_url,
             )
         return self._runtime
 

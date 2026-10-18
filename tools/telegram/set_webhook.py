@@ -1,4 +1,5 @@
-"""Register (or inspect) the prod bot's webhook. Run once after a deploy that has the secrets.
+"""Register (or inspect) the prod bot's webhook and Mini App menu button. Run after a deploy
+that has the secrets.
 
     python3 tools/telegram/set_webhook.py          # setWebhook
     python3 tools/telegram/set_webhook.py --info   # getWebhookInfo
@@ -21,6 +22,9 @@ REGION = "europe-west3"
 SERVICE = "tristhana-api"
 WEBHOOK_PATH = "/telegram/webhook"
 ALLOWED_UPDATES = ["message", "callback_query"]
+MINIAPP_URL = "https://tristhana.web.app"
+# Menu button text can't vary per user language, so it uses the name (same in en and ru).
+MENU_BUTTON_TEXT = "Tristhana"
 
 
 def gcloud(*args: str) -> str:
@@ -44,6 +48,16 @@ def webhook_payload(service_url: str, webhook_secret: str) -> dict[str, Any]:
         "allowed_updates": ALLOWED_UPDATES,
         "drop_pending_updates": True,
         "max_connections": 10,
+    }
+
+
+def menu_button_payload(miniapp_url: str) -> dict[str, Any]:
+    return {
+        "menu_button": {
+            "type": "web_app",
+            "text": MENU_BUTTON_TEXT,
+            "web_app": {"url": miniapp_url},
+        }
     }
 
 
@@ -77,6 +91,10 @@ def main() -> int:
         result = call(token, "setWebhook", webhook_payload(url, secret("telegram-webhook-secret")))
         print("setWebhook:", "ok" if result.get("ok") else result.get("description", "failed"))
         if not result.get("ok"):
+            return 1
+        menu = call(token, "setChatMenuButton", menu_button_payload(MINIAPP_URL))
+        print("setChatMenuButton:", "ok" if menu.get("ok") else menu.get("description", "failed"))
+        if not menu.get("ok"):
             return 1
 
     info = call(token, "getWebhookInfo").get("result", {})

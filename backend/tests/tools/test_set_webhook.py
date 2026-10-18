@@ -53,3 +53,10 @@ def test_http_errors_never_echo_the_token(
     out = capsys.readouterr()
     assert token not in out.out + out.err
     assert "HTTP 502" in out.out
+
+
+def test_menu_button_opens_the_mini_app() -> None:
+    payload = _tool().menu_button_payload("https://tristhana.web.app")
+
+    assert payload["menu_button"]["type"] == "web_app"
+    assert payload["menu_button"]["web_app"] == {"url": "https://tristhana.web.app"}
