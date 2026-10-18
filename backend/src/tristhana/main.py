@@ -4,6 +4,7 @@ Run with `uvicorn tristhana.main:app`.
 """
 
 import asyncio
+import importlib
 import logging
 import time
 from collections.abc import AsyncGenerator
@@ -14,9 +15,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from tristhana import __version__
 from tristhana.api import v1
-from tristhana.application.start import StartUseCase
+from tristhana.api.errors import install_error_handlers
+from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.ports.storage import Storage
 from tristhana.bots.telegram.runtime import BotRuntime, build_runtime
 from tristhana.bots.telegram.webhook import make_webhook_router
+from tristhana.infrastructure.clock import SystemClock
+from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.logs import configure_logging
 from tristhana.settings import Settings, get_settings
@@ -24,18 +29,20 @@ from tristhana.settings import Settings, get_settings
 log = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, storage: Storage | None = None) -> FastAPI:
+    """`storage` is for tests (an in-memory fake); by default it follows DATABASE_URL."""
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.effective_log_format)
 
     bot = _LazyBot(settings)
+    services = _Services(storage or _storage(settings), bot)
     app = FastAPI(
         title="Tristhana API",
         version=__version__,
         # Interactive docs only outside prod; the OpenAPI schema stays available for codegen.
         docs_url=None if settings.app_env == "prod" else "/docs",
         redoc_url=None,
-        lifespan=bot.lifespan,
+        lifespan=services.lifespan,
     )
     app.state.settings = settings
     if settings.cors_origin_list:
@@ -49,7 +56,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["Authorization", "Content-Type"],
             max_age=7200,
         )
+    install_error_handlers(app)
     app.include_router(v1.router)
+
+    token = settings.telegram_bot_token
+    if settings.app_env == "dev" and settings.dev_init_data and token is not None:
+        from tristhana.api.dev import make_dev_router
+
+        app.include_router(make_dev_router(token.get_secret_value()))
 
     secret = settings.telegram_webhook_secret
     if _webhook_enabled(settings) and secret is not None:
@@ -57,6 +71,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     elif settings.telegram_mode == "webhook":
         log.warning("telegram webhook disabled: bot token or webhook secret not set")
     return app
+
+
+def _storage(settings: Settings) -> Storage:
+    if settings.database_url is None:
+        return UnconfiguredStorage()
+    return PostgresStorage(
+        settings.database_url.get_secret_value(),
+        ca_file=settings.database_ca_file,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+    )
 
 
 def _webhook_enabled(settings: Settings) -> bool:
@@ -67,6 +92,29 @@ def _webhook_enabled(settings: Settings) -> bool:
     )
 
 
+class _Services:
+    """Starts storage, builds the use cases once it is up, then hands them to the adapters."""
+
+    def __init__(self, storage: Storage, bot: "_LazyBot") -> None:
+        self._storage = storage
+        self._bot = bot
+
+    @asynccontextmanager
+    async def lifespan(self, app: FastAPI) -> AsyncGenerator[None]:
+        # The aiogram import (CPU, in a thread) overlaps the DB warm-up's network wait.
+        await asyncio.gather(self._storage.start(), self._bot.preimport())
+        ensure = EnsureAccount(self._storage.accounts, SystemClock())
+        app.state.storage = self._storage
+        app.state.ensure_account = ensure
+        app.state.record_device_timezone = RecordDeviceTimezone(self._storage.accounts)
+        self._bot.ensure_account = ensure
+        try:
+            async with self._bot.lifespan():
+                yield
+        finally:
+            await self._storage.stop()
+
+
 class _LazyBot:
     """Builds the aiogram runtime once. No network at startup; aiogram is imported during
     startup only when the webhook is enabled (preload, UI-01 spec), else on first use."""
@@ -74,30 +122,37 @@ class _LazyBot:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._runtime: BotRuntime | None = None
+        self.ensure_account: EnsureAccount | None = None  # set in the lifespan
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
             token = self._settings.telegram_bot_token
             if token is None:
                 raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
+            if self.ensure_account is None:
+                raise RuntimeError("bot used before startup")
             self._runtime = build_runtime(
                 token.get_secret_value(),
-                StartUseCase(),
+                self.ensure_account,
                 FluentTranslator(),
                 self._settings.miniapp_url,
             )
         return self._runtime
 
-    @asynccontextmanager
-    async def lifespan(self, _app: FastAPI) -> AsyncGenerator[None]:
-        polling: asyncio.Task[None] | None = None
+    async def preimport(self) -> None:
         if _webhook_enabled(self._settings):
             # Preload aiogram (~3 s: it builds every Telegram type's schema on import) before
             # accepting traffic. Cloud Run gives full CPU at startup but throttles it after a
             # response, so a background import could stall on an instance kept warm by pings.
             started = time.perf_counter()
-            await asyncio.to_thread(self.get)
-            log.info("telegram runtime ready in %.0f ms", (time.perf_counter() - started) * 1000)
+            await asyncio.to_thread(importlib.import_module, "tristhana.bots.telegram.router")
+            log.info("aiogram imported in %.0f ms", (time.perf_counter() - started) * 1000)
+
+    @asynccontextmanager
+    async def lifespan(self) -> AsyncGenerator[None]:
+        polling: asyncio.Task[None] | None = None
+        if _webhook_enabled(self._settings):
+            self.get()  # build the runtime now that aiogram is imported
         if self._settings.telegram_mode == "polling" and self._settings.telegram_bot_token:
             from tristhana.bots.telegram.polling import run_polling
 

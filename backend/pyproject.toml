@@ -6,12 +6,15 @@ readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "aiogram>=3.22,<4",
+    "alembic>=1.16",
+    "asyncpg>=0.30",
     "fastapi>=0.143.5",
     "fluent-runtime>=0.4",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.16.0",
     "pyswisseph>=2.10.3.2",
     "pyyaml>=6.0.3",
+    "sqlalchemy[asyncio]>=2.0.40",
     "tzdata>=2026.5",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -20,6 +23,7 @@ dependencies = [
 tristhana-dev = "tristhana.dev:main"
 tristhana-serve = "tristhana.serve:main"
 tristhana-openapi = "tristhana.openapi_dump:main"
+tristhana-migrate = "tristhana.infrastructure.db.migrate:main"
 
 [build-system]
 requires = ["uv_build>=0.13,<0.14"]
@@ -47,7 +51,10 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers -m 'not slow'"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-markers = ["slow: long golden runs (full 2025-2100 parity); run with -m slow"]
+markers = [
+    "slow: long golden runs (full 2025-2100 parity); run with -m slow",
+    "db: needs a real Postgres (TEST_DATABASE_URL); skipped locally without it",
+]
 
 [tool.importlinter]
 root_package = "tristhana"
@@ -169,3 +176,19 @@ source_modules = [
 ]
 forbidden_modules = ["fluent"]
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "sqlalchemy, asyncpg and alembic are imported only in tristhana.infrastructure"
+type = "forbidden"
+# The composition root (main) wires adapters, so only direct imports are forbidden.
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain",
+    "tristhana.application",
+    "tristhana.api",
+    "tristhana.bots",
+    "tristhana.jobs",
+    "tristhana.moon",
+    "tristhana.main",
+]
+forbidden_modules = ["sqlalchemy", "asyncpg", "alembic"]

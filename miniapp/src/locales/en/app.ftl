@@ -26,3 +26,6 @@ practice-days =
         [one] { $count } day
        *[other] { $count } days
     }
+
+# Shown when the Telegram session is older than 24 hours (or can't be verified).
+session-expired = This session has expired. Close Tristhana and open it again from the bot.

@@ -13,17 +13,27 @@ WORKDIR /src/backend
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY backend/src ./src
-RUN uv sync --locked --no-dev --no-editable
+# Babel (via fluent.runtime) ships CLDR data for ~1,000 locales (~32 MB); keep root and our UI
+# locales only. Adding a language? Add it here; the container smoke test checks every LOCALES entry.
+RUN uv sync --locked --no-dev --no-editable \
+    && find /app/.venv/lib/python3.13/site-packages/babel/locale-data -name '*.dat' \
+      ! -name root.dat ! -name 'en.dat' ! -name 'en_*.dat' ! -name 'ru.dat' ! -name 'ru_*.dat' \
+      -delete
 
 # --- runtime: slim, no compiler, no uv, non-root ---
 FROM python:3.13-slim-bookworm
 # The slim image ships the stdlib without .pyc files and the app user can't write them,
 # so precompile it here; otherwise every cold start recompiles it (~0.5 s).
-RUN python -m compileall -q -j 0 /usr/local/lib/python3.13 \
+# Skip what the app never imports (pip, IDLE, Tk, ensurepip, docs data): ~10 MB of .pyc.
+RUN python -m compileall -q -j 0 \
+      -x '/(site-packages/pip|idlelib|tkinter|turtledemo|ensurepip|pydoc_data)/' \
+      /usr/local/lib/python3.13 \
     && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY data/seed /app/data/seed
+# Supabase's CA for TLS verify-full (DATABASE_CA_FILE, ADR-0014); public, not a secret.
+COPY infra/supabase/certs /app/certs
 # Declared late: an ARG invalidates the cache of every RUN after it.
 ARG GIT_SHA=dev
 ENV PATH=/app/.venv/bin:$PATH \

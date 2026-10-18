@@ -11,7 +11,7 @@ import { initTelegram, isInTelegram, launchUser } from "./telegram";
 async function start(): Promise<void> {
   if (import.meta.env.DEV && !isInTelegram()) {
     const { mockTelegram } = await import("./telegram/mock");
-    mockTelegram();
+    await mockTelegram();
   }
 
   const inTelegram = isInTelegram();

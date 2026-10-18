@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# One-time (idempotent) GCP setup for Tristhana. Spec: docs/specs/NF-02-cloud-run-deploy.md, ADR-0011.
+# One-time (idempotent) GCP setup for Tristhana. Specs: docs/specs/NF-02-cloud-run-deploy.md,
+# docs/specs/ID-01-accounts.md (database). ADR-0011, ADR-0014.
 #
 #   infra/gcp/bootstrap.sh --dry-run   # print every command, change nothing (no credentials needed)
 #   infra/gcp/bootstrap.sh             # apply (creates resources; the owner approves first)
@@ -19,15 +20,20 @@ SERVICE="tristhana-api"
 AR_REPO="tristhana"
 RUN_SA="tristhana-run"
 DEPLOY_SA="tristhana-deploy"
+MIGRATE_SA="tristhana-migrate" # runs the migrations job (ADR-0014)
 WIF_POOL="github"
 WIF_PROVIDER="github-actions"
 BUDGET_NAME="tristhana-monthly"
 KEEPWARM_JOB="tristhana-keepwarm"
 HOSTING_SITE="tristhana" # https://tristhana.web.app (Mini App, UI-03)
-SECRETS=(telegram-bot-token telegram-webhook-secret)
+# Read by the service. database-url: the tristhana_app role via the Supabase session pooler.
+SECRETS=(telegram-bot-token telegram-webhook-secret database-url)
+# Read only by the migrations job: the postgres role (DDL).
+MIGRATE_SECRET="database-url-migrate"
 
 RUN_SA_EMAIL="${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
 DEPLOY_SA_EMAIL="${DEPLOY_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+MIGRATE_SA_EMAIL="${MIGRATE_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
 WIF_POOL_ID="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL}"
 
 DRY_RUN=false
@@ -84,11 +90,17 @@ fi
 if ! exists "${gc[@]}" iam service-accounts describe "$DEPLOY_SA_EMAIL"; then
   run "${gc[@]}" iam service-accounts create "$DEPLOY_SA" --display-name "Tristhana deployer (GitHub Actions)"
 fi
+if ! exists "${gc[@]}" iam service-accounts describe "$MIGRATE_SA_EMAIL"; then
+  run "${gc[@]}" iam service-accounts create "$MIGRATE_SA" --display-name "Tristhana DB migrations (Cloud Run Job)"
+fi
 
 step "Deployer permissions (least privilege)"
 run "${gc[@]}" projects add-iam-policy-binding "$PROJECT_ID" \
   --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/run.developer --condition None
 run "${gc[@]}" iam service-accounts add-iam-policy-binding "$RUN_SA_EMAIL" \
+  --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/iam.serviceAccountUser
+# The deploy job creates and runs the migrations job as the migrate SA.
+run "${gc[@]}" iam service-accounts add-iam-policy-binding "$MIGRATE_SA_EMAIL" \
   --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/iam.serviceAccountUser
 run "${gc[@]}" artifacts repositories add-iam-policy-binding "$AR_REPO" --location "$REGION" \
   --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/artifactregistry.writer
@@ -125,6 +137,11 @@ for secret in "${SECRETS[@]}"; do
   run "${gc[@]}" secrets add-iam-policy-binding "$secret" \
     --member "serviceAccount:${RUN_SA_EMAIL}" --role roles/secretmanager.secretAccessor
 done
+if ! exists "${gc[@]}" secrets describe "$MIGRATE_SECRET"; then
+  run "${gc[@]}" secrets create "$MIGRATE_SECRET" --replication-policy automatic
+fi
+run "${gc[@]}" secrets add-iam-policy-binding "$MIGRATE_SECRET" \
+  --member "serviceAccount:${MIGRATE_SA_EMAIL}" --role roles/secretmanager.secretAccessor
 
 step "Cloud Run service ${SERVICE} (placeholder image; CI deploys the real one)"
 if ! exists "${gc[@]}" run services describe "$SERVICE" --region "$REGION"; then
@@ -138,14 +155,18 @@ fi
 
 step "Keep-warm ping (Cloud Scheduler, every 10 min; free tier: 3 jobs per billing account)"
 # An instance kept alive by pings already has aiogram loaded (~3 s import, UI-01 spec).
+# /health/db also keeps the Supabase free project active (it pauses after ~1 week idle).
+service_url="https://SERVICE_URL"
+if ! $DRY_RUN; then
+  service_url="$("${gc[@]}" run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')"
+fi
 if ! exists "${gc[@]}" scheduler jobs describe "$KEEPWARM_JOB" --location "$REGION"; then
-  service_url="https://SERVICE_URL"
-  if ! $DRY_RUN; then
-    service_url="$("${gc[@]}" run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')"
-  fi
   run "${gc[@]}" scheduler jobs create http "$KEEPWARM_JOB" --location "$REGION" \
-    --schedule "*/10 * * * *" --time-zone "Etc/UTC" --uri "${service_url}/api/v1/health" \
+    --schedule "*/10 * * * *" --time-zone "Etc/UTC" --uri "${service_url}/api/v1/health/db" \
     --http-method GET --attempt-deadline 30s --description "Keep one tristhana-api instance warm"
+else
+  run "${gc[@]}" scheduler jobs update http "$KEEPWARM_JOB" --location "$REGION" \
+    --uri "${service_url}/api/v1/health/db"
 fi
 
 step "Firebase Hosting for the Mini App (site ${HOSTING_SITE})"
@@ -189,6 +210,7 @@ run gh variable set GCP_REGION --repo "$GITHUB_REPO" --body "$REGION"
 run gh variable set GCP_WIF_PROVIDER --repo "$GITHUB_REPO" --body "${WIF_POOL_ID}/providers/${WIF_PROVIDER}"
 run gh variable set GCP_DEPLOY_SA --repo "$GITHUB_REPO" --body "$DEPLOY_SA_EMAIL"
 run gh variable set GCP_RUN_SA --repo "$GITHUB_REPO" --body "$RUN_SA_EMAIL"
+run gh variable set GCP_MIGRATE_SA --repo "$GITHUB_REPO" --body "$MIGRATE_SA_EMAIL"
 
 step "Done"
 echo "Service URL: gcloud run services describe ${SERVICE} --region ${REGION} --format 'value(status.url)' --project ${PROJECT_ID}"

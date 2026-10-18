@@ -1,0 +1,14 @@
+# ADR-0015: Accounts, identities and Mini App authentication by per-request initData
+- Status: accepted
+- Date: 2026-10-18
+## Context
+ID-01 creates an account silently from Telegram (bot or Mini App). ID-02 requires that one person can later log in through other providers (email, Google, Apple) without a data migration. NF-03 requires Telegram initData verification. `04 Architecture` sketched "initData → short-lived JWT", which needs an extra request at launch, a signing key, and refresh handling. The API is stateless on Cloud Run and should cost one DB round trip per request. Spec: `docs/specs/ID-01-accounts.md`.
+## Decision
+- **Model:** `account` (the person: display name, locale, IANA time zone) and `identity` (`provider`, `provider_user_id`) → `account`, primary key `(provider, provider_user_id)`. Providers are text with a CHECK constraint (`telegram` now). No role column; roles stay derived from relationships (ID-03).
+- **One use case for every entry point:** `EnsureAccount(ExternalProfile)` finds the account by identity or creates account and identity in one atomic statement. The bot middleware and the API auth dependency both call it. A refresh write happens only when the name or locale changed or `last_seen_at` is a day old.
+- **Mini App auth:** the client sends the raw initData on **every** request as `Authorization: tma <initData>`. The API verifies the HMAC-SHA256 (key derived from the bot token) with a constant-time compare, requires `auth_date` within 24 h (and not more than 60 s in the future), then resolves the account. No JWT and no server-side sessions. Verification uses the standard library in `api/`, not aiogram.
+- **Authorization** lives in `application/policies.py` (`Principal`, `require_self`, later named policies for teacher views).
+## Consequences
+No token endpoint, no signing secret, no refresh logic; each request is self-authenticating and costs microseconds of HMAC plus one indexed SELECT. A leaked initData is usable until it is 24 h old (the same exposure as a bearer token); initData is never logged or stored. Sessions kept open longer than 24 h see a "reopen the app" screen. Future web/mobile clients add a second scheme (`Bearer`, issued after their own login) that resolves to the same `Principal`; linking an identity becomes inserting another `identity` row. This supersedes the "initData → JWT" line in `04 Architecture`.
+## Alternatives considered
+Exchanging initData for a JWT (extra launch request, signing key, refresh; useful only once non-Telegram clients exist); a server-side session table (a write per login and a lookup per request); a single `user` table with a `telegram_id` column (simplest now, but a data migration for ID-02); PostgreSQL enums for providers (harder to extend than text + CHECK); aiogram's initData helper in the API (would import aiogram, ~3 s, into the API path).

@@ -3,6 +3,7 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.fakes import InMemoryStorage
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -12,5 +13,5 @@ Settings.model_config["env_file"] = None
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    with TestClient(create_app(Settings(app_env="test"))) as test_client:
+    with TestClient(create_app(Settings(app_env="test"), InMemoryStorage())) as test_client:
         yield test_client

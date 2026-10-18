@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import createClient from "openapi-fetch";
 
+import { rawInitData } from "../telegram";
 import type { components, paths } from "./schema";
 
 // Typed client generated from the backend contract (ADR-0013); never hand-write API types.
@@ -11,7 +12,36 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 });
 
+// Every request carries the signed Telegram initData; the API verifies it (ADR-0015).
+api.use({
+  onRequest({ request }) {
+    const raw = rawInitData();
+    if (raw) request.headers.set("Authorization", `tma ${raw}`);
+    return request;
+  },
+});
+
 export type Health = components["schemas"]["Health"];
+export type Me = components["schemas"]["Me"];
+export type ErrorCode = components["schemas"]["ErrorCode"];
+
+/** A non-2xx answer from the API, with the stable `code` when the body has one. */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: ErrorCode | null,
+  ) {
+    super(`API ${String(status)}${code ? ` ${code}` : ""}`);
+  }
+}
+
+function fail(response: Response, error: unknown): never {
+  const code =
+    error !== null && typeof error === "object" && "code" in error
+      ? (error.code as ErrorCode)
+      : null;
+  throw new ApiError(response.status, code);
+}
 
 export function useHealth() {
   return useQuery({
@@ -22,5 +52,33 @@ export function useHealth() {
       return data;
     },
     staleTime: 60_000,
+  });
+}
+
+/** The caller's account; the first call creates it (ID-01). */
+export function useMe() {
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: async (): Promise<Me> => {
+      const { data, error, response } = await api.GET("/api/v1/me");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: Infinity,
+    // An expired or invalid session won't fix itself by retrying.
+    retry: (count, error) => !(error instanceof ApiError && error.status === 401) && count < 1,
+  });
+}
+
+/** Reports the device zone; the server keeps it only if none is set yet. */
+export function useReportDeviceTimezone() {
+  return useMutation({
+    mutationFn: async (timezone: string): Promise<Me> => {
+      const { data, error, response } = await api.POST("/api/v1/me/device-timezone", {
+        body: { timezone },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
   });
 }

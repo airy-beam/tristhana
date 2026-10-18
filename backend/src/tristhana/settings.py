@@ -43,6 +43,17 @@ class Settings(BaseSettings):
     telegram_webhook_secret: SecretStr | None = None
     telegram_mode: TelegramMode = "webhook"  # dev: "polling" with @tristhana_dev_bot
 
+    # Postgres (ADR-0014). Unset: the app starts, DB features answer "temporarily unavailable".
+    database_url: SecretStr | None = None
+    # Supabase's CA certificate: TLS verify-full when set (prod); local Postgres runs without.
+    database_ca_file: Path | None = None
+    db_pool_size: int = 3
+    db_max_overflow: int = 2
+
+    # Dev only: GET /dev/telegram-init-data signs initData for ANY user id with the bot token,
+    # for the Mini App's browser mock. Explicit opt-in on top of APP_ENV=dev; refused in prod.
+    dev_init_data: bool = False
+
     @field_validator("miniapp_url")
     @classmethod
     def _https_only(cls, value: str) -> str:
@@ -64,7 +75,7 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
-    @field_validator("telegram_bot_token", "telegram_webhook_secret", mode="before")
+    @field_validator("telegram_bot_token", "telegram_webhook_secret", "database_url", mode="before")
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         # Strip stray whitespace (e.g. a newline from `echo`); blank means "not configured".
@@ -72,10 +83,19 @@ class Settings(BaseSettings):
             return value.strip() or None
         return value
 
+    @field_validator("database_ca_file", mode="before")
+    @classmethod
+    def _blank_path_is_unset(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
     @model_validator(mode="after")
     def _check_telegram(self) -> Self:
         if self.telegram_mode == "polling" and self.app_env == "prod":
             raise ValueError("telegram_mode=polling is for local development only")
+        if self.app_env == "prod" and self.dev_init_data:
+            raise ValueError("dev_init_data is for local development only")
+        if self.app_env == "prod" and self.database_url and self.database_ca_file is None:
+            raise ValueError("database_ca_file is required in prod (TLS verify-full, ADR-0014)")
         secret = self.telegram_webhook_secret
         if secret is not None and not _WEBHOOK_SECRET.fullmatch(secret.get_secret_value()):
             raise ValueError("telegram_webhook_secret: 1-256 chars of A-Z a-z 0-9 _ -")

@@ -5,6 +5,7 @@ import { L10nProvider } from "./i18n/L10nProvider";
 import type { Locale } from "./i18n/negotiate";
 import { Home } from "./screens/Home";
 import { NotInTelegram } from "./screens/NotInTelegram";
+import { Session } from "./screens/Session";
 import { markReady } from "./telegram";
 
 const queryClient = new QueryClient({
@@ -20,27 +21,29 @@ interface AppProps {
 export function App({ locale, firstName, inTelegram }: AppProps) {
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
   useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
-  useEffect(() => {
     // After the first commit, so Telegram drops its placeholder once something is painted.
     if (inTelegram) markReady();
   }, [inTelegram]);
+  if (!inTelegram) {
+    return (
+      <L10nProvider locale={locale}>
+        <NotInTelegram />
+      </L10nProvider>
+    );
+  }
   return (
-    <L10nProvider locale={locale}>
-      {inTelegram ? (
-        <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <Session launchLocale={locale}>
+        {(me) => (
           <Home
-            firstName={firstName}
+            firstName={me ? me.display_name : firstName}
             showDetails={showDetails}
             onGreetingLongPress={() => {
               setShowDetails(true);
             }}
           />
-        </QueryClientProvider>
-      ) : (
-        <NotInTelegram />
-      )}
-    </L10nProvider>
+        )}
+      </Session>
+    </QueryClientProvider>
   );
 }

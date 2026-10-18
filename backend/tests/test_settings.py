@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from tristhana.settings import AppEnv, LogFormat, Settings
 
@@ -69,3 +70,17 @@ def test_telegram_secrets_are_stripped(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_miniapp_url_must_be_https() -> None:
     with pytest.raises(ValueError, match="miniapp_url"):
         Settings(miniapp_url="http://tristhana.web.app")
+
+
+def test_prod_refuses_the_dev_init_data_endpoint() -> None:
+    with pytest.raises(ValidationError, match="dev_init_data"):
+        Settings(app_env="prod", dev_init_data=True)
+
+
+def test_prod_database_needs_the_ca_file() -> None:
+    url = "postgresql://tristhana_app:x@pooler.example:5432/postgres"
+    with pytest.raises(ValidationError, match="database_ca_file"):
+        Settings(app_env="prod", database_url=url)  # pyright: ignore[reportArgumentType]
+
+    ok = Settings(app_env="prod", database_url=url, database_ca_file="/app/certs/ca.crt")  # pyright: ignore[reportArgumentType]
+    assert ok.database_ca_file is not None
