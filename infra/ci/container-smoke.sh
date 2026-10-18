@@ -43,6 +43,11 @@ locales = files("tristhana.infrastructure.i18n") / "locales"
 assert all((locales / loc / "bot.ftl").is_file() for loc in ("en", "ru")), ".ftl missing"
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 assert FluentTranslator().t("ru", "start-greeting").startswith("Намасте"), "fluent"
+# The Dockerfile prunes Babel's CLDR data to our UI locales: every one must still load.
+from babel import Locale
+from tristhana.domain.locale import LOCALES
+for loc in LOCALES:
+    Locale.parse(loc).plural_form(5)
 import aiogram  # noqa: F401  (imports in the slim image)
 import asyncpg  # noqa: F401  (C extension in the slim image)
 from alembic.script import ScriptDirectory
