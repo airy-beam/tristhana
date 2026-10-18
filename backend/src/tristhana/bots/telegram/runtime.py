@@ -8,8 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from tristhana.application.accounts import EnsureAccount
 from tristhana.application.ports.i18n import Translator
-from tristhana.application.start import StartUseCase
 
 if TYPE_CHECKING:
     from aiogram import Bot, Dispatcher
@@ -23,7 +23,7 @@ class BotRuntime:
 
 
 def build_runtime(
-    token: str, start: StartUseCase, translator: Translator, miniapp_url: str = ""
+    token: str, ensure: EnsureAccount, translator: Translator, miniapp_url: str = ""
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -31,7 +31,7 @@ def build_runtime(
     from tristhana.bots.telegram.router import build_router
 
     dispatcher = Dispatcher()
-    dispatcher.include_router(build_router(start, translator, miniapp_url))
+    dispatcher.include_router(build_router(ensure, translator, miniapp_url))
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
 
 

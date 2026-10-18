@@ -25,6 +25,19 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Real Postgres, same major as Supabase (ADR-0014); the db tests fail without it in CI.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: tristhana_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/tristhana_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -104,20 +117,32 @@ jobs:
       REGION: ${{ vars.GCP_REGION }}
       PROJECT: ${{ vars.GCP_PROJECT_ID }}
       RUN_SA: ${{ vars.GCP_RUN_SA }}
+      MIGRATE_SA: ${{ vars.GCP_MIGRATE_SA }}
+      CA_FILE: /app/certs/supabase-ca.crt
     steps:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - name: migrate (Cloud Run Job, same image, before the service; ADR-0014)
+        env:
+          IMAGE: ${{ needs.image.outputs.image }}
+        run: |
+          gcloud run jobs deploy tristhana-migrate --project "$PROJECT" --region "$REGION" --quiet \
+            --image "$IMAGE" --service-account "$MIGRATE_SA" --command tristhana-migrate \
+            --max-retries 0 --task-timeout 300s --cpu 1 --memory 512Mi \
+            --set-env-vars "APP_ENV=prod,DATABASE_CA_FILE=$CA_FILE" \
+            --set-secrets "DATABASE_URL=database-url-migrate:latest"
+          gcloud run jobs execute tristhana-migrate --project "$PROJECT" --region "$REGION" --wait
       - name: deploy
         env:
           IMAGE: ${{ needs.image.outputs.image }}
         run: |
           gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --quiet \
             --image "$IMAGE" --service-account "$RUN_SA" \
-            --set-env-vars "APP_ENV=prod,GIT_SHA=$GITHUB_SHA,CORS_ORIGINS=https://tristhana.web.app,MINIAPP_URL=https://tristhana.web.app" \
-            --set-secrets "TELEGRAM_BOT_TOKEN=telegram-bot-token:latest,TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret:latest"
+            --set-env-vars "APP_ENV=prod,GIT_SHA=$GITHUB_SHA,CORS_ORIGINS=https://tristhana.web.app,MINIAPP_URL=https://tristhana.web.app,DATABASE_CA_FILE=$CA_FILE" \
+            --set-secrets "TELEGRAM_BOT_TOKEN=telegram-bot-token:latest,TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret:latest,DATABASE_URL=database-url:latest"
       - name: smoke (new revision serves /api/v1/health)
         run: |
           url="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" \
@@ -128,7 +153,10 @@ jobs:
               echo "first request: $(tail -1 <<<"$body") s (from a US runner; RTT dominates)"
               for _ in $(seq 1 10); do curl -fsS -o /dev/null -w '%{time_total}\n' "$url"; done \
                 | sort -n | sed -n '5p' | xargs -I{} echo "warm p50: {} s"
-              exit 0
+              # The first pooler connection can be slow: a few tries before calling it broken.
+              for _ in 1 2 3; do curl -fsS "${url}/db" >/dev/null && exit 0; sleep 3; done
+              echo "the new revision can't reach the database (or lacks grants)" >&2
+              exit 1
             fi
             sleep 2
           done

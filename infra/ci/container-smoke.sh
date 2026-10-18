@@ -44,6 +44,14 @@ assert all((locales / loc / "bot.ftl").is_file() for loc in ("en", "ru")), ".ftl
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 assert FluentTranslator().t("ru", "start-greeting").startswith("Намасте"), "fluent"
 import aiogram  # noqa: F401  (imports in the slim image)
+import asyncpg  # noqa: F401  (C extension in the slim image)
+from alembic.script import ScriptDirectory
+from tristhana.infrastructure.db.migrate import alembic_config
+heads = ScriptDirectory.from_config(alembic_config("postgresql://unused")).get_heads()
+assert heads, "migrations missing from the package"
+# The deploy sets DATABASE_CA_FILE to this path; without it the migrate job and the service
+# fail at startup, so catch it in PR CI (infra/supabase/certs/README.md).
+assert Path("/app/certs/supabase-ca.crt").is_file(), "Supabase CA missing: infra/supabase/certs"
 print("ok")
 PY
 
@@ -53,7 +61,8 @@ mb=$(( bytes / 1024 / 1024 ))
 echo "image size: ${mb} MB (budget ${max_mb} MB)"
 (( mb <= max_mb )) || fail "image is ${mb} MB > ${max_mb} MB"
 
-# Telegram webhook with fake credentials: /start must come back as a webhook reply.
+# Telegram webhook with fake credentials and no database: /start must come back as a webhook
+# reply (the gentle "try again" message, since accounts need the database).
 webhook_check() {
   echo "== telegram webhook (fake token; aiogram preloaded at startup)"
   local bot="${name}-bot" port started body ms
@@ -79,8 +88,11 @@ webhook_check() {
     echo "/start #$i answered in ${ms} ms"
   done
   "$engine" rm -f "$bot" >/dev/null
-  [[ "$body" == *'"method":"sendMessage"'* && "$body" == *'Намасте'* ]] || fail "webhook reply: $body"
+  [[ "$body" == *'"method":"sendMessage"'* && "$body" == *'Попробуй ещё раз'* ]] || fail "webhook reply: $body"
 }
+
+echo "== migrate CLI refuses to run without DATABASE_URL"
+run tristhana-migrate >/dev/null 2>&1 && fail "tristhana-migrate ran without DATABASE_URL"
 
 echo "== start and /api/v1/health"
 "$engine" run -d --rm --name "$name" -p 127.0.0.1::8080 -e GIT_SHA=smoke "$image" >/dev/null

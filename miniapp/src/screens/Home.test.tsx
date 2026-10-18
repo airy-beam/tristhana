@@ -10,6 +10,7 @@ import { Home } from "./Home";
 vi.mock("../telegram", () => ({
   haptics: { impact: vi.fn(), notify: vi.fn() },
   useMainButton: vi.fn(),
+  rawInitData: vi.fn(),
 }));
 
 function renderHome(

@@ -24,6 +24,8 @@ RUN python -m compileall -q -j 0 /usr/local/lib/python3.13 \
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY data/seed /app/data/seed
+# Supabase's CA for TLS verify-full (DATABASE_CA_FILE, ADR-0014); public, not a secret.
+COPY infra/supabase/certs /app/certs
 # Declared late: an ARG invalidates the cache of every RUN after it.
 ARG GIT_SHA=dev
 ENV PATH=/app/.venv/bin:$PATH \

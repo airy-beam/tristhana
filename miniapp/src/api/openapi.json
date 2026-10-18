@@ -1,6 +1,43 @@
 {
   "components": {
     "schemas": {
+      "DeviceTimezone": {
+        "properties": {
+          "timezone": {
+            "description": "Intl.DateTimeFormat().resolvedOptions()",
+            "maxLength": 64,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timezone"
+        ],
+        "title": "DeviceTimezone",
+        "type": "object"
+      },
+      "Error": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "Error",
+        "type": "object"
+      },
+      "ErrorCode": {
+        "enum": [
+          "auth_missing",
+          "auth_invalid",
+          "auth_expired",
+          "invalid_timezone",
+          "unavailable"
+        ],
+        "type": "string"
+      },
       "Health": {
         "properties": {
           "commit": {
@@ -24,6 +61,64 @@
         ],
         "title": "Health",
         "type": "object"
+      },
+      "Locale": {
+        "enum": [
+          "en",
+          "ru"
+        ],
+        "type": "string"
+      },
+      "Me": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "$ref": "#/components/schemas/Locale"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA zone, e.g. Asia/Almaty; null until set",
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "locale",
+          "timezone"
+        ],
+        "title": "Me",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "TelegramInitData": {
+        "description": "`tma <raw Telegram initData>` (ADR-0015)",
+        "in": "header",
+        "name": "Authorization",
+        "type": "apiKey"
       }
     }
   },
@@ -52,6 +147,119 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "get_me_api_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Me",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/device-timezone": {
+      "post": {
+        "description": "Stores the device zone only if none is set yet; returns the account either way.",
+        "operationId": "post_device_timezone_api_v1_me_device_timezone_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTimezone"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Device Timezone",
+        "tags": [
+          "me"
         ]
       }
     }

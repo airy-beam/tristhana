@@ -8,6 +8,7 @@ import {
   mainButton,
   miniApp,
   retrieveLaunchParams,
+  retrieveRawInitData,
   themeParams,
   viewport,
 } from "@telegram-apps/sdk-react";
@@ -51,10 +52,19 @@ export function markReady(): void {
   miniApp.ready.ifAvailable();
 }
 
-/** Unverified, for display only; never sent to the backend as identity (Phase 1: initData). */
+/** Unverified, for the first paint only; the backend's `/me` is the source of truth. */
 export function launchUser(): LaunchUser {
   const user = retrieveLaunchParams().tgWebAppData?.user;
   return { firstName: user?.first_name ?? null, languageCode: user?.language_code ?? null };
+}
+
+/** The signed initData string, sent to the API on every request (ADR-0015). */
+export function rawInitData(): string | undefined {
+  try {
+    return retrieveRawInitData();
+  } catch {
+    return undefined; // outside Telegram
+  }
 }
 
 export const haptics = {

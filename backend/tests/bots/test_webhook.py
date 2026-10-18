@@ -10,6 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.fakes import InMemoryStorage
+from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -28,8 +30,13 @@ def _settings(**overrides: Any) -> Settings:
 
 
 @pytest.fixture
-def bot_client() -> Iterator[TestClient]:
-    with TestClient(create_app(_settings())) as client:
+def storage() -> InMemoryStorage:
+    return InMemoryStorage()
+
+
+@pytest.fixture
+def bot_client(storage: InMemoryStorage) -> Iterator[TestClient]:
+    with TestClient(create_app(_settings(), storage)) as client:
         yield client
 
 
@@ -119,19 +126,19 @@ def test_duplicate_update_is_handled_once(bot_client: TestClient) -> None:
 
 
 def test_handler_error_is_acknowledged(monkeypatch: pytest.MonkeyPatch) -> None:
-    from tristhana.application.start import StartUseCase
+    from tristhana.application.accounts import EnsureAccount
 
-    async def boom(self: StartUseCase, command: object) -> object:
+    async def boom(self: EnsureAccount, profile: object) -> object:
         raise RuntimeError("bug")
 
-    monkeypatch.setattr(StartUseCase, "execute", boom)
-    with TestClient(create_app(_settings())) as client:
+    monkeypatch.setattr(EnsureAccount, "execute", boom)
+    with TestClient(create_app(_settings(), InMemoryStorage())) as client:
         assert _post(client, _update("/start")).status_code == 200
 
 
 def test_route_absent_without_secrets() -> None:
     settings = _settings(telegram_webhook_secret=None)
-    with TestClient(create_app(settings)) as client:
+    with TestClient(create_app(settings, InMemoryStorage())) as client:
         assert _post(client, _update("/start")).status_code == 404
 
 
@@ -139,10 +146,10 @@ def test_webhook_is_not_in_openapi(bot_client: TestClient) -> None:
     assert "/telegram/webhook" not in bot_client.get("/openapi.json").json()["paths"]
 
 
-def test_importing_the_app_does_not_load_aiogram_or_fluent() -> None:
+def test_importing_the_app_does_not_load_aiogram_fluent_or_sqlalchemy() -> None:
     code = (
         "import sys, tristhana.main; "
-        "print(sorted(m for m in ('aiogram', 'fluent.runtime') if m in sys.modules))"
+        "print(sorted(m for m in ('aiogram', 'fluent.runtime', 'sqlalchemy') if m in sys.modules))"
     )
     out = subprocess.run(  # noqa: S603 - fixed interpreter and code
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
@@ -161,7 +168,7 @@ def test_runtime_is_preloaded_at_startup(monkeypatch: pytest.MonkeyPatch) -> Non
         return real(*args)
 
     monkeypatch.setattr(tristhana.main, "build_runtime", recording)
-    app = create_app(_settings())
+    app = create_app(_settings(), InMemoryStorage())
     assert built == []
 
     with TestClient(app):
@@ -184,7 +191,9 @@ def test_polling_failure_is_logged_and_shutdown_is_clean(monkeypatch: pytest.Mon
             messages.append(record.getMessage())
 
     monkeypatch.setattr(polling, "run_polling", broken)
-    app = create_app(_settings(telegram_mode="polling", telegram_webhook_secret=None))
+    app = create_app(
+        _settings(telegram_mode="polling", telegram_webhook_secret=None), InMemoryStorage()
+    )
     logging.getLogger(tristhana.main.__name__).addHandler(handler := Capture())
     try:
         with TestClient(app) as client:
@@ -197,7 +206,7 @@ def test_polling_failure_is_logged_and_shutdown_is_clean(monkeypatch: pytest.Mon
 
 def test_start_offers_the_mini_app_when_configured() -> None:
     settings = _settings(miniapp_url="https://tristhana.web.app")
-    with TestClient(create_app(settings)) as client:
+    with TestClient(create_app(settings, InMemoryStorage())) as client:
         body = _post(client, _update("/start", language_code="ru")).json()
 
     [[button]] = body["reply_markup"]["inline_keyboard"]
@@ -209,3 +218,93 @@ def test_start_has_no_button_without_a_mini_app_url(bot_client: TestClient) -> N
     body = _post(bot_client, _update("/start")).json()
 
     assert "reply_markup" not in body
+
+
+def test_first_message_creates_the_account(
+    bot_client: TestClient, storage: InMemoryStorage
+) -> None:
+    _post(bot_client, _update("/start", language_code="ru"))
+
+    [account] = storage.repo.accounts.values()
+    assert (account.display_name, account.locale) == ("Ash", "ru")
+
+
+def test_language_change_in_telegram_updates_the_account(
+    bot_client: TestClient, storage: InMemoryStorage
+) -> None:
+    _post(bot_client, _update("/start", language_code="ru"))
+
+    body = _post(bot_client, _update("/help", language_code="en")).json()
+
+    [account] = storage.repo.accounts.values()
+    assert account.locale == "en"
+    assert body["text"].startswith("I'm Tristhana")
+
+
+def test_database_down_gets_a_gentle_retry(
+    bot_client: TestClient, storage: InMemoryStorage
+) -> None:
+    storage.repo.down = True
+
+    body = _post(bot_client, _update("/start", language_code="ru")).json()
+
+    assert body["method"] == "sendMessage"
+    assert body["text"] == FluentTranslator().t("ru", "error-temporary")
+
+
+def test_group_chats_create_no_account(bot_client: TestClient, storage: InMemoryStorage) -> None:
+    _post(bot_client, _update("/start", chat_type="group"))
+
+    assert storage.repo.accounts == {}
+
+
+def test_works_without_a_database_configured() -> None:
+    # No DATABASE_URL (container smoke test): the bot still answers, with the retry message.
+    with TestClient(create_app(_settings())) as client:
+        body = _post(client, _update("/start")).json()
+
+    assert "try again in a minute" in body["text"]
+
+
+def _callback(user_is_bot: bool = False) -> dict[str, Any]:
+    user = {"id": 42, "is_bot": user_is_bot, "first_name": "Ash", "language_code": "en"}
+    message = {"message_id": 7, "date": 1_760_000_000, "chat": {"id": 42, "type": "private"}}
+    callback = {"id": "cb1", "from": user, "chat_instance": "ci", "data": "x", "message": message}
+    return {"update_id": next(_ids), "callback_query": callback}
+
+
+def test_callback_with_database_down_gets_a_toast(
+    bot_client: TestClient, storage: InMemoryStorage
+) -> None:
+    from aiogram import Router
+
+    import tristhana.bots.telegram.router as router_module
+
+    storage.repo.down = True
+    real = router_module.build_router
+
+    def with_callback_handler(*args: Any) -> Router:
+        router = real(*args)
+        router.callback_query.register(lambda *_: None)  # pyright: ignore[reportUnknownLambdaType]
+        return router
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(router_module, "build_router", with_callback_handler)
+        with TestClient(create_app(_settings(), storage)) as client:
+            body = _post(client, _callback()).json()
+
+    assert body["method"] == "answerCallbackQuery"
+    assert body["callback_query_id"] == "cb1"
+    assert "try again" in body["text"]
+
+
+def test_bot_senders_get_no_reply_and_no_account(
+    bot_client: TestClient, storage: InMemoryStorage
+) -> None:
+    update = _update("/start")
+    update["message"]["from"]["is_bot"] = True
+
+    response = _post(bot_client, update)
+
+    assert response.content == b""
+    assert storage.repo.accounts == {}

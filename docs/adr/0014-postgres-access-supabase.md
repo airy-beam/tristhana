@@ -1,0 +1,16 @@
+# ADR-0014: Postgres access: Supabase session pooler, SQLAlchemy Core + asyncpg, Alembic as a Cloud Run Job
+- Status: accepted
+- Date: 2026-10-18
+## Context
+ID-01 is the first feature that needs the database. ADR-0004 chose Supabase Postgres (always on; Neon's free tier suspends after 5 min idle). The API runs on Cloud Run in europe-west3 with scale-to-zero, `max-instances=2`, CPU throttled outside requests, and a < 300 ms p50 per-tap budget. Supabase's direct endpoint is IPv6-only; its Supavisor pooler offers session mode (port 5432) and transaction mode (port 6543, no prepared statements). The free plan pauses a project after about a week without database activity. Spec: `docs/specs/ID-01-accounts.md`.
+## Decision
+- **Region and endpoint:** Supabase project in eu-central-1 (Frankfurt, same metro as europe-west3). Connect through the **Supavisor session pooler** (IPv4, port 5432) with TLS verified against the bundled Supabase CA. Data API disabled; all tables live in schema `tristhana`.
+- **Driver and access style:** SQLAlchemy 2 **Core** (async, no ORM) with **asyncpg**. Engine built in the lifespan (lazy import) with one warm-up connection; `pool_size=3`, `max_overflow=2`, `pool_pre_ping=True`, `pool_recycle=600`. Queries are written so a warm interaction costs one round trip.
+- **Roles:** `tristhana_app` (DML only) for the service via secret `database-url`; the `postgres` role for migrations via secret `database-url-migrate`, readable only by a dedicated `tristhana-migrate` service account.
+- **Migrations:** Alembic, shipped in the image. The deploy pipeline runs a Cloud Run Job `tristhana-migrate` (same image, `pg_advisory_lock`, `upgrade head`) before deploying the service. Never at app startup. Migrations are expand/contract so the old revision keeps working while they run. CI runs `alembic check`.
+- **Liveness of the free tier:** the Cloud Scheduler keep-warm ping targets `GET /api/v1/health/db` (`SELECT 1`), which keeps an instance warm and the Supabase project active.
+- **Tests:** real Postgres (same major as Supabase) as a GitHub Actions service container; a local Postgres container for development. No SQLite.
+## Consequences
+Warm queries cost a few milliseconds. Prepared statements and asyncpg's statement cache work (session mode). The service holds at most 10 pooled connections, within the free pooler limits. Schema changes need a second migration step to drop anything old (contract phase). Two more secrets, one more service account, and one job execution per deploy (≈ free). Supabase free has no reliable backups, so a dump job is a follow-up. Moving to Cloud SQL or another Postgres later only changes the connection string and the CA.
+## Alternatives considered
+psycopg 3 (handles transaction pooling better, but slower and the architecture already assumes asyncpg); transaction-mode pooler (needs prepared statements disabled, little benefit at 2 instances); direct IPv6 connection (needs Direct VPC egress with dual-stack subnets, or the paid IPv4 add-on); SQLAlchemy ORM (lazy loading hides round trips); migrations at startup (slower cold starts, races between instances); migrations from the GitHub runner (DB credentials outside Secret Manager); SQLite or testcontainers in tests (dialect drift, or Docker-in-CI complexity for no gain over a service container).

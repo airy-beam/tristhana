@@ -27,7 +27,10 @@ export default defineConfig(({ mode }) => {
     build: { target: "es2022" },
     server: {
       // Dev: same-origin /api via the local backend (`uv run tristhana-dev`), so no CORS.
-      proxy: { "/api": "http://localhost:8000" },
+      // /dev signs initData for the browser mock (backend APP_ENV=dev + DEV_INIT_DATA=true).
+      // Through a tunnel it is public: anyone with the URL can act as any dev-bot user, so
+      // leave DEV_INIT_DATA off while testing on a device.
+      proxy: { "/api": "http://localhost:8000", "/dev": "http://localhost:8000" },
       // On-device testing through a tunnel (e.g. cloudflared) as @tristhana_dev_bot's URL.
       allowedHosts: [".trycloudflare.com"],
     },
