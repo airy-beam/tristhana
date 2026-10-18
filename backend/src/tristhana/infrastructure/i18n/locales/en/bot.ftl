@@ -4,6 +4,9 @@ start-greeting =
     Namaste 🙏
     I'm Tristhana, your Ashtanga practice companion. Glad you're here.
 
+# Button under the /start greeting that opens the Mini App.
+start-open-app = Open the app
+
 help-text =
     I'm Tristhana, a companion for your Ashtanga practice: breath, bandha, drishti.
     For now I can only say hello, so send /start. Practice logging is coming soon.

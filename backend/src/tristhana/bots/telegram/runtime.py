@@ -22,14 +22,16 @@ class BotRuntime:
     dispatcher: Dispatcher
 
 
-def build_runtime(token: str, start: StartUseCase, translator: Translator) -> BotRuntime:
+def build_runtime(
+    token: str, start: StartUseCase, translator: Translator, miniapp_url: str = ""
+) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
 
     from tristhana.bots.telegram.router import build_router
 
     dispatcher = Dispatcher()
-    dispatcher.include_router(build_router(start, translator))
+    dispatcher.include_router(build_router(start, translator, miniapp_url))
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
 
 

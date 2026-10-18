@@ -23,6 +23,7 @@ WIF_POOL="github"
 WIF_PROVIDER="github-actions"
 BUDGET_NAME="tristhana-monthly"
 KEEPWARM_JOB="tristhana-keepwarm"
+HOSTING_SITE="tristhana" # https://tristhana.web.app (Mini App, UI-03)
 SECRETS=(telegram-bot-token telegram-webhook-secret)
 
 RUN_SA_EMAIL="${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -57,7 +58,8 @@ step "APIs"
 run "${gc[@]}" services enable \
   iam.googleapis.com cloudresourcemanager.googleapis.com run.googleapis.com \
   artifactregistry.googleapis.com secretmanager.googleapis.com iamcredentials.googleapis.com \
-  sts.googleapis.com billingbudgets.googleapis.com cloudscheduler.googleapis.com
+  sts.googleapis.com billingbudgets.googleapis.com cloudscheduler.googleapis.com \
+  firebase.googleapis.com firebasehosting.googleapis.com
 
 step "Artifact Registry repo ${AR_REPO} (${REGION}) with cleanup policy"
 if ! exists "${gc[@]}" artifacts repositories describe "$AR_REPO" --location "$REGION"; then
@@ -92,6 +94,8 @@ run "${gc[@]}" artifacts repositories add-iam-policy-binding "$AR_REPO" --locati
   --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/artifactregistry.writer
 
 step "Workload Identity Federation (GitHub, ${GITHUB_REPO} main only)"
+# Only these workflows on main may deploy: backend (Cloud Run) and miniapp (Firebase Hosting).
+WIF_CONDITION="assertion.repository_id == '${GITHUB_REPO_ID}' && assertion.ref == 'refs/heads/main' && (assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/backend.yml@') || assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/miniapp.yml@'))"
 if ! exists "${gc[@]}" iam workload-identity-pools describe "$WIF_POOL" --location global; then
   run "${gc[@]}" iam workload-identity-pools create "$WIF_POOL" --location global \
     --display-name "GitHub Actions"
@@ -103,7 +107,11 @@ if ! exists "${gc[@]}" iam workload-identity-pools providers describe "$WIF_PROV
     --display-name "GitHub Actions OIDC" \
     --issuer-uri "https://token.actions.githubusercontent.com" \
     --attribute-mapping "google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.ref=assertion.ref,attribute.workflow_ref=assertion.workflow_ref" \
-    --attribute-condition "assertion.repository_id == '${GITHUB_REPO_ID}' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/backend.yml@')"
+    --attribute-condition "$WIF_CONDITION"
+else
+  # Keep the condition current (e.g. a newly allowed workflow).
+  run "${gc[@]}" iam workload-identity-pools providers update-oidc "$WIF_PROVIDER" \
+    --location global --workload-identity-pool "$WIF_POOL" --attribute-condition "$WIF_CONDITION"
 fi
 run "${gc[@]}" iam service-accounts add-iam-policy-binding "$DEPLOY_SA_EMAIL" \
   --role roles/iam.workloadIdentityUser \
@@ -139,6 +147,26 @@ if ! exists "${gc[@]}" scheduler jobs describe "$KEEPWARM_JOB" --location "$REGI
     --schedule "*/10 * * * *" --time-zone "Etc/UTC" --uri "${service_url}/api/v1/health" \
     --http-method GET --attempt-deadline 30s --description "Keep one tristhana-api instance warm"
 fi
+
+step "Firebase Hosting for the Mini App (site ${HOSTING_SITE})"
+# No gcloud commands exist for these, so they use the REST APIs with the caller's token.
+firebase_api() { # METHOD URL [JSON]
+  local token
+  token="$(gcloud auth print-access-token)"
+  curl -sS --fail-with-body -X "$1" "$2" -H "Authorization: Bearer ${token}" \
+    -H "x-goog-user-project: ${PROJECT_ID}" -H "Content-Type: application/json" ${3:+-d "$3"}
+}
+if $DRY_RUN || ! firebase_api GET "https://firebase.googleapis.com/v1beta1/projects/${PROJECT_ID}" >/dev/null 2>&1; then
+  run firebase_api POST "https://firebase.googleapis.com/v1beta1/projects/${PROJECT_ID}:addFirebase" "{}"
+  $DRY_RUN || sleep 30 # addFirebase is a long-running operation
+fi
+if $DRY_RUN || ! firebase_api GET \
+  "https://firebasehosting.googleapis.com/v1beta1/projects/${PROJECT_ID}/sites/${HOSTING_SITE}" >/dev/null 2>&1; then
+  run firebase_api POST \
+    "https://firebasehosting.googleapis.com/v1beta1/projects/${PROJECT_ID}/sites?siteId=${HOSTING_SITE}" "{}"
+fi
+run "${gc[@]}" projects add-iam-policy-binding "$PROJECT_ID" \
+  --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/firebasehosting.admin --condition None
 
 step "Budget \$5/month (alerts only; it does not cap spend)"
 existing_budget=""
