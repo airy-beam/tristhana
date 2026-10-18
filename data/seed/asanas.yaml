@@ -2,9 +2,9 @@
 # names.latin = simple Latin display; names.iast = metadata; names.ru = Cyrillic transliteration
 # from IAST (ś/ṣ→ш, c→ч, j→дж, ṛ→ри, consonant+h→х, no length marks, no ё).
 # Slugs are permanent natural keys (ADR-0010): never rename a slug once released.
-# Owner review pending: set meta.reviewed_by/reviewed_on after reviewing
-# `08b Asana Catalog Review (generated).md`. Mark open questions with a "# REVIEW:" comment.
-meta: {schema_version: 1, reviewed_by: null, reviewed_on: null}
+# Owner sign-off: meta.reviewed_by/reviewed_on (re-review the generated table after changes in
+# `08b Asana Catalog Review (generated).md`). Mark open questions with a "# REVIEW:" comment.
+meta: {schema_version: 1, reviewed_by: Iskander, reviewed_on: 2026-10-18}
 
 asanas:
   # --- Opening ---

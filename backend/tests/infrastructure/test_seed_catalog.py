@@ -119,6 +119,9 @@ def test_backbending_order() -> None:
     ]
 
 
-def test_review_is_still_pending() -> None:
-    # Flip this when the owner signs off; Phase 1 release checks will require it.
-    assert _catalog().reviewed_on is None
+def test_catalog_is_signed_off_by_the_owner() -> None:
+    # Users may only see names/meanings the owner has reviewed (AC-01 spec).
+    catalog = _catalog()
+
+    assert catalog.reviewed_by
+    assert catalog.reviewed_on is not None
