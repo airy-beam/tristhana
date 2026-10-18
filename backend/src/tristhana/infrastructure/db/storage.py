@@ -13,9 +13,12 @@ from uuid import UUID
 
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.days import DayLogRepository
+from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import StorageUnavailable
+from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileUpdate
 from tristhana.domain.days import DayLog
+from tristhana.domain.practice import Practice
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -45,11 +48,13 @@ class PostgresStorage:
         self._engine: AsyncEngine | None = None
         self._accounts: AccountRepository | None = None
         self._days: DayLogRepository | None = None
+        self._practices: PracticeRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.engine import build_engine
+        from tristhana.infrastructure.db.practice import SqlPracticeRepository
 
         self._engine = build_engine(
             self._url,
@@ -59,6 +64,7 @@ class PostgresStorage:
         )
         self._accounts = SqlAccountRepository(self._engine)
         self._days = SqlDayLogRepository(self._engine, self._cipher)
+        self._practices = SqlPracticeRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -93,6 +99,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._days
 
+    @property
+    def practices(self) -> PracticeRepository:
+        if self._practices is None:
+            raise RuntimeError("storage not started")
+        return self._practices
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -120,6 +132,10 @@ class UnconfiguredStorage:
     def days(self) -> DayLogRepository:
         return _UnavailableDays()
 
+    @property
+    def practices(self) -> PracticeRepository:
+        return _UnavailablePractices()
+
 
 class _UnavailableAccounts:
     async def find_by_identity(self, key: IdentityKey) -> NoReturn:
@@ -145,4 +161,20 @@ class _UnavailableDays:
         raise StorageUnavailable("not configured")
 
     async def list_range(self, account_id: UUID, start: date, end: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailablePractices:
+    async def save(self, account_id: UUID, local_date: date, patch: PracticePatch) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def copy_latest(
+        self, account_id: UUID, local_date: date, timezone: str | None
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, account_id: UUID, local_date: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def recent(self, account_id: UUID, before: date, limit: int) -> list[Practice]:
         raise StorageUnavailable("not configured")

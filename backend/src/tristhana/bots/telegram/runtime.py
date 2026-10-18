@@ -11,6 +11,13 @@ from typing import TYPE_CHECKING, Any
 from tristhana.application.accounts import EnsureAccount
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.i18n import Translator
+from tristhana.application.practice import (
+    ClearPractice,
+    CopyLastPractice,
+    GetPracticePresets,
+    SavePractice,
+)
+from tristhana.domain.practice import PracticeCatalog
 
 if TYPE_CHECKING:
     from aiogram import Bot, Dispatcher
@@ -25,6 +32,15 @@ class DayUseCases:
 
 
 @dataclass(frozen=True, slots=True)
+class PracticeUseCases:
+    save: SavePractice
+    copy_last: CopyLastPractice
+    clear: ClearPractice
+    presets: GetPracticePresets
+    catalog: PracticeCatalog
+
+
+@dataclass(frozen=True, slots=True)
 class BotRuntime:
     bot: Bot
     dispatcher: Dispatcher
@@ -34,6 +50,7 @@ def build_runtime(
     token: str,
     ensure: EnsureAccount,
     days: DayUseCases,
+    practices: PracticeUseCases,
     translator: Translator,
     miniapp_url: str = "",
 ) -> BotRuntime:
@@ -43,7 +60,7 @@ def build_runtime(
     from tristhana.bots.telegram.router import build_router
 
     dispatcher = Dispatcher()
-    dispatcher.include_router(build_router(ensure, days, translator, miniapp_url))
+    dispatcher.include_router(build_router(ensure, days, practices, translator, miniapp_url))
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
 
 

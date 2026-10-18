@@ -105,6 +105,16 @@ export const DAY_STATUSES: readonly DayStatus[] = [
 
 const DAYS_KEY = ["days", "recent"] as const;
 
+/** Day-scope mutations run one at a time, but each `onMutate` (optimistic update) runs at
+ * tap time; so after the last queued one settles (or the server refused with a conflict),
+ * refetch, and the cache matches the server whatever the order of failures was. */
+function settleDays(client: ReturnType<typeof useQueryClient>, error: unknown): void {
+  const queued = client.isMutating({ predicate: (m) => m.options.scope?.id === "day" });
+  if (queued <= 1 || (error instanceof ApiError && error.status === 409)) {
+    void client.invalidateQueries({ queryKey: DAYS_KEY });
+  }
+}
+
 /** The last 7 days and the server's "today" (PR-01). */
 export function useDays() {
   return useQuery({
@@ -119,8 +129,11 @@ export function useDays() {
 }
 
 function withDay(days: Days, date: string, status: DayStatus | null): Days {
+  const before = days.days.find((d) => d.date === date);
   const others = days.days.filter((d) => d.date !== date);
-  const next = status ? [...others, { date, status }] : others;
+  // Details live only on a practiced day (the server drops them on any other status).
+  const practices = status === "practiced" ? (before?.practices ?? []) : [];
+  const next = status ? [...others, { date, status, practices }] : others;
   return { ...days, days: next.sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
@@ -128,8 +141,10 @@ function withDay(days: Days, date: string, status: DayStatus | null): Days {
 export function useSetDay() {
   const client = useQueryClient();
   return useMutation({
-    // One at a time, in tap order: the last tap wins and a rollback can't undo a later tap.
-    scope: { id: "day" },
+    scope: { id: "day" }, // one request at a time, in tap order
+    onSettled: (_data, error) => {
+      settleDays(client, error);
+    },
     mutationFn: async ({ date, status }: { date: string; status: DayStatus | null }) => {
       const params = { path: { date } };
       const { error, response } = status
@@ -145,6 +160,99 @@ export function useSetDay() {
     },
     onError: (_error, _vars, context) => {
       if (context?.before) client.setQueryData(DAYS_KEY, context.before);
+    },
+  });
+}
+
+export type Practice = components["schemas"]["PracticeOut"];
+export type PracticeBody = components["schemas"]["PracticeBody"];
+export type Length = components["schemas"]["Length"];
+export type PracticeContext = components["schemas"]["PracticeContext"];
+export type Catalog = components["schemas"]["CatalogOut"];
+export type PracticePresets = components["schemas"]["PracticePresets"];
+
+/** Series and stop points for the length picker (public, ETag-cached). */
+export function useCatalog() {
+  return useQuery({
+    queryKey: ["catalog"],
+    queryFn: async (): Promise<Catalog> => {
+      const { data, error, response } = await api.GET("/api/v1/catalog");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: Infinity,
+  });
+}
+
+/** "Same as last time" and the length presets for a day (PR-03). */
+export function usePracticePresets(date: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["practice-presets", date],
+    enabled,
+    queryFn: async (): Promise<PracticePresets> => {
+      const { data, error, response } = await api.GET("/api/v1/me/days/{date}/practice-presets", {
+        params: { path: { date } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+function withPractice(days: Days, date: string, practice: Practice | null): Days {
+  return {
+    ...days,
+    days: days.days.map((d) =>
+      d.date === date ? { ...d, practices: practice ? [practice] : [] } : d,
+    ),
+  };
+}
+
+/** Replaces (body) or removes (null) the day's practice details, optimistically. */
+export function useSavePractice() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "day" }, // in tap order with status changes
+    mutationFn: async ({
+      date,
+      body,
+    }: {
+      date: string;
+      body: PracticeBody | null;
+    }): Promise<Practice | null> => {
+      const params = { path: { date, slot: 1 } };
+      if (!body) {
+        const { error, response } = await api.DELETE("/api/v1/me/days/{date}/practices/{slot}", {
+          params,
+        });
+        if (!response.ok) fail(response, error);
+        return null;
+      }
+      const { data, error, response } = await api.PUT("/api/v1/me/days/{date}/practices/{slot}", {
+        params,
+        body,
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onMutate: async ({ date, body }) => {
+      await client.cancelQueries({ queryKey: DAYS_KEY });
+      const before = client.getQueryData<Days>(DAYS_KEY);
+      const practice = body ? { slot: 1, timezone: null, ...body } : null;
+      if (before) client.setQueryData(DAYS_KEY, withPractice(before, date, practice));
+      return { before };
+    },
+    onSuccess: (saved, { date }) => {
+      // The server's normalised practice (e.g. a full series, the stored zone) wins.
+      const days = client.getQueryData<Days>(DAYS_KEY);
+      if (days) client.setQueryData(DAYS_KEY, withPractice(days, date, saved));
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.before) client.setQueryData(DAYS_KEY, context.before);
+    },
+    onSettled: (_data, error) => {
+      settleDays(client, error);
     },
   });
 }

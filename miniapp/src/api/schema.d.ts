@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Catalog
+         * @description Public and cacheable: the series and their stop points for the length picker.
+         */
+        get: operations["get_catalog_api_v1_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -82,6 +102,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/days/{date}/practice-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Presets */
+        get: operations["get_presets_api_v1_me_days__date__practice_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/days/{date}/practices/{slot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Practice
+         * @description Replaces the practice's details (all fields). The day must be Practiced.
+         */
+        put: operations["put_practice_api_v1_me_days__date__practices__slot__put"];
+        post?: never;
+        /** Delete Practice */
+        delete: operations["delete_practice_api_v1_me_days__date__practices__slot__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/device-timezone": {
         parameters: {
             query?: never;
@@ -106,6 +164,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CatalogOut */
+        CatalogOut: {
+            /**
+             * Series
+             * @description Confirmed series only, in practice order
+             */
+            series: components["schemas"]["SeriesOut"][];
+            /** Version */
+            version: string;
+        };
         /** Day */
         Day: {
             /**
@@ -113,6 +181,12 @@ export interface components {
              * Format: date
              */
             date: string;
+            /**
+             * Practices
+             * @description Only on a practiced day
+             * @default []
+             */
+            practices: components["schemas"]["PracticeOut"][];
             status: components["schemas"]["DayStatus"];
         };
         /**
@@ -156,7 +230,7 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "date_in_future" | "date_too_early" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -173,6 +247,21 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /** Length */
+        Length: {
+            /**
+             * End
+             * @description Stop point in the last series; null = full
+             */
+            end?: string | null;
+            /** First Part */
+            first_part?: ("first_half" | "second_half") | null;
+            /**
+             * Series
+             * @description Series slugs in practice order; [] = short practice
+             */
+            series: string[];
         };
         /** @enum {string} */
         Locale: "en" | "ru";
@@ -191,6 +280,95 @@ export interface components {
              * @description IANA zone, e.g. Asia/Almaty; null until set
              */
             timezone: string | null;
+        };
+        /** PracticeBody */
+        PracticeBody: {
+            context?: components["schemas"]["PracticeContext"] | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            length?: components["schemas"]["Length"] | null;
+            /**
+             * Online
+             * @default false
+             */
+            online: boolean;
+            /**
+             * Start Time
+             * @description Local wall clock, HH:MM
+             */
+            start_time?: string | null;
+        };
+        /**
+         * PracticeContext
+         * @enum {string}
+         */
+        PracticeContext: "mysore" | "led" | "private" | "self";
+        /** PracticeOut */
+        PracticeOut: {
+            context?: components["schemas"]["PracticeContext"] | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            length?: components["schemas"]["Length"] | null;
+            /**
+             * Online
+             * @default false
+             */
+            online: boolean;
+            /** Slot */
+            slot: number;
+            /**
+             * Start Time
+             * @description Local wall clock, HH:MM
+             */
+            start_time?: string | null;
+            /**
+             * Timezone
+             * @description IANA zone of start_time
+             */
+            timezone: string | null;
+        };
+        /** PracticePresets */
+        PracticePresets: {
+            /** @description For 'same as last time' */
+            last: components["schemas"]["PracticeOut"] | null;
+            /** Presets */
+            presets: components["schemas"]["Preset"][];
+        };
+        /** Preset */
+        Preset: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "short" | "half_primary" | "full_primary" | "recent";
+            length: components["schemas"]["Length"];
+        };
+        /** SeriesOut */
+        SeriesOut: {
+            /**
+             * Halves Split
+             * @description First half ends here (Primary: navasana)
+             */
+            halves_split: string | null;
+            /** Name En */
+            name_en: string;
+            /** Name Ru */
+            name_ru: string;
+            /** Number */
+            number: number;
+            /** Slug */
+            slug: string;
+            /** Stops */
+            stops: components["schemas"]["StopOut"][];
+        };
+        /** StopOut */
+        StopOut: {
+            /** Key */
+            key: string;
+            /** Latin */
+            latin: string;
+            /** Ru */
+            ru: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -214,6 +392,44 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_catalog_api_v1_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-none-match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogOut"];
+                };
+            };
+            /** @description Not modified */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_v1_health_get: {
         parameters: {
             query?: never;
@@ -381,6 +597,168 @@ export interface operations {
             header?: never;
             path: {
                 date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_presets_api_v1_me_days__date__practice_presets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticePresets"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_practice_api_v1_me_days__date__practices__slot__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+                /** @description One practice per day for now */
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_practice_api_v1_me_days__date__practices__slot__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+                /** @description One practice per day for now */
+                slot: number;
             };
             cookie?: never;
         };

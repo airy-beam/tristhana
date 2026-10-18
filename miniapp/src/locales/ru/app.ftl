@@ -44,3 +44,62 @@ today-private-note = Это видишь только ты. Остальные �
 today-clear = Убрать отметку
 today-save-failed = Не получилось сохранить. Попробуй ещё раз чуть позже.
 today-load-failed = Не получилось загрузить отметку за сегодня. Попробуй ещё раз чуть позже.
+
+# Детали практики (PR-02, PR-03, PR-05). Совпадают с формулировками бота.
+practice-title = Практика
+practice-same-as-last = 🔁 Как в прошлый раз
+context-mysore = Майсор
+context-led = Лед-класс
+context-private = Индивидуально
+context-self = Самостоятельно
+practice-online = 🌐 Онлайн
+practice-length = Объём практики
+practice-duration = Длительность
+preset-short = ☀️ Короткая: приветствия солнцу, стоячие, завершающие
+preset-half-primary = ½ первой → Навасана
+preset-full-primary = Первая серия целиком
+preset-other = 🎯 Другое…
+length-pick-range = Серии
+length-pick-end = Последняя асана
+length-full-series = Вся серия
+duration-min = { $min } мин
+duration-none = Без длительности
+practice-start-time = Время начала
+practice-clear = Убрать детали
+series-name =
+    { $n ->
+        [1] Первая
+        [2] Вторая
+        [3] Третья
+        [4] Четвертая
+        [5] Пятая
+       *[6] Шестая
+    }
+series-lower =
+    { $n ->
+        [1] первая
+        [2] вторая
+        [3] третья
+        [4] четвертая
+        [5] пятая
+       *[6] шестая
+    }
+series-half =
+    { $n ->
+        [1] первой
+        [2] второй
+        [3] третьей
+        [4] четвертой
+        [5] пятой
+       *[6] шестой
+    }
+half-first = 1-я половина { $series }
+half-second = 2-я половина { $series }
+length-only = Только { $series }
+length-summary =
+    { $kind ->
+        [short] Короткая практика
+        [full-one] { $range } серия целиком
+        [full] { $range } (полностью)
+       *[to] { $range } → { $asana }
+    }

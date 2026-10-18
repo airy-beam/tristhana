@@ -37,7 +37,10 @@ async def engine(migrated_url: str) -> AsyncIterator[AsyncEngine]:
     engine = build_engine(migrated_url, ca_file=None, pool_size=3, max_overflow=2)
     async with engine.connect() as conn:
         await conn.execute(
-            text("TRUNCATE tristhana.account, tristhana.identity, tristhana.day_log")
+            text(
+                "TRUNCATE tristhana.account, tristhana.identity,"
+                " tristhana.day_log, tristhana.practice"
+            )
         )
     yield engine
     await engine.dispose()

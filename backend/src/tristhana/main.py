@@ -19,11 +19,23 @@ from tristhana.api.errors import install_error_handlers
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.storage import Storage
-from tristhana.bots.telegram.runtime import BotRuntime, DayUseCases, build_runtime
+from tristhana.application.practice import (
+    ClearPractice,
+    CopyLastPractice,
+    GetPracticePresets,
+    SavePractice,
+)
+from tristhana.bots.telegram.runtime import (
+    BotRuntime,
+    DayUseCases,
+    PracticeUseCases,
+    build_runtime,
+)
 from tristhana.bots.telegram.webhook import make_webhook_router
 from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
+from tristhana.infrastructure.seed.practice_catalog import load_practice_catalog
 from tristhana.logs import configure_logging
 from tristhana.settings import Settings, get_settings
 
@@ -36,7 +48,7 @@ def create_app(settings: Settings | None = None, storage: Storage | None = None)
     configure_logging(settings.log_level, settings.effective_log_format)
 
     bot = _LazyBot(settings)
-    services = _Services(storage or _storage(settings), bot)
+    services = _Services(storage or _storage(settings), bot, settings)
     app = FastAPI(
         title="Tristhana API",
         version=__version__,
@@ -100,14 +112,20 @@ def _webhook_enabled(settings: Settings) -> bool:
 class _Services:
     """Starts storage, builds the use cases once it is up, then hands them to the adapters."""
 
-    def __init__(self, storage: Storage, bot: "_LazyBot") -> None:
+    def __init__(self, storage: Storage, bot: "_LazyBot", settings: Settings) -> None:
         self._storage = storage
         self._bot = bot
+        self._settings = settings
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncGenerator[None]:
-        # The aiogram import (CPU, in a thread) overlaps the DB warm-up's network wait.
-        await asyncio.gather(self._storage.start(), self._bot.preimport())
+        # The aiogram import and the catalog parse (CPU, in threads) overlap the DB warm-up's
+        # network wait.
+        _, _, loaded = await asyncio.gather(
+            self._storage.start(),
+            self._bot.preimport(),
+            asyncio.to_thread(load_practice_catalog, self._settings.seed_dir),
+        )
         clock = SystemClock()
         ensure = EnsureAccount(self._storage.accounts, clock)
         days = DayUseCases(
@@ -120,8 +138,19 @@ class _Services:
         app.state.record_device_timezone = RecordDeviceTimezone(self._storage.accounts)
         app.state.get_days, app.state.set_day_status = days.get, days.set
         app.state.clear_day_status = days.clear
+        practices = PracticeUseCases(
+            save=SavePractice(self._storage.practices, loaded.catalog),
+            copy_last=CopyLastPractice(self._storage.practices),
+            clear=ClearPractice(self._storage.practices),
+            presets=GetPracticePresets(self._storage.practices, loaded.catalog),
+            catalog=loaded.catalog,
+        )
+        app.state.save_practice, app.state.clear_practice = practices.save, practices.clear
+        app.state.practice_presets = practices.presets
+        app.state.practice_catalog, app.state.catalog_version = loaded.catalog, loaded.version
         self._bot.ensure_account = ensure
         self._bot.days = days
+        self._bot.practices = practices
         try:
             async with self._bot.lifespan():
                 yield
@@ -138,18 +167,20 @@ class _LazyBot:
         self._runtime: BotRuntime | None = None
         self.ensure_account: EnsureAccount | None = None  # set in the lifespan
         self.days: DayUseCases | None = None
+        self.practices: PracticeUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
             token = self._settings.telegram_bot_token
             if token is None:
                 raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
-            if self.ensure_account is None or self.days is None:
+            if self.ensure_account is None or self.days is None or self.practices is None:
                 raise RuntimeError("bot used before startup")
             self._runtime = build_runtime(
                 token.get_secret_value(),
                 self.ensure_account,
                 self.days,
+                self.practices,
                 FluentTranslator(),
                 self._settings.miniapp_url,
             )

@@ -10,7 +10,9 @@ from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
+from tristhana.application.practice import ClearPractice, GetPracticePresets, SavePractice
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
+from tristhana.domain.practice import PracticeCatalog
 from tristhana.settings import Settings
 
 # Declared as an API key scheme so OpenAPI (and the generated client) documents the header.
@@ -49,6 +51,24 @@ def set_day_status(request: Request) -> SetDayStatus:
 
 def clear_day_status(request: Request) -> ClearDayStatus:
     return cast(ClearDayStatus, request.app.state.clear_day_status)
+
+
+def save_practice(request: Request) -> SavePractice:
+    return cast(SavePractice, request.app.state.save_practice)
+
+
+def clear_practice(request: Request) -> ClearPractice:
+    return cast(ClearPractice, request.app.state.clear_practice)
+
+
+def practice_presets(request: Request) -> GetPracticePresets:
+    return cast(GetPracticePresets, request.app.state.practice_presets)
+
+
+def practice_catalog(request: Request) -> tuple[PracticeCatalog, str]:
+    """The catalog and its version (content hash, used as the ETag)."""
+    state = request.app.state
+    return cast(PracticeCatalog, state.practice_catalog), cast(str, state.catalog_version)
 
 
 async def principal(

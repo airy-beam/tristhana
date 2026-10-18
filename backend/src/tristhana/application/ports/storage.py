@@ -3,6 +3,7 @@ from typing import Protocol
 
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.days import DayLogRepository
+from tristhana.application.ports.practice import PracticeRepository
 
 
 class StorageUnavailable(Exception):
@@ -29,6 +30,9 @@ class Storage(Protocol):
 
     @property
     def days(self) -> DayLogRepository: ...
+
+    @property
+    def practices(self) -> PracticeRepository: ...
 
 
 class Clock(Protocol):

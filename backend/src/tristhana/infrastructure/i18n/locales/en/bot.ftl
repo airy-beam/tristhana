@@ -66,3 +66,84 @@ log-later = Later ›
 command-log = Log today or an earlier day
 command-help = What I can do
 command-start = Start
+
+## Practice details (PR-02, PR-03, PR-05). Asana names come from the catalog, not from here.
+
+practice-details-prompt = Add details? Optional, one tap is enough.
+practice-last-time = Last time: { $summary }
+practice-same-as-last = 🔁 Same as last time
+context-mysore = Mysore
+context-led = Led
+context-private = 1:1
+context-self = Self-practice
+practice-online = 🌐 Online
+practice-online-suffix = online
+practice-length = 📏 Length
+practice-duration = ⏱ Duration
+practice-done = ✓ Done
+practice-details = 📝 Details
+practice-clear = Remove details
+practice-day-not-practiced = This day isn't marked as practice anymore.
+practice-no-previous = Nothing to copy yet: this is your first practice with details.
+
+length-pick = Where did your practice end?
+preset-short = ☀️ Short: sun salutations, standing, finishing
+preset-half-primary = ½ Primary → Navasana
+preset-full-primary = Full Primary
+preset-other = 🎯 Other…
+length-pick-series = Which series did you end with?
+length-pick-range = What did you practise?
+length-only = Only { $series }
+length-pick-asana = Last asana in { $series }:
+length-full-series = Full series
+log-back = ‹ Back
+
+duration-pick = How long was it?
+duration-min = { $min } min
+duration-none = No duration
+
+# Series names: `series-name` starts a phrase, `series-lower` continues one,
+# `series-half` follows "½" (RU genitive).
+series-name =
+    { $n ->
+        [1] Primary
+        [2] Intermediate
+        [3] Advanced A
+        [4] Advanced B
+        [5] Advanced C
+       *[6] Advanced D
+    }
+series-lower =
+    { $n ->
+        [1] Primary
+        [2] Intermediate
+        [3] Advanced A
+        [4] Advanced B
+        [5] Advanced C
+       *[6] Advanced D
+    }
+series-half =
+    { $n ->
+        [1] Primary
+        [2] Intermediate
+        [3] Advanced A
+        [4] Advanced B
+        [5] Advanced C
+       *[6] Advanced D
+    }
+half-first = { $series }, 1st half
+half-second = { $series }, 2nd half
+
+length-summary =
+    { $kind ->
+        [short] Short practice
+        [full-one] Full { $range }
+        [full] { $range } (full)
+       *[to] { $range } → { $asana }
+    }
+
+time-label = { $time }
+
+# Paging in the asana grid.
+page-prev = ◀
+page-next = ▶

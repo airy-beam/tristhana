@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from tristhana.api.deps import CurrentPrincipal, clear_day_status, get_days, set_day_status
 from tristhana.api.errors import ApiError, error_responses
+from tristhana.api.v1.practice import PracticeOut
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayLog, DayStatus, InvalidRange
 
@@ -18,10 +19,15 @@ router = APIRouter(prefix="/me/days", tags=["days"], responses=error_responses(4
 class Day(BaseModel):
     date: dt.date
     status: DayStatus
+    practices: list[PracticeOut] = Field(default=[], description="Only on a practiced day")
 
     @classmethod
     def of(cls, day: DayLog) -> "Day":
-        return cls(date=day.local_date, status=day.status)
+        return cls(
+            date=day.local_date,
+            status=day.status,
+            practices=[PracticeOut.of(p) for p in day.practices],
+        )
 
 
 class Days(BaseModel):

@@ -3,20 +3,25 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     LargeBinary,
     MetaData,
     PrimaryKeyConstraint,
+    SmallInteger,
     Table,
     Text,
+    Time,
     Uuid,
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 
 SCHEMA = "tristhana"
 
@@ -86,4 +91,42 @@ day_log = Table(
     # key id (1) + nonce (24) + 1-byte payload + tag (16): every seal has the same length.
     CheckConstraint("octet_length(sealed_status) = 42", name="sealed_length"),
     CheckConstraint("local_date >= '2000-01-01'", name="local_date_min"),
+)
+
+# PR-02/03/05. One practice per practiced day for now (slot 1). Lengths reference the catalog
+# by natural key, validated in the domain (ADR-0017: no catalog tables, no FKs).
+practice = Table(
+    "practice",
+    metadata,
+    Column("account_id", Uuid(), nullable=False),
+    Column("local_date", Date(), nullable=False),
+    Column("slot", SmallInteger(), nullable=False, server_default=text("1")),
+    Column("context", Text()),
+    Column("online", Boolean(), nullable=False, server_default=text("false")),
+    Column("series", ARRAY(Text())),  # NULL: length not given; '{}': short practice
+    Column("end_item", Text()),
+    Column("first_part", Text()),
+    Column("duration_min", SmallInteger()),
+    Column("start_time", Time()),  # wall clock in `timezone` (ADR-0005)
+    Column("timezone", Text()),
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    PrimaryKeyConstraint("account_id", "local_date", "slot"),
+    ForeignKeyConstraint(
+        ["account_id", "local_date"],
+        [day_log.c.account_id, day_log.c.local_date],
+        ondelete="CASCADE",
+        name="practice_day_log_fkey",
+    ),
+    CheckConstraint("slot = 1", name="slot"),
+    CheckConstraint("context IN ('mysore', 'led', 'private', 'self')", name="context"),
+    CheckConstraint("NOT (context = 'self' AND online)", name="self_offline"),
+    CheckConstraint("first_part IN ('first_half', 'second_half')", name="first_part"),
+    CheckConstraint(
+        "(end_item IS NULL AND first_part IS NULL) OR coalesce(cardinality(series), 0) > 0",
+        name="series_given",
+    ),
+    CheckConstraint("cardinality(series) <= 6", name="series_max"),
+    CheckConstraint("duration_min BETWEEN 1 AND 600", name="duration"),
+    CheckConstraint("start_time IS NULL OR timezone IS NOT NULL", name="start_time_zone"),
 )

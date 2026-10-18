@@ -1,12 +1,43 @@
 {
   "components": {
     "schemas": {
+      "CatalogOut": {
+        "properties": {
+          "series": {
+            "description": "Confirmed series only, in practice order",
+            "items": {
+              "$ref": "#/components/schemas/SeriesOut"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "series"
+        ],
+        "title": "CatalogOut",
+        "type": "object"
+      },
       "Day": {
         "properties": {
           "date": {
             "format": "date",
             "title": "Date",
             "type": "string"
+          },
+          "practices": {
+            "default": [],
+            "description": "Only on a practiced day",
+            "items": {
+              "$ref": "#/components/schemas/PracticeOut"
+            },
+            "title": "Practices",
+            "type": "array"
           },
           "status": {
             "$ref": "#/components/schemas/DayStatus"
@@ -110,6 +141,10 @@
           "invalid_range",
           "date_in_future",
           "date_too_early",
+          "day_not_practiced",
+          "invalid_length",
+          "invalid_practice",
+          "timezone_unknown",
           "unavailable"
         ],
         "type": "string"
@@ -149,6 +184,50 @@
           "commit"
         ],
         "title": "Health",
+        "type": "object"
+      },
+      "Length": {
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stop point in the last series; null = full",
+            "title": "End"
+          },
+          "first_part": {
+            "anyOf": [
+              {
+                "enum": [
+                  "first_half",
+                  "second_half"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Part"
+          },
+          "series": {
+            "description": "Series slugs in practice order; [] = short practice",
+            "items": {
+              "type": "string"
+            },
+            "title": "Series",
+            "type": "array"
+          }
+        },
+        "required": [
+          "series"
+        ],
+        "title": "Length",
         "type": "object"
       },
       "Locale": {
@@ -199,6 +278,273 @@
           "timezone"
         ],
         "title": "Me",
+        "type": "object"
+      },
+      "PracticeBody": {
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PracticeContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "maximum": 600.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "online": {
+            "default": false,
+            "title": "Online",
+            "type": "boolean"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Local wall clock, HH:MM",
+            "title": "Start Time"
+          }
+        },
+        "title": "PracticeBody",
+        "type": "object"
+      },
+      "PracticeContext": {
+        "enum": [
+          "mysore",
+          "led",
+          "private",
+          "self"
+        ],
+        "title": "PracticeContext",
+        "type": "string"
+      },
+      "PracticeOut": {
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PracticeContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "maximum": 600.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "online": {
+            "default": false,
+            "title": "Online",
+            "type": "boolean"
+          },
+          "slot": {
+            "title": "Slot",
+            "type": "integer"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Local wall clock, HH:MM",
+            "title": "Start Time"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA zone of start_time",
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "slot",
+          "timezone"
+        ],
+        "title": "PracticeOut",
+        "type": "object"
+      },
+      "PracticePresets": {
+        "properties": {
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PracticeOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For 'same as last time'"
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/Preset"
+            },
+            "title": "Presets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "last",
+          "presets"
+        ],
+        "title": "PracticePresets",
+        "type": "object"
+      },
+      "Preset": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "short",
+              "half_primary",
+              "full_primary",
+              "recent"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "length": {
+            "$ref": "#/components/schemas/Length"
+          }
+        },
+        "required": [
+          "kind",
+          "length"
+        ],
+        "title": "Preset",
+        "type": "object"
+      },
+      "SeriesOut": {
+        "properties": {
+          "halves_split": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "First half ends here (Primary: navasana)",
+            "title": "Halves Split"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "name_ru": {
+            "title": "Name Ru",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/StopOut"
+            },
+            "title": "Stops",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slug",
+          "number",
+          "name_en",
+          "name_ru",
+          "halves_split",
+          "stops"
+        ],
+        "title": "SeriesOut",
+        "type": "object"
+      },
+      "StopOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "latin": {
+            "title": "Latin",
+            "type": "string"
+          },
+          "ru": {
+            "title": "Ru",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "latin",
+          "ru"
+        ],
+        "title": "StopOut",
         "type": "object"
       },
       "ValidationError": {
@@ -257,6 +603,59 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/catalog": {
+      "get": {
+        "description": "Public and cacheable: the series and their stop points for the length picker.",
+        "operationId": "get_catalog_api_v1_catalog_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "if-none-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Catalog",
+        "tags": [
+          "practice"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "description": "Liveness check. Touches no external services, so it stays fast on a cold start.",
@@ -553,6 +952,248 @@
         "summary": "Put Day",
         "tags": [
           "days"
+        ]
+      }
+    },
+    "/api/v1/me/days/{date}/practice-presets": {
+      "get": {
+        "operationId": "get_presets_api_v1_me_days__date__practice_presets_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticePresets"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Presets",
+        "tags": [
+          "practice"
+        ]
+      }
+    },
+    "/api/v1/me/days/{date}/practices/{slot}": {
+      "delete": {
+        "operationId": "delete_practice_api_v1_me_days__date__practices__slot__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "One practice per day for now",
+            "in": "path",
+            "name": "slot",
+            "required": true,
+            "schema": {
+              "description": "One practice per day for now",
+              "maximum": 1,
+              "minimum": 1,
+              "title": "Slot",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Practice",
+        "tags": [
+          "practice"
+        ]
+      },
+      "put": {
+        "description": "Replaces the practice's details (all fields). The day must be Practiced.",
+        "operationId": "put_practice_api_v1_me_days__date__practices__slot__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "One practice per day for now",
+            "in": "path",
+            "name": "slot",
+            "required": true,
+            "schema": {
+              "description": "One practice per day for now",
+              "maximum": 1,
+              "minimum": 1,
+              "title": "Slot",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Practice",
+        "tags": [
+          "practice"
         ]
       }
     },
