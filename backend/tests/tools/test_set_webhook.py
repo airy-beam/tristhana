@@ -65,7 +65,7 @@ def test_menu_button_opens_the_mini_app() -> None:
 def test_command_menu_is_localized_from_the_bot_ftl() -> None:
     default, ru = _tool().commands_payloads()
 
-    assert [c["command"] for c in default["commands"]] == ["log", "moon", "help", "start"]
+    assert [c["command"] for c in default["commands"]] == ["log", "remind", "moon", "help", "start"]
     assert "language_code" not in default
     assert ru["language_code"] == "ru"
     assert all(c["description"] for c in default["commands"] + ru["commands"])

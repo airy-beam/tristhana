@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from tristhana.application.ports.practice import CopiedPractice
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.practice import InvalidPractice, Practice, PracticeContext, PracticeLength
 from tristhana.infrastructure.db.engine import connection, sqlstate
@@ -140,6 +141,59 @@ class SqlPracticeRepository:
             set_={**{c: stmt.excluded[c] for c in copied}, "updated_at": func.now()},
         ).returning(*_COLUMNS)
         return await self._one(stmt)
+
+    async def copy_usual(
+        self, account_id: UUID, local_date: date, timezone: str | None
+    ) -> CopiedPractice | None:
+        prev = practice.alias("prev")
+        copied = ("context", "online", "series", "end_item", "first_part", "duration_min")
+        source = (
+            select(*(prev.c[c] for c in copied), prev.c.local_date.label("source"))
+            .where(
+                prev.c.account_id == account_id,
+                prev.c.local_date < local_date,
+                has_details(prev),
+                _previous_practiced(prev),
+                _practiced(account_id, local_date),
+            )
+            # Non-Led first (NULL context counts as non-Led), then the newest.
+            .order_by(
+                prev.c.context.is_not_distinct_from("led"),
+                prev.c.local_date.desc(),
+                prev.c.slot.desc(),
+            )
+            .limit(1)
+            .cte("source")
+        )
+        inserted = insert(practice).from_select(
+            ["account_id", "local_date", "slot", *copied, "timezone"],
+            select(
+                literal(account_id, practice.c.account_id.type),
+                literal(local_date, practice.c.local_date.type),
+                literal(SLOT, practice.c.slot.type),
+                *(source.c[c] for c in copied),
+                literal(timezone, practice.c.timezone.type),
+            ),
+        )
+        inserted = (
+            inserted.on_conflict_do_update(
+                index_elements=[practice.c.account_id, practice.c.local_date, practice.c.slot],
+                set_={**{c: inserted.excluded[c] for c in copied}, "updated_at": func.now()},
+            )
+            .returning(*_COLUMNS)
+            .cte("inserted")
+        )
+        stmt = (
+            select(*inserted.c, source.c.source).select_from(inserted).join(source, literal(True))
+        )
+        try:
+            async with connection(self._engine) as conn:
+                row = (await conn.execute(stmt)).one_or_none()
+        except IntegrityError as e:
+            if sqlstate(e) == "23514":
+                raise InvalidPractice("rejected by the database") from e
+            raise
+        return CopiedPractice(to_practice(row), row.source) if row else None
 
     async def delete(self, account_id: UUID, local_date: date) -> None:
         stmt = delete(practice).where(

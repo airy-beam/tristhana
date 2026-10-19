@@ -134,3 +134,20 @@ moon-today =
        *[amavasya] 🌑 New moon today · 📍 { $city }
     }
 moon-save-failed = Couldn't save. Try again in a moment.
+
+## Practice reminder (PR-10). { $d } is an ISO weekday (1 = Monday).
+remind-card-title = 🧘 Practice reminder
+remind-switch = 🔔 Ask me once a day
+remind-explain-app = Once a day I'll ask in the bot how it went, with one-tap buttons. Not on moon days or days you've already logged.
+remind-time-label = Time · { $zone }
+remind-day-off = Day off: { remind-weekday }
+remind-days-label = Days
+remind-weekday = { $d ->
+        [1] Mon
+        [2] Tue
+        [3] Wed
+        [4] Thu
+        [5] Fri
+        [6] Sat
+       *[7] Sun
+    }

@@ -215,6 +215,7 @@ def _notifier(
         day_use_cases,
         moon_use_cases,
         practice_use_cases,
+        remind_use_cases,
     )
     from tristhana.application.accounts import EnsureAccount
 
@@ -224,6 +225,7 @@ def _notifier(
         day_use_cases(),
         practice_use_cases(),
         moon_use_cases(),
+        remind_use_cases(),
         FluentTranslator(),
     )
     sent: list[Any] = []

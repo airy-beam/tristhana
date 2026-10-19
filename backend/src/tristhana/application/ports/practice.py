@@ -1,9 +1,16 @@
+from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 from uuid import UUID
 
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.practice import Practice
+
+
+@dataclass(frozen=True, slots=True)
+class CopiedPractice:
+    practice: Practice
+    source: date  # the day it was copied from
 
 
 class PracticeRepository(Protocol):
@@ -20,6 +27,13 @@ class PracticeRepository(Protocol):
     ) -> Practice | None:
         """Copy context, online, length and duration (not the start time) of the newest
         practice before `local_date`; None when the day isn't Practiced or there is none."""
+        ...
+
+    async def copy_usual(
+        self, account_id: UUID, local_date: date, timezone: str | None
+    ) -> CopiedPractice | None:
+        """Like `copy_latest`, but from the newest non-Led practice (a Friday led class is
+        rarely what someone does on Monday); the newest of any kind when there is none."""
         ...
 
     async def delete(self, account_id: UUID, local_date: date) -> None: ...

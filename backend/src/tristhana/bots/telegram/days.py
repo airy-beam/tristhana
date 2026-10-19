@@ -5,6 +5,8 @@ parallel. One DB statement per tap besides the account lookup. Saving 🧘 Pract
 the practice-details screen (PR-02, `practice.py`).
 """
 
+from __future__ import annotations
+
 from datetime import date, timedelta
 
 from aiogram import F, Router
@@ -17,7 +19,7 @@ from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram import practice_callbacks as pcb
 from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encode
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
-from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases
+from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases, RemindUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, day_label, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
@@ -44,10 +46,14 @@ _WEEK_EMOJI: dict[DayStatus | None, str] = {
 
 
 def register(
-    router: Router, days: DayUseCases, practices: PracticeUseCases, translator: Translator
-) -> None:
+    router: Router,
+    days: DayUseCases,
+    practices: PracticeUseCases,
+    translator: Translator,
+    remind: RemindUseCases | None = None,
+) -> DayScreens:
     screens = DayScreens(days, translator)
-    screens.practice = PracticeScreens(days, practices, translator, screens)
+    screens.practice = PracticeScreens(days, practices, translator, screens, remind)
     register_practice(router, screens.practice)
 
     @router.message(Command("log"))
@@ -70,6 +76,8 @@ def register(
             )
         return show(callback, screen)
 
+    return screens
+
 
 async def _nothing() -> None:
     return None
@@ -80,6 +88,9 @@ class DayScreens:
         self._days = days
         self._t = translator
         self.practice: PracticeScreens | None = None  # set by `register`
+
+    def today(self, principal: Principal) -> tuple[date, bool]:
+        return self._days.get.today(principal)
 
     async def handle(self, principal: Principal, cb: DayCallback) -> Screen:
         match cb.action, cb.day, cb.status:
@@ -129,6 +140,11 @@ class DayScreens:
             return await self.week(principal, today, note="log-date-too-early")
         if status is DayStatus.PRACTICED and self.practice is not None:
             return await self.practice.details(principal, day)
+        return self.saved_screen(principal, day, status)
+
+    def saved_screen(self, principal: Principal, day: date, status: DayStatus) -> Screen:
+        """What a day shows once logged (not practiced: that has its own summary)."""
+        today, _ = self._days.get.today(principal)
         locale = principal.account.locale
         markup = InlineKeyboardMarkup(
             inline_keyboard=[

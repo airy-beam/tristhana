@@ -36,6 +36,7 @@ def make_tick_router(token: str) -> APIRouter:
             "blocked": result.blocked,
             "computed": result.computed,
             "pruned": result.pruned,
+            "paused": result.paused,
             "stopped_early": result.stopped_early,
         }
         log.info("tick: %s", body)  # counts only, never ids or text

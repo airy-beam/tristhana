@@ -12,6 +12,7 @@ from tests.fakes import (
     day_use_cases,
     moon_use_cases,
     practice_use_cases,
+    remind_use_cases,
 )
 from tristhana.application.accounts import EnsureAccount
 from tristhana.bots.telegram.runtime import BotRuntime, build_runtime, webhook_reply
@@ -27,6 +28,7 @@ def _runtime(**defaults: object) -> BotRuntime:
         day_use_cases(),
         practice_use_cases(),
         moon_use_cases(),
+        remind_use_cases(),
         FluentTranslator(),
     )
     if defaults:

@@ -166,10 +166,17 @@ notification_settings = Table(
     Column("quiet_start", Time()),
     Column("quiet_end", Time()),
     Column("daily_cap", SmallInteger()),
+    Column("practice_on", Boolean()),  # NULL = never chosen (the one-time offer may show)
+    Column("practice_at", Time()),
+    Column("practice_days", ARRAY(SmallInteger())),
     Column("unreachable_at", DateTime(timezone=True)),
     _timestamp("updated_at"),
     CheckConstraint("moon_offsets <@ '{1,3,7}'::smallint[]", name="moon_offsets"),
     CheckConstraint("daily_cap BETWEEN 1 AND 10", name="daily_cap"),
+    CheckConstraint(
+        "practice_days <@ '{1,2,3,4,5,6,7}'::smallint[] AND cardinality(practice_days) > 0",
+        name="practice_days",
+    ),
 )
 
 notification_delivery = Table(
@@ -184,6 +191,6 @@ notification_delivery = Table(
     _timestamp("created_at"),
     _timestamp("updated_at"),
     PrimaryKeyConstraint("account_id", "dedupe_key"),
-    CheckConstraint("category IN ('moon')", name="category"),
+    CheckConstraint("category IN ('moon', 'practice')", name="category"),
     CheckConstraint("status IN ('claimed', 'sent', 'failed', 'blocked')", name="status"),
 )

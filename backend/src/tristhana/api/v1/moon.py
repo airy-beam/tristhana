@@ -27,6 +27,7 @@ from tristhana.domain.notifications import (
     InvalidSettings,
     MoonReminders,
     NotificationSettings,
+    PracticeReminders,
     QuietHours,
 )
 
@@ -71,13 +72,28 @@ class Quiet(BaseModel):
     end: dt.time
 
 
-class NotificationSettingsBody(BaseModel):
+class PracticeSettings(BaseModel):
+    on: bool | None = Field(description="null = never chosen (off; the bot may offer it once)")
+    at: dt.time = Field(description="Local wall clock, 15-minute grid")
+    days: list[Annotated[int, Field(ge=1, le=7)]] = Field(
+        min_length=1, description="ISO weekdays (1 = Monday)"
+    )
+
+
+class _SettingsCommon(BaseModel):
     moon: MoonSettings
     quiet: Quiet
     daily_cap: int = Field(ge=1, le=10)
 
 
-class NotificationSettingsOut(NotificationSettingsBody):
+class NotificationSettingsBody(_SettingsCommon):
+    practice: PracticeSettings | None = Field(
+        default=None, description="The daily practice reminder; omitted = unchanged"
+    )
+
+
+class NotificationSettingsOut(_SettingsCommon):
+    practice: PracticeSettings
     timezone: str | None = Field(description="Reminders need it; null = none are sent")
 
 
@@ -86,6 +102,7 @@ def _settings_out(s: NotificationSettings, zone: str | None) -> NotificationSett
         moon=MoonSettings(offsets=sorted(s.moon.offsets), at=s.moon.at),  # type: ignore[arg-type]
         quiet=Quiet(start=s.quiet.start, end=s.quiet.end),
         daily_cap=s.daily_cap,
+        practice=PracticeSettings(on=s.practice.on, at=s.practice.at, days=sorted(s.practice.days)),
         timezone=zone,
     )
 
@@ -166,8 +183,12 @@ async def put_notification_settings(
         ),
         daily_cap=body.daily_cap,
     )
+    practice = None
+    if body.practice is not None:
+        p = body.practice
+        practice = PracticeReminders(p.on, p.at.replace(tzinfo=None), frozenset(p.days))
     try:
-        saved = await use_case.save(principal, settings)
+        saved = await use_case.save(principal, settings, practice)
     except InvalidSettings:
         raise ApiError(422, "invalid_settings") from None
     return _settings_out(saved, principal.account.timezone)

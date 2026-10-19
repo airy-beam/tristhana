@@ -24,7 +24,8 @@ from tristhana.bots.telegram.practice_callbacks import (
     decode,
     encode,
 )
-from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases
+from tristhana.bots.telegram.remind import offer_row
+from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases, RemindUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DayStatus
@@ -82,11 +83,13 @@ class PracticeScreens:
         practices: PracticeUseCases,
         translator: Translator,
         day_screens: DayScreens,
+        remind: RemindUseCases | None = None,
     ) -> None:
         self._days = days
         self._p = practices
         self._t = translator
         self._day_screens = day_screens
+        self._remind = remind
 
     async def handle(self, principal: Principal, cb: PracticeCallback | None) -> Screen | None:
         if cb is None:
@@ -215,26 +218,37 @@ class PracticeScreens:
         rows.append(last_row)
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
-    # Screen V: done, a compact summary.
-    async def summary(self, principal: Principal, day: date) -> Screen:
-        practice = await self._current(principal, day)
+    # Screen V: done, a compact summary (+ the one-time practice-reminder offer, PR-10).
+    async def summary(
+        self,
+        principal: Principal,
+        day: date,
+        practice: Practice | None = None,
+        extra: str | None = None,
+        offer: bool = True,
+    ) -> Screen:
+        if practice is None:
+            practice = await self._current(principal, day)
         locale = principal.account.locale
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
         if has_details(practice):
             lines.append(self.summary_text(locale, day, practice))
+        if extra:
+            lines.append(extra)
         today, _ = self._days.get.today(principal)
-        markup = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    self._button(locale, "practice-details", _data("open", day)),
-                    self._button(locale, "log-change", dcb.encode(dcb.DayCallback("open", day))),
-                    self._button(
-                        locale, "log-another-day", dcb.encode(dcb.DayCallback("week", today))
-                    ),
-                ]
+        rows = [
+            [
+                self._button(locale, "practice-details", _data("open", day)),
+                self._button(locale, "log-change", dcb.encode(dcb.DayCallback("open", day))),
+                self._button(locale, "log-another-day", dcb.encode(dcb.DayCallback("week", today))),
             ]
-        )
-        return Screen("\n\n".join(lines), markup)
+        ]
+        if offer and day == today and self._remind is not None:
+            settings = await self._remind.settings.get(principal)
+            if settings.practice.on is None:  # never chosen: offered once, until answered
+                lines.append(self._t.t(locale, "remind-offer"))
+                rows.append(offer_row(self._t, locale, day))
+        return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     # Screen L: presets, recent lengths, "Other…".
     async def lengths(self, principal: Principal, day: date) -> Screen:

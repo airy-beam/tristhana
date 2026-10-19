@@ -12,6 +12,7 @@ from tristhana.application.accounts import EnsureAccount
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.moon import (
     GetMoonView,
+    NotificationSettingsUseCase,
     SetMoonLocation,
     UpdateMoonReminders,
     UseCityTimezone,
@@ -22,6 +23,11 @@ from tristhana.application.practice import (
     CopyLastPractice,
     GetPracticePresets,
     SavePractice,
+)
+from tristhana.application.remind import (
+    AnswerPracticeOffer,
+    QuickLogSameAsLast,
+    UpdatePracticeReminder,
 )
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
@@ -57,6 +63,14 @@ class MoonUseCases:
 
 
 @dataclass(frozen=True, slots=True)
+class RemindUseCases:
+    settings: NotificationSettingsUseCase
+    update: UpdatePracticeReminder
+    offer: AnswerPracticeOffer
+    quick_log: QuickLogSameAsLast
+
+
+@dataclass(frozen=True, slots=True)
 class BotRuntime:
     bot: Bot
     dispatcher: Dispatcher
@@ -68,6 +82,7 @@ def build_runtime(
     days: DayUseCases,
     practices: PracticeUseCases,
     moon: MoonUseCases,
+    remind: RemindUseCases,
     translator: Translator,
     miniapp_url: str = "",
 ) -> BotRuntime:
@@ -77,7 +92,9 @@ def build_runtime(
     from tristhana.bots.telegram.router import build_router
 
     dispatcher = Dispatcher()
-    dispatcher.include_router(build_router(ensure, days, practices, moon, translator, miniapp_url))
+    dispatcher.include_router(
+        build_router(ensure, days, practices, moon, remind, translator, miniapp_url)
+    )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
 
 

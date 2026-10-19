@@ -12,7 +12,12 @@ from tristhana.application.ports.storage import Clock
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import check_range, local_today, provisional_zone
 from tristhana.domain.moon import Cities, City, MoonDay
-from tristhana.domain.notifications import DEFAULTS, NotificationSettings, check_settings
+from tristhana.domain.notifications import (
+    DEFAULTS,
+    NotificationSettings,
+    PracticeReminders,
+    check_settings,
+)
 
 DEFAULT_WINDOW = timedelta(days=60)
 
@@ -130,7 +135,17 @@ class NotificationSettingsUseCase:
         return await self._notifications.settings(principal.account.id, DEFAULTS)
 
     async def save(
-        self, principal: Principal, settings: NotificationSettings
+        self,
+        principal: Principal,
+        settings: NotificationSettings,
+        practice: PracticeReminders | None = None,
     ) -> NotificationSettings:
-        """Raises `InvalidSettings`."""
-        return await self._notifications.save(principal.account.id, check_settings(settings))
+        """`practice` None = keep the stored one (older clients don't send it). Raises
+        `InvalidSettings`."""
+        account_id = principal.account.id
+        if practice is None:  # validate against the stored one, but don't write it back
+            stored = (await self._notifications.settings(account_id, DEFAULTS)).practice
+            check_settings(replace(settings, practice=stored))
+            return await self._notifications.save(account_id, settings, with_practice=False)
+        settings = replace(settings, practice=practice)
+        return await self._notifications.save(account_id, check_settings(settings))

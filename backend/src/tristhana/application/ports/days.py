@@ -14,6 +14,11 @@ class DayLogRepository(Protocol):
         computed in, or None when it was a provisional guess."""
         ...
 
+    async def insert_if_absent(self, account_id: UUID, day: DayLog, timezone: str | None) -> bool:
+        """Log the day only if it has no status yet (a reminder tap never overwrites);
+        False when it was already logged."""
+        ...
+
     async def delete(self, account_id: UUID, local_date: date) -> None:
         """Idempotent: deleting a day that was never logged is fine."""
         ...

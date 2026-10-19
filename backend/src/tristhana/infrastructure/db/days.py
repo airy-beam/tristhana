@@ -69,6 +69,23 @@ class SqlDayLogRepository:
             await conn.execute(stmt)
         return day
 
+    async def insert_if_absent(self, account_id: UUID, day: DayLog, timezone: str | None) -> bool:
+        if public_status(day.status) is DayStatus.REST:
+            raise ValueError("reminder taps only log non-private statuses")  # nothing to seal
+        stmt = (
+            insert(day_log)
+            .values(
+                account_id=account_id,
+                local_date=day.local_date,
+                status=day.status.value,
+                timezone=timezone,
+            )
+            .on_conflict_do_nothing(index_elements=[day_log.c.account_id, day_log.c.local_date])
+            .returning(day_log.c.local_date)
+        )
+        async with connection(self._engine) as conn:
+            return (await conn.execute(stmt)).one_or_none() is not None
+
     async def delete(self, account_id: UUID, local_date: date) -> None:
         stmt = delete(day_log).where(
             day_log.c.account_id == account_id, day_log.c.local_date == local_date

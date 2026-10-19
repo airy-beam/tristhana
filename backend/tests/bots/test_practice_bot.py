@@ -224,8 +224,11 @@ def test_done_shows_a_summary_with_a_details_button(client: TestClient) -> None:
 
     body = _tap(client, f"p1:v:{d}")
 
-    assert body["text"].endswith("1:1")
+    assert "\n\n1:1\n\n" in body["text"]
     assert _texts(body)[0] == "📝 Details"
+    # Today, reminder never chosen: the one-time offer (PR-10).
+    assert body["text"].endswith("🔔 Want me to ask once a day, so logging takes one tap?")
+    assert _texts(body)[-2:] == ["🔔 Yes, remind me", "No, thanks"]
 
 
 def test_remove_details(client: TestClient, storage: InMemoryStorage) -> None:

@@ -126,7 +126,7 @@ async def test_tick_sends_once_with_the_intro_first(
     again = await _tick(accounts, moon, notifications, notifier).execute(BUDGET)
 
     assert (first.sent, again.sent) == (1, 0)
-    [(recipient, reminder)] = notifier.delivered
+    [(recipient, reminder)] = notifier.moon
     assert (recipient.telegram_id, recipient.locale) == ("42", "ru")
     assert (reminder.days_before, reminder.city.slug, reminder.intro) == (1, "mysuru", True)
 
@@ -142,7 +142,7 @@ async def test_tick_follows_the_chosen_city(accounts: InMemoryAccounts, moon: In
     ).execute(BUDGET)
 
     assert result.sent == 1
-    assert notifier.delivered[0][1].city.slug == "almaty"
+    assert notifier.moon[0][1].city.slug == "almaty"
 
 
 async def test_no_zone_no_reminders(accounts: InMemoryAccounts, moon: InMemoryMoon) -> None:
@@ -282,6 +282,6 @@ async def test_intro_names_the_recipients_offsets_and_stays_until_sent(
     await _tick(accounts, moon, notifications, failing).execute(BUDGET)
     await _tick(accounts, moon, notifications, failing).execute(BUDGET)
 
-    first, retried = (r for _, r in failing.delivered)
+    first, retried = (r for _, r in failing.moon)
     assert (first.intro, retried.intro) == (True, True)
     assert first.offsets == {3, 1}
