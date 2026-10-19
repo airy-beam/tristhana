@@ -171,26 +171,29 @@ class SettingsScreens:
         label = self._t.t(locale, "time-label", time=TimeArg(today, time(12), zone))
         return label.split(" ", 1)[1] if " " in label else label
 
-    def _zone_cities(self) -> list[City]:
-        """One city per zone, in list order (Moscow stands for Kazan and Sochi)."""
-        seen: set[str] = set()
-        out: list[City] = []
-        for c in self._s.cities.all:
-            if c.location.tz not in seen:
-                seen.add(c.location.tz)
-                out.append(c)
-        return out
+    def _zone_city(self, principal: Principal) -> City | None:
+        """The city to mark for the account's zone (only the zone is stored): the followed
+        moon-day city when it shares the zone, else the city the zone is named after
+        (Europe/Moscow → Moscow, not Krasnaya Polyana), else the first listed city in it."""
+        zone = principal.account.timezone
+        followed = self._s.cities.get(principal.account.moon_location) or self._s.cities.default
+        if followed.location.tz == zone:
+            return followed
+        in_zone = [c for c in self._s.cities.all if c.location.tz == zone]
+        named = (zone or "").rsplit("/", 1)[-1].replace("_", " ")
+        return next((c for c in in_zone if c.name_en == named), in_zone[0] if in_zone else None)
 
     def zones(self, principal: Principal, page: int) -> Screen:
         locale = principal.account.locale
-        cities = sorted(self._zone_cities(), key=lambda c: c.name(locale))
+        # Every moon-day city, so Moscow, Kazan and Sochi are all there (one zone, three cities).
+        cities = sorted(self._s.cities.all, key=lambda c: c.name(locale))
         pages = max(1, -(-len(cities) // ZONE_PAGE))
         page = min(page, pages - 1)
         shown = cities[page * ZONE_PAGE : (page + 1) * ZONE_PAGE]
-        zone = principal.account.timezone
+        marked = self._zone_city(principal)
         buttons = [
             InlineKeyboardButton(
-                text=("✓ " if c.location.tz == zone else "") + c.name(locale),
+                text=("✓ " if c is marked else "") + c.name(locale),
                 callback_data=_data(action="zone", slug=c.slug),
             )
             for c in shown

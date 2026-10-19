@@ -16,7 +16,7 @@ import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
 import { cityName } from "../MoonCard";
 import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
-import { deviceZone, labelOf, zoneCities } from "./zones";
+import { deviceZone, labelOf, zoneCity } from "./zones";
 
 const OFFSETS = [7, 3, 1] as const;
 const MOON_TIMES = ["07:00", "12:00", "19:00", "21:00"] as const;
@@ -118,6 +118,7 @@ function Profile({ me }: { me: Me }) {
 
 function Zone({ me }: { me: Me }) {
   const cities = useMoonCities().data;
+  const followed = useMoonDays().data?.location.slug;
   const patch = usePatchMe();
   const device = deviceZone();
   const ru = me.locale === "ru";
@@ -162,22 +163,27 @@ function Zone({ me }: { me: Me }) {
           <Localized id="settings-zone-pick">
             <span />
           </Localized>
+          {/* Every moon-day city (Moscow, Kazan and Sochi share one zone); values are slugs. */}
           <select
             value={
-              me.timezone === "UTC"
-                ? "UTC"
-                : (zoneCities(cities).find((c) => c.timezone === me.timezone)?.timezone ?? "")
+              me.timezone === "UTC" ? "UTC" : (zoneCity(cities, me.timezone, followed)?.slug ?? "")
             }
             onChange={(e) => {
-              if (e.target.value) set(e.target.value);
+              const value = e.target.value;
+              const zone = value === "UTC" ? "UTC" : cities.find((c) => c.slug === value)?.timezone;
+              if (zone) set(zone);
             }}
           >
             <option value="" disabled />
-            {zoneCities(cities).map((c) => (
-              <option key={c.timezone} value={c.timezone}>
-                {ru ? c.name_ru : c.name_en}
-              </option>
-            ))}
+            {[...cities]
+              .sort((a, b) =>
+                (ru ? a.name_ru : a.name_en).localeCompare(ru ? b.name_ru : b.name_en, me.locale),
+              )
+              .map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {ru ? c.name_ru : c.name_en}
+                </option>
+              ))}
             <Localized id="settings-zone-utc">
               <option value="UTC" />
             </Localized>

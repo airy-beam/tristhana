@@ -26,6 +26,8 @@ const CITIES: City[] = [
   { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
   { slug: "almaty", name_en: "Almaty", name_ru: "Алматы", timezone: "Asia/Almaty" },
   { slug: "bangkok", name_en: "Bangkok", name_ru: "Бангкок", timezone: "Asia/Bangkok" },
+  { slug: "sochi", name_en: "Sochi", name_ru: "Сочи", timezone: "Europe/Moscow" },
+  { slug: "moscow", name_en: "Moscow", name_ru: "Москва", timezone: "Europe/Moscow" },
 ];
 const SETTINGS: NotificationSettings = {
   moon: { offsets: [1, 7], at: "19:00:00" },
@@ -146,9 +148,11 @@ describe("Settings", () => {
     const select = await screen.findByRole("combobox", { name: "Pick a city" });
     expect([...select.querySelectorAll("option")].map((o) => o.value)).toEqual([
       "",
-      "Asia/Kolkata",
-      "Asia/Almaty",
-      "Asia/Bangkok",
+      "almaty",
+      "bangkok",
+      "moscow",
+      "mysuru",
+      "sochi",
       "UTC",
     ]);
 
@@ -248,5 +252,18 @@ describe("TravelPrompt", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+});
+
+describe("time zone cities", () => {
+  it("lists every city, even several in one zone, and sets its zone", async () => {
+    const seen = stubApi();
+    renderWith(<Settings me={{ ...ME, timezone: "Europe/Moscow" }} onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "Pick a city" });
+
+    expect(select).toHaveValue("moscow"); // named after the zone, though Sochi is listed first
+    fireEvent.change(select, { target: { value: "sochi" } });
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ timezone: "Europe/Moscow" }]);
   });
 });
