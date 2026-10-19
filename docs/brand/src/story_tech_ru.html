@@ -1,0 +1,75 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><link rel="stylesheet" href="style.css">
+<style>
+.tech h1 { font-size: 76px; margin-top: 22px; }
+.arch { width: 904px; margin-top: 34px; }
+.timeline { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 30px; }
+.phase { border-left: 6px solid var(--saffron); padding: 4px 0 4px 20px; }
+.phase .p { font-size: 24px; letter-spacing: 3px; text-transform: uppercase; color: var(--saffron); font-weight: 900; }
+.phase .t { font-size: 27px; line-height: 1.32; margin-top: 8px; color: #e9e3f2; }
+.nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 30px; }
+.num { background: rgba(243,233,214,.08); border: 1.5px solid rgba(243,233,214,.18); border-radius: 20px; padding: 14px 18px; }
+.num .n { font-family: "Noto Serif Display", "Noto Serif", serif; font-size: 52px; color: var(--saffron); line-height: 1; }
+.num .l { font-size: 22px; color: #e9e3f2; margin-top: 6px; line-height: 1.2; }
+</style></head><body><div class="story tech" style="padding-top: 250px; padding-bottom: 240px;">
+<div class="moon"></div>
+<div class="mark"><svg viewBox="0 0 640 640"><defs><mask id="c"><circle cx="320" cy="176" r="54" fill="#fff"/><circle cx="342" cy="162" r="48" fill="#000"/></mask></defs><rect width="640" height="640" rx="320" fill="#2d3170"/><rect width="640" height="640" fill="#f3e9d6" mask="url(#c)"/><g stroke="#f3e9d6" stroke-opacity=".22" stroke-width="5"><line x1="320" y1="318" x2="226" y2="480"/><line x1="320" y1="318" x2="414" y2="480"/><line x1="226" y1="480" x2="414" y2="480"/></g><circle cx="320" cy="318" r="40" fill="#f3e9d6"/><circle cx="226" cy="480" r="40" fill="#e8a33d"/><circle cx="414" cy="480" r="40" fill="#c8732a"/></svg>
+<div><div class="brand">Tristhana</div><div class="tag">Под капотом · фазы 0–1</div></div></div>
+<h1>Как устроен дневник практики в&nbsp;Telegram</h1>
+<svg class="arch" viewBox="0 0 904 560" xmlns="http://www.w3.org/2000/svg" font-family="Lato, sans-serif">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e8a33d"/></marker></defs>
+<g font-size="22" fill="#f3e9d6">
+<!-- Telegram -->
+<rect x="0" y="0" width="904" height="92" rx="20" fill="rgba(243,233,214,.08)" stroke="rgba(243,233,214,.25)"/>
+<text x="28" y="40" font-size="28" font-weight="700">✈️ Telegram</text>
+<text x="28" y="72" fill="#cfc8e0">бот @tristhana_bot  ·  Mini App  ·  кнопка меню</text>
+<!-- arrows down -->
+<line x1="230" y1="96" x2="230" y2="160" stroke="#e8a33d" stroke-width="3" marker-end="url(#ar)"/>
+<text x="242" y="134" font-size="18" fill="#e8a33d">вебхук · ответ в теле</text>
+<line x1="690" y1="96" x2="690" y2="160" stroke="#e8a33d" stroke-width="3" marker-end="url(#ar)"/>
+<text x="702" y="134" font-size="18" fill="#e8a33d">initData</text>
+<!-- Cloud Run -->
+<rect x="0" y="166" width="560" height="214" rx="20" fill="#2d3170" stroke="#e8a33d" stroke-width="2"/>
+<text x="28" y="206" font-size="28" font-weight="700">☁️ Cloud Run · Франкфурт</text>
+<text x="28" y="242">FastAPI  ·  aiogram 3  ·  Python 3.13</text>
+<rect x="28" y="262" width="504" height="96" rx="14" fill="rgba(0,0,0,.18)"/>
+<text x="48" y="294" font-size="19" fill="#cfc8e0">домен (без I/O) ← use cases ← адаптеры</text>
+<text x="48" y="324" font-size="19" fill="#cfc8e0">бот и REST API — одни и те же use cases</text>
+<text x="48" y="350" font-size="19" fill="#cfc8e0">9 import-контрактов держат слои</text>
+<!-- Firebase -->
+<rect x="590" y="166" width="314" height="214" rx="20" fill="rgba(243,233,214,.08)" stroke="rgba(243,233,214,.25)"/>
+<text x="612" y="206" font-size="28" font-weight="700">🔥 Firebase</text>
+<text x="612" y="242">Mini App:</text>
+<text x="612" y="272">React 19 + Vite</text>
+<text x="612" y="302" fill="#cfc8e0" font-size="19">TS-клиент из OpenAPI</text>
+<text x="612" y="330" fill="#cfc8e0" font-size="19">114 КБ gzip</text>
+<line x1="586" y1="272" x2="566" y2="272" stroke="#e8a33d" stroke-width="3" marker-end="url(#ar)"/>
+<!-- bottom row -->
+<line x1="150" y1="384" x2="150" y2="440" stroke="#e8a33d" stroke-width="3" marker-end="url(#ar)"/>
+<line x1="430" y1="440" x2="430" y2="384" stroke="#e8a33d" stroke-width="3" marker-end="url(#ar)"/>
+<rect x="0" y="446" width="300" height="114" rx="20" fill="rgba(243,233,214,.08)" stroke="rgba(243,233,214,.25)"/>
+<text x="24" y="486" font-size="26" font-weight="700">🐘 Supabase</text>
+<text x="24" y="518" fill="#cfc8e0" font-size="19">Postgres · TLS verify-full</text>
+<text x="24" y="544" fill="#cfc8e0" font-size="19">шифрование полей</text>
+<rect x="320" y="446" width="270" height="114" rx="20" fill="rgba(243,233,214,.08)" stroke="rgba(243,233,214,.25)"/>
+<text x="342" y="486" font-size="26" font-weight="700">⏰ Scheduler</text>
+<text x="342" y="518" fill="#cfc8e0" font-size="19">тик каждые 10 мин:</text>
+<text x="342" y="544" fill="#cfc8e0" font-size="19">напоминания, календари</text>
+<rect x="610" y="446" width="294" height="114" rx="20" fill="rgba(243,233,214,.08)" stroke="rgba(243,233,214,.25)"/>
+<text x="632" y="486" font-size="26" font-weight="700">🌙 Swiss Ephemeris</text>
+<text x="632" y="518" fill="#cfc8e0" font-size="19">титхи на восходе</text>
+<text x="632" y="544" fill="#cfc8e0" font-size="19">34 города × 4 года</text>
+<line x1="608" y1="503" x2="594" y2="503" stroke="#e8a33d" stroke-width="3" marker-end="url(#ar)"/>
+</g></svg>
+<div class="timeline">
+<div class="phase"><div class="p">Фаза 0 · фундамент</div><div class="t">Бот и Mini App в проде · CI/CD на GitHub Actions · секреты в Secret Manager · миграции отдельным job</div></div>
+<div class="phase"><div class="p">Фаза 1 · практика</div><div class="t">Журнал и детали · лунные дни · напоминания · статистика · настройки · онбординг</div></div>
+</div>
+<div class="nums">
+<div class="num"><div class="n">23</div><div class="l">PR в проде</div></div>
+<div class="num"><div class="n">955</div><div class="l">автотестов</div></div>
+<div class="num"><div class="n">760</div><div class="l">сверок луны город × год</div></div>
+<div class="num"><div class="n">22</div><div class="l">ADR</div></div>
+<div class="num"><div class="n">&lt;300</div><div class="l">мс на нажатие — цель</div></div>
+<div class="num"><div class="n">0</div><div class="l">хардкода текста: Fluent RU/EN</div></div>
+</div>
+</div></body></html>
