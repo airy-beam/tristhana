@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -50,8 +51,10 @@ def client(storage: InMemoryStorage, outbound: list[str]) -> Iterator[TestClient
         yield c
 
 
-def _today() -> date:
-    return datetime.now(UTC).date()  # en, no zone yet → provisional UTC
+def _today(lang: str = "en") -> date:
+    """The bot's "today" for a new account (no zone yet → provisional: en UTC, ru Moscow)."""
+    zone = ZoneInfo("Europe/Moscow" if lang == "ru" else "UTC")
+    return datetime.now(UTC).astimezone(zone).date()
 
 
 def _ymd(day: date) -> str:
@@ -136,7 +139,7 @@ def test_tap_saves_answers_and_edits_in_place(
 
 
 def test_ladies_holiday_is_private_and_hidden_in_the_week_view(client: TestClient) -> None:
-    today = _today()
+    today = _today("ru")
 
     saved = _tap(client, f"d1:s:{_ymd(today)}:l", language_code="ru")
     week = _tap(client, f"d1:w:{_ymd(today)}", language_code="ru")

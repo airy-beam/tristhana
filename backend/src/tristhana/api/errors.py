@@ -20,6 +20,8 @@ type ErrorCode = Literal[
     "invalid_length",
     "invalid_practice",
     "timezone_unknown",
+    "unknown_location",
+    "invalid_settings",
     "unavailable",
 ]
 

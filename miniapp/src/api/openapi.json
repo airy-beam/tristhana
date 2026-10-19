@@ -23,6 +23,34 @@
         "title": "CatalogOut",
         "type": "object"
       },
+      "CityOut": {
+        "properties": {
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "name_ru": {
+            "title": "Name Ru",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name_en",
+          "name_ru",
+          "timezone"
+        ],
+        "title": "CityOut",
+        "type": "object"
+      },
       "Day": {
         "properties": {
           "date": {
@@ -145,6 +173,8 @@
           "invalid_length",
           "invalid_practice",
           "timezone_unknown",
+          "unknown_location",
+          "invalid_settings",
           "unavailable"
         ],
         "type": "string"
@@ -237,6 +267,46 @@
         ],
         "type": "string"
       },
+      "Location": {
+        "properties": {
+          "explicit": {
+            "description": "False: the default city (Mysuru), never chosen",
+            "title": "Explicit",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "explicit"
+        ],
+        "title": "Location",
+        "type": "object"
+      },
+      "LocationBody": {
+        "properties": {
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A city slug; null = back to the default",
+            "title": "Slug"
+          }
+        },
+        "required": [
+          "slug"
+        ],
+        "title": "LocationBody",
+        "type": "object"
+      },
       "Me": {
         "properties": {
           "display_name": {
@@ -278,6 +348,157 @@
           "timezone"
         ],
         "title": "Me",
+        "type": "object"
+      },
+      "MoonDayKind": {
+        "enum": [
+          "purnima",
+          "amavasya",
+          "kshaya_purnima",
+          "kshaya_amavasya"
+        ],
+        "title": "MoonDayKind",
+        "type": "string"
+      },
+      "MoonDayOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MoonDayKind"
+          },
+          "phase": {
+            "enum": [
+              "purnima",
+              "amavasya"
+            ],
+            "title": "Phase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "kind",
+          "phase"
+        ],
+        "title": "MoonDayOut",
+        "type": "object"
+      },
+      "MoonDays": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/MoonDayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location",
+          "today",
+          "days"
+        ],
+        "title": "MoonDays",
+        "type": "object"
+      },
+      "MoonSettings": {
+        "properties": {
+          "at": {
+            "description": "Local wall clock, 15-minute grid",
+            "format": "time",
+            "title": "At",
+            "type": "string"
+          },
+          "offsets": {
+            "description": "Days before; [] = off",
+            "items": {
+              "enum": [
+                1,
+                3,
+                7
+              ],
+              "type": "integer"
+            },
+            "title": "Offsets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "offsets",
+          "at"
+        ],
+        "title": "MoonSettings",
+        "type": "object"
+      },
+      "NotificationSettingsBody": {
+        "properties": {
+          "daily_cap": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Daily Cap",
+            "type": "integer"
+          },
+          "moon": {
+            "$ref": "#/components/schemas/MoonSettings"
+          },
+          "quiet": {
+            "$ref": "#/components/schemas/Quiet"
+          }
+        },
+        "required": [
+          "moon",
+          "quiet",
+          "daily_cap"
+        ],
+        "title": "NotificationSettingsBody",
+        "type": "object"
+      },
+      "NotificationSettingsOut": {
+        "properties": {
+          "daily_cap": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Daily Cap",
+            "type": "integer"
+          },
+          "moon": {
+            "$ref": "#/components/schemas/MoonSettings"
+          },
+          "quiet": {
+            "$ref": "#/components/schemas/Quiet"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reminders need it; null = none are sent",
+            "title": "Timezone"
+          }
+        },
+        "required": [
+          "moon",
+          "quiet",
+          "daily_cap",
+          "timezone"
+        ],
+        "title": "NotificationSettingsOut",
         "type": "object"
       },
       "PracticeBody": {
@@ -473,6 +694,26 @@
           "length"
         ],
         "title": "Preset",
+        "type": "object"
+      },
+      "Quiet": {
+        "properties": {
+          "end": {
+            "format": "time",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "format": "time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "Quiet",
         "type": "object"
       },
       "SeriesOut": {
@@ -1261,6 +1502,332 @@
         "summary": "Post Device Timezone",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/moon-days": {
+      "get": {
+        "description": "Defaults to today … +60 days; at most 371 days per request.",
+        "operationId": "get_moon_days_api_v1_me_moon_days_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoonDays"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Moon Days",
+        "tags": [
+          "moon"
+        ]
+      }
+    },
+    "/api/v1/me/moon-location": {
+      "put": {
+        "operationId": "put_moon_location_api_v1_me_moon_location_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Location"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Moon Location",
+        "tags": [
+          "moon"
+        ]
+      }
+    },
+    "/api/v1/me/notification-settings": {
+      "get": {
+        "operationId": "get_notification_settings_api_v1_me_notification_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Notification Settings",
+        "tags": [
+          "moon"
+        ]
+      },
+      "put": {
+        "operationId": "put_notification_settings_api_v1_me_notification_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Notification Settings",
+        "tags": [
+          "moon"
+        ]
+      }
+    },
+    "/api/v1/moon/cities": {
+      "get": {
+        "description": "Public: the cities whose moon calendars can be followed (the default first).",
+        "operationId": "get_cities_api_v1_moon_cities_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "if-none-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CityOut"
+                  },
+                  "title": "Response Get Cities Api V1 Moon Cities Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cities",
+        "tags": [
+          "moon"
         ]
       }
     }

@@ -47,11 +47,13 @@ account = Table(
     Column("display_name", Text()),
     Column("locale", Text(), nullable=False),
     Column("timezone", Text()),  # IANA name (ADR-0005); NULL until the device reports it
+    Column("moon_location", Text()),  # city slug (MD-03); NULL = the default (Mysuru)
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),
     CheckConstraint("char_length(display_name) <= 64", name="display_name_length"),
     CheckConstraint("locale IN ('en', 'ru')", name="locale"),
+    CheckConstraint("moon_location ~ '^[a-z-]{1,24}$'", name="moon_location"),
 )
 
 identity = Table(
@@ -129,4 +131,59 @@ practice = Table(
     CheckConstraint("cardinality(series) <= 6", name="series_max"),
     CheckConstraint("duration_min BETWEEN 1 AND 600", name="duration"),
     CheckConstraint("start_time IS NULL OR timezone IS NOT NULL", name="start_time_zone"),
+)
+
+# MD-03 / ADR-0019: stored moon calendars per city (previous year … current + 2).
+moon_calendar = Table(
+    "moon_calendar",
+    metadata,
+    Column("location", Text(), nullable=False),
+    Column("year", SmallInteger(), nullable=False),
+    Column("algo_version", Text(), nullable=False),
+    _timestamp("computed_at"),
+    PrimaryKeyConstraint("location", "year"),
+)
+
+moon_day = Table(
+    "moon_day",
+    metadata,
+    Column("location", Text(), nullable=False),
+    Column("date", Date(), nullable=False),
+    Column("kind", Text(), nullable=False),
+    PrimaryKeyConstraint("location", "date"),
+    CheckConstraint(
+        "kind IN ('purnima', 'amavasya', 'kshaya_purnima', 'kshaya_amavasya')", name="kind"
+    ),
+)
+
+# MD-03 / ADR-0018. A missing row or NULL column means the domain default.
+notification_settings = Table(
+    "notification_settings",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), primary_key=True),
+    Column("moon_offsets", ARRAY(SmallInteger())),
+    Column("moon_at", Time()),
+    Column("quiet_start", Time()),
+    Column("quiet_end", Time()),
+    Column("daily_cap", SmallInteger()),
+    Column("unreachable_at", DateTime(timezone=True)),
+    _timestamp("updated_at"),
+    CheckConstraint("moon_offsets <@ '{1,3,7}'::smallint[]", name="moon_offsets"),
+    CheckConstraint("daily_cap BETWEEN 1 AND 10", name="daily_cap"),
+)
+
+notification_delivery = Table(
+    "notification_delivery",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("dedupe_key", Text(), nullable=False),
+    Column("category", Text(), nullable=False),
+    Column("local_date", Date(), nullable=False),
+    Column("status", Text(), nullable=False),
+    Column("attempts", SmallInteger(), nullable=False, server_default=text("1")),
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    PrimaryKeyConstraint("account_id", "dedupe_key"),
+    CheckConstraint("category IN ('moon')", name="category"),
+    CheckConstraint("status IN ('claimed', 'sent', 'failed', 'blocked')", name="status"),
 )

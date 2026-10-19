@@ -102,3 +102,35 @@ length-summary =
         [full] { $range } (full)
        *[to] { $range } → { $asana }
     }
+
+# Moon days (MD-03). Matches the bot's wording; city names come from the server.
+moon-title = 🌙 Moon days · 📍 { $city }
+moon-phase-long =
+    { $phase ->
+        [purnima] 🌕 Full moon (Purnima)
+       *[amavasya] 🌑 New moon (Amavasya)
+    }
+moon-in-days =
+    { $n ->
+        [0] today
+        [1] tomorrow
+        [one] in { $n } day
+       *[other] in { $n } days
+    }
+moon-day-line = { $phase } · { $date } · { $in }
+moon-none = No moon days in the next two months yet: the calendar is being prepared.
+moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
+moon-city = City for the calendar
+moon-reminders-label = Remind me before
+moon-offset =
+    { $n ->
+        [one] { $n } day
+       *[other] { $n } days
+    }
+moon-zone-needed-app = Reminders start once your time zone is known. It's set automatically when you open the app on your phone.
+moon-today =
+    { $phase ->
+        [purnima] 🌕 Full moon today · 📍 { $city }
+       *[amavasya] 🌑 New moon today · 📍 { $city }
+    }
+moon-save-failed = Couldn't save. Try again in a moment.

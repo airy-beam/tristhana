@@ -4,6 +4,7 @@ import itertools
 from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -47,8 +48,10 @@ def client(storage: InMemoryStorage) -> Iterator[TestClient]:
         yield c
 
 
-def _today() -> date:
-    return datetime.now(UTC).date()  # en, no zone yet → provisional UTC
+def _today(lang: str = "en") -> date:
+    """The bot's "today" for a new account (no zone yet → provisional: en UTC, ru Moscow)."""
+    zone = ZoneInfo("Europe/Moscow" if lang == "ru" else "UTC")
+    return datetime.now(UTC).astimezone(zone).date()
 
 
 def _ymd(day: date) -> str:
@@ -171,7 +174,7 @@ def test_custom_half_primary_plus_intermediate(client: TestClient) -> None:
 
 
 def test_russian_labels(client: TestClient) -> None:
-    d = _ymd(_today())
+    d = _ymd(_today("ru"))
     _tap(client, f"d1:s:{d}:p", lang="ru")
     lengths = _tap(client, f"p1:m:{d}", lang="ru")
 

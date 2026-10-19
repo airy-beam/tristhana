@@ -42,3 +42,23 @@ def test_missing_ephemeris_files_raise_instead_of_falling_back(tmp_path: Path) -
             compute_moon_days(MYSURU, date(2026, 1, 1), date(2026, 1, 31))
     finally:
         set_ephemeris_path(None)
+
+
+def test_works_from_any_thread() -> None:
+    """Regression: the Swiss Ephemeris path is per thread; a tick computes in to_thread
+    workers, so a second thread must not fall back to "files not found"."""
+    from concurrent.futures import ThreadPoolExecutor
+    from datetime import date
+
+    from tristhana.domain.moon import MoonLocation
+    from tristhana.moon import compute_moon_days
+
+    mysuru = MoonLocation(12.2958, 76.6394, "Asia/Kolkata")
+    jan = (date(2025, 1, 1), date(2025, 1, 31))
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = [
+            f.result() for f in [pool.submit(compute_moon_days, mysuru, *jan) for _ in range(6)]
+        ]
+
+    assert all(r == results[0] for r in results)
+    assert [d.date.day for d in results[0]] == [13, 29]

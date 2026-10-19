@@ -90,6 +90,9 @@ function stubApi(days: Days): Request[] {
         return response;
       }
       if (path === "/api/v1/catalog") return json(CATALOG);
+      if (path === "/api/v1/me/moon-days")
+        return json({ location: { slug: "mysuru", explicit: false }, today: TODAY, days: [] });
+      if (path === "/api/v1/moon/cities") return json([]);
       if (path.endsWith("/practice-presets")) return json(PRESETS);
       if (!saved) return json(days);
       return json({

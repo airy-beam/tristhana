@@ -18,8 +18,11 @@ if TYPE_CHECKING:
 
 BUNDLED_EPHE = Path(__file__).parent / "ephe"
 
-# Swiss Ephemeris keeps process-global state (open files, ephemeris path); serialize access.
+# Swiss Ephemeris keeps global state (open files); serialize access.
 lock = threading.Lock()
+# The ephemeris path, however, is per thread in this build (thread-local storage in the C
+# library): a call from a new thread (asyncio.to_thread workers) must set it again.
+_thread = threading.local()
 
 _swe: ModuleType | None = None
 _ephe_path: Path = BUNDLED_EPHE
@@ -32,6 +35,7 @@ def set_ephemeris_path(path: Path | None) -> None:
         _ephe_path = path or BUNDLED_EPHE
         if _swe is not None:
             _swe.set_ephe_path(str(_ephe_path))
+            _thread.path = _ephe_path  # other threads re-apply it on their next call
 
 
 def _lib() -> ModuleType:
@@ -39,8 +43,10 @@ def _lib() -> ModuleType:
     if _swe is None:
         import swisseph
 
-        swisseph.set_ephe_path(str(_ephe_path))
         _swe = swisseph
+    if getattr(_thread, "path", None) != _ephe_path:
+        _swe.set_ephe_path(str(_ephe_path))
+        _thread.path = _ephe_path
     return _swe
 
 

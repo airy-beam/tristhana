@@ -28,6 +28,12 @@ function stubApi(days: Days, writeStatus = 200): Request[] {
     "fetch",
     vi.fn((request: Request) => {
       seen.push(request);
+      const path = new URL(request.url).pathname;
+      if (path === "/api/v1/me/moon-days")
+        return Promise.resolve(
+          json({ location: { slug: "mysuru", explicit: false }, today: TODAY, days: [] }),
+        );
+      if (path === "/api/v1/moon/cities") return Promise.resolve(json([]));
       if (request.method === "GET") {
         const deleted = seen.some((r) => r.method === "DELETE");
         return Promise.resolve(json(deleted ? { ...days, days: [] } : days));

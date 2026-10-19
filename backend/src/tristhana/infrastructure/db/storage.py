@@ -13,11 +13,19 @@ from uuid import UUID
 
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.days import DayLogRepository
+from tristhana.application.ports.moon import MoonCalendarRepository
+from tristhana.application.ports.notifications import (
+    MoonCandidate,
+    MoonPatch,
+    NotificationRepository,
+)
 from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileUpdate
 from tristhana.domain.days import DayLog
+from tristhana.domain.moon import MoonDay
+from tristhana.domain.notifications import NotificationSettings
 from tristhana.domain.practice import Practice
 
 if TYPE_CHECKING:
@@ -49,11 +57,15 @@ class PostgresStorage:
         self._accounts: AccountRepository | None = None
         self._days: DayLogRepository | None = None
         self._practices: PracticeRepository | None = None
+        self._moon: MoonCalendarRepository | None = None
+        self._notifications: NotificationRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.engine import build_engine
+        from tristhana.infrastructure.db.moon import SqlMoonCalendarRepository
+        from tristhana.infrastructure.db.notifications import SqlNotificationRepository
         from tristhana.infrastructure.db.practice import SqlPracticeRepository
 
         self._engine = build_engine(
@@ -65,6 +77,8 @@ class PostgresStorage:
         self._accounts = SqlAccountRepository(self._engine)
         self._days = SqlDayLogRepository(self._engine, self._cipher)
         self._practices = SqlPracticeRepository(self._engine)
+        self._moon = SqlMoonCalendarRepository(self._engine)
+        self._notifications = SqlNotificationRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -105,6 +119,18 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._practices
 
+    @property
+    def moon(self) -> MoonCalendarRepository:
+        if self._moon is None:
+            raise RuntimeError("storage not started")
+        return self._moon
+
+    @property
+    def notifications(self) -> NotificationRepository:
+        if self._notifications is None:
+            raise RuntimeError("storage not started")
+        return self._notifications
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -136,6 +162,14 @@ class UnconfiguredStorage:
     def practices(self) -> PracticeRepository:
         return _UnavailablePractices()
 
+    @property
+    def moon(self) -> MoonCalendarRepository:
+        return _UnavailableMoon()
+
+    @property
+    def notifications(self) -> NotificationRepository:
+        return _UnavailableNotifications()
+
 
 class _UnavailableAccounts:
     async def find_by_identity(self, key: IdentityKey) -> NoReturn:
@@ -150,6 +184,9 @@ class _UnavailableAccounts:
         raise StorageUnavailable("not configured")
 
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def set_moon_location(self, account_id: UUID, slug: str | None) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 
@@ -177,4 +214,49 @@ class _UnavailablePractices:
         raise StorageUnavailable("not configured")
 
     async def recent(self, account_id: UUID, before: date, limit: int) -> list[Practice]:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableMoon:
+    async def days(self, location: str, start: date, end: date) -> list[MoonDay]:
+        raise StorageUnavailable("not configured")
+
+    async def coverage(self) -> dict[tuple[str, int], str]:
+        raise StorageUnavailable("not configured")
+
+    async def replace_year(
+        self, location: str, year: int, days: list[MoonDay], algo_version: str
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableNotifications:
+    async def settings(
+        self, account_id: UUID, defaults: NotificationSettings
+    ) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def patch_moon(
+        self, account_id: UUID, patch: MoonPatch, defaults: NotificationSettings
+    ) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def moon_candidates(
+        self, since: datetime, defaults: NotificationSettings
+    ) -> list[MoonCandidate]:
+        raise StorageUnavailable("not configured")
+
+    async def claim(self, account_id: UUID, key: str, category: str, local_date: date) -> bool:
+        raise StorageUnavailable("not configured")
+
+    async def finish(self, account_id: UUID, key: str, status: str) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def mark_unreachable(self, account_id: UUID, at: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def prune(self, before: datetime) -> int:
         raise StorageUnavailable("not configured")

@@ -1,0 +1,136 @@
+"""Moon days and moon-reminder settings (MD-03). Shared by the bot and the API; every call
+acts on the caller's own account (`Principal`)."""
+
+from dataclasses import dataclass, replace
+from datetime import date, timedelta
+
+from tristhana.application.policies import Principal
+from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.moon import MoonCalendarRepository
+from tristhana.application.ports.notifications import MoonPatch, NotificationRepository
+from tristhana.application.ports.storage import Clock
+from tristhana.domain.accounts import Account
+from tristhana.domain.days import check_range, local_today, provisional_zone
+from tristhana.domain.moon import Cities, City, MoonDay
+from tristhana.domain.notifications import DEFAULTS, NotificationSettings, check_settings
+
+DEFAULT_WINDOW = timedelta(days=60)
+
+
+class UnknownLocation(ValueError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class MoonView:
+    city: City
+    explicit: bool  # False: the default city, never chosen
+    today: date
+    days: list[MoonDay]
+    settings: NotificationSettings
+    zone: str | None  # the account's own zone; reminders never use the provisional one
+
+    @property
+    def zone_known(self) -> bool:
+        return self.zone is not None
+
+
+def _city(cities: Cities, account: Account) -> tuple[City, bool]:
+    city = cities.get(account.moon_location)
+    if city is None:  # a city removed from the list: fall back, never fail
+        return cities.default, False
+    return city, account.moon_location is not None
+
+
+class GetMoonView:
+    def __init__(
+        self,
+        cities: Cities,
+        moon: MoonCalendarRepository,
+        notifications: NotificationRepository,
+        clock: Clock,
+    ) -> None:
+        self._cities, self._moon, self._notifications, self._clock = (
+            cities,
+            moon,
+            notifications,
+            clock,
+        )
+
+    async def execute(
+        self, principal: Principal, start: date | None = None, end: date | None = None
+    ) -> MoonView:
+        """Raises `InvalidRange`. Defaults to today … +60 days."""
+        account = principal.account
+        city, explicit = _city(self._cities, account)
+        zone = account.timezone or provisional_zone(account.locale)
+        today = local_today(self._clock.now(), zone)
+        start = start or today
+        end = end or start + DEFAULT_WINDOW
+        check_range(start, end)
+        days = await self._moon.days(city.slug, start, end)
+        settings = await self._notifications.settings(account.id, DEFAULTS)
+        return MoonView(city, explicit, today, days, settings, account.timezone)
+
+
+class SetMoonLocation:
+    def __init__(self, cities: Cities, accounts: AccountRepository) -> None:
+        self._cities, self._accounts = cities, accounts
+
+    async def execute(self, principal: Principal, slug: str | None) -> Account:
+        """`None` = back to the default. Raises `UnknownLocation`."""
+        if slug is not None and self._cities.get(slug) is None:
+            raise UnknownLocation(slug)
+        stored = None if slug == self._cities.default.slug else slug
+        return await self._accounts.set_moon_location(principal.account.id, stored)
+
+
+class UseCityTimezone:
+    """ "Use Almaty time for reminders?" Yes: an explicit choice, only while no zone is set
+    (06 Time Zones: never a guess, never overwritten)."""
+
+    def __init__(self, cities: Cities, accounts: AccountRepository) -> None:
+        self._cities, self._accounts = cities, accounts
+
+    async def execute(self, principal: Principal, slug: str) -> Account:
+        city = self._cities.get(slug)
+        if city is None:
+            raise UnknownLocation(slug)
+        account = principal.account
+        if account.timezone is not None:
+            return account
+        return await self._accounts.set_timezone_if_unset(account.id, city.location.tz)
+
+
+class UpdateMoonReminders:
+    def __init__(self, notifications: NotificationRepository) -> None:
+        self._notifications = notifications
+
+    async def execute(self, principal: Principal, patch: MoonPatch) -> NotificationSettings:
+        """Raises `InvalidSettings`."""
+        probe = replace(
+            DEFAULTS,
+            moon=replace(
+                DEFAULTS.moon,
+                offsets=patch.offsets if patch.offsets is not None else DEFAULTS.moon.offsets,
+                at=patch.at or DEFAULTS.moon.at,
+            ),
+        )
+        check_settings(probe)
+        return await self._notifications.patch_moon(principal.account.id, patch, DEFAULTS)
+
+
+class NotificationSettingsUseCase:
+    """The API's full read/replace of the caller's notification settings."""
+
+    def __init__(self, notifications: NotificationRepository) -> None:
+        self._notifications = notifications
+
+    async def get(self, principal: Principal) -> NotificationSettings:
+        return await self._notifications.settings(principal.account.id, DEFAULTS)
+
+    async def save(
+        self, principal: Principal, settings: NotificationSettings
+    ) -> NotificationSettings:
+        """Raises `InvalidSettings`."""
+        return await self._notifications.save(principal.account.id, check_settings(settings))

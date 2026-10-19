@@ -54,3 +54,40 @@ class MoonLocation:
 class MoonDay:
     date: date
     kind: MoonDayKind
+
+
+@dataclass(frozen=True, slots=True)
+class City:
+    """A place whose moon calendar people can follow (MD-03, ADR-0019)."""
+
+    slug: str
+    name_en: str
+    name_ru: str
+    location: MoonLocation
+
+    def name(self, locale: str) -> str:
+        return self.name_ru if locale == "ru" else self.name_en
+
+
+class Cities:
+    """The curated city list, in memory (`data/seed/cities.yaml`)."""
+
+    def __init__(self, cities: tuple[City, ...], default: str) -> None:
+        self.all = cities
+        self._by_slug = {c.slug: c for c in cities}
+        if default not in self._by_slug:
+            raise ValueError(f"default city {default!r} is not in the list")
+        self.default = self._by_slug[default]
+
+    def get(self, slug: str | None) -> City | None:
+        return self.default if slug is None else self._by_slug.get(slug)
+
+    def ordered(self, locale: str) -> list[City]:
+        """The default first, then by the localised name."""
+        rest = sorted((c for c in self.all if c is not self.default), key=lambda c: c.name(locale))
+        return [self.default, *rest]
+
+
+def calendar_years(today: date) -> range:
+    """Years kept in storage: the previous one (for a 12-month heatmap) … current + 2."""
+    return range(today.year - 1, today.year + 3)

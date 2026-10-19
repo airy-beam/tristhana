@@ -51,6 +51,7 @@ class Account:
     locale: Locale
     timezone: str | None  # IANA name; None until the device reports it
     last_seen_at: datetime
+    moon_location: str | None = None  # city slug (MD-03); None = the default (Mysuru)
 
 
 @dataclass(frozen=True, slots=True)

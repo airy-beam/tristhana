@@ -21,7 +21,8 @@ from tristhana.application.accounts import EnsureAccount
 from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram import days as day_screens
 from tristhana.bots.telegram.middleware import AccountMiddleware
-from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases
+from tristhana.bots.telegram.moon import register_moon
+from tristhana.bots.telegram.runtime import DayUseCases, MoonUseCases, PracticeUseCases
 from tristhana.domain.accounts import Account
 
 
@@ -29,6 +30,7 @@ def build_router(
     ensure: EnsureAccount,
     days: DayUseCases,
     practices: PracticeUseCases,
+    moon: MoonUseCases,
     translator: Translator,
     miniapp_url: str = "",
 ) -> Router:
@@ -56,6 +58,7 @@ def build_router(
         return message.answer(translator.t(account.locale, "help-text"))
 
     day_screens.register(router, days, practices, translator)
+    register_moon(router, moon, translator)
 
     @router.callback_query()
     async def on_unknown_callback(callback: CallbackQuery) -> AnswerCallbackQuery:  # pyright: ignore[reportUnusedFunction]

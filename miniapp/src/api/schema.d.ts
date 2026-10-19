@@ -160,6 +160,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/moon-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Moon Days
+         * @description Defaults to today … +60 days; at most 371 days per request.
+         */
+        get: operations["get_moon_days_api_v1_me_moon_days_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/moon-location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Moon Location */
+        put: operations["put_moon_location_api_v1_me_moon_location_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notification-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notification Settings */
+        get: operations["get_notification_settings_api_v1_me_notification_settings_get"];
+        /** Put Notification Settings */
+        put: operations["put_notification_settings_api_v1_me_notification_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moon/cities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cities
+         * @description Public: the cities whose moon calendars can be followed (the default first).
+         */
+        get: operations["get_cities_api_v1_moon_cities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -173,6 +248,17 @@ export interface components {
             series: components["schemas"]["SeriesOut"][];
             /** Version */
             version: string;
+        };
+        /** CityOut */
+        CityOut: {
+            /** Name En */
+            name_en: string;
+            /** Name Ru */
+            name_ru: string;
+            /** Slug */
+            slug: string;
+            /** Timezone */
+            timezone: string;
         };
         /** Day */
         Day: {
@@ -230,7 +316,7 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -265,6 +351,24 @@ export interface components {
         };
         /** @enum {string} */
         Locale: "en" | "ru";
+        /** Location */
+        Location: {
+            /**
+             * Explicit
+             * @description False: the default city (Mysuru), never chosen
+             */
+            explicit: boolean;
+            /** Slug */
+            slug: string;
+        };
+        /** LocationBody */
+        LocationBody: {
+            /**
+             * Slug
+             * @description A city slug; null = back to the default
+             */
+            slug: string | null;
+        };
         /** Me */
         Me: {
             /** Display Name */
@@ -278,6 +382,69 @@ export interface components {
             /**
              * Timezone
              * @description IANA zone, e.g. Asia/Almaty; null until set
+             */
+            timezone: string | null;
+        };
+        /**
+         * MoonDayKind
+         * @enum {string}
+         */
+        MoonDayKind: "purnima" | "amavasya" | "kshaya_purnima" | "kshaya_amavasya";
+        /** MoonDayOut */
+        MoonDayOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            kind: components["schemas"]["MoonDayKind"];
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "purnima" | "amavasya";
+        };
+        /** MoonDays */
+        MoonDays: {
+            /** Days */
+            days: components["schemas"]["MoonDayOut"][];
+            location: components["schemas"]["Location"];
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+        };
+        /** MoonSettings */
+        MoonSettings: {
+            /**
+             * At
+             * Format: time
+             * @description Local wall clock, 15-minute grid
+             */
+            at: string;
+            /**
+             * Offsets
+             * @description Days before; [] = off
+             */
+            offsets: (1 | 3 | 7)[];
+        };
+        /** NotificationSettingsBody */
+        NotificationSettingsBody: {
+            /** Daily Cap */
+            daily_cap: number;
+            moon: components["schemas"]["MoonSettings"];
+            quiet: components["schemas"]["Quiet"];
+        };
+        /** NotificationSettingsOut */
+        NotificationSettingsOut: {
+            /** Daily Cap */
+            daily_cap: number;
+            moon: components["schemas"]["MoonSettings"];
+            quiet: components["schemas"]["Quiet"];
+            /**
+             * Timezone
+             * @description Reminders need it; null = none are sent
              */
             timezone: string | null;
         };
@@ -342,6 +509,19 @@ export interface components {
              */
             kind: "short" | "half_primary" | "full_primary" | "recent";
             length: components["schemas"]["Length"];
+        };
+        /** Quiet */
+        Quiet: {
+            /**
+             * End
+             * Format: time
+             */
+            end: string;
+            /**
+             * Start
+             * Format: time
+             */
+            start: string;
         };
         /** SeriesOut */
         SeriesOut: {
@@ -847,6 +1027,234 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_moon_days_api_v1_me_moon_days_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoonDays"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_moon_location_api_v1_me_moon_location_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_notification_settings_api_v1_me_notification_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_notification_settings_api_v1_me_notification_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_cities_api_v1_moon_cities_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-none-match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CityOut"][];
+                };
+            };
+            /** @description Not modified */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

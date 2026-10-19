@@ -20,6 +20,7 @@ _COLUMNS = (
     account.c.locale,
     account.c.timezone,
     account.c.last_seen_at,
+    account.c.moon_location,
 )
 
 
@@ -93,6 +94,17 @@ class SqlAccountRepository:
             row = (await conn.execute(stmt)).one()
         return _account(row)
 
+    async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account:
+        stmt = (
+            update(account)
+            .where(account.c.id == account_id)
+            .values(moon_location=slug, updated_at=func.now())
+            .returning(*_COLUMNS)
+        )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one()
+        return _account(row)
+
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> Account:
         stmt = (
             update(account)
@@ -117,4 +129,5 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         locale=locale,
         timezone=row.timezone,
         last_seen_at=row.last_seen_at,
+        moon_location=row.moon_location,
     )

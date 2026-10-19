@@ -1,8 +1,16 @@
 import { Localized } from "@fluent/react";
 
-import { DAY_STATUSES, useDays, useSetDay, type DayStatus } from "../api/client";
+import {
+  DAY_STATUSES,
+  useDays,
+  useMoonCities,
+  useMoonDays,
+  useSetDay,
+  type DayStatus,
+} from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 import { haptics } from "../telegram";
+import { cityName } from "./MoonCard";
 import { PracticeDetails } from "./PracticeDetails";
 
 interface Props {
@@ -15,6 +23,8 @@ interface Props {
 export function TodayCard({ zone, locale }: Props) {
   const days = useDays();
   const setDay = useSetDay();
+  const moon = useMoonDays().data;
+  const cities = useMoonCities().data;
   if (days.isError) {
     return (
       <Localized id="today-load-failed">
@@ -26,6 +36,8 @@ export function TodayCard({ zone, locale }: Props) {
 
   const { today } = days.data;
   const todayLog = days.data.days.find((d) => d.date === today);
+  // A moon day is a note, never an auto-filled status: the 🌙 chip stays a choice.
+  const moonToday = moon?.days.find((d) => d.date === today);
   const current = todayLog?.status ?? null;
   const save = (status: DayStatus | null) => {
     haptics.impact("light"); // feedback before the network call
@@ -44,6 +56,21 @@ export function TodayCard({ zone, locale }: Props) {
       <Localized id="today-title">
         <h2 id="today-title" />
       </Localized>
+      {moonToday && moon && (
+        <Localized
+          id="moon-today"
+          vars={{
+            phase: moonToday.phase,
+            city: cityName(
+              cities?.find((c) => c.slug === moon.location.slug),
+              moon.location.slug,
+              locale,
+            ),
+          }}
+        >
+          <p className="hint" />
+        </Localized>
+      )}
       <div className="chips" role="group" aria-labelledby="today-title">
         {DAY_STATUSES.map((status) => (
           <Localized key={status} id={`status-${status}`}>

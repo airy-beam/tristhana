@@ -5,6 +5,7 @@ import { L10nProvider } from "./i18n/L10nProvider";
 import type { Locale } from "./i18n/negotiate";
 import { Home } from "./screens/Home";
 import { NotInTelegram } from "./screens/NotInTelegram";
+import { MoonCard } from "./screens/MoonCard";
 import { Session } from "./screens/Session";
 import { TodayCard } from "./screens/TodayCard";
 import { markReady } from "./telegram";
@@ -44,6 +45,7 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             }}
           >
             {me && <TodayCard zone={me.timezone} locale={me.locale} />}
+            {me && <MoonCard zone={me.timezone} locale={me.locale} />}
           </Home>
         )}
       </Session>
