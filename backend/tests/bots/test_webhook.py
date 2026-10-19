@@ -209,17 +209,19 @@ def test_start_offers_the_mini_app_when_configured() -> None:
     with TestClient(create_app(settings, InMemoryStorage())) as client:
         body = _post(client, _update("/start", language_code="ru")).json()
 
-    [[log_today], [app]] = body["reply_markup"]["inline_keyboard"]
-    assert log_today == {"text": "📝 Отметить сегодня", "callback_data": "d1:t"}
+    [language, app] = body["reply_markup"]["inline_keyboard"][-1]
+    assert language == {"text": "🗣 English", "callback_data": "o1:l:en"}
     assert app["web_app"] == {"url": "https://tristhana.web.app"}
     assert app["text"] == "Открыть приложение"
 
 
-def test_start_has_only_log_today_without_a_mini_app_url(bot_client: TestClient) -> None:
+def test_start_without_a_mini_app_url_has_only_the_language_button(
+    bot_client: TestClient,
+) -> None:
     body = _post(bot_client, _update("/start")).json()
 
-    assert body["reply_markup"]["inline_keyboard"] == [
-        [{"text": "📝 Log today", "callback_data": "d1:t"}]
+    assert body["reply_markup"]["inline_keyboard"][-1] == [
+        {"text": "🗣 Русский", "callback_data": "o1:l:ru"}
     ]
 
 

@@ -19,6 +19,24 @@ interface Props {
   locale: Locale;
 }
 
+const LOGGED_KEY = "onboard.logged";
+
+function loggedBefore(): boolean {
+  try {
+    return localStorage.getItem(LOGGED_KEY) === "1";
+  } catch {
+    return true; // storage blocked: never nag
+  }
+}
+
+function markLogged(): void {
+  try {
+    localStorage.setItem(LOGGED_KEY, "1");
+  } catch {
+    // Blocked storage: the hint just isn't remembered.
+  }
+}
+
 /** Today's status chips on Home (PR-01). "Today" comes from the server, never the device. */
 export function TodayCard({ zone, locale }: Props) {
   const days = useDays();
@@ -39,11 +57,17 @@ export function TodayCard({ zone, locale }: Props) {
   // A moon day is a note, never an auto-filled status: the 🌙 chip stays a choice.
   const moonToday = moon?.days.find((d) => d.date === today);
   const current = todayLog?.status ?? null;
+  // UI-01: a first nudge until this device has saved a day (no extra request).
+  // People who already log in the bot have days here, so they never see it.
+  const firstHint = current === null && days.data.days.length === 0 && !loggedBefore();
   const save = (status: DayStatus | null) => {
     haptics.impact("light"); // feedback before the network call
     setDay.mutate(
       { date: today, status },
       {
+        onSuccess: () => {
+          if (status !== null) markLogged(); // a clear isn't a saved day
+        },
         onError: () => {
           haptics.notify("error");
         },
@@ -68,6 +92,11 @@ export function TodayCard({ zone, locale }: Props) {
             ),
           }}
         >
+          <p className="hint" />
+        </Localized>
+      )}
+      {firstHint && (
+        <Localized id="home-first-hint">
           <p className="hint" />
         </Localized>
       )}

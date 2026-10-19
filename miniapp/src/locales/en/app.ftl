@@ -31,6 +31,7 @@ practice-days =
 session-expired = This session has expired. Close Tristhana and open it again from the bot.
 
 # Home: today's status card (PR-01). Status labels match the bot.
+home-first-hint = Start by noting today: practice or rest.
 today-title = Today
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day

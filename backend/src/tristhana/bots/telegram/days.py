@@ -20,7 +20,14 @@ from tristhana.bots.telegram import practice_callbacks as pcb
 from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encode
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
 from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases, RemindUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, day_label, show
+from tristhana.bots.telegram.screens import (
+    Reply,
+    Screen,
+    answered,
+    app_button,
+    day_label,
+    show,
+)
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
@@ -51,8 +58,9 @@ def register(
     practices: PracticeUseCases,
     translator: Translator,
     remind: RemindUseCases | None = None,
+    miniapp_url: str = "",
 ) -> DayScreens:
-    screens = DayScreens(days, translator)
+    screens = DayScreens(days, translator, miniapp_url)
     screens.practice = PracticeScreens(days, practices, translator, screens, remind)
     register_practice(router, screens.practice)
 
@@ -69,8 +77,8 @@ def register(
             return None
         screen = await answered(callback, screens.handle(Principal(account), cb))
         if cb.action == "today":
-            # "Log today" sits under the /start greeting: keep that message (and its "Open
-            # the app" button) and start a new one.
+            # Legacy `d1:t` ("Log today" under old /start greetings still in chat history,
+            # UI-01): keep that message and start a new one.
             return SendMessage(
                 chat_id=callback.from_user.id, text=screen.text, reply_markup=screen.markup
             )
@@ -84,9 +92,10 @@ async def _nothing() -> None:
 
 
 class DayScreens:
-    def __init__(self, days: DayUseCases, translator: Translator) -> None:
+    def __init__(self, days: DayUseCases, translator: Translator, miniapp_url: str = "") -> None:
         self._days = days
         self._t = translator
+        self.app_url = miniapp_url
         self.practice: PracticeScreens | None = None  # set by `register`
 
     def today(self, principal: Principal) -> tuple[date, bool]:
@@ -146,15 +155,23 @@ class DayScreens:
         """What a day shows once logged (not practiced: that has its own summary)."""
         today, _ = self._days.get.today(principal)
         locale = principal.account.locale
-        markup = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    self._button(locale, "log-change", _open(day)),
-                    self._button(locale, "log-another-day", encode(DayCallback("week", today))),
-                ]
+        rows = [
+            [
+                self._button(locale, "log-change", _open(day)),
+                self._button(locale, "log-another-day", encode(DayCallback("week", today))),
             ]
+        ]
+        rows += self.app_rows(principal)
+        return Screen(
+            "\n\n".join(self.saved_lines(principal, day, status)),
+            InlineKeyboardMarkup(inline_keyboard=rows),
         )
-        return Screen("\n\n".join(self.saved_lines(principal, day, status)), markup)
+
+    def app_rows(self, principal: Principal) -> list[list[InlineKeyboardButton]]:
+        """[Open the app] while the time zone is unknown: opening it records the zone."""
+        if principal.account.timezone is not None or not self.app_url:
+            return []
+        return [[app_button(self._t, principal.account.locale, self.app_url)]]
 
     def saved_lines(self, principal: Principal, day: date, status: DayStatus) -> list[str]:
         """ "✓ Today, Sun, Oct 18: 🧘 Practiced" + the cheer, privacy note, zone hint."""
@@ -232,9 +249,3 @@ def _open(day: date) -> str:
 
 def _details(day: date) -> str:
     return pcb.encode(pcb.PracticeCallback("open", day))
-
-
-def log_today_button(translator: Translator, locale: Locale) -> InlineKeyboardButton:
-    return InlineKeyboardButton(
-        text=translator.t(locale, "start-log-today"), callback_data=encode(DayCallback("today"))
-    )

@@ -7,14 +7,11 @@ Handlers return an unexecuted Bot API method: in webhook mode it becomes the HTT
 
 from aiogram import F, Router
 from aiogram.enums import ChatType
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command
 from aiogram.methods import AnswerCallbackQuery, SendMessage
 from aiogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Message,
-    WebAppInfo,
 )
 
 from tristhana.application.accounts import EnsureAccount
@@ -31,6 +28,7 @@ from tristhana.bots.telegram.runtime import (
     SettingsUseCases,
 )
 from tristhana.bots.telegram.settings import register_settings
+from tristhana.bots.telegram.start import register_start
 from tristhana.domain.accounts import Account
 
 
@@ -51,23 +49,12 @@ def build_router(
     router.message.middleware(accounts)
     router.callback_query.middleware(accounts)
 
-    @router.message(CommandStart())
-    async def on_start(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        text = translator.t(account.locale, "start-greeting")
-        rows = [[day_screens.log_today_button(translator, account.locale)]]
-        if miniapp_url:
-            app = InlineKeyboardButton(
-                text=translator.t(account.locale, "start-open-app"),
-                web_app=WebAppInfo(url=miniapp_url),
-            )
-            rows.append([app])
-        return message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
-
     @router.message(Command("help"))
     async def on_help(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
         return message.answer(translator.t(account.locale, "help-text"))
 
-    screens = day_screens.register(router, days, practices, translator, remind)
+    screens = day_screens.register(router, days, practices, translator, remind, miniapp_url)
+    register_start(router, screens, settings, translator, miniapp_url)
     register_moon(router, moon, translator)
     register_remind(router, remind, screens, translator)
     register_settings(router, settings, translator, miniapp_url)

@@ -47,7 +47,7 @@ def _data(**kw: object) -> str:
     return encode(SettingsCallback(**kw))  # type: ignore[arg-type]
 
 
-def _client(user: User) -> ExternalProfile:
+def client_profile(user: User) -> ExternalProfile:
     """What Telegram says about the person now (for "As in Telegram")."""
     key = IdentityKey(IdentityProvider.TELEGRAM, str(user.id))
     return ExternalProfile(key, display_name=user.first_name, language_code=user.language_code)
@@ -66,7 +66,7 @@ def register_settings(
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
     async def on_settings_tap(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
-        work = screens.handle(Principal(account), cb, _client(callback.from_user))
+        work = screens.handle(Principal(account), cb, client_profile(callback.from_user))
         screen = await answered(callback, work)
         return show(callback, screen) if screen else None
 

@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from aiogram.methods import EditMessageText, SendMessage
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    WebAppInfo,
+)
 
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.domain.locale import Locale
@@ -28,6 +34,11 @@ def button(
 ) -> InlineKeyboardButton:
     text = t.t(locale, key)
     return InlineKeyboardButton(text=f"✓ {text}" if mark else text, callback_data=data)
+
+
+def app_button(t: Translator, locale: Locale, url: str) -> InlineKeyboardButton:
+    """Opens the Mini App (which also records the device time zone, ID-01)."""
+    return InlineKeyboardButton(text=t.t(locale, "start-open-app"), web_app=WebAppInfo(url=url))
 
 
 def day_label(t: Translator, locale: Locale, day: date, today: date) -> str:

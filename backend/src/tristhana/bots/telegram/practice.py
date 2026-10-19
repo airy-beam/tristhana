@@ -216,6 +216,7 @@ class PracticeScreens:
         if has_details(practice):
             last_row.append(self._button(locale, "practice-clear", _data("clear", day)))
         rows.append(last_row)
+        rows += self._day_screens.app_rows(principal)
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     # Screen V: done, a compact summary (+ the one-time practice-reminder offer, PR-10).
