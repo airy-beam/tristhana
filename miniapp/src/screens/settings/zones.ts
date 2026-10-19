@@ -17,10 +17,15 @@ export function offsetOf(zone: string): string {
 /** "Almaty (UTC+5)". */
 export const labelOf = (zone: string) => zoneLabel(zone, today());
 
-/** One city per zone, in list order (Moscow stands for Kazan and Sochi). */
-export function zoneCities(cities: City[]): City[] {
-  const seen = new Set<string>();
-  return cities.filter((c) => (seen.has(c.timezone) ? false : (seen.add(c.timezone), true)));
+/** The city to show as chosen for a zone (only the zone is stored): the followed moon-day
+ * city when it shares the zone, else the city the zone is named after (Europe/Moscow →
+ * Moscow, not Krasnaya Polyana), else the first listed city in that zone. */
+export function zoneCity(cities: City[], zone: string | null, followed: string | undefined) {
+  const own = cities.find((c) => c.slug === followed);
+  if (own && own.timezone === zone) return own;
+  const inZone = cities.filter((c) => c.timezone === zone);
+  const named = (zone ?? "").split("/").pop()?.replace(/_/g, " ");
+  return inZone.find((c) => c.name_en === named) ?? inZone[0];
 }
 
 /** A city name for a zone when one of the listed cities uses it, else the zone's label. */

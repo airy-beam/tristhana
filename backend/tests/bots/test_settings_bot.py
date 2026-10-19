@@ -123,17 +123,54 @@ def test_language_tap_switches_at_once_and_sticks(
     assert storage.repo.accounts[me.id].locale_custom is False
 
 
-def test_zone_picker_marks_and_sets_a_zone(client: TestClient, storage: InMemoryStorage) -> None:
+def _all_picker_texts(client: TestClient) -> list[str]:
+    """Every button text on all pages of the zone picker (34 cities, 12 per page)."""
+    texts: list[str] = []
+    for page in range(3):
+        texts += _texts(_tap(client, f"s1:zp:{page}"))
+    return texts
+
+
+def test_zone_picker_lists_every_moon_day_city(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """Users asked for Moscow; Krasnaya Polyana used to stand in for its whole zone."""
+    from tristhana.infrastructure.seed.cities_yaml import load_cities
+
+    cities = load_cities(Path(__file__).resolve().parents[3] / "data" / "seed" / "cities.yaml")
+    _me(client, storage)
+
+    texts = " | ".join(_all_picker_texts(client))
+
+    for city in cities.all:
+        assert city.name_en in texts, city.slug
+
+
+def test_zone_picker_marks_one_city_and_sets_its_zone(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
     me = _me(client, storage)
-    storage.repo.accounts[me.id] = replace(me, timezone="Asia/Almaty")
+    storage.repo.accounts[me.id] = replace(me, timezone="Europe/Moscow", moon_location="kazan")
 
-    picker = _tap(client, "s1:zp:0")
-    chosen = _tap(client, "s1:z:bangkok")
+    texts = _all_picker_texts(client)
+    chosen = _tap(client, "s1:z:moscow")
 
-    assert "✓ Almaty" in _texts(picker)
-    assert "Kazan" not in _texts(picker) + _texts(_tap(client, "s1:zp:1"))  # Moscow stands for it
-    assert storage.repo.accounts[me.id].timezone == "Asia/Bangkok"
-    assert "🕐 Time zone: Bangkok (UTC+7)" in chosen["text"]
+    assert [t for t in texts if t.startswith("✓ ")] == ["✓ Kazan"]  # the followed city
+    assert storage.repo.accounts[me.id].timezone == "Europe/Moscow"
+    assert "🕐 Time zone: Moscow (UTC+3)" in chosen["text"]
+    bangkok = _tap(client, "s1:z:bangkok")
+    assert "🕐 Time zone: Bangkok (UTC+7)" in bangkok["text"]
+
+
+def test_moscow_is_marked_as_moscow(client: TestClient, storage: InMemoryStorage) -> None:
+    """Krasnaya Polyana is listed first in that zone, but Moscow is the zone's own name."""
+    me = _me(client, storage)
+    _tap(client, "s1:z:moscow")
+
+    marked = [t for t in _all_picker_texts(client) if t.startswith("✓ ")]
+
+    assert marked == ["✓ Moscow"]
+    assert storage.repo.accounts[me.id].timezone == "Europe/Moscow"
 
 
 def test_links_both_ways(client: TestClient, storage: InMemoryStorage) -> None:

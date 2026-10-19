@@ -53,3 +53,13 @@ def test_bad_files_are_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(CatalogLoadError):
         load_cities(bad)
+
+
+def test_every_moon_day_city_can_be_chosen_as_a_time_zone() -> None:
+    """The settings pickers offer every city as a time zone too (users asked for Moscow)."""
+    from tristhana.domain.accounts import parse_timezone
+
+    cities = load_cities(Path(__file__).resolve().parents[3] / "data" / "seed" / "cities.yaml")
+
+    for city in cities.all:
+        assert parse_timezone(city.location.tz) == city.location.tz, city.slug
