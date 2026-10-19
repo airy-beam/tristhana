@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # Unset: private values (ladies' holiday) are unavailable, never stored in plain text.
     field_encryption_keys: SecretStr | None = None
 
+    # Shared secret for POST /internal/tick (Cloud Scheduler sends it as a header, ADR-0018).
+    # Unset: the tick endpoint isn't mounted.
+    internal_tick_token: SecretStr | None = None
+
     # Dev only: GET /dev/telegram-init-data signs initData for ANY user id with the bot token,
     # for the Mini App's browser mock. Explicit opt-in on top of APP_ENV=dev; refused in prod.
     dev_init_data: bool = False
@@ -84,6 +88,7 @@ class Settings(BaseSettings):
         "telegram_webhook_secret",
         "database_url",
         "field_encryption_keys",
+        "internal_tick_token",
         mode="before",
     )
     @classmethod

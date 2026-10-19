@@ -18,6 +18,14 @@ from tristhana.api import v1
 from tristhana.api.errors import install_error_handlers
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
+from tristhana.application.moon import (
+    GetMoonView,
+    NotificationSettingsUseCase,
+    SetMoonLocation,
+    UpdateMoonReminders,
+    UseCityTimezone,
+)
+from tristhana.application.ports.notifications import Notifier
 from tristhana.application.ports.storage import Storage
 from tristhana.application.practice import (
     ClearPractice,
@@ -25,9 +33,12 @@ from tristhana.application.practice import (
     GetPracticePresets,
     SavePractice,
 )
+from tristhana.application.tick import RunTick
+from tristhana.bots.telegram.notifier import TelegramNotifier
 from tristhana.bots.telegram.runtime import (
     BotRuntime,
     DayUseCases,
+    MoonUseCases,
     PracticeUseCases,
     build_runtime,
 )
@@ -35,6 +46,8 @@ from tristhana.bots.telegram.webhook import make_webhook_router
 from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
+from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
+from tristhana.infrastructure.seed.cities_yaml import load_cities
 from tristhana.infrastructure.seed.practice_catalog import load_practice_catalog
 from tristhana.logs import configure_logging
 from tristhana.settings import Settings, get_settings
@@ -42,13 +55,22 @@ from tristhana.settings import Settings, get_settings
 log = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None, storage: Storage | None = None) -> FastAPI:
-    """`storage` is for tests (an in-memory fake); by default it follows DATABASE_URL."""
+def create_app(
+    settings: Settings | None = None,
+    storage: Storage | None = None,
+    notifier: Notifier | None = None,
+) -> FastAPI:
+    """`storage` and `notifier` are for tests (fakes); by default they follow the settings."""
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.effective_log_format)
 
     bot = _LazyBot(settings)
-    services = _Services(storage or _storage(settings), bot, settings)
+    services = _Services(
+        storage or _storage(settings),
+        bot,
+        settings,
+        notifier or TelegramNotifier(bot.get, FluentTranslator()),
+    )
     app = FastAPI(
         title="Tristhana API",
         version=__version__,
@@ -77,6 +99,12 @@ def create_app(settings: Settings | None = None, storage: Storage | None = None)
         from tristhana.api.dev import make_dev_router
 
         app.include_router(make_dev_router(token.get_secret_value()))
+
+    tick_token = settings.internal_tick_token
+    if tick_token is not None:
+        from tristhana.jobs.tick import make_tick_router
+
+        app.include_router(make_tick_router(tick_token.get_secret_value()))
 
     secret = settings.telegram_webhook_secret
     if _webhook_enabled(settings) and secret is not None:
@@ -112,19 +140,24 @@ def _webhook_enabled(settings: Settings) -> bool:
 class _Services:
     """Starts storage, builds the use cases once it is up, then hands them to the adapters."""
 
-    def __init__(self, storage: Storage, bot: "_LazyBot", settings: Settings) -> None:
+    def __init__(
+        self, storage: Storage, bot: "_LazyBot", settings: Settings, notifier: Notifier
+    ) -> None:
         self._storage = storage
         self._bot = bot
         self._settings = settings
+        self._notifier = notifier
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncGenerator[None]:
         # The aiogram import and the catalog parse (CPU, in threads) overlap the DB warm-up's
         # network wait.
-        _, _, loaded = await asyncio.gather(
+        seed = self._settings.seed_dir
+        _, _, loaded, cities = await asyncio.gather(
             self._storage.start(),
             self._bot.preimport(),
-            asyncio.to_thread(load_practice_catalog, self._settings.seed_dir),
+            asyncio.to_thread(load_practice_catalog, seed),
+            asyncio.to_thread(load_cities, seed / "cities.yaml"),
         )
         clock = SystemClock()
         ensure = EnsureAccount(self._storage.accounts, clock)
@@ -148,9 +181,27 @@ class _Services:
         app.state.save_practice, app.state.clear_practice = practices.save, practices.clear
         app.state.practice_presets = practices.presets
         app.state.practice_catalog, app.state.catalog_version = loaded.catalog, loaded.version
+        moon = MoonUseCases(
+            cities=cities,
+            view=GetMoonView(cities, self._storage.moon, self._storage.notifications, clock),
+            set_location=SetMoonLocation(cities, self._storage.accounts),
+            use_city_zone=UseCityTimezone(cities, self._storage.accounts),
+            reminders=UpdateMoonReminders(self._storage.notifications),
+        )
+        app.state.moon, app.state.cities = moon, cities
+        app.state.notification_settings = NotificationSettingsUseCase(self._storage.notifications)
+        app.state.run_tick = RunTick(
+            clock,
+            cities,
+            self._storage.moon,
+            GeneratorMoonCalculator(),
+            self._storage.notifications,
+            self._notifier,
+        )
         self._bot.ensure_account = ensure
         self._bot.days = days
         self._bot.practices = practices
+        self._bot.moon = moon
         try:
             async with self._bot.lifespan():
                 yield
@@ -168,19 +219,26 @@ class _LazyBot:
         self.ensure_account: EnsureAccount | None = None  # set in the lifespan
         self.days: DayUseCases | None = None
         self.practices: PracticeUseCases | None = None
+        self.moon: MoonUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
             token = self._settings.telegram_bot_token
             if token is None:
                 raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
-            if self.ensure_account is None or self.days is None or self.practices is None:
+            if (
+                self.ensure_account is None
+                or self.days is None
+                or self.practices is None
+                or self.moon is None
+            ):
                 raise RuntimeError("bot used before startup")
             self._runtime = build_runtime(
                 token.get_secret_value(),
                 self.ensure_account,
                 self.days,
                 self.practices,
+                self.moon,
                 FluentTranslator(),
                 self._settings.miniapp_url,
             )

@@ -8,10 +8,16 @@ from tristhana.api import initdata
 from tristhana.api.errors import ApiError
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
+from tristhana.application.moon import (
+    GetMoonView,
+    NotificationSettingsUseCase,
+    SetMoonLocation,
+)
 from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
 from tristhana.application.practice import ClearPractice, GetPracticePresets, SavePractice
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
+from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
 from tristhana.settings import Settings
 
@@ -69,6 +75,22 @@ def practice_catalog(request: Request) -> tuple[PracticeCatalog, str]:
     """The catalog and its version (content hash, used as the ETag)."""
     state = request.app.state
     return cast(PracticeCatalog, state.practice_catalog), cast(str, state.catalog_version)
+
+
+def cities(request: Request) -> Cities:
+    return cast(Cities, request.app.state.cities)
+
+
+def moon_view(request: Request) -> GetMoonView:
+    return cast(GetMoonView, request.app.state.moon.view)
+
+
+def set_moon_location(request: Request) -> SetMoonLocation:
+    return cast(SetMoonLocation, request.app.state.moon.set_location)
+
+
+def notification_settings(request: Request) -> NotificationSettingsUseCase:
+    return cast(NotificationSettingsUseCase, request.app.state.notification_settings)
 
 
 async def principal(

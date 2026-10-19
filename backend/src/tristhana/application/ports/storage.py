@@ -3,6 +3,8 @@ from typing import Protocol
 
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.days import DayLogRepository
+from tristhana.application.ports.moon import MoonCalendarRepository
+from tristhana.application.ports.notifications import NotificationRepository
 from tristhana.application.ports.practice import PracticeRepository
 
 
@@ -33,6 +35,12 @@ class Storage(Protocol):
 
     @property
     def practices(self) -> PracticeRepository: ...
+
+    @property
+    def moon(self) -> MoonCalendarRepository: ...
+
+    @property
+    def notifications(self) -> NotificationRepository: ...
 
 
 class Clock(Protocol):

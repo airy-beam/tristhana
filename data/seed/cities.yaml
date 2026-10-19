@@ -1,0 +1,43 @@
+# Moon-day locations (MD-03, ADR-0019). Calendars are computed and stored per city.
+# The first 10 use exactly the coordinates of the owner-verified golden fixtures
+# (backend/tests/fixtures/moon/generator/*.json). Others: city-centre coordinates; moon
+# dates depend on the location only through local sunrise, so a few km don't matter.
+# slug: ASCII kebab-case, <= 24 chars (it goes into callback data). Polar cities are not
+# allowed (no sunrise on some days). Add a city: append it here, deploy; the next tick
+# computes its calendars.
+default: mysuru
+cities:
+  - {slug: mysuru, names: {en: Mysuru, ru: Майсур}, lat: 12.2958, lon: 76.6394, tz: Asia/Kolkata}
+  - {slug: almaty, names: {en: Almaty, ru: Алматы}, lat: 43.2389, lon: 76.8897, tz: Asia/Almaty}
+  - {slug: astana, names: {en: Astana, ru: Астана}, lat: 51.1694, lon: 71.4491, tz: Asia/Almaty}
+  - {slug: krasnaya-polyana, names: {en: Krasnaya Polyana, ru: Красная Поляна}, lat: 43.6828, lon: 40.2596, tz: Europe/Moscow}
+  - {slug: kyiv, names: {en: Kyiv, ru: Киев}, lat: 50.4501, lon: 30.5234, tz: Europe/Kyiv}
+  - {slug: minsk, names: {en: Minsk, ru: Минск}, lat: 53.9006, lon: 27.559, tz: Europe/Minsk}
+  - {slug: moscow, names: {en: Moscow, ru: Москва}, lat: 55.7558, lon: 37.6173, tz: Europe/Moscow}
+  - {slug: novosibirsk, names: {en: Novosibirsk, ru: Новосибирск}, lat: 55.0084, lon: 82.9357, tz: Asia/Novosibirsk}
+  - {slug: saint-petersburg, names: {en: Saint Petersburg, ru: Санкт-Петербург}, lat: 59.9343, lon: 30.3351, tz: Europe/Moscow}
+  - {slug: yekaterinburg, names: {en: Yekaterinburg, ru: Екатеринбург}, lat: 56.8389, lon: 60.6057, tz: Asia/Yekaterinburg}
+  - {slug: tbilisi, names: {en: Tbilisi, ru: Тбилиси}, lat: 41.7151, lon: 44.8271, tz: Asia/Tbilisi}
+  - {slug: yerevan, names: {en: Yerevan, ru: Ереван}, lat: 40.1792, lon: 44.4991, tz: Asia/Yerevan}
+  - {slug: bishkek, names: {en: Bishkek, ru: Бишкек}, lat: 42.8746, lon: 74.5698, tz: Asia/Bishkek}
+  - {slug: tashkent, names: {en: Tashkent, ru: Ташкент}, lat: 41.2995, lon: 69.2401, tz: Asia/Tashkent}
+  - {slug: kazan, names: {en: Kazan, ru: Казань}, lat: 55.7887, lon: 49.1221, tz: Europe/Moscow}
+  - {slug: sochi, names: {en: Sochi, ru: Сочи}, lat: 43.5855, lon: 39.7231, tz: Europe/Moscow}
+  - {slug: kaliningrad, names: {en: Kaliningrad, ru: Калининград}, lat: 54.7104, lon: 20.4522, tz: Europe/Kaliningrad}
+  - {slug: riga, names: {en: Riga, ru: Рига}, lat: 56.9496, lon: 24.1052, tz: Europe/Riga}
+  - {slug: tallinn, names: {en: Tallinn, ru: Таллин}, lat: 59.437, lon: 24.7536, tz: Europe/Tallinn}
+  - {slug: vilnius, names: {en: Vilnius, ru: Вильнюс}, lat: 54.6872, lon: 25.2797, tz: Europe/Vilnius}
+  - {slug: warsaw, names: {en: Warsaw, ru: Варшава}, lat: 52.2297, lon: 21.0122, tz: Europe/Warsaw}
+  - {slug: berlin, names: {en: Berlin, ru: Берлин}, lat: 52.52, lon: 13.405, tz: Europe/Berlin}
+  - {slug: london, names: {en: London, ru: Лондон}, lat: 51.5074, lon: -0.1278, tz: Europe/London}
+  - {slug: lisbon, names: {en: Lisbon, ru: Лиссабон}, lat: 38.7223, lon: -9.1393, tz: Europe/Lisbon}
+  - {slug: barcelona, names: {en: Barcelona, ru: Барселона}, lat: 41.3851, lon: 2.1734, tz: Europe/Madrid}
+  - {slug: istanbul, names: {en: Istanbul, ru: Стамбул}, lat: 41.0082, lon: 28.9784, tz: Europe/Istanbul}
+  - {slug: limassol, names: {en: Limassol, ru: Лимасол}, lat: 34.7071, lon: 33.0226, tz: Asia/Nicosia}
+  - {slug: belgrade, names: {en: Belgrade, ru: Белград}, lat: 44.7866, lon: 20.4489, tz: Europe/Belgrade}
+  - {slug: dubai, names: {en: Dubai, ru: Дубай}, lat: 25.2048, lon: 55.2708, tz: Asia/Dubai}
+  - {slug: goa, names: {en: Goa, ru: Гоа}, lat: 15.4909, lon: 73.8278, tz: Asia/Kolkata}
+  - {slug: bangkok, names: {en: Bangkok, ru: Бангкок}, lat: 13.7563, lon: 100.5018, tz: Asia/Bangkok}
+  - {slug: bali, names: {en: Bali, ru: Бали}, lat: -8.6705, lon: 115.2126, tz: Asia/Makassar}
+  - {slug: new-york, names: {en: New York, ru: Нью-Йорк}, lat: 40.7128, lon: -74.006, tz: America/New_York}
+  - {slug: los-angeles, names: {en: Los Angeles, ru: Лос-Анджелес}, lat: 34.0522, lon: -118.2437, tz: America/Los_Angeles}

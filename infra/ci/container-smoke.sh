@@ -39,6 +39,8 @@ assert compute_moon_days(mysuru, day, day) == [MoonDay(day, MoonDayKind.PURNIMA)
 seed = Path(os.environ["SEED_DIR"])
 load_catalog(seed / "asanas.yaml", seed / "sequences.yaml")
 ZoneInfo("Asia/Almaty")
+import zoneinfo
+assert zoneinfo.TZPATH == (), "PYTHONTZPATH must be empty: tz data from the tzdata package"
 locales = files("tristhana.infrastructure.i18n") / "locales"
 assert all((locales / loc / "bot.ftl").is_file() for loc in ("en", "ru")), ".ftl missing"
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
@@ -48,6 +50,8 @@ from babel import Locale
 from tristhana.domain.locale import LOCALES
 for loc in LOCALES:
     Locale.parse(loc).plural_form(5)
+from tristhana.infrastructure.seed.cities_yaml import load_cities
+assert load_cities(seed / "cities.yaml").default.slug == "mysuru", "cities.yaml"
 import aiogram  # noqa: F401  (imports in the slim image)
 import asyncpg  # noqa: F401  (C extension in the slim image)
 from tristhana.infrastructure.crypto import FieldCipher  # libsodium in the slim image

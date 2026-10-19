@@ -25,6 +25,7 @@ WIF_POOL="github"
 WIF_PROVIDER="github-actions"
 BUDGET_NAME="tristhana-monthly"
 KEEPWARM_JOB="tristhana-keepwarm"
+TICK_JOB="tristhana-tick" # every 10 min: reminders + calendars; replaces the keep-warm job
 HOSTING_SITE="tristhana" # https://tristhana.web.app (Mini App, UI-03)
 BACKUP_SA="tristhana-backup"
 BACKUP_JOB="tristhana-backup"
@@ -34,7 +35,8 @@ BACKUP_BUCKET="${PROJECT_ID}-tristhana-backups"
 BACKUP_IMAGE="docker.io/library/postgres@sha256:aa90e97ee862e558111d34cfb8b2c4bec768c2b039fb791341686928560263b3"
 # Read by the service. database-url: the tristhana_app role via the Supabase session pooler.
 # field-encryption-keys: the keyring for private fields such as ladies' holiday (ADR-0016).
-SECRETS=(telegram-bot-token telegram-webhook-secret database-url field-encryption-keys)
+# internal-tick-token: the header Cloud Scheduler sends to POST /internal/tick (ADR-0018).
+SECRETS=(telegram-bot-token telegram-webhook-secret database-url field-encryption-keys internal-tick-token)
 # Read only by the migrations job: the postgres role (DDL).
 MIGRATE_SECRET="database-url-migrate"
 
@@ -230,6 +232,30 @@ if ! exists "${gc[@]}" scheduler jobs describe "$BACKUP_SCHEDULE" --location "$R
     --oauth-service-account-email "$BACKUP_SA_EMAIL" \
     --description "Weekly pg_dump of schema tristhana (Sundays 03:00 UTC)"
 fi
+
+step "Scheduler tick (${TICK_JOB}, every 10 min; ADR-0018)"
+# Needs a value in internal-tick-token (added by the owner via stdin); skipped until then.
+# Once the tick runs, delete the keep-warm job (it also keeps the instance warm):
+#   gcloud scheduler jobs delete ${KEEPWARM_JOB} --location ${REGION}
+tick_token=""
+if ! $DRY_RUN; then
+  tick_token="$("${gc[@]}" secrets versions access latest --secret internal-tick-token 2>/dev/null || true)"
+fi
+if $DRY_RUN || [[ -n "$tick_token" ]]; then
+  header="X-Tristhana-Tick-Token=${tick_token:-***}" # *** only in the dry-run printout
+  common=(--location "$REGION" --schedule "*/10 * * * *" --time-zone "Etc/UTC"
+    --uri "${service_url}/internal/tick" --http-method POST --attempt-deadline 60s)
+  if exists "${gc[@]}" scheduler jobs describe "$TICK_JOB" --location "$REGION"; then
+    run "${gc[@]}" scheduler jobs update http "$TICK_JOB" "${common[@]}" --update-headers "$header"
+  else
+    run "${gc[@]}" scheduler jobs create http "$TICK_JOB" "${common[@]}" --headers "$header" \
+      --description "Tristhana tick: moon reminders, calendars"
+  fi
+  unset header
+else
+  echo "skipped: add a value to the internal-tick-token secret first"
+fi
+unset tick_token
 
 step "Firebase Hosting for the Mini App (site ${HOSTING_SITE})"
 # No gcloud commands exist for these, so they use the REST APIs with the caller's token.

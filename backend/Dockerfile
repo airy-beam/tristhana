@@ -36,7 +36,10 @@ COPY data/seed /app/data/seed
 COPY infra/supabase/certs /app/certs
 # Declared late: an ARG invalidates the cache of every RUN after it.
 ARG GIT_SHA=dev
+# PYTHONTZPATH empty: zoneinfo uses the pinned `tzdata` package, not the base image's files,
+# so the moon calendars' ALGO_VERSION (which names the tzdata version) matches the data used.
 ENV PATH=/app/.venv/bin:$PATH \
+    PYTHONTZPATH="" \
     PYTHONUNBUFFERED=1 \
     APP_ENV=prod \
     SEED_DIR=/app/data/seed \

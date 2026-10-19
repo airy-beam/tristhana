@@ -256,3 +256,96 @@ export function useSavePractice() {
     },
   });
 }
+
+export type MoonDays = components["schemas"]["MoonDays"];
+export type City = components["schemas"]["CityOut"];
+export type NotificationSettings = components["schemas"]["NotificationSettingsOut"];
+
+const MOON_KEY = ["moon-days"] as const;
+const SETTINGS_KEY = ["notification-settings"] as const;
+
+/** The cities whose moon calendars can be followed (public, ETag-cached). */
+export function useMoonCities() {
+  return useQuery({
+    queryKey: ["moon-cities"],
+    queryFn: async (): Promise<City[]> => {
+      const { data, error, response } = await api.GET("/api/v1/moon/cities");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: Infinity,
+  });
+}
+
+/** Upcoming moon days of the followed city (MD-03). */
+export function useMoonDays() {
+  return useQuery({
+    queryKey: MOON_KEY,
+    queryFn: async (): Promise<MoonDays> => {
+      const { data, error, response } = await api.GET("/api/v1/me/moon-days");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 10 * 60_000,
+  });
+}
+
+export function useNotificationSettings() {
+  return useQuery({
+    queryKey: SETTINGS_KEY,
+    queryFn: async (): Promise<NotificationSettings> => {
+      const { data, error, response } = await api.GET("/api/v1/me/notification-settings");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: Infinity,
+  });
+}
+
+/** Follow another city's moon calendar; the days are refetched for it. */
+export function useSetMoonLocation() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "settings" },
+    mutationFn: async (slug: string) => {
+      const { data, error, response } = await api.PUT("/api/v1/me/moon-location", {
+        body: { slug },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: MOON_KEY });
+    },
+  });
+}
+
+/** Replaces the notification settings, optimistically; the server's answer wins. */
+export function useSaveNotificationSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "settings" },
+    mutationFn: async (body: NotificationSettings): Promise<NotificationSettings> => {
+      const { moon, quiet, daily_cap } = body;
+      const { data, error, response } = await api.PUT("/api/v1/me/notification-settings", {
+        body: { moon, quiet, daily_cap },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onMutate: async (body) => {
+      await client.cancelQueries({ queryKey: SETTINGS_KEY });
+      const before = client.getQueryData<NotificationSettings>(SETTINGS_KEY);
+      client.setQueryData(SETTINGS_KEY, body);
+      return { before };
+    },
+    onSuccess: (saved) => {
+      // A later tap may still be queued: its optimistic state wins until it settles.
+      const queued = client.isMutating({ predicate: (m) => m.options.scope?.id === "settings" });
+      if (queued <= 1) client.setQueryData(SETTINGS_KEY, saved);
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.before) client.setQueryData(SETTINGS_KEY, context.before);
+    },
+  });
+}
