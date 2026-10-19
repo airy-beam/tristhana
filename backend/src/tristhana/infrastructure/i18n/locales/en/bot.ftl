@@ -4,15 +4,20 @@ start-greeting =
     Namaste 🙏
     I'm Tristhana, your Ashtanga practice companion. Glad you're here.
 
-# Button under the /start greeting that opens the Mini App.
+start-prompt =
+    { $day }
+    How was today? Practice or rest, both go in your log.
+# The other-language button; $language is that language's own name ("Русский").
+start-switch-language = 🗣 { $language }
+# Mini App button: under /start and under a saved day while the time zone is unknown.
 start-open-app = Open the app
 
 help-text =
-    I'm Tristhana, a companion for your Ashtanga practice: breath, bandha, drishti.
-    /log: note how your day went (practice, rest, moon day…), today or any earlier day.
-    /moon: upcoming moon days and reminders.
-    /remind: a daily one-tap prompt to log practice or rest.
-    /settings: language, time zone, reminders.
+    I'm Tristhana, a companion for your Ashtanga practice.
+    📝 /log: today or an earlier day · /remind: a daily one-tap check-in
+    🌙 /moon: upcoming moon days and reminders
+    ⚙️ /settings: language, time zone, reminders
+    📊 Your practice log and stats live in the app (the button next to the message field).
 
 fallback-text = I can't answer messages yet. Try /start or /help 🙏
 
@@ -21,8 +26,6 @@ error-temporary = Sorry, I've hit a small hiccup on my side. Please try again in
 
 ## Day status (PR-01). Dates arrive pre-formatted ("Sun, Oct 18").
 
-# Button under the /start greeting.
-start-log-today = 📝 Log today
 
 day-label =
     { $rel ->

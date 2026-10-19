@@ -66,6 +66,7 @@ const visible = (el: HTMLElement) => el.textContent.replace(/[⁨⁩]/g, "");
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 describe("TodayCard", () => {
@@ -154,5 +155,39 @@ describe("TodayCard", () => {
     const { container } = renderCard();
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  describe("first-log hint", () => {
+    const empty: Days = { today: TODAY, timezone_known: true, days: [] };
+    const hint = "Start by noting today: practice or rest.";
+
+    it("shows until this device saves a day, and stays hidden after", async () => {
+      stubApi(empty);
+      const { unmount } = renderCard();
+
+      expect(await screen.findByText(hint)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "😌 Rest day" }));
+      await vi.waitFor(() => {
+        expect(localStorage.getItem("onboard.logged")).toBe("1");
+      });
+      unmount();
+
+      stubApi(empty);
+      renderCard();
+      await screen.findByRole("button", { name: "😌 Rest day" });
+      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    });
+
+    it("never shows to someone who already logs (e.g. in the bot)", async () => {
+      stubApi({
+        today: TODAY,
+        timezone_known: true,
+        days: [{ date: "2026-10-17", status: "practiced", practices: [] }], // yesterday
+      });
+      renderCard();
+
+      await screen.findByRole("button", { name: "😌 Rest day" });
+      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    });
   });
 });

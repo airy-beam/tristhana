@@ -1,8 +1,8 @@
 """Stateless callback data for the day-status screens (ADR-0008), versioned `d1:`.
 
-Dates are absolute, so a keyboard tapped tomorrow still acts on the day it shows; only the
-"Log today" button under /start is relative (`d1:t`): that greeting stays in the chat (its
-tap opens a new message rather than editing it), so it must mean "today" whenever tapped.
+Dates are absolute, so a keyboard tapped tomorrow still acts on the day it shows. Only the
+legacy `d1:t` is relative: the "Log today" button under /start greetings sent before UI-01
+(still in chat history; its tap opens a new message), so it means "today" whenever tapped.
 
     d1:t                today's status screen
     d1:o:20261018       status screen for a date

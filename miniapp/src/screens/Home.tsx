@@ -29,7 +29,14 @@ export function Home({ firstName, showDetails, onGreetingLongPress, children }: 
       haptics.notify(result.isError ? "error" : "success");
     });
   }, [refetch]);
-  useMainButton(l10n.getString("home-check-connection"), checkConnection, health.isFetching);
+  // A Phase 0 check: in production only after the long press that shows server details,
+  // so it isn't the biggest control a newcomer sees (UI-01).
+  useMainButton(
+    l10n.getString("home-check-connection"),
+    checkConnection,
+    health.isFetching,
+    import.meta.env.DEV || showDetails,
+  );
 
   return (
     <main className="screen">
