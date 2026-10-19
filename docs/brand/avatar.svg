@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640">
+  <!-- Tristhana: three points of attention (breath, bandha, drishti) under a crescent moon.
+       Palette from 10 Naming & Branding: deep indigo, saffron/ochre, off-white paper. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#2d3170"/>
+      <stop offset="100%" stop-color="#14163a"/>
+    </radialGradient>
+    <mask id="crescent">
+      <circle cx="320" cy="176" r="54" fill="#fff"/>
+      <circle cx="342" cy="162" r="48" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="640" height="640" fill="url(#bg)"/>
+  <rect width="640" height="640" fill="#f3e9d6" mask="url(#crescent)"/>
+  <g stroke="#f3e9d6" stroke-opacity="0.22" stroke-width="5">
+    <line x1="320" y1="318" x2="226" y2="480"/>
+    <line x1="320" y1="318" x2="414" y2="480"/>
+    <line x1="226" y1="480" x2="414" y2="480"/>
+  </g>
+  <circle cx="320" cy="318" r="40" fill="#f3e9d6"/>
+  <circle cx="226" cy="480" r="40" fill="#e8a33d"/>
+  <circle cx="414" cy="480" r="40" fill="#c8732a"/>
+</svg>
