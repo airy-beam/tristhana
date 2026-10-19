@@ -3,7 +3,7 @@
 # Home: greeting with the Telegram first name (display only).
 home-greeting = Namaste, { $name } 🙏
 home-greeting-anon = Namaste 🙏
-home-subtitle = Your Ashtanga practice companion. Stats are coming soon.
+home-subtitle = Your Ashtanga practice companion.
 
 # Home: server status (dev, or after a long press on the greeting).
 home-server-status = Server { $version } · { $commit }
@@ -151,3 +151,68 @@ remind-weekday = { $d ->
         [6] Sat
        *[7] Sun
     }
+
+## Stats (ST-01..03). Runs say "in a row", never "streak"/"broken"/"missed".
+stats-open = 📊 My practice
+stats-title = My practice
+stats-year-total = { $n ->
+        [one] { $n } practice in { $year }
+       *[other] { $n } practices in { $year }
+    }
+stats-consistency = This month: practice on { $x } of { $y } days
+stats-consistency-count = { $n ->
+        [0] This month: no practice yet
+        [one] This month: { $n } practice
+       *[other] This month: { $n } practices
+    }
+# Shown only from 2, but kept plural-safe.
+stats-run-current = { $n ->
+        [one] 🌿 { $n } practice in a row
+       *[other] 🌿 { $n } practices in a row
+    }
+stats-run-longest = Most in a row this year: { $n }
+stats-consistency-hint = Unmarked days aren't counted. Rest, moon, sick and travel days keep the run going: rest is part of the practice.
+stats-legend-practiced = Practice
+stats-legend-rest = Rest
+stats-legend-moon = 🌙 Moon day (rest)
+stats-legend-away = Sick or travelling
+stats-legend-skipped = No practice
+stats-legend-none = Not marked
+stats-legend-moon-marker = Full or new moon · 📍 { $city }
+stats-show-ladies = Show 🌸 days on this device
+stats-cell-label = { $date }: { $status }{ $moon ->
+        [yes] , full or new moon
+       *[no] {""}
+    }
+stats-cell-future = { $date }{ $moon ->
+        [yes] : full or new moon
+       *[no] {""}
+    }
+stats-back = ‹ Back
+stats-month-practices = { $n ->
+        [one] { $n } practice
+       *[other] { $n } practices
+    }
+stats-online = 🌐 online: { $n }
+stats-by-series = By series
+stats-series-short = ☀️ Short
+stats-no-details = No details
+# $th/$tm = total hours/minutes; zero parts are dropped ("45 min", "2 h").
+stats-duration = ⏱ { $th ->
+        [0] { $tm } min
+       *[other] { $tm ->
+            [0] { $th } h
+           *[other] { $th } h { $tm } min
+        }
+    } in total · about { $avg } min per practice
+stats-unlogged = { $n ->
+        [one] { $n } unmarked day: tap a day to add it
+       *[other] { $n } unmarked days: tap a day to add it
+    }
+stats-month-empty = Nothing marked this month yet. Days you mark will show up here.
+stats-load-failed = Couldn't load your stats. Try again in a moment.
+stats-editor-done = Done
+stats-prev = ‹
+    .aria-label = Previous year
+stats-next = ›
+    .aria-label = Next year

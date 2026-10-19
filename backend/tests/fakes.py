@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.accounts import IdentityTaken
+from tristhana.application.ports.days import History
 from tristhana.application.ports.notifications import (
     Delivery,
     DeliveryResult,
@@ -156,6 +157,11 @@ class InMemoryDays:
             if a == account_id and start <= when <= end
         ]
         return sorted(found, key=lambda d: d.local_date)
+
+    async def history(self, account_id: UUID, start: date, end: date) -> History:
+        days = await self.list_range(account_id, start, end)
+        mine = [when for (a, when) in self.rows if a == account_id]
+        return History(days, min(mine) if mine else None)
 
     def _practices_of(self, account_id: UUID, when: date, day: DayLog) -> tuple[Practice, ...]:
         practice = self.practice_rows.get((account_id, when))

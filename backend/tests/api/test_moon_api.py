@@ -186,3 +186,27 @@ def test_practice_reminder_settings_round_trip(api: TestClient) -> None:
     assert no_days.status_code == 422
     assert (in_quiet.status_code, in_quiet.json()) == (422, {"code": "invalid_settings"})
     assert moon_only.json()["practice"] == on["practice"]  # omitted: unchanged
+
+
+def test_stats_for_the_owner(api: TestClient, storage: InMemoryStorage) -> None:
+    from tristhana.domain.days import DayLog, DayStatus
+
+    api.get("/api/v1/me", headers=_auth())
+    [account] = storage.repo.accounts.values()
+    today = datetime.now(UTC).date()
+    storage.day_repo.rows[(account.id, today - timedelta(days=1))] = (
+        DayLog(today - timedelta(days=1), DayStatus.LADIES),
+        None,
+    )
+
+    body = api.get("/api/v1/me/stats", headers=_auth()).json()
+    bad = api.get("/api/v1/me/stats", params={"year": 1999}, headers=_auth())
+
+    assert body["first_year"] == (today - timedelta(days=1)).year
+    assert len(body["months"]) == 12
+    assert body["moon"]["location"] == "mysuru"
+    assert "ladies" in body["cells"]  # the owner's own data
+    assert body["runs"] == {"current": None, "longest": 0}
+    assert set(body["months"][0]["contexts"]) == {"mysore", "led", "private", "self"}
+    assert (bad.status_code, bad.json()) == (422, {"code": "invalid_year"})
+    assert api.get("/api/v1/me/stats").status_code == 401

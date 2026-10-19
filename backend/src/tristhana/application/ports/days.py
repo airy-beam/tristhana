@@ -1,8 +1,15 @@
+from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.days import DayLog
+
+
+@dataclass(frozen=True, slots=True)
+class History:
+    days: list[DayLog]  # in the requested range, oldest first
+    first_date: date | None  # the earliest logged day ever (None: nothing logged)
 
 
 class DayLogRepository(Protocol):
@@ -25,4 +32,8 @@ class DayLogRepository(Protocol):
 
     async def list_range(self, account_id: UUID, start: date, end: date) -> list[DayLog]:
         """Logged days in [start, end], oldest first."""
+        ...
+
+    async def history(self, account_id: UUID, start: date, end: date) -> History:
+        """`list_range` plus the first logged date, in one statement (stats)."""
         ...

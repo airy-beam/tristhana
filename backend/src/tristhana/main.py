@@ -38,6 +38,7 @@ from tristhana.application.remind import (
     QuickLogSameAsLast,
     UpdatePracticeReminder,
 )
+from tristhana.application.stats import GetYearStats
 from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
 from tristhana.bots.telegram.runtime import (
@@ -195,6 +196,9 @@ class _Services:
             reminders=UpdateMoonReminders(self._storage.notifications),
         )
         app.state.moon, app.state.cities = moon, cities
+        app.state.year_stats = GetYearStats(
+            self._storage.days, self._storage.moon, cities, loaded.catalog, clock
+        )
         notification_settings = NotificationSettingsUseCase(self._storage.notifications)
         app.state.notification_settings = notification_settings
         remind = RemindUseCases(

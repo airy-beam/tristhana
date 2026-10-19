@@ -2,14 +2,16 @@
 status on every rest row (ADR-0016); this adapter is the only place that knows."""
 
 import logging
+from collections.abc import Sequence
 from datetime import date
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
-from sqlalchemy import and_, delete, exists, func, select
+from sqlalchemy import and_, delete, exists, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from tristhana.application.ports.days import History
 from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.infrastructure.crypto import UnreadableSeal
 from tristhana.infrastructure.db.engine import connection
@@ -94,7 +96,32 @@ class SqlDayLogRepository:
             await conn.execute(stmt)
 
     async def list_range(self, account_id: UUID, start: date, end: date) -> list[DayLog]:
+        async with connection(self._engine) as conn:
+            rows = (await conn.execute(self._range(account_id, start, end))).all()
+        return self._days(account_id, rows)
+
+    async def history(self, account_id: UUID, start: date, end: date) -> History:
+        first = (
+            select(func.min(day_log.c.local_date).label("first_date"))
+            .where(day_log.c.account_id == account_id)
+            .subquery("first")
+        )
+        days = self._range(account_id, start, end).subquery("days")
+        # One row even when the range is empty: the first date always comes back.
         stmt = (
+            select(first.c.first_date, *days.c)
+            .select_from(first.outerjoin(days, literal(True)))
+            .order_by(days.c.local_date, days.c.slot)
+        )
+        async with connection(self._engine) as conn:
+            rows = (await conn.execute(stmt)).all()
+        first_date = rows[0].first_date if rows else None
+        return History(
+            self._days(account_id, [r for r in rows if r.local_date is not None]), first_date
+        )
+
+    def _range(self, account_id: UUID, start: date, end: date) -> Any:  # a Select
+        return (
             select(
                 day_log.c.local_date,
                 day_log.c.status,
@@ -126,8 +153,8 @@ class SqlDayLogRepository:
             )
             .order_by(day_log.c.local_date, practice.c.slot)
         )
-        async with connection(self._engine) as conn:
-            rows = (await conn.execute(stmt)).all()
+
+    def _days(self, account_id: UUID, rows: Sequence[Any]) -> list[DayLog]:
         days: dict[date, DayLog] = {}
         for row in rows:
             day = days.get(row.local_date) or DayLog(

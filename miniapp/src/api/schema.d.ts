@@ -215,6 +215,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stats
+         * @description The caller's own stats for a year (ladies' holiday included: only the owner calls
+         *     this; the Mini App draws it as rest unless the person switches it on).
+         */
+        get: operations["get_stats_api_v1_me_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moon/cities": {
         parameters: {
             query?: never;
@@ -249,6 +270,7 @@ export interface components {
             /** Version */
             version: string;
         };
+        CellOut: components["schemas"]["DayStatus"] | "none";
         /** CityOut */
         CityOut: {
             /** Name En */
@@ -259,6 +281,17 @@ export interface components {
             slug: string;
             /** Timezone */
             timezone: string;
+        };
+        /** ContextCounts */
+        ContextCounts: {
+            /** Led */
+            led: number;
+            /** Mysore */
+            mysore: number;
+            /** Private */
+            private: number;
+            /** Self */
+            self: number;
         };
         /** Day */
         Day: {
@@ -311,12 +344,22 @@ export interface components {
              */
             timezone: string;
         };
+        /** Duration */
+        Duration: {
+            /**
+             * Count
+             * @description Practices with a duration
+             */
+            count: number;
+            /** Total Min */
+            total_min: number;
+        };
         /** Error */
         Error: {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -414,6 +457,26 @@ export interface components {
              * Format: date
              */
             today: string;
+        };
+        /** MoonMarker */
+        MoonMarker: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "purnima" | "amavasya";
+        };
+        /** MoonOut */
+        MoonOut: {
+            /** Days */
+            days: components["schemas"]["MoonMarker"][];
+            /** Location */
+            location: string;
         };
         /** MoonSettings */
         MoonSettings: {
@@ -545,6 +608,42 @@ export interface components {
              */
             start: string;
         };
+        /** RestCounts */
+        RestCounts: {
+            /** Ladies */
+            ladies: number;
+            /** Moon */
+            moon: number;
+            /** Rest */
+            rest: number;
+            /** Sick */
+            sick: number;
+            /** Travel */
+            travel: number;
+        };
+        /** Runs */
+        Runs: {
+            /**
+             * Current
+             * @description Practices in a row now (current year only)
+             */
+            current: number | null;
+            /**
+             * Longest
+             * @description Most in a row in this year (a run is counted whole)
+             */
+            longest: number;
+        };
+        /** SeriesCount */
+        SeriesCount: {
+            /**
+             * Number
+             * @description 0 = short practice, else the furthest series
+             */
+            number: number;
+            /** Practices */
+            practices: number;
+        };
         /** SeriesOut */
         SeriesOut: {
             /**
@@ -563,6 +662,30 @@ export interface components {
             /** Stops */
             stops: components["schemas"]["StopOut"][];
         };
+        /** StatsOut */
+        StatsOut: {
+            /**
+             * Cells
+             * @description One per date: Jan 1 … min(today, Dec 31)
+             */
+            cells: components["schemas"]["CellOut"][];
+            /** First Year */
+            first_year: number | null;
+            /** Months */
+            months: components["schemas"]["SummaryOut"][];
+            moon: components["schemas"]["MoonOut"];
+            runs: components["schemas"]["Runs"];
+            /** Timezone Known */
+            timezone_known: boolean;
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /** Year */
+            year: number;
+            year_total: components["schemas"]["SummaryOut"];
+        };
         /** StopOut */
         StopOut: {
             /** Key */
@@ -571,6 +694,35 @@ export interface components {
             latin: string;
             /** Ru */
             ru: string;
+        };
+        /** SummaryOut */
+        SummaryOut: {
+            contexts: components["schemas"]["ContextCounts"];
+            duration: components["schemas"]["Duration"];
+            /** Online */
+            online: number;
+            /**
+             * Possible
+             * @description Practiced + 'No practice' (rest-like never count)
+             */
+            possible: number;
+            /** Practiced */
+            practiced: number;
+            rest: components["schemas"]["RestCounts"];
+            /** Series */
+            series: components["schemas"]["SeriesCount"][];
+            /** Skipped */
+            skipped: number;
+            /**
+             * Unlogged
+             * @description Unmarked days strictly before today
+             */
+            unlogged: number;
+            /**
+             * Unspecified
+             * @description Practiced without details (e.g. pranayama only)
+             */
+            unspecified: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -1212,6 +1364,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationSettingsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_stats_api_v1_me_stats_get: {
+        parameters: {
+            query?: {
+                /** @description Default: the local current year */
+                year?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsOut"];
                 };
             };
             /** @description Unauthorized */

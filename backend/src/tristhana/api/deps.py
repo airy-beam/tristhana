@@ -16,6 +16,7 @@ from tristhana.application.moon import (
 from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
 from tristhana.application.practice import ClearPractice, GetPracticePresets, SavePractice
+from tristhana.application.stats import GetYearStats
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
@@ -45,6 +46,10 @@ def ensure_account(request: Request) -> EnsureAccount:
 
 def record_device_timezone(request: Request) -> RecordDeviceTimezone:
     return cast(RecordDeviceTimezone, request.app.state.record_device_timezone)
+
+
+def year_stats(request: Request) -> "GetYearStats":
+    return cast("GetYearStats", request.app.state.year_stats)
 
 
 def get_days(request: Request) -> GetDays:
