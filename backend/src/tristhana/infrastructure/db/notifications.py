@@ -10,16 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tristhana.application.ports.notifications import (
     Delivery,
-    MoonPatch,
     ReminderCandidate,
     ReminderPatch,
 )
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
 from tristhana.domain.notifications import (
-    MoonReminders,
     NotificationSettings,
-    PracticeReminders,
-    QuietHours,
+    StoredSettings,
+    effective,
 )
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.tables import (
@@ -36,27 +34,27 @@ STALE_CLAIM = timedelta(minutes=5)
 _S = notification_settings
 
 
+def _stored(row: Any) -> StoredSettings:
+    if row is None:
+        return StoredSettings()
+    return StoredSettings(
+        moon_offsets=frozenset(row.moon_offsets) if row.moon_offsets is not None else None,
+        moon_at=row.moon_at,
+        quiet_start=row.quiet_start,
+        quiet_end=row.quiet_end,
+        daily_cap=row.daily_cap,
+        practice_on=row.practice_on,
+        practice_at=row.practice_at,
+        practice_days=frozenset(row.practice_days) if row.practice_days is not None else None,
+    )
+
+
 def _settings(row: Any, defaults: NotificationSettings) -> NotificationSettings:
     """A stored row (or None) over the defaults: NULL columns mean "the default"."""
-    if row is None:
-        return defaults
-    offsets = frozenset(row.moon_offsets) if row.moon_offsets is not None else defaults.moon.offsets
-    return NotificationSettings(
-        moon=MoonReminders(offsets, row.moon_at or defaults.moon.at),
-        quiet=QuietHours(
-            row.quiet_start or defaults.quiet.start, row.quiet_end or defaults.quiet.end
-        )
-        if row.quiet_start is not None or row.quiet_end is not None
-        else defaults.quiet,
-        daily_cap=row.daily_cap or defaults.daily_cap,
-        practice=PracticeReminders(
-            row.practice_on,
-            row.practice_at or defaults.practice.at,
-            frozenset(row.practice_days)
-            if row.practice_days is not None
-            else defaults.practice.days,
-        ),
-    )
+    return effective(_stored(row), defaults)
+
+
+_SORTED = {"moon_offsets", "practice_days"}  # arrays are stored sorted
 
 
 _SETTINGS_COLUMNS = (
@@ -101,15 +99,29 @@ class SqlNotificationRepository:
             }
         return await self._upsert(account_id, values, settings)
 
-    async def patch_moon(
-        self, account_id: UUID, patch: MoonPatch, defaults: NotificationSettings
+    async def stored_row(self, account_id: UUID) -> StoredSettings:
+        stmt = select(*_SETTINGS_COLUMNS).where(_S.c.account_id == account_id)
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one_or_none()
+        return _stored(row)
+
+    async def patch(
+        self, account_id: UUID, columns: dict[str, object], defaults: NotificationSettings
     ) -> NotificationSettings:
-        values: dict[str, Any] = {}
-        if patch.offsets is not None:
-            values["moon_offsets"] = sorted(patch.offsets)
-        if patch.at is not None:
-            values["moon_at"] = patch.at
+        values: dict[str, Any] = {
+            k: sorted(v) if k in _SORTED and isinstance(v, frozenset) else v  # pyright: ignore[reportUnknownArgumentType]
+            for k, v in columns.items()
+        }
         return await self._upsert(account_id, values, defaults)
+
+    async def mark_intro_sent(self, account_id: UUID, at: datetime) -> None:
+        stmt = insert(_S).values(account_id=account_id, moon_intro_sent_at=at)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[_S.c.account_id],
+            set_={"moon_intro_sent_at": func.coalesce(_S.c.moon_intro_sent_at, at)},
+        )
+        async with connection(self._engine) as conn:
+            await conn.execute(stmt)
 
     async def patch_practice(
         self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
@@ -152,6 +164,7 @@ class SqlNotificationRepository:
                 account.c.timezone,
                 account.c.moon_location,
                 identity.c.provider_user_id,
+                _S.c.moon_intro_sent_at,
                 *_SETTINGS_COLUMNS,
             )
             .select_from(
@@ -172,7 +185,6 @@ class SqlNotificationRepository:
             d.c.category,
             d.c.updated_at,
         ).where(d.c.created_at >= since)
-        ever = select(d.c.account_id).where(d.c.category == "moon", d.c.status == "sent").distinct()
         logged = (
             select(day_log.c.account_id, day_log.c.local_date)
             .join(_S, _S.c.account_id == day_log.c.account_id)
@@ -181,7 +193,6 @@ class SqlNotificationRepository:
         async with connection(self._engine) as conn:
             rows = (await conn.execute(accounts)).all()
             recent = (await conn.execute(deliveries)).all()
-            had = {r.account_id for r in (await conn.execute(ever)).all()}
             days = (await conn.execute(logged)).all()
         logged_by: dict[UUID, set[date]] = {}
         for r in days:
@@ -207,7 +218,7 @@ class SqlNotificationRepository:
                     location=r.moon_location,
                     settings=_settings(r, defaults),
                     deliveries=tuple(by_account.get(r.id, ())),
-                    had_moon_reminder=r.id in had,
+                    had_moon_reminder=r.moon_intro_sent_at is not None,
                     logged=frozenset(logged_by.get(r.id, ())),
                 )
             )

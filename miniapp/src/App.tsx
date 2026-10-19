@@ -7,13 +7,14 @@ import type { Locale } from "./i18n/negotiate";
 import { Home } from "./screens/Home";
 import { NotInTelegram } from "./screens/NotInTelegram";
 import { MoonCard } from "./screens/MoonCard";
-import { PracticeReminderCard } from "./screens/PracticeReminderCard";
+import { TravelPrompt } from "./screens/settings/TravelPrompt";
 import { Session } from "./screens/Session";
 import { TodayCard } from "./screens/TodayCard";
-import { markReady } from "./telegram";
+import { markReady, useSettingsButton } from "./telegram";
 
 // The stats screen (ST-01..03) is its own chunk: Home's first load doesn't pay for it.
 const Stats = lazy(() => import("./screens/stats/Stats"));
+const Settings = lazy(() => import("./screens/settings/Settings"));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -27,10 +28,15 @@ interface AppProps {
 
 export function App({ locale, firstName, inTelegram }: AppProps) {
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
-  const [view, setView] = useState<"home" | "stats">("home");
+  const [view, setView] = useState<"home" | "stats" | "settings">("home");
   const home = useCallback(() => {
     setView("home");
   }, []);
+  const settings = useCallback(() => {
+    setView("settings");
+  }, []);
+  // Telegram's ⋯ menu "Settings" item (ID-06).
+  useSettingsButton(settings);
   useEffect(() => {
     // After the first commit, so Telegram drops its placeholder once something is painted.
     if (inTelegram) markReady();
@@ -50,6 +56,10 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Stats locale={me.locale} zone={me.timezone} onBack={home} />
             </Suspense>
+          ) : me && view === "settings" ? (
+            <Suspense fallback={<main className="screen" aria-busy="true" />}>
+              <Settings me={me} onBack={home} />
+            </Suspense>
           ) : (
             <Home
               firstName={me ? me.display_name : firstName}
@@ -58,6 +68,7 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
                 setShowDetails(true);
               }}
             >
+              {me && <TravelPrompt zone={me.timezone} locale={me.locale} />}
               {me && <TodayCard zone={me.timezone} locale={me.locale} />}
               {me && (
                 <Localized id="stats-open">
@@ -70,8 +81,12 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
                   />
                 </Localized>
               )}
-              {me && <MoonCard zone={me.timezone} locale={me.locale} />}
-              {me && <PracticeReminderCard zone={me.timezone} />}
+              {me && <MoonCard locale={me.locale} />}
+              {me && (
+                <Localized id="settings-open">
+                  <button type="button" className="row-button" onClick={settings} />
+                </Localized>
+              )}
             </Home>
           )
         }

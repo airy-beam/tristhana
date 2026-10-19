@@ -12,6 +12,8 @@ const ME: Me = {
   display_name: "Аня",
   locale: "ru",
   timezone: null,
+  name_from_telegram: true,
+  locale_from_telegram: true,
 };
 
 type Route = (request: Request) => Response;

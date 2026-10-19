@@ -17,6 +17,7 @@ from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.notifications import PracticeReminder, ReminderPatch
 from tristhana.bots.telegram import callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
+from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.remind_callbacks import PREFIX, RemindCallback, decode, encode
 from tristhana.bots.telegram.runtime import RemindUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
@@ -77,6 +78,31 @@ def reminder_screen(
         ],
     ]
     return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+def practice_status(
+    t: Translator, locale: Locale, settings: NotificationSettings, zone: str | None, today: date
+) -> str:
+    """The practice reminder line ("🔔 Practice reminder: every day except Saturday, …")."""
+    p = settings.practice
+    if not p.enabled:
+        return t.t(locale, "remind-status-off")
+    # Without a known zone there is no honest zone label: "10:00 your time".
+    time_text = (
+        t.t(locale, "time-label", time=TimeArg(today, p.at, zone))
+        if zone
+        else t.t(locale, "remind-local-time", time=f"{p.at:%H:%M}")
+    )
+    return t.t(locale, "remind-status-on", days=_days_text(t, locale, p.days), time=time_text)
+
+
+def _days_text(t: Translator, locale: Locale, days: frozenset[int]) -> str:
+    if days == WEEKDAYS:
+        return t.t(locale, "remind-every-day")
+    missing = WEEKDAYS - days
+    if len(missing) == 1:
+        return t.t(locale, "remind-days-except", d=next(iter(missing)))
+    return ", ".join(t.t(locale, "remind-weekday", d=d) for d in sorted(days))
 
 
 def offer_row(t: Translator, locale: Locale, day: date) -> list[InlineKeyboardButton]:
@@ -232,29 +258,11 @@ class RemindScreens:
                     self._t, locale, "remind-moon-link", mcb.encode(mcb.MoonCallback("reminders"))
                 )
             ],
+            [button(self._t, locale, "settings-link", scb.encode(scb.SettingsCallback("view")))],
         ]
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def status_line(
         self, locale: Locale, settings: NotificationSettings, zone: str | None, today: date
     ) -> str:
-        p = settings.practice
-        if not p.enabled:
-            return self._t.t(locale, "remind-status-off")
-        # Without a known zone there is no honest zone label: "10:00 your time".
-        time_text = (
-            self._t.t(locale, "time-label", time=TimeArg(today, p.at, zone))
-            if zone
-            else self._t.t(locale, "remind-local-time", time=f"{p.at:%H:%M}")
-        )
-        return self._t.t(
-            locale, "remind-status-on", days=self.days_text(locale, p.days), time=time_text
-        )
-
-    def days_text(self, locale: Locale, days: frozenset[int]) -> str:
-        if days == WEEKDAYS:
-            return self._t.t(locale, "remind-every-day")
-        missing = WEEKDAYS - days
-        if len(missing) == 1:
-            return self._t.t(locale, "remind-days-except", d=next(iter(missing)))
-        return ", ".join(self._t.t(locale, "remind-weekday", d=d) for d in sorted(days))
+        return practice_status(self._t, locale, settings, zone, today)

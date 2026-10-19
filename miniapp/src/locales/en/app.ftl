@@ -216,3 +216,37 @@ stats-prev = ‹
     .aria-label = Previous year
 stats-next = ›
     .aria-label = Next year
+
+## Settings (ID-06).
+settings-open = ⚙️ Settings
+settings-title = Settings
+settings-name = Name
+settings-name-hint = How I greet you. Leave it empty to use your Telegram name.
+settings-language = Language
+language-auto = As in Telegram
+language-en = English
+language-ru = Русский
+settings-zone = Time zone
+settings-zone-now = { $time } { $zone }
+settings-zone-unset = Not set yet. Reminders start once it's set.
+settings-zone-use-device = Use this phone's zone: { $zone }
+settings-zone-pick = Pick a city
+settings-zone-utc = UTC (no daylight saving)
+settings-zone-hint = Reminders follow this zone. Days you've already logged keep their dates.
+zone-travel = Your phone is on { $device } time. Reminders use { $current }.
+zone-travel-switch = Switch to { $city }
+zone-travel-keep = Keep { $city }
+settings-moon-time = Send at
+settings-quiet = Quiet hours
+settings-quiet-from = Quiet from
+settings-quiet-to = Quiet until
+settings-quiet-off = No quiet hours
+settings-quiet-conflict = A reminder falls in these hours. Move it first.
+settings-cap = { $n ->
+        [one] At most { $n } message a day
+       *[other] At most { $n } messages a day
+    }
+settings-privacy = Privacy
+settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
+settings-privacy-sharing = For now, only you see what you log. When teachers join, you choose what they see.
+settings-save-failed = Couldn't save. Try again in a moment.

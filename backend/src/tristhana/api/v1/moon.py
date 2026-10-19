@@ -14,6 +14,7 @@ from tristhana.api.deps import (
     notification_settings,
     set_moon_location,
 )
+from tristhana.api.deps import patch_notification_settings as patch_settings_dep
 from tristhana.api.errors import ApiError, error_responses
 from tristhana.application.moon import (
     GetMoonView,
@@ -21,11 +22,14 @@ from tristhana.application.moon import (
     SetMoonLocation,
     UnknownLocation,
 )
+from tristhana.application.settings import PatchNotificationSettings
 from tristhana.domain.days import InvalidRange
 from tristhana.domain.moon import Cities, MoonDayKind
 from tristhana.domain.notifications import (
+    KEEP,
     InvalidSettings,
     MoonReminders,
+    NotificationPatch,
     NotificationSettings,
     PracticeReminders,
     QuietHours,
@@ -170,7 +174,73 @@ async def get_notification_settings(
     return _settings_out(await use_case.get(principal), principal.account.timezone)
 
 
-@router.put("/me/notification-settings", responses=error_responses(401, 422, 503))
+class MoonPatchBody(BaseModel):
+    offsets: list[Literal[1, 3, 7]] | None = None
+    at: dt.time | None = None
+
+
+class PracticePatchBody(BaseModel):
+    on: bool | None = None
+    at: dt.time | None = None
+    days: list[Annotated[int, Field(ge=1, le=7)]] | None = Field(default=None, min_length=1)
+
+
+class NotificationSettingsPatch(BaseModel):
+    """Omitted = unchanged; null = back to the default (ADR-0021)."""
+
+    moon: MoonPatchBody | None = None
+    quiet: Quiet | None = None
+    daily_cap: int | None = Field(default=None, ge=1, le=10)
+    practice: PracticePatchBody | None = None
+
+
+def _time(t: dt.time | None) -> dt.time | None:
+    return t.replace(tzinfo=None) if t is not None else None
+
+
+def _domain_patch(body: NotificationSettingsPatch) -> NotificationPatch:
+    sent = body.model_fields_set
+    moon = body.moon.model_fields_set if body.moon else set[str]()
+    practice = body.practice.model_fields_set if body.practice else set[str]()
+    m, p = body.moon, body.practice
+    return NotificationPatch(
+        moon_offsets=(frozenset(m.offsets) if m.offsets is not None else None)
+        if m and "offsets" in moon
+        else KEEP,
+        moon_at=_time(m.at) if m and "at" in moon else KEEP,
+        quiet=(
+            QuietHours(_time(body.quiet.start), _time(body.quiet.end))  # type: ignore[arg-type]
+            if body.quiet
+            else None
+        )
+        if "quiet" in sent
+        else KEEP,
+        daily_cap=body.daily_cap if "daily_cap" in sent else KEEP,
+        practice_on=p.on if p and "on" in practice else KEEP,
+        practice_at=_time(p.at) if p and "at" in practice else KEEP,
+        practice_days=(frozenset(p.days) if p.days is not None else None)
+        if p and "days" in practice
+        else KEEP,
+    )
+
+
+@router.patch("/me/notification-settings", responses=error_responses(401, 422, 503))
+async def patch_notification_settings(
+    body: NotificationSettingsPatch,
+    principal: CurrentPrincipal,
+    use_case: Annotated[PatchNotificationSettings, Depends(patch_settings_dep)],
+) -> NotificationSettingsOut:
+    """Only the sent fields change; the merged result is validated."""
+    if any(getattr(body, g) is None for g in {"moon", "practice"} & body.model_fields_set):
+        raise ApiError(422, "invalid_settings")  # reset single fields, not a whole group
+    try:
+        saved = await use_case.execute(principal, _domain_patch(body))
+    except InvalidSettings:
+        raise ApiError(422, "invalid_settings") from None
+    return _settings_out(saved, principal.account.timezone)
+
+
+@router.put("/me/notification-settings", responses=error_responses(401, 422, 503), deprecated=True)
 async def put_notification_settings(
     body: NotificationSettingsBody,
     principal: CurrentPrincipal,

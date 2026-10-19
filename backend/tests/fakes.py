@@ -12,7 +12,6 @@ from tristhana.application.ports.notifications import (
     Delivery,
     DeliveryResult,
     DeliveryStatus,
-    MoonPatch,
     MoonReminder,
     Notification,
     PracticeReminder,
@@ -34,11 +33,18 @@ from tristhana.bots.telegram.runtime import (
     MoonUseCases,
     PracticeUseCases,
     RemindUseCases,
+    SettingsUseCases,
 )
-from tristhana.domain.accounts import Account, IdentityKey, NewAccount, ProfileUpdate
+from tristhana.domain.accounts import (
+    Account,
+    IdentityKey,
+    NewAccount,
+    ProfileChange,
+    ProfileUpdate,
+)
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.moon import MoonDay, MoonDayKind, MoonLocation
-from tristhana.domain.notifications import NotificationSettings
+from tristhana.domain.notifications import NotificationSettings, StoredSettings, effective
 from tristhana.domain.practice import Practice, PracticeContext
 
 NOW = datetime(2026, 10, 18, 6, 0, tzinfo=UTC)
@@ -87,6 +93,19 @@ class InMemoryAccounts:
             last_seen_at=seen_at,
         )
         return self._save(account)
+
+    async def update_settings(self, account_id: UUID, change: ProfileChange) -> Account:
+        self._check()
+        current = self.accounts[account_id]
+        if "name" in change.fields:
+            current = replace(
+                current, display_name=change.display_name, name_custom=change.name_custom
+            )
+        if "locale" in change.fields:
+            current = replace(current, locale=change.locale, locale_custom=change.locale_custom)
+        if "timezone" in change.fields:
+            current = replace(current, timezone=change.timezone)
+        return self._save(current)
 
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account:
         self._check()
@@ -281,6 +300,7 @@ class InMemoryNotifications:
     )
     unreachable: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
     days: "InMemoryDays | None" = None  # logged days for the practice reminder
+    intro_sent: set[UUID] = field(default_factory=set[UUID])
 
     async def settings(
         self, account_id: UUID, defaults: NotificationSettings
@@ -298,17 +318,30 @@ class InMemoryNotifications:
         self.stored[account_id] = settings
         return settings
 
-    async def patch_moon(
-        self, account_id: UUID, patch: MoonPatch, defaults: NotificationSettings
-    ) -> NotificationSettings:
-        current = self.stored.get(account_id, defaults)
-        moon = replace(
-            current.moon,
-            offsets=patch.offsets if patch.offsets is not None else current.moon.offsets,
-            at=patch.at or current.moon.at,
+    async def stored_row(self, account_id: UUID) -> StoredSettings:
+        s = self.stored.get(account_id)
+        if s is None:
+            return StoredSettings()
+        return StoredSettings(
+            s.moon.offsets,
+            s.moon.at,
+            s.quiet.start,
+            s.quiet.end,
+            s.daily_cap,
+            s.practice.on,
+            s.practice.at,
+            s.practice.days,
         )
-        self.stored[account_id] = replace(current, moon=moon)
+
+    async def patch(
+        self, account_id: UUID, columns: dict[str, object], defaults: NotificationSettings
+    ) -> NotificationSettings:
+        row = replace(await self.stored_row(account_id), **columns)  # type: ignore[arg-type]
+        self.stored[account_id] = effective(row, defaults)
         return self.stored[account_id]
+
+    async def mark_intro_sent(self, account_id: UUID, at: datetime) -> None:
+        self.intro_sent.add(account_id)
 
     async def patch_practice(
         self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
@@ -337,11 +370,7 @@ class InMemoryNotifications:
                 for (a, k), d in self.deliveries.items()
                 if a == account_id
             ]
-            had = any(
-                d["status"] == "sent" and k.startswith("moon:")
-                for (a, k), d in self.deliveries.items()
-                if a == account_id
-            )
+            had = account_id in self.intro_sent
             logged = frozenset(
                 when
                 for (a, when) in (self.days.rows if self.days else {})
@@ -525,4 +554,17 @@ def remind_use_cases(
         update=UpdatePracticeReminder(storage.notifications),
         offer=AnswerPracticeOffer(storage.notifications, clock),
         quick_log=QuickLogSameAsLast(storage.days, storage.practices, clock),
+    )
+
+
+def settings_use_cases(storage: "InMemoryStorage | None" = None) -> SettingsUseCases:
+    from tristhana.application.moon import NotificationSettingsUseCase
+    from tristhana.application.settings import UpdateProfile
+
+    storage = storage or InMemoryStorage()
+    return SettingsUseCases(
+        profile=UpdateProfile(storage.accounts),
+        settings=NotificationSettingsUseCase(storage.notifications),
+        cities=moon_use_cases(storage).cities,
+        today=day_use_cases(storage.days).get.today,
     )

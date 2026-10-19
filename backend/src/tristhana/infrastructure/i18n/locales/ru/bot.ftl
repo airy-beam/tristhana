@@ -12,6 +12,7 @@ help-text =
     /log: отметь, каким был день (практика, отдых, лунный день…) — сегодня или любой прошедший.
     /moon: ближайшие лунные дни и напоминания.
     /remind: раз в день спрошу «практика или отдых?», ответить можно одним нажатием.
+    /settings: язык, часовой пояс, напоминания.
 
 fallback-text = Я пока не умею отвечать на сообщения. Попробуй /start или /help 🙏
 
@@ -265,3 +266,27 @@ remind-weekday = { $d ->
 remind-day-off = Выходной: { remind-weekday }
 remind-moon-link = 🌙 Лунные напоминания
 remind-practice-link = 🧘 Напоминание о практике
+
+## Настройки (ID-06).
+command-settings = Язык, часовой пояс, напоминания
+settings-title = ⚙️ Настройки
+language-auto = Как в Telegram
+language-en = English
+language-ru = Русский
+settings-language-line = 🗣 Язык: { $language }
+settings-zone-line = 🕐 Часовой пояс: { $zone }
+settings-zone-unset-line = 🕐 Часовой пояс: пока не задан. Напоминания начнутся, как только он появится.
+settings-moon-line = 🌙 Лунные дни: 📍 { $city }
+settings-quiet-line = 🔕 Тихие часы { $start }–{ $end } · { $n ->
+        [one] не больше { $n } сообщения в день
+       *[other] не больше { $n } сообщений в день
+    }
+settings-quiet-off-line = 🔕 Без тихих часов · { $n ->
+        [one] не больше { $n } сообщения в день
+       *[other] не больше { $n } сообщений в день
+    }
+settings-zone-button = 🕐 Часовой пояс
+settings-moon-link = 🌙 Лунные дни
+settings-pick-zone = Выбери город, по времени которого живёшь. Нет в списке? Открой приложение: оно возьмёт пояс телефона.
+settings-open-app = ⚙️ Имя, тихие часы: в приложении
+settings-link = ⚙️ Настройки

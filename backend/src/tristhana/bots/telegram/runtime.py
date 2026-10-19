@@ -5,7 +5,9 @@ This module itself doesn't import aiogram at import time, so `/health`-only path
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from tristhana.application.accounts import EnsureAccount
@@ -17,6 +19,7 @@ from tristhana.application.moon import (
     UpdateMoonReminders,
     UseCityTimezone,
 )
+from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.practice import (
     ClearPractice,
@@ -29,6 +32,7 @@ from tristhana.application.remind import (
     QuickLogSameAsLast,
     UpdatePracticeReminder,
 )
+from tristhana.application.settings import UpdateProfile
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
 
@@ -71,6 +75,14 @@ class RemindUseCases:
 
 
 @dataclass(frozen=True, slots=True)
+class SettingsUseCases:
+    profile: UpdateProfile
+    settings: NotificationSettingsUseCase
+    cities: Cities
+    today: Callable[[Principal], tuple[date, bool]]  # GetDays.today: no DB access
+
+
+@dataclass(frozen=True, slots=True)
 class BotRuntime:
     bot: Bot
     dispatcher: Dispatcher
@@ -83,6 +95,7 @@ def build_runtime(
     practices: PracticeUseCases,
     moon: MoonUseCases,
     remind: RemindUseCases,
+    settings: SettingsUseCases,
     translator: Translator,
     miniapp_url: str = "",
 ) -> BotRuntime:
@@ -93,7 +106,7 @@ def build_runtime(
 
     dispatcher = Dispatcher()
     dispatcher.include_router(
-        build_router(ensure, days, practices, moon, remind, translator, miniapp_url)
+        build_router(ensure, days, practices, moon, remind, settings, translator, miniapp_url)
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
 

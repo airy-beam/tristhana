@@ -7,7 +7,6 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tristhana.application.ports.notifications import MoonPatch
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.moon import MoonDay, MoonDayKind
 from tristhana.domain.notifications import DEFAULTS
@@ -51,12 +50,12 @@ async def test_settings_default_patch_and_save(engine: AsyncEngine) -> None:
     repo = SqlNotificationRepository(engine)
 
     assert await repo.settings(me, DEFAULTS) == DEFAULTS
-    patched = await repo.patch_moon(me, MoonPatch(offsets=frozenset({1})), DEFAULTS)
-    timed = await repo.patch_moon(me, MoonPatch(at=time(7)), DEFAULTS)
+    patched = await repo.patch(me, {"moon_offsets": frozenset({1})}, DEFAULTS)
+    timed = await repo.patch(me, {"moon_at": time(7)}, DEFAULTS)
 
     assert patched.moon.offsets == {1}
     assert (timed.moon.offsets, timed.moon.at, timed.quiet) == ({1}, time(7), DEFAULTS.quiet)
-    off = await repo.patch_moon(me, MoonPatch(offsets=frozenset()), DEFAULTS)
+    off = await repo.patch(me, {"moon_offsets": frozenset[int]()}, DEFAULTS)
     assert not off.moon.on
 
 
@@ -66,7 +65,7 @@ async def test_moon_candidates(engine: AsyncEngine) -> None:
     off = await _account(engine, "3")
     blocked = await _account(engine, "4")
     repo = SqlNotificationRepository(engine)
-    await repo.patch_moon(off, MoonPatch(offsets=frozenset()), DEFAULTS)
+    await repo.patch(off, {"moon_offsets": frozenset[int]()}, DEFAULTS)
     await repo.mark_unreachable(blocked, NOW)
 
     candidates = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
@@ -119,12 +118,14 @@ async def test_sent_reminders_mark_the_intro_done_and_prune(engine: AsyncEngine)
     repo = SqlNotificationRepository(engine)
     await repo.claim(me, "moon:2026-11-05:1", "moon", date(2026, 11, 4))
     await repo.finish(me, "moon:2026-11-05:1", "sent")
+    await repo.mark_intro_sent(me, NOW)
+    await repo.mark_intro_sent(me, NOW + timedelta(days=1))  # the first one stays
 
-    [candidate] = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
     pruned = await repo.prune(datetime.now(UTC) + timedelta(seconds=1))
+    [candidate] = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
 
-    assert candidate.had_moon_reminder is True
     assert pruned == 1
+    assert candidate.had_moon_reminder is True  # survives pruning (Q24)
 
 
 async def test_moon_location_round_trip_and_check(engine: AsyncEngine) -> None:

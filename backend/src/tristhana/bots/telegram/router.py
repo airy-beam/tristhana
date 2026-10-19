@@ -28,7 +28,9 @@ from tristhana.bots.telegram.runtime import (
     MoonUseCases,
     PracticeUseCases,
     RemindUseCases,
+    SettingsUseCases,
 )
+from tristhana.bots.telegram.settings import register_settings
 from tristhana.domain.accounts import Account
 
 
@@ -38,6 +40,7 @@ def build_router(
     practices: PracticeUseCases,
     moon: MoonUseCases,
     remind: RemindUseCases,
+    settings: SettingsUseCases,
     translator: Translator,
     miniapp_url: str = "",
 ) -> Router:
@@ -67,6 +70,7 @@ def build_router(
     screens = day_screens.register(router, days, practices, translator, remind)
     register_moon(router, moon, translator)
     register_remind(router, remind, screens, translator)
+    register_settings(router, settings, translator, miniapp_url)
 
     @router.callback_query()
     async def on_unknown_callback(callback: CallbackQuery) -> AnswerCallbackQuery:  # pyright: ignore[reportUnusedFunction]

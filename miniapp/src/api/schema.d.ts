@@ -58,7 +58,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Patch Me */
+        patch: operations["patch_me_api_v1_me_patch"];
         trace?: never;
     };
     "/api/v1/me/days": {
@@ -206,13 +207,20 @@ export interface paths {
         };
         /** Get Notification Settings */
         get: operations["get_notification_settings_api_v1_me_notification_settings_get"];
-        /** Put Notification Settings */
+        /**
+         * Put Notification Settings
+         * @deprecated
+         */
         put: operations["put_notification_settings_api_v1_me_notification_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Patch Notification Settings
+         * @description Only the sent fields change; the merged result is validated.
+         */
+        patch: operations["patch_notification_settings_api_v1_me_notification_settings_patch"];
         trace?: never;
     };
     "/api/v1/me/stats": {
@@ -359,7 +367,7 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -423,10 +431,34 @@ export interface components {
             id: string;
             locale: components["schemas"]["Locale"];
             /**
+             * Locale From Telegram
+             * @description False once a language was chosen
+             */
+            locale_from_telegram: boolean;
+            /**
+             * Name From Telegram
+             * @description False once a name was chosen in settings
+             */
+            name_from_telegram: boolean;
+            /**
              * Timezone
              * @description IANA zone, e.g. Asia/Almaty; null until set
              */
             timezone: string | null;
+        };
+        /**
+         * MePatch
+         * @description Omitted = unchanged; null = back to Telegram's (name, language) (ADR-0021).
+         */
+        MePatch: {
+            /** Display Name */
+            display_name?: string | null;
+            locale?: components["schemas"]["Locale"] | null;
+            /**
+             * Timezone
+             * @description IANA zone or UTC
+             */
+            timezone?: string | null;
         };
         /**
          * MoonDayKind
@@ -478,6 +510,13 @@ export interface components {
             /** Location */
             location: string;
         };
+        /** MoonPatchBody */
+        MoonPatchBody: {
+            /** At */
+            at?: string | null;
+            /** Offsets */
+            offsets?: (1 | 3 | 7)[] | null;
+        };
         /** MoonSettings */
         MoonSettings: {
             /**
@@ -513,6 +552,17 @@ export interface components {
              * @description Reminders need it; null = none are sent
              */
             timezone: string | null;
+        };
+        /**
+         * NotificationSettingsPatch
+         * @description Omitted = unchanged; null = back to the default (ADR-0021).
+         */
+        NotificationSettingsPatch: {
+            /** Daily Cap */
+            daily_cap?: number | null;
+            moon?: components["schemas"]["MoonPatchBody"] | null;
+            practice?: components["schemas"]["PracticePatchBody"] | null;
+            quiet?: components["schemas"]["Quiet"] | null;
         };
         /** PracticeBody */
         PracticeBody: {
@@ -559,6 +609,15 @@ export interface components {
              * @description IANA zone of start_time
              */
             timezone: string | null;
+        };
+        /** PracticePatchBody */
+        PracticePatchBody: {
+            /** At */
+            at?: string | null;
+            /** Days */
+            days?: number[] | null;
+            /** On */
+            on?: boolean | null;
         };
         /** PracticePresets */
         PracticePresets: {
@@ -824,6 +883,57 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patch_me_api_v1_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1354,6 +1464,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["NotificationSettingsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patch_notification_settings_api_v1_me_notification_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsPatch"];
             };
         };
         responses: {

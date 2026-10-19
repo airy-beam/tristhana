@@ -378,17 +378,39 @@ export function useSetMoonLocation() {
   });
 }
 
-/** Replaces the notification settings, optimistically; the server's answer wins. The
- * practice reminder is sent only with `withPractice`, so a moon tap never overwrites a
- * change made in the bot meanwhile (omitted = unchanged). */
-export function useSaveNotificationSettings({ withPractice = false } = {}) {
+export type SettingsPatch = components["schemas"]["NotificationSettingsPatch"];
+
+/** What the settings look like after `patch` (the optimistic view; the server's answer wins). */
+function merged(settings: NotificationSettings, patch: SettingsPatch): NotificationSettings {
+  const { moon, quiet, daily_cap, practice } = patch;
+  return {
+    ...settings,
+    moon: moon
+      ? {
+          offsets: moon.offsets ?? settings.moon.offsets,
+          at: moon.at ?? settings.moon.at,
+        }
+      : settings.moon,
+    quiet: quiet ?? settings.quiet,
+    daily_cap: daily_cap ?? settings.daily_cap,
+    practice: practice
+      ? {
+          on: practice.on !== undefined ? practice.on : settings.practice.on,
+          at: practice.at ?? settings.practice.at,
+          days: practice.days ?? settings.practice.days,
+        }
+      : settings.practice,
+  };
+}
+
+/** Changes only what was tapped (ADR-0021), optimistically; the server's answer wins. */
+export function usePatchNotificationSettings() {
   const client = useQueryClient();
   return useMutation({
     scope: { id: "settings" },
-    mutationFn: async (body: NotificationSettings): Promise<NotificationSettings> => {
-      const { moon, quiet, daily_cap, practice } = body;
-      const { data, error, response } = await api.PUT("/api/v1/me/notification-settings", {
-        body: withPractice ? { moon, quiet, daily_cap, practice } : { moon, quiet, daily_cap },
+    mutationFn: async (body: SettingsPatch): Promise<NotificationSettings> => {
+      const { data, error, response } = await api.PATCH("/api/v1/me/notification-settings", {
+        body,
       });
       if (!data) fail(response, error);
       return data;
@@ -396,7 +418,7 @@ export function useSaveNotificationSettings({ withPractice = false } = {}) {
     onMutate: async (body) => {
       await client.cancelQueries({ queryKey: SETTINGS_KEY });
       const before = client.getQueryData<NotificationSettings>(SETTINGS_KEY);
-      client.setQueryData(SETTINGS_KEY, body);
+      if (before) client.setQueryData(SETTINGS_KEY, merged(before, body));
       return { before };
     },
     onSuccess: (saved) => {
@@ -406,6 +428,30 @@ export function useSaveNotificationSettings({ withPractice = false } = {}) {
     },
     onError: (_error, _vars, context) => {
       if (context?.before) client.setQueryData(SETTINGS_KEY, context.before);
+    },
+  });
+}
+
+export type MePatch = components["schemas"]["MePatch"];
+
+/** Name, language or time zone (ID-06). A zone change moves "today" and the reminders, so
+ * everything computed from it is refetched. */
+export function usePatchMe() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "me" }, // a name and a language tapped together go in order
+    mutationFn: async (body: MePatch): Promise<Me> => {
+      const { data, error, response } = await api.PATCH("/api/v1/me", { body });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (me, body) => {
+      client.setQueryData(["me"], me);
+      if (body.timezone !== undefined) {
+        for (const key of [["days"], STATS_KEY, MOON_KEY, SETTINGS_KEY]) {
+          void client.invalidateQueries({ queryKey: key });
+        }
+      }
     },
   });
 }

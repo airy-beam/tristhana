@@ -2,7 +2,13 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from tristhana.domain.accounts import Account, IdentityKey, NewAccount, ProfileUpdate
+from tristhana.domain.accounts import (
+    Account,
+    IdentityKey,
+    NewAccount,
+    ProfileChange,
+    ProfileUpdate,
+)
 
 
 class IdentityTaken(Exception):
@@ -23,7 +29,12 @@ class AccountRepository(Protocol):
 
     async def update_profile(
         self, account_id: UUID, changes: ProfileUpdate, seen_at: datetime
-    ) -> Account: ...
+    ) -> Account:
+        """A refresh from the client: never overwrites a name or locale chosen in settings,
+        even when a settings change lands between the read and this write."""
+        ...
+
+    async def update_settings(self, account_id: UUID, change: ProfileChange) -> Account: ...
 
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account: ...
 

@@ -226,6 +226,7 @@
           "invalid_timezone",
           "invalid_range",
           "invalid_year",
+          "invalid_display_name",
           "date_in_future",
           "date_too_early",
           "day_not_practiced",
@@ -387,6 +388,16 @@
           "locale": {
             "$ref": "#/components/schemas/Locale"
           },
+          "locale_from_telegram": {
+            "description": "False once a language was chosen",
+            "title": "Locale From Telegram",
+            "type": "boolean"
+          },
+          "name_from_telegram": {
+            "description": "False once a name was chosen in settings",
+            "title": "Name From Telegram",
+            "type": "boolean"
+          },
           "timezone": {
             "anyOf": [
               {
@@ -404,9 +415,53 @@
           "id",
           "display_name",
           "locale",
-          "timezone"
+          "timezone",
+          "name_from_telegram",
+          "locale_from_telegram"
         ],
         "title": "Me",
+        "type": "object"
+      },
+      "MePatch": {
+        "description": "Omitted = unchanged; null = back to Telegram's (name, language) (ADR-0021).",
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA zone or UTC",
+            "title": "Timezone"
+          }
+        },
+        "title": "MePatch",
         "type": "object"
       },
       "MoonDayKind": {
@@ -516,6 +571,43 @@
         "title": "MoonOut",
         "type": "object"
       },
+      "MoonPatchBody": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "offsets": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    1,
+                    3,
+                    7
+                  ],
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offsets"
+          }
+        },
+        "title": "MoonPatchBody",
+        "type": "object"
+      },
       "MoonSettings": {
         "properties": {
           "at": {
@@ -617,6 +709,56 @@
           "timezone"
         ],
         "title": "NotificationSettingsOut",
+        "type": "object"
+      },
+      "NotificationSettingsPatch": {
+        "description": "Omitted = unchanged; null = back to the default (ADR-0021).",
+        "properties": {
+          "daily_cap": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Cap"
+          },
+          "moon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoonPatchBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "practice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PracticePatchBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quiet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "NotificationSettingsPatch",
         "type": "object"
       },
       "PracticeBody": {
@@ -761,6 +903,52 @@
           "timezone"
         ],
         "title": "PracticeOut",
+        "type": "object"
+      },
+      "PracticePatchBody": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "items": {
+                  "maximum": 7.0,
+                  "minimum": 1.0,
+                  "type": "integer"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "on": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On"
+          }
+        },
+        "title": "PracticePatchBody",
         "type": "object"
       },
       "PracticePresets": {
@@ -1325,6 +1513,70 @@
           }
         ],
         "summary": "Get Me",
+        "tags": [
+          "me"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_me_api_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Patch Me",
         "tags": [
           "me"
         ]
@@ -2074,7 +2326,73 @@
           "moon"
         ]
       },
+      "patch": {
+        "description": "Only the sent fields change; the merged result is validated.",
+        "operationId": "patch_notification_settings_api_v1_me_notification_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Patch Notification Settings",
+        "tags": [
+          "moon"
+        ]
+      },
       "put": {
+        "deprecated": true,
         "operationId": "put_notification_settings_api_v1_me_notification_settings_put",
         "requestBody": {
           "content": {

@@ -15,7 +15,6 @@ from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import (
-    MoonPatch,
     NotificationRepository,
     ReminderCandidate,
     ReminderPatch,
@@ -23,10 +22,10 @@ from tristhana.application.ports.notifications import (
 from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice_patch import PracticePatch
-from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileUpdate
+from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileChange, ProfileUpdate
 from tristhana.domain.days import DayLog
 from tristhana.domain.moon import MoonDay
-from tristhana.domain.notifications import NotificationSettings
+from tristhana.domain.notifications import NotificationSettings, StoredSettings
 from tristhana.domain.practice import Practice
 
 if TYPE_CHECKING:
@@ -187,6 +186,9 @@ class _UnavailableAccounts:
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def update_settings(self, account_id: UUID, change: ProfileChange) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> NoReturn:
         raise StorageUnavailable("not configured")
 
@@ -255,14 +257,20 @@ class _UnavailableNotifications:
     ) -> NotificationSettings:
         raise StorageUnavailable("not configured")
 
-    async def patch_moon(
-        self, account_id: UUID, patch: MoonPatch, defaults: NotificationSettings
-    ) -> NotificationSettings:
-        raise StorageUnavailable("not configured")
-
     async def patch_practice(
         self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
     ) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def stored_row(self, account_id: UUID) -> StoredSettings:
+        raise StorageUnavailable("not configured")
+
+    async def patch(
+        self, account_id: UUID, columns: dict[str, object], defaults: NotificationSettings
+    ) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def mark_intro_sent(self, account_id: UUID, at: datetime) -> NoReturn:
         raise StorageUnavailable("not configured")
 
     async def candidates(
