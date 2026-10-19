@@ -2,7 +2,7 @@ import { Localized } from "@fluent/react";
 
 import {
   useNotificationSettings,
-  useSaveNotificationSettings,
+  usePatchNotificationSettings,
   type NotificationSettings,
 } from "../api/client";
 import { haptics } from "../telegram";
@@ -21,10 +21,19 @@ const same = (a: readonly number[], b: readonly number[]) =>
 
 type Practice = NotificationSettings["practice"];
 
+const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+/** As the server's QuietHours.contains: may wrap midnight; start == end means none. */
+export function inQuiet(quiet: NotificationSettings["quiet"], at: string): boolean {
+  const [s, e, a] = [minutes(quiet.start), minutes(quiet.end), minutes(at)];
+  if (s === e) return false;
+  return s < e ? s <= a && a < e : a >= s || a < e;
+}
+
 /** The daily practice reminder (PR-10): on/off, time, weekdays. Off until chosen. */
 export function PracticeReminderCard({ zone }: { zone: string | null }) {
   const query = useNotificationSettings();
-  const save = useSaveNotificationSettings({ withPractice: true });
+  const save = usePatchNotificationSettings();
   const settings = query.data;
   if (!settings) return null;
   const practice = settings.practice;
@@ -33,7 +42,7 @@ export function PracticeReminderCard({ zone }: { zone: string | null }) {
   const update = (change: Partial<Practice>) => {
     haptics.impact("light");
     save.mutate(
-      { ...settings, practice: { ...practice, ...change } },
+      { practice: change },
       {
         onError: () => {
           haptics.notify("error");
@@ -78,6 +87,8 @@ export function PracticeReminderCard({ zone }: { zone: string | null }) {
                   type="button"
                   className="chip"
                   aria-pressed={practice.at.startsWith(t)}
+                  // A time inside quiet hours would never fire (the server refuses it too).
+                  disabled={inQuiet(settings.quiet, t)}
                   onClick={() => {
                     update({ at: `${t}:00` });
                   }}

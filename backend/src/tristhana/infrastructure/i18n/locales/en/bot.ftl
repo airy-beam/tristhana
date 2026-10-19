@@ -12,6 +12,7 @@ help-text =
     /log: note how your day went (practice, rest, moon day…), today or any earlier day.
     /moon: upcoming moon days and reminders.
     /remind: a daily one-tap prompt to log practice or rest.
+    /settings: language, time zone, reminders.
 
 fallback-text = I can't answer messages yet. Try /start or /help 🙏
 
@@ -263,3 +264,27 @@ remind-weekday = { $d ->
 remind-day-off = Day off: { remind-weekday }
 remind-moon-link = 🌙 Moon reminders
 remind-practice-link = 🧘 Practice reminder
+
+## Settings (ID-06).
+command-settings = Language, time zone, reminders
+settings-title = ⚙️ Settings
+language-auto = As in Telegram
+language-en = English
+language-ru = Русский
+settings-language-line = 🗣 Language: { $language }
+settings-zone-line = 🕐 Time zone: { $zone }
+settings-zone-unset-line = 🕐 Time zone: not set yet. Reminders start once it's set.
+settings-moon-line = 🌙 Moon days: 📍 { $city }
+settings-quiet-line = 🔕 Quiet hours { $start }–{ $end } · { $n ->
+        [one] at most { $n } message a day
+       *[other] at most { $n } messages a day
+    }
+settings-quiet-off-line = 🔕 No quiet hours · { $n ->
+        [one] at most { $n } message a day
+       *[other] at most { $n } messages a day
+    }
+settings-zone-button = 🕐 Time zone
+settings-moon-link = 🌙 Moon days
+settings-pick-zone = Pick the city whose time you live by. Not in the list? Open the app: it can use your phone's zone.
+settings-open-app = ⚙️ Name, quiet hours: in the app
+settings-link = ⚙️ Settings

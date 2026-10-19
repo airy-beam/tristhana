@@ -6,7 +6,7 @@ clock in their IANA zone (ADR-0005). The provisional zone is never used here.
 """
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -232,3 +232,82 @@ def _silent(c: Candidate, day: date) -> bool:
         (d for d in c.practice_sent if d < day and (since is None or d > since)), reverse=True
     )[:UNANSWERED_LIMIT]
     return len(before) == UNANSWERED_LIMIT and not any(d in c.logged for d in before)
+
+
+@dataclass(frozen=True, slots=True)
+class StoredSettings:
+    """The settings row as stored: None = "the default" (so later default changes apply)."""
+
+    moon_offsets: frozenset[int] | None = None
+    moon_at: time | None = None
+    quiet_start: time | None = None  # quiet hours are a pair: both set or both None
+    quiet_end: time | None = None
+    daily_cap: int | None = None
+    practice_on: bool | None = None  # None = never chosen
+    practice_at: time | None = None
+    practice_days: frozenset[int] | None = None
+
+
+def effective(stored: StoredSettings, defaults: NotificationSettings) -> NotificationSettings:
+    quiet = (
+        QuietHours(stored.quiet_start, stored.quiet_end)
+        if stored.quiet_start is not None and stored.quiet_end is not None
+        else defaults.quiet
+    )
+    return NotificationSettings(
+        moon=MoonReminders(
+            stored.moon_offsets if stored.moon_offsets is not None else defaults.moon.offsets,
+            stored.moon_at or defaults.moon.at,
+        ),
+        quiet=quiet,
+        daily_cap=stored.daily_cap or defaults.daily_cap,
+        practice=PracticeReminders(
+            stored.practice_on,
+            stored.practice_at or defaults.practice.at,
+            stored.practice_days if stored.practice_days is not None else defaults.practice.days,
+        ),
+    )
+
+
+class _Keep:
+    def __repr__(self) -> str:
+        return "KEEP"
+
+
+KEEP = _Keep()
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationPatch:
+    """A partial change (ADR-0021): KEEP = not sent, None = back to the default."""
+
+    moon_offsets: frozenset[int] | _Keep | None = KEEP
+    moon_at: time | _Keep | None = KEEP
+    quiet: QuietHours | _Keep | None = KEEP  # a pair
+    daily_cap: int | _Keep | None = KEEP
+    practice_on: bool | _Keep | None = KEEP
+    practice_at: time | _Keep | None = KEEP
+    practice_days: frozenset[int] | _Keep | None = KEEP
+
+    def columns(self) -> dict[str, object]:
+        """The stored columns this patch writes (only those sent)."""
+        out: dict[str, object] = {}
+        for name in (
+            "moon_offsets",
+            "moon_at",
+            "daily_cap",
+            "practice_on",
+            "practice_at",
+            "practice_days",
+        ):
+            value = getattr(self, name)
+            if not isinstance(value, _Keep):
+                out[name] = value
+        if not isinstance(self.quiet, _Keep):
+            out["quiet_start"] = self.quiet.start if self.quiet else None
+            out["quiet_end"] = self.quiet.end if self.quiet else None
+        return out
+
+
+def apply_patch(stored: StoredSettings, patch: NotificationPatch) -> StoredSettings:
+    return replace(stored, **patch.columns())  # type: ignore[arg-type]

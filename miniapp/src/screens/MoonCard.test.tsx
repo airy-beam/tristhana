@@ -1,17 +1,29 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import type { City, MoonDays, NotificationSettings } from "../api/client";
+import type { City, Me, MoonDays, NotificationSettings } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
 import { MoonCard } from "./MoonCard";
 import { PracticeReminderCard } from "./PracticeReminderCard";
+import Settings from "./settings/Settings";
 import { TodayCard } from "./TodayCard";
 
 vi.mock("../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn() },
+  useBackButton: vi.fn(),
+  backButtonAvailable: vi.fn(() => true),
 }));
+
+const ME: Me = {
+  id: "00000000-0000-0000-0000-000000000001",
+  display_name: "Ash",
+  locale: "en",
+  timezone: "Asia/Almaty",
+  name_from_telegram: true,
+  locale_from_telegram: true,
+};
 
 const TODAY = "2026-10-19";
 const MOON: MoonDays = {
@@ -45,6 +57,16 @@ function stubApi(moon: MoonDays = MOON, settings: NotificationSettings = SETTING
       seen.push(request);
       const path = new URL(request.url).pathname;
       if (request.method === "PUT") return json(await request.clone().json());
+      if (request.method === "PATCH") {
+        // Echo the merged settings, as the server does.
+        const body = (await request.clone().json()) as Partial<NotificationSettings>;
+        return json({
+          ...settings,
+          ...body,
+          moon: { ...settings.moon, ...body.moon },
+          practice: { ...settings.practice, ...body.practice },
+        });
+      }
       if (path === "/api/v1/me/moon-days") return json(moon);
       if (path === "/api/v1/moon/cities") return json(CITIES);
       if (path === "/api/v1/me/notification-settings") return json(settings);
@@ -74,7 +96,7 @@ afterEach(() => {
 describe("MoonCard", () => {
   it("lists upcoming moon days for the followed city", async () => {
     stubApi();
-    renderWith(<MoonCard locale="en" zone="Asia/Almaty" />);
+    renderWith(<MoonCard locale="en" />);
 
     expect(visible(await screen.findByRole("heading"))).toBe("🌙 Moon days · 📍 Mysuru");
     const items = screen.getAllByRole("listitem").map(visible);
@@ -87,8 +109,8 @@ describe("MoonCard", () => {
 
   it("changes the city", async () => {
     const seen = stubApi();
-    renderWith(<MoonCard locale="en" zone="Asia/Almaty" />);
-    const select = await screen.findByRole("combobox");
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "City for the calendar" });
 
     fireEvent.change(select, { target: { value: "almaty" } });
 
@@ -102,7 +124,7 @@ describe("MoonCard", () => {
 
   it("toggles reminder offsets", async () => {
     const seen = stubApi();
-    renderWith(<MoonCard locale="en" zone="Asia/Almaty" />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
 
     fireEvent.click(
       await screen.findByRole("button", {
@@ -112,17 +134,16 @@ describe("MoonCard", () => {
     );
 
     await vi.waitFor(() => {
-      expect(seen.some((r) => r.method === "PUT")).toBe(true);
+      expect(seen.some((r) => r.method === "PATCH")).toBe(true);
     });
-    const put = seen.find((r) => r.method === "PUT");
-    const body: unknown = await put?.json();
-    expect(body).toMatchObject({ moon: { offsets: [1, 7, 3], at: "19:00:00" } });
-    expect(body).not.toHaveProperty("practice"); // never overwrites a change made in the bot
+    const patch = seen.find((r) => r.method === "PATCH");
+    // Only what was tapped: a change made in the bot meanwhile stays (ADR-0021).
+    expect(await patch?.json()).toEqual({ moon: { offsets: [1, 7, 3] } });
   });
 
   it("explains that reminders need a time zone", async () => {
     stubApi();
-    renderWith(<MoonCard locale="en" zone={null} />);
+    renderWith(<Settings me={{ ...ME, timezone: null }} onBack={vi.fn()} />);
 
     expect(await screen.findByText(/once your time zone is known/)).toBeInTheDocument();
     expect(
@@ -132,7 +153,7 @@ describe("MoonCard", () => {
 
   it("uses Russian city names and plurals", async () => {
     stubApi();
-    renderWith(<MoonCard locale="ru" zone="Asia/Almaty" />, "ru");
+    renderWith(<MoonCard locale="ru" />, "ru");
 
     expect(visible(await screen.findByRole("heading"))).toBe("🌙 Лунные дни · 📍 Майсур");
     expect(visible(screen.getAllByRole("listitem")[0] as HTMLElement)).toContain("через 3 дня");
@@ -164,12 +185,10 @@ describe("PracticeReminderCard", () => {
     fireEvent.click(toggle);
 
     await vi.waitFor(() => {
-      expect(seen.some((r) => r.method === "PUT")).toBe(true);
+      expect(seen.some((r) => r.method === "PATCH")).toBe(true);
     });
-    const put = seen.find((r) => r.method === "PUT");
-    expect(await put?.json()).toMatchObject({
-      practice: { on: true, at: "10:00:00", days: [1, 2, 3, 4, 5, 7] },
-    });
+    const put = seen.find((r) => r.method === "PATCH");
+    expect(await put?.json()).toEqual({ practice: { on: true } });
     expect(await screen.findByRole("button", { name: "10:00", pressed: true })).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -190,9 +209,9 @@ describe("PracticeReminderCard", () => {
     fireEvent.click(screen.getByRole("button", { name: (n) => plain(n) === "Sat" }));
 
     await vi.waitFor(() => {
-      expect(seen.some((r) => r.method === "PUT")).toBe(true);
+      expect(seen.some((r) => r.method === "PATCH")).toBe(true);
     });
-    const put = seen.find((r) => r.method === "PUT");
+    const put = seen.find((r) => r.method === "PATCH");
     expect(await put?.json()).toMatchObject({ practice: { days: [3, 6] } });
   });
 
@@ -212,9 +231,9 @@ describe("PracticeReminderCard", () => {
     fireEvent.click(screen.getByRole("button", { name: (n) => plain(n) === "Day off: Sun" }));
 
     await vi.waitFor(() => {
-      expect(seen.some((r) => r.method === "PUT")).toBe(true);
+      expect(seen.some((r) => r.method === "PATCH")).toBe(true);
     });
-    const put = seen.find((r) => r.method === "PUT");
+    const put = seen.find((r) => r.method === "PATCH");
     expect(await put?.json()).toMatchObject({ practice: { days: [1, 2, 3, 4, 5, 6] } });
   });
 

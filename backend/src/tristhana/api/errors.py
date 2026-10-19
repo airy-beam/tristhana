@@ -15,6 +15,7 @@ type ErrorCode = Literal[
     "invalid_timezone",
     "invalid_range",
     "invalid_year",
+    "invalid_display_name",
     "date_in_future",
     "date_too_early",
     "day_not_practiced",

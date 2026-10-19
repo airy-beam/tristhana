@@ -9,7 +9,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tristhana.application.ports.accounts import IdentityTaken
-from tristhana.domain.accounts import Account, IdentityKey, NewAccount, ProfileUpdate
+from tristhana.domain.accounts import (
+    Account,
+    IdentityKey,
+    NewAccount,
+    ProfileChange,
+    ProfileUpdate,
+)
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
 from tristhana.infrastructure.db.engine import connection, sqlstate
 from tristhana.infrastructure.db.tables import account, identity
@@ -21,6 +27,8 @@ _COLUMNS = (
     account.c.timezone,
     account.c.last_seen_at,
     account.c.moon_location,
+    account.c.name_custom,
+    account.c.locale_custom,
 )
 
 
@@ -75,21 +83,42 @@ class SqlAccountRepository:
     async def update_profile(
         self, account_id: UUID, changes: ProfileUpdate, seen_at: datetime
     ) -> Account:
+        # A choice made in settings wins over a refresh racing it (ADR-0021).
+        name = case(
+            (account.c.name_custom, account.c.display_name),
+            else_=literal(changes.display_name, Text),
+        )
+        locale = case(
+            (account.c.locale_custom, account.c.locale), else_=literal(changes.locale, Text)
+        )
         changed = or_(
-            account.c.display_name.is_distinct_from(changes.display_name),
-            account.c.locale != changes.locale,
+            account.c.display_name.is_distinct_from(name),
+            account.c.locale != locale,
         )
         stmt = (
             update(account)
             .where(account.c.id == account_id)
             .values(
-                display_name=changes.display_name,
-                locale=changes.locale,
+                display_name=name,
+                locale=locale,
                 last_seen_at=seen_at,
                 updated_at=case((changed, func.now()), else_=account.c.updated_at),
             )
             .returning(*_COLUMNS)
         )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one()
+        return _account(row)
+
+    async def update_settings(self, account_id: UUID, change: ProfileChange) -> Account:
+        values: dict[str, object] = {"updated_at": func.now()}
+        if "name" in change.fields:
+            values |= {"display_name": change.display_name, "name_custom": change.name_custom}
+        if "locale" in change.fields:
+            values |= {"locale": change.locale, "locale_custom": change.locale_custom}
+        if "timezone" in change.fields:
+            values["timezone"] = change.timezone
+        stmt = update(account).where(account.c.id == account_id).values(values).returning(*_COLUMNS)
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
         return _account(row)
@@ -130,4 +159,6 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         timezone=row.timezone,
         last_seen_at=row.last_seen_at,
         moon_location=row.moon_location,
+        name_custom=row.name_custom,
+        locale_custom=row.locale_custom,
     )

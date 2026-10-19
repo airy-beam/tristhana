@@ -43,6 +43,8 @@ def test_me_creates_the_account_on_first_open(api: TestClient, storage: InMemory
         "display_name": "Аня",
         "locale": "ru",
         "timezone": None,
+        "name_from_telegram": True,
+        "locale_from_telegram": True,
     }
     assert len(storage.repo.accounts) == 1
 

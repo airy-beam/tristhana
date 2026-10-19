@@ -13,13 +13,19 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.notifications import MoonPatch, MoonReminder
 from tristhana.bots.telegram import remind_callbacks as rcb
+from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.moon_callbacks import PREFIX, MoonCallback, decode, encode
 from tristhana.bots.telegram.runtime import MoonUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay, MoonDayKind, MoonPhase
-from tristhana.domain.notifications import DEFAULTS, SEND_TIMES, InvalidSettings
+from tristhana.domain.notifications import (
+    DEFAULTS,
+    SEND_TIMES,
+    InvalidSettings,
+    NotificationSettings,
+)
 
 UPCOMING = 4  # moon days on the /moon screen (~2 months)
 CITY_PAGE = 12  # 2 columns x 6 rows
@@ -66,6 +72,23 @@ def reminder_screen(
     )
     rows = [first, [button(t, locale, "moon-all-days", _data(action="view"))]]
     return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+def moon_status(
+    t: Translator, locale: Locale, settings: NotificationSettings, zone: str | None, today: date
+) -> str:
+    """The moon reminder line ("🔔 Reminders: a week and a day before, at 19:00 …")."""
+    if zone is None:
+        return t.t(locale, "moon-zone-needed")
+    if not settings.moon.on:
+        return t.t(locale, "moon-reminders-off")
+    code = "".join(str(k) for k in sorted(settings.moon.offsets, reverse=True))
+    return t.t(
+        locale,
+        "moon-reminders-on",
+        offsets=t.t(locale, "moon-offsets", code=int(code)),  # numeric variant keys
+        time=TimeArg(today, settings.moon.at, zone),
+    )
 
 
 def register_moon(router: Router, moon: MoonUseCases, translator: Translator) -> None:
@@ -172,19 +195,7 @@ class MoonScreens:
         )
 
     def _status(self, locale: Locale, v: MoonView) -> str:
-        if not v.zone_known:
-            return self._t.t(locale, "moon-zone-needed")
-        if not v.settings.moon.on:
-            return self._t.t(locale, "moon-reminders-off")
-        code = "".join(str(k) for k in sorted(v.settings.moon.offsets, reverse=True))
-        assert v.zone is not None  # noqa: S101 - zone_known above
-        zone = v.zone
-        return self._t.t(
-            locale,
-            "moon-reminders-on",
-            offsets=self._t.t(locale, "moon-offsets", code=int(code)),  # numeric variant keys
-            time=TimeArg(v.today, v.settings.moon.at, zone),
-        )
+        return moon_status(self._t, locale, v.settings, v.zone, v.today)
 
     def cities(self, principal: Principal, page: int) -> Screen:
         locale = principal.account.locale
@@ -258,5 +269,6 @@ class MoonScreens:
                 ),
                 button(self._t, locale, "log-back", _data(action="view")),
             ],
+            [button(self._t, locale, "settings-link", scb.encode(scb.SettingsCallback("view")))],
         ]
         return Screen(self._status(locale, v), InlineKeyboardMarkup(inline_keyboard=rows))

@@ -226,3 +226,37 @@ stats-prev = ‹
     .aria-label = Предыдущий год
 stats-next = ›
     .aria-label = Следующий год
+
+## Настройки (ID-06).
+settings-open = ⚙️ Настройки
+settings-title = Настройки
+settings-name = Имя
+settings-name-hint = Так я к тебе обращаюсь. Оставь пустым, и я возьму имя из Telegram.
+settings-language = Язык
+language-auto = Как в Telegram
+language-en = English
+language-ru = Русский
+settings-zone = Часовой пояс
+settings-zone-now = { $time } { $zone }
+settings-zone-unset = Пока не задан. Напоминания начнутся, как только он появится.
+settings-zone-use-device = Взять пояс телефона: { $zone }
+settings-zone-pick = Выбрать город
+settings-zone-utc = UTC (без летнего времени)
+settings-zone-hint = Напоминания приходят по этому поясу. Уже отмеченные дни останутся на своих датах.
+zone-travel = Телефон живёт по времени { $device }, а напоминания — по { $current }.
+zone-travel-switch = Перейти на { $city }
+zone-travel-keep = Оставить { $city }
+settings-moon-time = Во сколько
+settings-quiet = Тихие часы
+settings-quiet-from = Тихо с
+settings-quiet-to = Тихо до
+settings-quiet-off = Без тихих часов
+settings-quiet-conflict = На эти часы приходится напоминание. Сначала передвинь его.
+settings-cap = { $n ->
+        [one] Не больше { $n } сообщения в день
+       *[other] Не больше { $n } сообщений в день
+    }
+settings-privacy = Приватность
+settings-privacy-ladies = 🌸 Женские дни хранятся в зашифрованном виде. Остальные видят только «День отдыха».
+settings-privacy-sharing = Пока твои отметки видишь только ты. Когда появятся учителя, ты выберешь, что им показывать.
+settings-save-failed = Не получилось сохранить. Попробуй ещё раз чуть позже.

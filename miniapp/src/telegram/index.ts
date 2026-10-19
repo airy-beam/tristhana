@@ -2,6 +2,7 @@
 // no-ops when a feature isn't supported (older clients, or a browser in dev).
 import {
   backButton,
+  settingsButton,
   hapticFeedback,
   init,
   isTMA,
@@ -27,6 +28,7 @@ export function isInTelegram(): boolean {
 export function initTelegram(): void {
   init();
   backButton.mount.ifAvailable();
+  settingsButton.mount.ifAvailable();
   mainButton.mount.ifAvailable();
   if (miniApp.mountSync.isAvailable()) {
     miniApp.mountSync(); // also mounts themeParams
@@ -45,6 +47,18 @@ export function initTelegram(): void {
         // Some clients time out here; the CSS has viewport fallbacks.
       });
   }
+}
+
+/** Telegram's ⋯ menu "Settings" item opens `onOpen` while mounted (ID-06). */
+export function useSettingsButton(onOpen: () => void): void {
+  useEffect(() => {
+    if (!settingsButton.show.isAvailable()) return;
+    settingsButton.show();
+    const off = settingsButton.onClick(onOpen);
+    return () => {
+      off();
+    };
+  }, [onOpen]);
 }
 
 export function backButtonAvailable(): boolean {

@@ -48,6 +48,9 @@ account = Table(
     Column("locale", Text(), nullable=False),
     Column("timezone", Text()),  # IANA name (ADR-0005); NULL until the device reports it
     Column("moon_location", Text()),  # city slug (MD-03); NULL = the default (Mysuru)
+    # Chosen in settings (ID-06): Telegram's name/language no longer overwrite them.
+    Column("name_custom", Boolean(), nullable=False, server_default=text("false")),
+    Column("locale_custom", Boolean(), nullable=False, server_default=text("false")),
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),
@@ -170,6 +173,7 @@ notification_settings = Table(
     Column("practice_at", Time()),
     Column("practice_days", ARRAY(SmallInteger())),
     Column("unreachable_at", DateTime(timezone=True)),
+    Column("moon_intro_sent_at", DateTime(timezone=True)),  # Q24: the intro went out once
     _timestamp("updated_at"),
     CheckConstraint("moon_offsets <@ '{1,3,7}'::smallint[]", name="moon_offsets"),
     CheckConstraint("daily_cap BETWEEN 1 AND 10", name="daily_cap"),
@@ -177,6 +181,7 @@ notification_settings = Table(
         "practice_days <@ '{1,2,3,4,5,6,7}'::smallint[] AND cardinality(practice_days) > 0",
         name="practice_days",
     ),
+    CheckConstraint("(quiet_start IS NULL) = (quiet_end IS NULL)", name="quiet_pair"),
 )
 
 notification_delivery = Table(

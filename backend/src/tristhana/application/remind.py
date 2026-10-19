@@ -11,11 +11,13 @@ from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.notifications import NotificationRepository, ReminderPatch
 from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import Clock
+from tristhana.application.settings import PatchNotificationSettings
 from tristhana.domain.days import DayLog, DayStatus, check_loggable, provisional_zone
 from tristhana.domain.notifications import (
     DEFAULTS,
+    KEEP,
+    NotificationPatch,
     NotificationSettings,
-    check_settings,
     default_practice_time,
 )
 
@@ -50,15 +52,20 @@ class QuickLogSameAsLast:
 
 class UpdatePracticeReminder:
     def __init__(self, notifications: NotificationRepository) -> None:
-        self._notifications = notifications
+        self._patch = PatchNotificationSettings(notifications)
 
     async def execute(self, principal: Principal, patch: ReminderPatch) -> NotificationSettings:
-        """Raises `InvalidSettings`."""
-        # Probe as if on: a time inside (default) quiet hours would never fire, so refuse it
-        # whether or not the reminder is on right now.
-        on = replace(DEFAULTS.practice, on=True)
-        check_settings(replace(DEFAULTS, practice=patch.apply(on)))
-        return await self._notifications.patch_practice(principal.account.id, patch, DEFAULTS)
+        """Raises `InvalidSettings`. A time inside the (stored) quiet hours is refused even
+        while the reminder is off: it could never fire once turned on."""
+        return await self._patch.execute(
+            principal,
+            NotificationPatch(
+                practice_on=KEEP if patch.on is None else patch.on,
+                practice_at=KEEP if patch.at is None else patch.at,
+                practice_days=KEEP if patch.days is None else patch.days,
+            ),
+            practice_as_on=patch.at is not None,
+        )
 
 
 class AnswerPracticeOffer:

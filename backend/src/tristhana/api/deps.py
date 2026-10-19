@@ -16,6 +16,7 @@ from tristhana.application.moon import (
 from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
 from tristhana.application.practice import ClearPractice, GetPracticePresets, SavePractice
+from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
 from tristhana.application.stats import GetYearStats
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
 from tristhana.domain.moon import Cities
@@ -116,7 +117,21 @@ async def principal(
         raise ApiError(401, e.code) from None
     key = IdentityKey(IdentityProvider.TELEGRAM, str(user.id))
     profile = ExternalProfile(key, display_name=user.first_name, language_code=user.language_code)
+    request.state.client_profile = profile  # "back to Telegram's" in settings (ID-06)
     return Principal(await ensure.execute(profile))
+
+
+def client_profile(request: Request, _: "CurrentPrincipal") -> ExternalProfile:
+    """What Telegram says about the caller on this request (after `principal`)."""
+    return cast(ExternalProfile, request.state.client_profile)
+
+
+def update_profile(request: Request) -> "UpdateProfile":
+    return cast("UpdateProfile", request.app.state.update_profile)
+
+
+def patch_notification_settings(request: Request) -> "PatchNotificationSettings":
+    return cast("PatchNotificationSettings", request.app.state.patch_notification_settings)
 
 
 CurrentPrincipal = Annotated[Principal, Depends(principal)]

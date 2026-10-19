@@ -52,6 +52,8 @@ class Account:
     timezone: str | None  # IANA name; None until the device reports it
     last_seen_at: datetime
     moon_location: str | None = None  # city slug (MD-03); None = the default (Mysuru)
+    name_custom: bool = False  # chosen in settings: Telegram's name no longer overwrites it
+    locale_custom: bool = False  # chosen in settings: Telegram's language no longer does
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +72,77 @@ class ProfileUpdate:
 
 class InvalidTimezone(ValueError):
     pass
+
+
+class InvalidDisplayName(ValueError):
+    pass
+
+
+class _Keep:
+    """A patch field that was not sent: leave it as it is."""
+
+    def __repr__(self) -> str:
+        return "KEEP"
+
+
+KEEP = _Keep()
+
+
+@dataclass(frozen=True, slots=True)
+class ProfilePatch:
+    """From settings (ID-06). `None` = back to Telegram's (name, language)."""
+
+    display_name: str | _Keep | None = KEEP
+    locale: Locale | _Keep | None = KEEP
+    timezone: str | _Keep = KEEP
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileChange:
+    """Only the groups in `fields` are written ("name", "locale", "timezone"), so two
+    settings saves at once (a name, then a language) never undo each other (ADR-0021)."""
+
+    display_name: str | None
+    name_custom: bool
+    locale: Locale
+    locale_custom: bool
+    timezone: str | None
+    fields: frozenset[str] = frozenset({"name", "locale", "timezone"})
+
+
+def resolve_profile(
+    account: Account, patch: ProfilePatch, client: ExternalProfile
+) -> ProfileChange:
+    """The account fields after applying `patch`. Raises `InvalidDisplayName`,
+    `InvalidTimezone`. An explicit zone may be UTC (only ever chosen, never guessed)."""
+    fields: set[str] = set()
+    name, name_custom = account.display_name, account.name_custom
+    if not isinstance(patch.display_name, _Keep):
+        fields.add("name")
+        raw = patch.display_name
+        # Measured after cleaning: stray spaces or bidi marks don't make a name too long.
+        if (
+            raw is not None
+            and len(_WHITESPACE.sub(" ", _BIDI_CONTROLS.sub("", raw)).strip()) > DISPLAY_NAME_MAX
+        ):
+            raise InvalidDisplayName("too long")
+        chosen = normalize_display_name(raw)
+        if chosen is None:  # blank or null: back to the Telegram name
+            name, name_custom = normalize_display_name(client.display_name), False
+        else:
+            name, name_custom = chosen, True
+    locale, locale_custom = account.locale, account.locale_custom
+    if not isinstance(patch.locale, _Keep):
+        fields.add("locale")
+        if patch.locale is None:
+            locale, locale_custom = negotiate_locale(client.language_code), False
+        else:
+            locale, locale_custom = patch.locale, True
+    zone = account.timezone
+    if not isinstance(patch.timezone, _Keep):
+        fields.add("timezone")
+        zone = parse_timezone(patch.timezone)
+    return ProfileChange(name, name_custom, locale, locale_custom, zone, frozenset(fields))
 
 
 def normalize_display_name(raw: str | None) -> str | None:
@@ -94,12 +167,14 @@ def profile_refresh(
 ) -> ProfileUpdate | None:
     """The write needed on this contact, or None (the common case: no write at all).
 
-    The locale follows the client language until the person picks one explicitly (ID-06).
+    Name and locale follow the client until the person picks them in settings (ID-06).
     """
     fresh = new_account(profile)
-    changed = (fresh.display_name, fresh.locale) != (account.display_name, account.locale)
+    name = account.display_name if account.name_custom else fresh.display_name
+    locale = account.locale if account.locale_custom else fresh.locale
+    changed = (name, locale) != (account.display_name, account.locale)
     if changed or now - account.last_seen_at >= LAST_SEEN_PRECISION:
-        return ProfileUpdate(display_name=fresh.display_name, locale=fresh.locale)
+        return ProfileUpdate(display_name=name, locale=locale)
     return None
 
 

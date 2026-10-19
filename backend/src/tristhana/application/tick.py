@@ -149,7 +149,9 @@ class RunTick:
                 return
             if status is DeliveryStatus.SENT:
                 picked += 1
-                intro = False  # only once it actually arrived
+                if intro:  # only once it actually arrived
+                    await self._notifications.mark_intro_sent(c.account_id, now)
+                    intro = False
         practice = due_practice_reminder(now, candidate, picked)
         if practice is None:
             return

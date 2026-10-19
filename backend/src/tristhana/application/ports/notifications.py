@@ -6,7 +6,7 @@ from uuid import UUID
 
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay
-from tristhana.domain.notifications import NotificationSettings, PracticeReminders
+from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,9 +67,19 @@ class NotificationRepository(Protocol):
         """Replace the settings; `with_practice=False` leaves the practice columns alone."""
         ...
 
-    async def patch_moon(
-        self, account_id: UUID, patch: MoonPatch, defaults: NotificationSettings
-    ) -> NotificationSettings: ...
+    async def stored_row(self, account_id: UUID) -> StoredSettings:
+        """The row as stored (None = default), for partial writes (ADR-0021)."""
+        ...
+
+    async def patch(
+        self, account_id: UUID, columns: dict[str, object], defaults: NotificationSettings
+    ) -> NotificationSettings:
+        """Upsert only these stored columns; returns the effective settings."""
+        ...
+
+    async def mark_intro_sent(self, account_id: UUID, at: datetime) -> None:
+        """The first moon reminder (with the intro) arrived: never again (Q24)."""
+        ...
 
     async def patch_practice(
         self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings

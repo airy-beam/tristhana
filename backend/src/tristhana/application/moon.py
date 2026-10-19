@@ -9,11 +9,14 @@ from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import MoonPatch, NotificationRepository
 from tristhana.application.ports.storage import Clock
+from tristhana.application.settings import PatchNotificationSettings
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import check_range, local_today, provisional_zone
 from tristhana.domain.moon import Cities, City, MoonDay
 from tristhana.domain.notifications import (
     DEFAULTS,
+    KEEP,
+    NotificationPatch,
     NotificationSettings,
     PracticeReminders,
     check_settings,
@@ -108,21 +111,21 @@ class UseCityTimezone:
 
 
 class UpdateMoonReminders:
+    """The bot's moon reminder taps: a partial change, validated against the stored
+    settings (custom quiet hours included)."""
+
     def __init__(self, notifications: NotificationRepository) -> None:
-        self._notifications = notifications
+        self._patch = PatchNotificationSettings(notifications)
 
     async def execute(self, principal: Principal, patch: MoonPatch) -> NotificationSettings:
         """Raises `InvalidSettings`."""
-        probe = replace(
-            DEFAULTS,
-            moon=replace(
-                DEFAULTS.moon,
-                offsets=patch.offsets if patch.offsets is not None else DEFAULTS.moon.offsets,
-                at=patch.at or DEFAULTS.moon.at,
+        return await self._patch.execute(
+            principal,
+            NotificationPatch(
+                moon_offsets=KEEP if patch.offsets is None else patch.offsets,
+                moon_at=KEEP if patch.at is None else patch.at,
             ),
         )
-        check_settings(probe)
-        return await self._notifications.patch_moon(principal.account.id, patch, DEFAULTS)
 
 
 class NotificationSettingsUseCase:

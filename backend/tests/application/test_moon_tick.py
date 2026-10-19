@@ -285,3 +285,18 @@ async def test_intro_names_the_recipients_offsets_and_stays_until_sent(
     first, retried = (r for _, r in failing.moon)
     assert (first.intro, retried.intro) == (True, True)
     assert first.offsets == {3, 1}
+
+
+async def test_the_intro_is_remembered_once_delivered(
+    accounts: InMemoryAccounts, moon: InMemoryMoon
+) -> None:
+    me = await _account(accounts)
+    notifications = InMemoryNotifications(accounts)
+    failing = FakeNotifier([DeliveryResult(DeliveryStatus.FAILED)])
+
+    await _tick(accounts, moon, notifications, failing).execute(BUDGET)
+    assert me.id not in notifications.intro_sent  # not delivered: still owed
+    await _tick(accounts, moon, notifications, failing).execute(BUDGET)
+
+    assert me.id in notifications.intro_sent
+    assert [r.intro for _, r in failing.moon] == [True, True]
