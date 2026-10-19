@@ -128,7 +128,7 @@ def test_moon_screen_shows_reminders_with_a_time_label(
 
     body = _moon(client, "ru")
 
-    assert "🔔 Напоминания: за неделю и за день, в 19:00 Алматы (UTC+5)" in body["text"]
+    assert "🔔 Напоминания: за неделю и за день в 19:00 Алматы (UTC+5)" in body["text"]
 
 
 def test_city_picker_and_city_zone(client: TestClient, storage: InMemoryStorage) -> None:
@@ -138,12 +138,12 @@ def test_city_picker_and_city_zone(client: TestClient, storage: InMemoryStorage)
 
     chosen = _tap(client, "m1:s:almaty")
     assert chosen["text"].startswith("🌙 Moon days · 📍 Almaty")
-    assert "🕒 Time zone: 📍 Almaty" in _texts(chosen)
+    assert "🕐 Time zone: 📍 Almaty" in _texts(chosen)
 
     zoned = _tap(client, "m1:z:almaty")
     [account] = storage.repo.accounts.values()
     assert account.timezone == "Asia/Almaty"
-    assert "🔔 Reminders: a week and a day before, at 19:00 Almaty (UTC+5)" in zoned["text"]
+    assert "🔔 Reminders: 7 and 1 day before at 19:00 Almaty (UTC+5)" in zoned["text"]
 
 
 def test_reminder_settings_toggles(client: TestClient, storage: InMemoryStorage) -> None:
@@ -169,7 +169,7 @@ def test_quick_actions_on_a_reminder(client: TestClient, storage: InMemoryStorag
 
     assert only1["text"].endswith("✓ I'll only remind you the day before.")
     assert "🌕 Full moon in a week" in only1["text"]
-    assert off["text"].endswith("You can turn them on again in /moon.")
+    assert off["text"].endswith("You can turn them back on in /moon.")
     assert _texts(off)[0] == "🔔 Turn back on"
     [settings] = storage.notifications.stored.values()
     assert not settings.moon.on

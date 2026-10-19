@@ -163,7 +163,7 @@ describe("Stats", () => {
     renderStats();
 
     expect(
-      await screen.findByText(byText("16 unmarked days: tap a day to add it")),
+      await screen.findByText(byText("16 days not logged: tap a day to add it")),
     ).toBeInTheDocument();
     expect(screen.getByText("By series")).toBeInTheDocument();
     expect(
@@ -172,7 +172,7 @@ describe("Stats", () => {
     fireEvent.click(screen.getByRole("button", { name: (n) => plain(n).startsWith("September") }));
     expect(
       await screen.findByText(
-        byText("Nothing marked this month yet. Days you mark will show up here."),
+        byText("Nothing logged this month yet. Days you log will show up here."),
       ),
     ).toBeInTheDocument();
   });
@@ -235,7 +235,7 @@ describe("Stats", () => {
     renderStats();
 
     expect(
-      await screen.findByText(byText("18 unmarked days: tap a day to add it")),
+      await screen.findByText(byText("18 days not logged: tap a day to add it")),
     ).toBeInTheDocument();
   });
 

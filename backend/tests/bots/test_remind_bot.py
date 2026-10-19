@@ -150,7 +150,7 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
     sunday_off = _tap(client, "r1:w:123456", "ru")
 
     assert on["text"].startswith(
-        "🔔 Напоминание о практике: каждый день, кроме субботы, в 10:00 Алматы (UTC+5)"  # noqa: RUF001
+        "🔔 Напоминание о практике: каждый день, кроме субботы в 10:00 Алматы (UTC+5)"  # noqa: RUF001
     )
     assert "✓ 20:00" in _texts(evening)
     assert sunday_off["text"].startswith(
@@ -169,7 +169,7 @@ def test_the_last_weekday_cannot_be_removed(client: TestClient, storage: InMemor
         b for row in body["reply_markup"]["inline_keyboard"] for b in row if b["text"] == "✓ Wed"
     )
     assert wed["callback_data"] == "r1:w:3"  # tapping keeps the set
-    assert "Wed, at 10:00" in body["text"]
+    assert "Wed at 10:00" in body["text"]
 
 
 def test_without_a_zone_the_time_is_local_and_the_zone_is_asked_for(client: TestClient) -> None:
@@ -218,7 +218,7 @@ def test_offer_yes_turns_it_on_and_shows_the_settings(
 
     yes = _tap(client, f"r1:y:{d}")
 
-    assert yes["text"].startswith("🔔 Practice reminder: every day except Saturday, at ")
+    assert yes["text"].startswith("🔔 Practice reminder: every day except Saturday at ")
     [settings] = storage.notifications.stored.values()
     assert settings.practice.on is True
     assert settings.practice.at in (time(10), time(20))
@@ -297,7 +297,7 @@ def test_turn_off_from_a_reminder_and_back(client: TestClient, storage: InMemory
     off = _tap(client, f"r1:q:{d}:0")
     back = _tap(client, f"r1:q:{d}:1")
 
-    assert off["text"].endswith("You can turn them on any time in /remind.")
+    assert off["text"].endswith("You can turn them back on in /remind.")
     assert _texts(off) == ["🔔 Turn back on"]
     assert back["text"].endswith("🔔 Practice reminders are on again.")
     assert _texts(back)[0] == "✅ Practiced, same as last time"
@@ -370,7 +370,9 @@ async def test_notifier_renders_the_practice_reminder(monkeypatch: pytest.Monkey
     assert result.status is DeliveryStatus.SENT
     [method] = sent
     assert isinstance(method, SendMessage)
-    assert method.text == "🌿 пн, 19 окт.: практика или отдых? Отметить можно одним нажатием."
+    assert method.text == (
+        "🌿 Сегодня, пн, 19 окт.: практика или отдых? Отметить можно одним нажатием."
+    )
     markup = method.reply_markup
     assert markup is not None
     rows = [[b.callback_data for b in row] for row in markup.inline_keyboard]  # type: ignore[union-attr]
