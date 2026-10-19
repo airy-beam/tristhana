@@ -320,15 +320,17 @@ export function useSetMoonLocation() {
   });
 }
 
-/** Replaces the notification settings, optimistically; the server's answer wins. */
-export function useSaveNotificationSettings() {
+/** Replaces the notification settings, optimistically; the server's answer wins. The
+ * practice reminder is sent only with `withPractice`, so a moon tap never overwrites a
+ * change made in the bot meanwhile (omitted = unchanged). */
+export function useSaveNotificationSettings({ withPractice = false } = {}) {
   const client = useQueryClient();
   return useMutation({
     scope: { id: "settings" },
     mutationFn: async (body: NotificationSettings): Promise<NotificationSettings> => {
-      const { moon, quiet, daily_cap } = body;
+      const { moon, quiet, daily_cap, practice } = body;
       const { data, error, response } = await api.PUT("/api/v1/me/notification-settings", {
-        body: { moon, quiet, daily_cap },
+        body: withPractice ? { moon, quiet, daily_cap, practice } : { moon, quiet, daily_cap },
       });
       if (!data) fail(response, error);
       return data;

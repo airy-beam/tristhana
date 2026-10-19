@@ -12,6 +12,7 @@ from tristhana.application.moon import MoonView, UnknownLocation
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.notifications import MoonPatch, MoonReminder
+from tristhana.bots.telegram import remind_callbacks as rcb
 from tristhana.bots.telegram.moon_callbacks import PREFIX, MoonCallback, decode, encode
 from tristhana.bots.telegram.runtime import MoonUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
@@ -251,6 +252,11 @@ class MoonScreens:
             toggles,
             times,
             [switch],
-            [button(self._t, locale, "log-back", _data(action="view"))],
+            [
+                button(
+                    self._t, locale, "remind-practice-link", rcb.encode(rcb.RemindCallback("view"))
+                ),
+                button(self._t, locale, "log-back", _data(action="view")),
+            ],
         ]
         return Screen(self._status(locale, v), InlineKeyboardMarkup(inline_keyboard=rows))

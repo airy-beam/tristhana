@@ -453,6 +453,17 @@
           "moon": {
             "$ref": "#/components/schemas/MoonSettings"
           },
+          "practice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PracticeSettings"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The daily practice reminder; omitted = unchanged"
+          },
           "quiet": {
             "$ref": "#/components/schemas/Quiet"
           }
@@ -476,6 +487,9 @@
           "moon": {
             "$ref": "#/components/schemas/MoonSettings"
           },
+          "practice": {
+            "$ref": "#/components/schemas/PracticeSettings"
+          },
           "quiet": {
             "$ref": "#/components/schemas/Quiet"
           },
@@ -496,6 +510,7 @@
           "moon",
           "quiet",
           "daily_cap",
+          "practice",
           "timezone"
         ],
         "title": "NotificationSettingsOut",
@@ -671,6 +686,46 @@
           "presets"
         ],
         "title": "PracticePresets",
+        "type": "object"
+      },
+      "PracticeSettings": {
+        "properties": {
+          "at": {
+            "description": "Local wall clock, 15-minute grid",
+            "format": "time",
+            "title": "At",
+            "type": "string"
+          },
+          "days": {
+            "description": "ISO weekdays (1 = Monday)",
+            "items": {
+              "maximum": 7.0,
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Days",
+            "type": "array"
+          },
+          "on": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = never chosen (off; the bot may offer it once)",
+            "title": "On"
+          }
+        },
+        "required": [
+          "on",
+          "at",
+          "days"
+        ],
+        "title": "PracticeSettings",
         "type": "object"
       },
       "Preset": {

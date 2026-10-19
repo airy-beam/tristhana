@@ -11,11 +11,15 @@ from tristhana.application.ports.notifications import (
     Delivery,
     DeliveryResult,
     DeliveryStatus,
-    MoonCandidate,
     MoonPatch,
     MoonReminder,
+    Notification,
+    PracticeReminder,
     Recipient,
+    ReminderCandidate,
+    ReminderPatch,
 )
+from tristhana.application.ports.practice import CopiedPractice
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice import (
     ClearPractice,
@@ -24,12 +28,17 @@ from tristhana.application.practice import (
     SavePractice,
 )
 from tristhana.application.practice_patch import PracticePatch
-from tristhana.bots.telegram.runtime import DayUseCases, MoonUseCases, PracticeUseCases
+from tristhana.bots.telegram.runtime import (
+    DayUseCases,
+    MoonUseCases,
+    PracticeUseCases,
+    RemindUseCases,
+)
 from tristhana.domain.accounts import Account, IdentityKey, NewAccount, ProfileUpdate
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.moon import MoonDay, MoonDayKind, MoonLocation
 from tristhana.domain.notifications import NotificationSettings
-from tristhana.domain.practice import Practice
+from tristhana.domain.practice import Practice, PracticeContext
 
 NOW = datetime(2026, 10, 18, 6, 0, tzinfo=UTC)
 
@@ -127,6 +136,13 @@ class InMemoryDays:
             self.practice_rows.pop((account_id, day.local_date), None)
         return day
 
+    async def insert_if_absent(self, account_id: UUID, day: DayLog, timezone: str | None) -> bool:
+        self._check()
+        if (account_id, day.local_date) in self.rows:
+            return False
+        self.rows[(account_id, day.local_date)] = (day, timezone)
+        return True
+
     async def delete(self, account_id: UUID, local_date: date) -> None:
         self._check()
         self.rows.pop((account_id, local_date), None)
@@ -189,6 +205,28 @@ class InMemoryPractices:
         self.days.practice_rows[(account_id, local_date)] = copied
         return copied
 
+    async def copy_usual(
+        self, account_id: UUID, local_date: date, timezone: str | None
+    ) -> CopiedPractice | None:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        if not self._practiced(account_id, local_date):
+            return None
+        earlier = sorted(
+            (
+                (when, p)
+                for (a, when), p in self.days.practice_rows.items()
+                if a == account_id and when < local_date
+            ),
+            key=lambda r: (r[1].context is not PracticeContext.LED, r[0]),
+            reverse=True,
+        )
+        if not earlier:
+            return None
+        source, previous = earlier[0]
+        copied = replace(previous, start_time=None, timezone=timezone)
+        self.days.practice_rows[(account_id, local_date)] = copied
+        return CopiedPractice(copied, source)
+
     async def delete(self, account_id: UUID, local_date: date) -> None:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         self.days.practice_rows.pop((account_id, local_date), None)
@@ -236,13 +274,21 @@ class InMemoryNotifications:
         default_factory=dict[tuple[UUID, str], dict[str, Any]]
     )
     unreachable: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
+    days: "InMemoryDays | None" = None  # logged days for the practice reminder
 
     async def settings(
         self, account_id: UUID, defaults: NotificationSettings
     ) -> NotificationSettings:
         return self.stored.get(account_id, defaults)
 
-    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
+    async def save(
+        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
+    ) -> NotificationSettings:
+        if not with_practice:
+            current = self.stored.get(account_id)
+            settings = replace(
+                settings, practice=current.practice if current else settings.practice
+            )
         self.stored[account_id] = settings
         return settings
 
@@ -258,14 +304,22 @@ class InMemoryNotifications:
         self.stored[account_id] = replace(current, moon=moon)
         return self.stored[account_id]
 
-    async def moon_candidates(
-        self, since: datetime, defaults: NotificationSettings
-    ) -> list[MoonCandidate]:
-        out: list[MoonCandidate] = []
+    async def patch_practice(
+        self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
+    ) -> NotificationSettings:
+        current = self.stored.get(account_id, defaults)
+        self.stored[account_id] = replace(current, practice=patch.apply(current.practice))
+        return self.stored[account_id]
+
+    async def candidates(
+        self, since: datetime, logged_from: date, defaults: NotificationSettings
+    ) -> list[ReminderCandidate]:
+        out: list[ReminderCandidate] = []
         for key, account_id in self.accounts.identities.items():
             account = self.accounts.accounts[account_id]
             settings = self.stored.get(account_id, defaults)
-            if account.timezone is None or not settings.moon.on or account_id in self.unreachable:
+            on = settings.moon.on or settings.practice.enabled
+            if account.timezone is None or not on or account_id in self.unreachable:
                 continue
             mine = [
                 Delivery(
@@ -278,10 +332,17 @@ class InMemoryNotifications:
                 if a == account_id
             ]
             had = any(
-                d["status"] == "sent" for (a, _), d in self.deliveries.items() if a == account_id
+                d["status"] == "sent" and k.startswith("moon:")
+                for (a, k), d in self.deliveries.items()
+                if a == account_id
+            )
+            logged = frozenset(
+                when
+                for (a, when) in (self.days.rows if self.days else {})
+                if a == account_id and when >= logged_from and settings.practice.enabled
             )
             out.append(
-                MoonCandidate(
+                ReminderCandidate(
                     account_id,
                     key.provider_user_id,
                     account.locale,
@@ -290,6 +351,7 @@ class InMemoryNotifications:
                     settings,
                     tuple(mine),
                     had,
+                    logged,
                 )
             )
         return out
@@ -321,12 +383,20 @@ class InMemoryNotifications:
 @dataclass
 class FakeNotifier:
     outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
-    delivered: list[tuple[Recipient, MoonReminder]] = field(
-        default_factory=list[tuple[Recipient, MoonReminder]]
+    delivered: list[tuple[Recipient, Notification]] = field(
+        default_factory=list[tuple[Recipient, Notification]]
     )
 
-    async def deliver(self, recipient: Recipient, reminder: MoonReminder) -> DeliveryResult:
-        self.delivered.append((recipient, reminder))
+    @property
+    def moon(self) -> list[tuple[Recipient, MoonReminder]]:
+        return [(r, n) for r, n in self.delivered if isinstance(n, MoonReminder)]
+
+    @property
+    def practice(self) -> list[tuple[Recipient, PracticeReminder]]:
+        return [(r, n) for r, n in self.delivered if isinstance(n, PracticeReminder)]
+
+    async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult:
+        self.delivered.append((recipient, notification))
         return self.outcomes.pop(0) if self.outcomes else DeliveryResult(DeliveryStatus.SENT)
 
 
@@ -352,7 +422,7 @@ class InMemoryStorage:
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
-            self.notification_repo = InMemoryNotifications(self.repo)
+            self.notification_repo = InMemoryNotifications(self.repo, days=self.day_repo)
 
     started: bool = False
 
@@ -430,4 +500,23 @@ def moon_use_cases(storage: "InMemoryStorage | None" = None) -> MoonUseCases:
         set_location=SetMoonLocation(cities, storage.accounts),
         use_city_zone=UseCityTimezone(cities, storage.accounts),
         reminders=UpdateMoonReminders(storage.notifications),
+    )
+
+
+def remind_use_cases(
+    storage: "InMemoryStorage | None" = None, clock: FixedClock | None = None
+) -> RemindUseCases:
+    from tristhana.application.moon import NotificationSettingsUseCase
+    from tristhana.application.remind import (
+        AnswerPracticeOffer,
+        QuickLogSameAsLast,
+        UpdatePracticeReminder,
+    )
+
+    storage, clock = storage or InMemoryStorage(), clock or FixedClock()
+    return RemindUseCases(
+        settings=NotificationSettingsUseCase(storage.notifications),
+        update=UpdatePracticeReminder(storage.notifications),
+        offer=AnswerPracticeOffer(storage.notifications, clock),
+        quick_log=QuickLogSameAsLast(storage.days, storage.practices, clock),
     )

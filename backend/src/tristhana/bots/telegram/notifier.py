@@ -12,6 +12,7 @@ from tristhana.application.ports.notifications import (
     DeliveryResult,
     DeliveryStatus,
     MoonReminder,
+    Notification,
     Recipient,
 )
 
@@ -29,16 +30,19 @@ class TelegramNotifier:
         self._runtime = runtime
         self._t = translator
 
-    async def deliver(self, recipient: Recipient, reminder: MoonReminder) -> DeliveryResult:
+    async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult:
         from aiogram.exceptions import (
             TelegramBadRequest,
             TelegramForbiddenError,
             TelegramRetryAfter,
         )
 
-        from tristhana.bots.telegram.moon import reminder_screen
+        from tristhana.bots.telegram import moon, remind
 
-        screen = reminder_screen(self._t, recipient.locale, reminder)
+        if isinstance(notification, MoonReminder):
+            screen = moon.reminder_screen(self._t, recipient.locale, notification)
+        else:
+            screen = remind.reminder_screen(self._t, recipient.locale, notification)
         try:
             await self._runtime().bot.send_message(
                 chat_id=int(recipient.telegram_id),

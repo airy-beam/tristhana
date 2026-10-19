@@ -69,7 +69,7 @@ async def test_moon_candidates(engine: AsyncEngine) -> None:
     await repo.patch_moon(off, MoonPatch(offsets=frozenset()), DEFAULTS)
     await repo.mark_unreachable(blocked, NOW)
 
-    candidates = await repo.moon_candidates(NOW - timedelta(days=12), DEFAULTS)
+    candidates = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
 
     assert [(c.account_id, c.telegram_id, c.zone, c.settings) for c in candidates] == [
         (on, "1", "Asia/Almaty", DEFAULTS)
@@ -84,7 +84,7 @@ async def test_unreachable_accounts_come_back_when_they_write_again(engine: Asyn
         await conn.execute(text("UPDATE tristhana.account SET last_seen_at = now()"))
 
     assert [
-        c.account_id for c in await repo.moon_candidates(NOW - timedelta(days=12), DEFAULTS)
+        c.account_id for c in await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
     ] == [me]
 
 
@@ -108,7 +108,7 @@ async def test_failed_claims_are_retried_three_times_then_final(engine: AsyncEng
     for _ in range(4):
         claims.append(await repo.claim(me, key, "moon", date(2026, 11, 4)))
         await repo.finish(me, key, "failed")
-    [candidate] = await repo.moon_candidates(NOW - timedelta(days=12), DEFAULTS)
+    [candidate] = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
 
     assert claims == [True, True, True, False]
     assert [(d.key, d.final) for d in candidate.deliveries] == [(key, True)]
@@ -120,7 +120,7 @@ async def test_sent_reminders_mark_the_intro_done_and_prune(engine: AsyncEngine)
     await repo.claim(me, "moon:2026-11-05:1", "moon", date(2026, 11, 4))
     await repo.finish(me, "moon:2026-11-05:1", "sent")
 
-    [candidate] = await repo.moon_candidates(NOW - timedelta(days=12), DEFAULTS)
+    [candidate] = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
     pruned = await repo.prune(datetime.now(UTC) + timedelta(seconds=1))
 
     assert candidate.had_moon_reminder is True
@@ -174,6 +174,6 @@ async def test_a_stale_claim_is_taken_over(engine: AsyncEngine) -> None:
             text("UPDATE tristhana.notification_delivery SET updated_at = now() - interval '6 min'")
         )
 
-    [candidate] = await repo.moon_candidates(NOW - timedelta(days=12), DEFAULTS)
+    [candidate] = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)
     assert [(d.final, d.counts_today) for d in candidate.deliveries] == [(False, True)]
     assert await repo.claim(me, key, "moon", date(2026, 11, 4))

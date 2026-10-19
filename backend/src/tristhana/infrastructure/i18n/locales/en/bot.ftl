@@ -11,6 +11,7 @@ help-text =
     I'm Tristhana, a companion for your Ashtanga practice: breath, bandha, drishti.
     /log: note how your day went (practice, rest, moon day…), today or any earlier day.
     /moon: upcoming moon days and reminders.
+    /remind: a daily one-tap prompt to log practice or rest.
 
 fallback-text = I can't answer messages yet. Try /start or /help 🙏
 
@@ -217,3 +218,48 @@ moon-reminder-intro = In Ashtanga we traditionally rest on full and new moon day
 moon-reminder-only-1 = ✓ I'll only remind you the day before.
 moon-reminder-off = 🔕 Moon reminders are off. You can turn them on again in /moon.
 moon-reminder-on = 🔔 Moon reminders are on again.
+
+## Practice reminder (PR-10). { $day } and { $date } arrive formatted ("Mon, Oct 19"); { $d } is an ISO weekday (1 = Monday).
+command-remind = Daily practice reminder
+remind-practice = 🌿 { $day }: practice or rest? One tap to log it.
+remind-same = ✅ Practiced, same as last time
+remind-practiced = 🧘 Practiced…
+remind-other = 📅 Other…
+remind-turn-off = 🔕 Turn off
+remind-turn-on = 🔔 Turn on
+remind-turn-back-on = 🔔 Turn back on
+remind-off-note = 🔕 Practice reminders are off. You can turn them on any time in /remind.
+remind-on-again = 🔔 Practice reminders are on again.
+# After 10 reminders in a row with nothing logged: one note, then reminders turn off.
+remind-paused = 🌿 I'll stop asking for now. Whenever you'd like the daily prompt back, tap below or open /remind.
+remind-copied-from = Copied from { $date }.
+remind-offer = 🔔 Want me to ask once a day, so logging takes one tap?
+remind-offer-yes = 🔔 Yes, remind me
+remind-offer-no = No, thanks
+remind-explain = Once a day I'll ask how it went, with one-tap buttons. Not on moon days or days you've already logged.
+remind-status-on = 🔔 Practice reminder: { $days }, at { $time }
+remind-status-off = 🔕 Practice reminder is off
+remind-local-time = { $time } your time
+remind-every-day = every day
+remind-days-except = every day except { remind-weekday-except }
+remind-weekday-except = { $d ->
+        [1] Monday
+        [2] Tuesday
+        [3] Wednesday
+        [4] Thursday
+        [5] Friday
+        [6] Saturday
+       *[7] Sunday
+    }
+remind-weekday = { $d ->
+        [1] Mon
+        [2] Tue
+        [3] Wed
+        [4] Thu
+        [5] Fri
+        [6] Sat
+       *[7] Sun
+    }
+remind-day-off = Day off: { remind-weekday }
+remind-moon-link = 🌙 Moon reminders
+remind-practice-link = 🧘 Practice reminder

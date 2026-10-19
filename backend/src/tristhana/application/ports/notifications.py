@@ -6,7 +6,7 @@ from uuid import UUID
 
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay
-from tristhana.domain.notifications import NotificationSettings
+from tristhana.domain.notifications import NotificationSettings, PracticeReminders
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,8 +18,8 @@ class Delivery:
 
 
 @dataclass(frozen=True, slots=True)
-class MoonCandidate:
-    """An account that may get moon reminders (zone known, reminders on, reachable)."""
+class ReminderCandidate:
+    """An account that may get reminders (zone known, moon or practice on, reachable)."""
 
     account_id: UUID
     telegram_id: str
@@ -29,6 +29,7 @@ class MoonCandidate:
     settings: NotificationSettings
     deliveries: tuple[Delivery, ...]  # recent ones, for dedupe and the daily cap
     had_moon_reminder: bool  # False: the next one carries the intro
+    logged: frozenset[date] = frozenset()  # logged days in the window (practice skips them)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,22 +40,47 @@ class MoonPatch:
     at: time | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class ReminderPatch:
+    """Practice-reminder fields to change; None = keep."""
+
+    on: bool | None = None
+    at: time | None = None
+    days: frozenset[int] | None = None
+
+    def apply(self, current: PracticeReminders) -> PracticeReminders:
+        return PracticeReminders(
+            self.on if self.on is not None else current.on,
+            self.at or current.at,
+            self.days if self.days is not None else current.days,
+        )
+
+
 class NotificationRepository(Protocol):
     async def settings(
         self, account_id: UUID, defaults: NotificationSettings
     ) -> NotificationSettings: ...
 
     async def save(
-        self, account_id: UUID, settings: NotificationSettings
-    ) -> NotificationSettings: ...
+        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
+    ) -> NotificationSettings:
+        """Replace the settings; `with_practice=False` leaves the practice columns alone."""
+        ...
 
     async def patch_moon(
         self, account_id: UUID, patch: MoonPatch, defaults: NotificationSettings
     ) -> NotificationSettings: ...
 
-    async def moon_candidates(
-        self, since: datetime, defaults: NotificationSettings
-    ) -> list[MoonCandidate]: ...
+    async def patch_practice(
+        self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
+    ) -> NotificationSettings: ...
+
+    async def candidates(
+        self, since: datetime, logged_from: date, defaults: NotificationSettings
+    ) -> list[ReminderCandidate]:
+        """Deliveries created since `since`; for practice-reminder accounts, logged days from
+        `logged_from` on (one statement for all accounts, never one per account)."""
+        ...
 
     async def claim(self, account_id: UUID, key: str, category: str, local_date: date) -> bool:
         """True when this run may send it (new, or a failed one under its retry limit)."""
@@ -98,5 +124,17 @@ class MoonReminder:
     today: date  # the recipient's local date (whether a date shows its year)
 
 
+@dataclass(frozen=True, slots=True)
+class PracticeReminder:
+    """The daily "practice or rest?" prompt for `day` with quick-log buttons, or (pause) the
+    one gentle note after a long silence that turns the reminder off."""
+
+    day: date
+    pause: bool = False
+
+
+type Notification = MoonReminder | PracticeReminder
+
+
 class Notifier(Protocol):
-    async def deliver(self, recipient: Recipient, reminder: MoonReminder) -> DeliveryResult: ...
+    async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult: ...

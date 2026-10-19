@@ -8,16 +8,23 @@ from sqlalchemy import and_, delete, func, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tristhana.application.ports.notifications import Delivery, MoonCandidate, MoonPatch
+from tristhana.application.ports.notifications import (
+    Delivery,
+    MoonPatch,
+    ReminderCandidate,
+    ReminderPatch,
+)
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
 from tristhana.domain.notifications import (
     MoonReminders,
     NotificationSettings,
+    PracticeReminders,
     QuietHours,
 )
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.tables import (
     account,
+    day_log,
     identity,
     notification_delivery,
     notification_settings,
@@ -42,6 +49,13 @@ def _settings(row: Any, defaults: NotificationSettings) -> NotificationSettings:
         if row.quiet_start is not None or row.quiet_end is not None
         else defaults.quiet,
         daily_cap=row.daily_cap or defaults.daily_cap,
+        practice=PracticeReminders(
+            row.practice_on,
+            row.practice_at or defaults.practice.at,
+            frozenset(row.practice_days)
+            if row.practice_days is not None
+            else defaults.practice.days,
+        ),
     )
 
 
@@ -51,6 +65,9 @@ _SETTINGS_COLUMNS = (
     _S.c.quiet_start,
     _S.c.quiet_end,
     _S.c.daily_cap,
+    _S.c.practice_on,
+    _S.c.practice_at,
+    _S.c.practice_days,
 )
 
 
@@ -66,14 +83,22 @@ class SqlNotificationRepository:
             row = (await conn.execute(stmt)).one_or_none()
         return _settings(row, defaults)
 
-    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
-        values = {
+    async def save(
+        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
+    ) -> NotificationSettings:
+        values: dict[str, Any] = {
             "moon_offsets": sorted(settings.moon.offsets),
             "moon_at": settings.moon.at,
             "quiet_start": settings.quiet.start,
             "quiet_end": settings.quiet.end,
             "daily_cap": settings.daily_cap,
         }
+        if with_practice:
+            values |= {
+                "practice_on": settings.practice.on,
+                "practice_at": settings.practice.at,
+                "practice_days": sorted(settings.practice.days),
+            }
         return await self._upsert(account_id, values, settings)
 
     async def patch_moon(
@@ -84,6 +109,18 @@ class SqlNotificationRepository:
             values["moon_offsets"] = sorted(patch.offsets)
         if patch.at is not None:
             values["moon_at"] = patch.at
+        return await self._upsert(account_id, values, defaults)
+
+    async def patch_practice(
+        self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
+    ) -> NotificationSettings:
+        values: dict[str, Any] = {}
+        if patch.on is not None:
+            values["practice_on"] = patch.on
+        if patch.at is not None:
+            values["practice_at"] = patch.at
+        if patch.days is not None:
+            values["practice_days"] = sorted(patch.days)
         return await self._upsert(account_id, values, defaults)
 
     async def _upsert(
@@ -98,13 +135,15 @@ class SqlNotificationRepository:
             row = (await conn.execute(stmt)).one()
         return _settings(row, defaults)
 
-    async def moon_candidates(
-        self, since: datetime, defaults: NotificationSettings
-    ) -> list[MoonCandidate]:
-        """Reachable accounts with a known zone, a Telegram identity and moon reminders on."""
-        reminders_on = or_(_S.c.moon_offsets.is_(None), func.cardinality(_S.c.moon_offsets) > 0)
+    async def candidates(
+        self, since: datetime, logged_from: date, defaults: NotificationSettings
+    ) -> list[ReminderCandidate]:
+        """Reachable accounts with a known zone, a Telegram identity, and moon or practice
+        reminders on."""
+        moon_on = or_(_S.c.moon_offsets.is_(None), func.cardinality(_S.c.moon_offsets) > 0)
         if not defaults.moon.on:
-            reminders_on = func.cardinality(_S.c.moon_offsets) > 0
+            moon_on = func.cardinality(_S.c.moon_offsets) > 0
+        reminders_on = or_(moon_on, _S.c.practice_on.is_(True))
         reachable = or_(_S.c.unreachable_at.is_(None), _S.c.unreachable_at < account.c.last_seen_at)
         accounts = (
             select(
@@ -134,10 +173,19 @@ class SqlNotificationRepository:
             d.c.updated_at,
         ).where(d.c.created_at >= since)
         ever = select(d.c.account_id).where(d.c.category == "moon", d.c.status == "sent").distinct()
+        logged = (
+            select(day_log.c.account_id, day_log.c.local_date)
+            .join(_S, _S.c.account_id == day_log.c.account_id)
+            .where(_S.c.practice_on.is_(True), day_log.c.local_date >= logged_from)
+        )
         async with connection(self._engine) as conn:
             rows = (await conn.execute(accounts)).all()
             recent = (await conn.execute(deliveries)).all()
             had = {r.account_id for r in (await conn.execute(ever)).all()}
+            days = (await conn.execute(logged)).all()
+        logged_by: dict[UUID, set[date]] = {}
+        for r in days:
+            logged_by.setdefault(r.account_id, set()).add(r.local_date)
         by_account: dict[UUID, list[Delivery]] = {}
         stale_before = datetime.now(UTC) - STALE_CLAIM
         for r in recent:
@@ -147,11 +195,11 @@ class SqlNotificationRepository:
             by_account.setdefault(r.account_id, []).append(
                 Delivery(r.dedupe_key, r.local_date, not retryable, r.status in ("sent", "claimed"))
             )
-        out: list[MoonCandidate] = []
+        out: list[ReminderCandidate] = []
         for r in rows:
             locale: Locale = r.locale if r.locale in LOCALES else DEFAULT_LOCALE
             out.append(
-                MoonCandidate(
+                ReminderCandidate(
                     account_id=r.id,
                     telegram_id=r.provider_user_id,
                     locale=locale,
@@ -160,6 +208,7 @@ class SqlNotificationRepository:
                     settings=_settings(r, defaults),
                     deliveries=tuple(by_account.get(r.id, ())),
                     had_moon_reminder=r.id in had,
+                    logged=frozenset(logged_by.get(r.id, ())),
                 )
             )
         return out

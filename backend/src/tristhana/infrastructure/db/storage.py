@@ -15,9 +15,10 @@ from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import (
-    MoonCandidate,
     MoonPatch,
     NotificationRepository,
+    ReminderCandidate,
+    ReminderPatch,
 )
 from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import StorageUnavailable
@@ -194,6 +195,11 @@ class _UnavailableDays:
     async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def insert_if_absent(
+        self, account_id: UUID, day: DayLog, timezone: str | None
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def delete(self, account_id: UUID, local_date: date) -> NoReturn:
         raise StorageUnavailable("not configured")
 
@@ -206,6 +212,11 @@ class _UnavailablePractices:
         raise StorageUnavailable("not configured")
 
     async def copy_latest(
+        self, account_id: UUID, local_date: date, timezone: str | None
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def copy_usual(
         self, account_id: UUID, local_date: date, timezone: str | None
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
@@ -236,7 +247,9 @@ class _UnavailableNotifications:
     ) -> NotificationSettings:
         raise StorageUnavailable("not configured")
 
-    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
+    async def save(
+        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
+    ) -> NotificationSettings:
         raise StorageUnavailable("not configured")
 
     async def patch_moon(
@@ -244,9 +257,14 @@ class _UnavailableNotifications:
     ) -> NotificationSettings:
         raise StorageUnavailable("not configured")
 
-    async def moon_candidates(
-        self, since: datetime, defaults: NotificationSettings
-    ) -> list[MoonCandidate]:
+    async def patch_practice(
+        self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
+    ) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def candidates(
+        self, since: datetime, logged_from: date, defaults: NotificationSettings
+    ) -> list[ReminderCandidate]:
         raise StorageUnavailable("not configured")
 
     async def claim(self, account_id: UUID, key: str, category: str, local_date: date) -> bool:

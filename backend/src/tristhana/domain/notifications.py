@@ -1,4 +1,4 @@
-"""When notifications are due (MD-03 moon reminders; PR-10 will add the practice reminder).
+"""When notifications are due (MD-03 moon reminders, PR-10 the daily practice reminder).
 
 Pure rules: the tick asks "what is due right now?" for each account, so DST and zone
 changes need no stored schedule. Instants are UTC; send times are the recipient's wall
@@ -15,6 +15,11 @@ from tristhana.domain.moon import MoonDay
 MOON_OFFSETS = frozenset({1, 3, 7})
 GRACE = timedelta(hours=3)  # a reminder more than this late is dropped, not sent at 4 am
 SEND_TIMES = (time(7), time(12), time(19), time(21))
+PRACTICE_TIMES = tuple(time(h) for h in (9, 10, 12, 18, 20, 21))  # ashtanga-expert
+WEEKDAYS = frozenset(range(1, 8))  # ISO: Monday = 1
+UNANSWERED_LIMIT = 10  # reminded days left unlogged in a row before one note and a pause
+DAY_OFF_PRESETS = {6: frozenset({1, 2, 3, 4, 5, 7}), 7: frozenset({1, 2, 3, 4, 5, 6})}
+COPIED_DATE_AFTER = timedelta(days=14)  # older: "same as last time" says which day it was
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +46,26 @@ class MoonReminders:
 
 
 @dataclass(frozen=True, slots=True)
+class PracticeReminders:
+    on: bool | None  # None = never chosen: off, and the one-time offer may still show
+    at: time
+    days: frozenset[int]  # ISO weekdays
+
+    @property
+    def enabled(self) -> bool:
+        return self.on is True
+
+
+# Opt-in; Saturday off as in Mysore (owner, 2026-10-19).
+PRACTICE_DEFAULT = PracticeReminders(None, time(10), frozenset({1, 2, 3, 4, 5, 7}))
+
+
+@dataclass(frozen=True, slots=True)
 class NotificationSettings:
     moon: MoonReminders
     quiet: QuietHours
     daily_cap: int
+    practice: PracticeReminders = PRACTICE_DEFAULT
 
 
 DEFAULTS = NotificationSettings(
@@ -54,16 +75,32 @@ DEFAULTS = NotificationSettings(
 )
 
 
+def default_practice_time(tapped: time) -> time:
+    """The reminder time for someone who just accepted the offer after logging today's
+    practice: morning practitioners get 10:00, people who log after 14:00 get 20:00."""
+    return time(10) if tapped < time(14) else time(20)
+
+
 class InvalidSettings(ValueError):
     pass
+
+
+def _check_grid(at: time) -> None:
+    if at.second or at.microsecond or at.minute % 15:
+        raise InvalidSettings("send time must be on a 15-minute grid")
 
 
 def check_settings(settings: NotificationSettings) -> NotificationSettings:
     if not settings.moon.offsets <= MOON_OFFSETS:
         raise InvalidSettings("moon offsets must be among 1, 3, 7")
     at = settings.moon.at
-    if at.second or at.microsecond or at.minute % 15:
-        raise InvalidSettings("send time must be on a 15-minute grid")
+    _check_grid(at)
+    practice = settings.practice
+    if not practice.days or not practice.days <= WEEKDAYS:
+        raise InvalidSettings("practice days must be 1-7, at least one")
+    _check_grid(practice.at)
+    if practice.enabled and settings.quiet.contains(practice.at):
+        raise InvalidSettings("the practice reminder falls in quiet hours")
     if not 1 <= settings.daily_cap <= 10:
         raise InvalidSettings("daily cap must be 1-10")
     if settings.moon.on and settings.quiet.contains(at):
@@ -79,6 +116,15 @@ def send_instant(local_date: date, at: time, zone: str) -> datetime:
 
 def moon_key(moon_date: date, days_before: int) -> str:
     return f"moon:{moon_date.isoformat()}:{days_before}"
+
+
+def practice_key(local_date: date) -> str:
+    return f"practice:{local_date.isoformat()}"
+
+
+def pause_key(local_date: date) -> str:
+    """The long-silence note: its own key, so it ends a run of unanswered reminders."""
+    return f"practice-pause:{local_date.isoformat()}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +144,9 @@ class Candidate:
     moon_days: tuple[MoonDay, ...]  # dates of the followed calendar's location
     sent_keys: frozenset[str] = field(default_factory=frozenset[str])
     sent_today: int = 0  # notifications already delivered on the recipient's local today
+    logged: frozenset[date] = field(default_factory=frozenset[date])  # recent logged days
+    practice_sent: tuple[date, ...] = ()  # recent days a practice reminder went out for
+    practice_paused: tuple[date, ...] = ()  # recent days the long-silence note went out
 
 
 def due_moon_reminders(now: datetime, c: Candidate) -> list[DueReminder]:
@@ -130,3 +179,56 @@ def due_moon_reminders(now: datetime, c: Candidate) -> list[DueReminder]:
 
 def sent_today_count(local_dates: Iterable[date], today: date) -> int:
     return sum(1 for d in local_dates if d == today)
+
+
+@dataclass(frozen=True, slots=True)
+class DuePractice:
+    key: str
+    local_date: date  # the day it asks about (and is sent on)
+    pause: bool  # the long-silence note instead of a reminder: then reminders turn off
+
+
+def due_practice_reminder(now: datetime, c: Candidate, picked: int = 0) -> DuePractice | None:
+    """The practice reminder due at `now` (UTC), if any: at `practice.at` on a chosen
+    weekday, within GRACE, outside quiet hours, never for a logged day or a moon day of the
+    followed calendar, within the daily cap shared with moon reminders (`picked` = moon
+    reminders already chosen this tick). Yesterday is checked too: a late slot's grace may
+    cross midnight (that reminder is about, and counted on, yesterday: only possible with
+    custom quiet hours that let a slot run past midnight). After UNANSWERED_LIMIT reminded
+    days in a row stayed unlogged, the reminder becomes one gentle note (`pause`)."""
+    practice = c.settings.practice
+    if not practice.enabled:
+        return None
+    zone = ZoneInfo(c.zone)
+    local_now = now.astimezone(zone)
+    if c.settings.quiet.contains(local_now.time().replace(tzinfo=None)):
+        return None
+    if c.sent_today + picked >= c.settings.daily_cap:
+        return None
+    moon_dates = {d.date for d in c.moon_days}
+    for day in (local_now.date(), local_now.date() - timedelta(days=1)):
+        send_at = send_instant(day, practice.at, c.zone)
+        if not send_at <= now < send_at + GRACE:
+            continue
+        if (
+            day.isoweekday() not in practice.days
+            or day in c.logged
+            or day in moon_dates
+            or practice_key(day) in c.sent_keys
+            or pause_key(day) in c.sent_keys
+        ):
+            return None
+        if _silent(c, day):
+            return DuePractice(pause_key(day), day, pause=True)
+        return DuePractice(practice_key(day), day, pause=False)
+    return None
+
+
+def _silent(c: Candidate, day: date) -> bool:
+    """The last UNANSWERED_LIMIT reminders before `day` (since the last pause note, so
+    turning reminders back on starts a fresh count) all left their day unlogged."""
+    since = max((d for d in c.practice_paused if d < day), default=None)
+    before = sorted(
+        (d for d in c.practice_sent if d < day and (since is None or d > since)), reverse=True
+    )[:UNANSWERED_LIMIT]
+    return len(before) == UNANSWERED_LIMIT and not any(d in c.logged for d in before)

@@ -33,6 +33,11 @@ from tristhana.application.practice import (
     GetPracticePresets,
     SavePractice,
 )
+from tristhana.application.remind import (
+    AnswerPracticeOffer,
+    QuickLogSameAsLast,
+    UpdatePracticeReminder,
+)
 from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
 from tristhana.bots.telegram.runtime import (
@@ -40,6 +45,7 @@ from tristhana.bots.telegram.runtime import (
     DayUseCases,
     MoonUseCases,
     PracticeUseCases,
+    RemindUseCases,
     build_runtime,
 )
 from tristhana.bots.telegram.webhook import make_webhook_router
@@ -189,7 +195,14 @@ class _Services:
             reminders=UpdateMoonReminders(self._storage.notifications),
         )
         app.state.moon, app.state.cities = moon, cities
-        app.state.notification_settings = NotificationSettingsUseCase(self._storage.notifications)
+        notification_settings = NotificationSettingsUseCase(self._storage.notifications)
+        app.state.notification_settings = notification_settings
+        remind = RemindUseCases(
+            settings=notification_settings,
+            update=UpdatePracticeReminder(self._storage.notifications),
+            offer=AnswerPracticeOffer(self._storage.notifications, clock),
+            quick_log=QuickLogSameAsLast(self._storage.days, self._storage.practices, clock),
+        )
         app.state.run_tick = RunTick(
             clock,
             cities,
@@ -202,6 +215,7 @@ class _Services:
         self._bot.days = days
         self._bot.practices = practices
         self._bot.moon = moon
+        self._bot.remind = remind
         try:
             async with self._bot.lifespan():
                 yield
@@ -220,6 +234,7 @@ class _LazyBot:
         self.days: DayUseCases | None = None
         self.practices: PracticeUseCases | None = None
         self.moon: MoonUseCases | None = None
+        self.remind: RemindUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -231,6 +246,7 @@ class _LazyBot:
                 or self.days is None
                 or self.practices is None
                 or self.moon is None
+                or self.remind is None
             ):
                 raise RuntimeError("bot used before startup")
             self._runtime = build_runtime(
@@ -239,6 +255,7 @@ class _LazyBot:
                 self.days,
                 self.practices,
                 self.moon,
+                self.remind,
                 FluentTranslator(),
                 self._settings.miniapp_url,
             )

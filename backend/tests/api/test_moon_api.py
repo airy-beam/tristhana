@@ -104,7 +104,9 @@ def test_notification_settings_round_trip(api: TestClient) -> None:
 
     assert defaults["moon"] == {"offsets": [1, 7], "at": "19:00:00"}
     assert defaults["timezone"] is None
-    assert saved.json() == body | {"timezone": None}
+    practice = {"on": None, "at": "10:00:00", "days": [1, 2, 3, 4, 5, 7]}
+    assert defaults["practice"] == practice
+    assert saved.json() == body | {"timezone": None, "practice": practice}  # omitted: kept
     assert (bad.status_code, bad.json()) == (422, {"code": "invalid_settings"})
 
 
@@ -143,7 +145,7 @@ def test_tick_sends_a_due_reminder(
         body = client.post("/internal/tick", headers={"X-Tristhana-Tick-Token": TICK}).json()
 
     assert body["sent"] == 1
-    [(recipient, reminder)] = notifier.delivered
+    [(recipient, reminder)] = notifier.moon
     assert (recipient.telegram_id, reminder.days_before, reminder.moon_day.date) == (
         "42",
         1,
@@ -156,3 +158,31 @@ class _NoCompute:
 
     async def compute_year(self, location: object, year: int) -> list[MoonDay]:
         return []
+
+
+def test_practice_reminder_settings_round_trip(api: TestClient) -> None:
+    current = api.get("/api/v1/me/notification-settings", headers=_auth()).json()
+    on = current | {"practice": {"on": True, "at": "20:00:00", "days": [1, 2, 3, 4, 5, 6]}}
+    del on["timezone"]
+
+    saved = api.put("/api/v1/me/notification-settings", json=on, headers=_auth())
+    no_days = api.put(
+        "/api/v1/me/notification-settings",
+        json=on | {"practice": on["practice"] | {"days": []}},
+        headers=_auth(),
+    )
+    in_quiet = api.put(
+        "/api/v1/me/notification-settings",
+        json=on | {"practice": on["practice"] | {"at": "23:00:00"}},
+        headers=_auth(),
+    )
+    moon_only = api.put(
+        "/api/v1/me/notification-settings",
+        json={k: v for k, v in on.items() if k != "practice"},
+        headers=_auth(),
+    )
+
+    assert saved.json()["practice"] == on["practice"]
+    assert no_days.status_code == 422
+    assert (in_quiet.status_code, in_quiet.json()) == (422, {"code": "invalid_settings"})
+    assert moon_only.json()["practice"] == on["practice"]  # omitted: unchanged

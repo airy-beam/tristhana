@@ -434,6 +434,8 @@ export interface components {
             /** Daily Cap */
             daily_cap: number;
             moon: components["schemas"]["MoonSettings"];
+            /** @description The daily practice reminder; omitted = unchanged */
+            practice?: components["schemas"]["PracticeSettings"] | null;
             quiet: components["schemas"]["Quiet"];
         };
         /** NotificationSettingsOut */
@@ -441,6 +443,7 @@ export interface components {
             /** Daily Cap */
             daily_cap: number;
             moon: components["schemas"]["MoonSettings"];
+            practice: components["schemas"]["PracticeSettings"];
             quiet: components["schemas"]["Quiet"];
             /**
              * Timezone
@@ -500,6 +503,25 @@ export interface components {
             last: components["schemas"]["PracticeOut"] | null;
             /** Presets */
             presets: components["schemas"]["Preset"][];
+        };
+        /** PracticeSettings */
+        PracticeSettings: {
+            /**
+             * At
+             * Format: time
+             * @description Local wall clock, 15-minute grid
+             */
+            at: string;
+            /**
+             * Days
+             * @description ISO weekdays (1 = Monday)
+             */
+            days: number[];
+            /**
+             * On
+             * @description null = never chosen (off; the bot may offer it once)
+             */
+            on: boolean | null;
         };
         /** Preset */
         Preset: {
