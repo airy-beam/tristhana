@@ -159,7 +159,7 @@ describe("TodayCard", () => {
 
   describe("first-log hint", () => {
     const empty: Days = { today: TODAY, timezone_known: true, days: [] };
-    const hint = "Start by noting today: practice or rest.";
+    const hint = "Start by logging today: practice or rest.";
 
     it("shows until this device saves a day, and stays hidden after", async () => {
       stubApi(empty);

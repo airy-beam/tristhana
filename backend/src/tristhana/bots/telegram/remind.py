@@ -20,7 +20,7 @@ from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.remind_callbacks import PREFIX, RemindCallback, decode, encode
 from tristhana.bots.telegram.runtime import RemindUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, button, day_label, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
@@ -51,7 +51,8 @@ def reminder_screen(
             [button(t, locale, "remind-turn-back-on", _data(action="quick", on=True, day=r.day))]
         ]
         return Screen(t.t(locale, "remind-paused"), InlineKeyboardMarkup(inline_keyboard=rows))
-    text = t.t(locale, "remind-practice", day=DateArg(r.day))
+    # "Today, Mon, Oct 19" / «Сегодня, пн, 19 окт.»: sent on the day it asks about.
+    text = t.t(locale, "remind-practice", day=day_label(t, locale, r.day, r.day))
     if status:
         text += "\n\n" + t.t(locale, status)
     if status == "remind-off-note":

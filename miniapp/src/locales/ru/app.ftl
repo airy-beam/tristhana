@@ -10,7 +10,7 @@ home-server-status = Сервер { $version } · { $commit }
 home-server-loading = Подключаемся к серверу…
 home-server-offline = Не получается связаться с сервером. Твои данные в порядке, попробуй чуть позже.
 
-# Главная кнопка Telegram и ее результат, когда детали сервера скрыты.
+# Главная кнопка Telegram и её результат, когда детали сервера скрыты.
 home-check-connection = Проверить связь
 home-connection-ok = Связь в порядке ✓
 
@@ -56,7 +56,7 @@ context-self = Самостоятельно
 practice-online = 🌐 Онлайн
 practice-length = Объём практики
 practice-duration = Длительность
-preset-short = ☀️ Короткая: приветствия солнцу, стоячие, завершающие
+preset-short = ☀️ Короткая → стоячие
 preset-half-primary = ½ первой → Навасана
 preset-full-primary = Первая серия целиком
 preset-other = 🎯 Другое…
@@ -72,7 +72,7 @@ series-name =
         [1] Первая
         [2] Вторая
         [3] Третья
-        [4] Четвертая
+        [4] Четвёртая
         [5] Пятая
        *[6] Шестая
     }
@@ -81,7 +81,7 @@ series-lower =
         [1] первая
         [2] вторая
         [3] третья
-        [4] четвертая
+        [4] четвёртая
         [5] пятая
        *[6] шестая
     }
@@ -90,7 +90,7 @@ series-half =
         [1] первой
         [2] второй
         [3] третьей
-        [4] четвертой
+        [4] четвёртой
         [5] пятой
        *[6] шестой
     }
@@ -122,7 +122,7 @@ moon-in-days =
     }
 moon-day-line = { $phase } · { $date } · { $in }
 moon-none = В ближайшие два месяца лунных дней пока нет: календарь готовится.
-moon-calc-note = Даты рассчитаны для 📍 { $city } (лунный день на восходе). Календарь твоей шалы может отличаться на день, ориентируйся на своего учителя.
+moon-calc-note = Даты рассчитаны по городу 📍 { $city } (лунный день на восходе). Календарь твоей шалы может отличаться на день: ориентируйся на своего учителя.
 moon-city = Город для календаря
 moon-reminders-label = Напоминать
 moon-offset =
@@ -203,7 +203,7 @@ stats-month-practices = { $n ->
         [few] { $n } практики
        *[many] { $n } практик
     }
-stats-online = 🌐 онлайн: { $n }
+stats-online = 🌐 Онлайн: { $n }
 stats-by-series = По сериям
 stats-series-short = ☀️ Короткая
 stats-no-details = Без деталей
@@ -244,9 +244,9 @@ settings-zone-use-device = Взять пояс телефона: { $zone }
 settings-zone-pick = Выбрать город
 settings-zone-utc = UTC (без летнего времени)
 settings-zone-hint = Напоминания приходят по этому поясу. Уже отмеченные дни останутся на своих датах.
-zone-travel = Телефон живёт по времени { $device }, а напоминания — по { $current }.
-zone-travel-switch = Перейти на { $city }
-zone-travel-keep = Оставить { $city }
+zone-travel = Время на телефоне: { $device }. Напоминания приходят по времени: { $current }.
+zone-travel-switch = Перейти: { $city }
+zone-travel-keep = Оставить: { $city }
 settings-moon-time = Во сколько
 settings-quiet = Тихие часы
 settings-quiet-from = Тихо с

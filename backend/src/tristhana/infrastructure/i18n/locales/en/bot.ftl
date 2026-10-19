@@ -6,7 +6,7 @@ start-greeting =
 
 start-prompt =
     { $day }
-    How was today? Practice or rest, both go in your log.
+    Practice or rest? Both go in your log.
 # The other-language button; $language is that language's own name ("Русский").
 start-switch-language = 🗣 { $language }
 # Mini App button: under /start and under a saved day while the time zone is unknown.
@@ -14,7 +14,8 @@ start-open-app = Open the app
 
 help-text =
     I'm Tristhana, a companion for your Ashtanga practice.
-    📝 /log: today or an earlier day · /remind: a daily one-tap check-in
+    📝 /log: today or an earlier day
+    🔔 /remind: daily practice reminder
     🌙 /moon: upcoming moon days and reminders
     ⚙️ /settings: language, time zone, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
@@ -22,7 +23,7 @@ help-text =
 fallback-text = I can't answer messages yet. Try /start or /help 🙏
 
 # The database is unreachable; the person should simply try again.
-error-temporary = Sorry, I've hit a small hiccup on my side. Please try again in a minute 🙏
+error-temporary = Sorry, I've hit a small hiccup on my side. Please try again in a minute.
 
 ## Day status (PR-01). Dates arrive pre-formatted ("Sun, Oct 18").
 
@@ -57,9 +58,9 @@ log-saved =
     }
 log-private-note = Only you see this. Others see “Rest day”.
 log-zone-hint = Tip: open the app once so I know your time zone and your days land on the right date.
-log-cleared = Cleared: { $day }.
+log-cleared = Cleared.
 log-date-future = That day hasn't come yet in your time zone.
-log-date-too-early = I keep days from the year 2000 on.
+log-date-too-early = I keep days from 2000 onwards.
 
 log-another-day = 📅 Another day
 log-change = ✏️ Change
@@ -92,13 +93,15 @@ practice-clear = Remove details
 practice-day-not-practiced = This day isn't marked as practice anymore.
 practice-no-previous = Nothing to copy yet: this is your first practice with details.
 
-length-pick = Where did your practice end?
-preset-short = ☀️ Short: sun salutations, standing, finishing
+length-pick =
+    Where did your practice end?
+    ☀️ Short: Surya Namaskara, standing and finishing.
+preset-short = ☀️ Short → standing
 preset-half-primary = ½ Primary → Navasana
 preset-full-primary = Full Primary
 preset-other = 🎯 Other…
 length-pick-series = Which series did you end with?
-length-pick-range = What did you practise?
+length-pick-range = What did you practice?
 length-only = Only { $series }
 length-pick-asana = Last asana in { $series }:
 length-full-series = Full series
@@ -186,21 +189,21 @@ moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise).
 moon-offsets =
     { $code ->
         [731] 7, 3 and 1 day
-        [71] a week and a day
+        [71] 7 and 1 day
         [73] 7 and 3 days
-        [31] 3 days and a day
-        [7] a week
+        [31] 3 and 1 day
+        [7] 7 days
         [3] 3 days
-       *[1] a day
+       *[1] 1 day
     }
-moon-reminders-on = 🔔 Reminders: { $offsets } before, at { $time }
+moon-reminders-on = 🔔 Reminders: { $offsets } before at { $time }
 moon-reminders-off = 🔕 Reminders are off
 moon-zone-needed = To remind you at the right hour I need your time zone: pick your city or open the app once.
 moon-change-city = 📍 Change city
 moon-reminders = 🔔 Reminders
 moon-pick-city = Which city's moon days do you follow?
 # Full-width button: sets the account's time zone to the city's (only when unknown).
-moon-use-city-zone = 🕒 Time zone: 📍 { $city }
+moon-use-city-zone = 🕐 Time zone: 📍 { $city }
 # Toggle buttons, 3 per row; the screen text above already says "… before".
 moon-offset =
     { $n ->
@@ -220,7 +223,7 @@ moon-reminder =
     }
 moon-reminder-intro = In Ashtanga we traditionally rest on full and new moon days. I'll remind you { $offsets } before; one tap below changes it.
 moon-reminder-only-1 = ✓ I'll only remind you the day before.
-moon-reminder-off = 🔕 Moon reminders are off. You can turn them on again in /moon.
+moon-reminder-off = 🔕 Moon reminders are off. You can turn them back on in /moon.
 moon-reminder-on = 🔔 Moon reminders are on again.
 
 ## Practice reminder (PR-10). { $day } and { $date } arrive formatted ("Mon, Oct 19"); { $d } is an ISO weekday (1 = Monday).
@@ -232,7 +235,7 @@ remind-other = 📅 Other…
 remind-turn-off = 🔕 Turn off
 remind-turn-on = 🔔 Turn on
 remind-turn-back-on = 🔔 Turn back on
-remind-off-note = 🔕 Practice reminders are off. You can turn them on any time in /remind.
+remind-off-note = 🔕 Practice reminders are off. You can turn them back on in /remind.
 remind-on-again = 🔔 Practice reminders are on again.
 # After 10 reminders in a row with nothing logged: one note, then reminders turn off.
 remind-paused = 🌿 I'll stop asking for now. Whenever you'd like the daily prompt back, tap below or open /remind.
@@ -241,7 +244,7 @@ remind-offer = 🔔 Want me to ask once a day, so logging takes one tap?
 remind-offer-yes = 🔔 Yes, remind me
 remind-offer-no = No, thanks
 remind-explain = Once a day I'll ask how it went, with one-tap buttons. Not on moon days or days you've already logged.
-remind-status-on = 🔔 Practice reminder: { $days }, at { $time }
+remind-status-on = 🔔 Practice reminder: { $days } at { $time }
 remind-status-off = 🔕 Practice reminder is off
 remind-local-time = { $time } your time
 remind-every-day = every day
@@ -289,5 +292,5 @@ settings-quiet-off-line = 🔕 No quiet hours · { $n ->
 settings-zone-button = 🕐 Time zone
 settings-moon-link = 🌙 Moon days
 settings-pick-zone = Pick the city whose time you live by. Not in the list? Open the app: it can use your phone's zone.
-settings-open-app = ⚙️ Name, quiet hours: in the app
+settings-open-app = ⚙️ More in the app
 settings-link = ⚙️ Settings

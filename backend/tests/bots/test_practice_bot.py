@@ -140,7 +140,7 @@ def test_self_practice_hides_online(client: TestClient, storage: InMemoryStorage
 @pytest.mark.parametrize(
     ("preset", "summary"),
     [
-        ("☀️ Short: sun salutations, standing, finishing", "Short practice"),
+        ("☀️ Short → standing", "Short practice"),
         ("½ Primary → Navasana", "Primary → Navasana"),
         ("Full Primary", "Full Primary"),
     ],

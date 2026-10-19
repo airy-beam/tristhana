@@ -77,7 +77,7 @@ def reminder_screen(
 def moon_status(
     t: Translator, locale: Locale, settings: NotificationSettings, zone: str | None, today: date
 ) -> str:
-    """The moon reminder line ("🔔 Reminders: a week and a day before, at 19:00 …")."""
+    """The moon reminder line ("🔔 Reminders: 7 and 1 day before at 19:00 …")."""
     if zone is None:
         return t.t(locale, "moon-zone-needed")
     if not settings.moon.on:

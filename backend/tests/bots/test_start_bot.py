@@ -103,7 +103,7 @@ def test_start_greets_and_asks_about_today_in_one_message(client: TestClient) ->
     body = _command(client, "/start")
 
     assert body["text"].startswith("Namaste 🙏")
-    assert "How was today? Practice or rest, both go in your log." in body["text"]
+    assert "Practice or rest? Both go in your log." in body["text"]
     rows = _rows(body)
     assert rows[0] == ["🧘 Practiced"]
     assert rows[-2] == ["📅 Another day"]

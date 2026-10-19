@@ -31,7 +31,7 @@ practice-days =
 session-expired = This session has expired. Close Tristhana and open it again from the bot.
 
 # Home: today's status card (PR-01). Status labels match the bot.
-home-first-hint = Start by noting today: practice or rest.
+home-first-hint = Start by logging today: practice or rest.
 today-title = Today
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day
@@ -55,7 +55,7 @@ context-self = Self-practice
 practice-online = 🌐 Online
 practice-length = Length
 practice-duration = Duration
-preset-short = ☀️ Short: sun salutations, standing, finishing
+preset-short = ☀️ Short → standing
 preset-half-primary = ½ Primary → Navasana
 preset-full-primary = Full Primary
 preset-other = 🎯 Other…
@@ -172,13 +172,13 @@ stats-run-current = { $n ->
        *[other] 🌿 { $n } practices in a row
     }
 stats-run-longest = Most in a row this year: { $n }
-stats-consistency-hint = Unmarked days aren't counted. Rest, moon, sick and travel days keep the run going: rest is part of the practice.
+stats-consistency-hint = Days you haven't logged are left out. Rest, moon, sick and travel days don't reset the count: rest is part of the practice.
 stats-legend-practiced = Practice
 stats-legend-rest = Rest
 stats-legend-moon = 🌙 Moon day (rest)
-stats-legend-away = Sick or travelling
+stats-legend-away = Sick or traveling
 stats-legend-skipped = No practice
-stats-legend-none = Not marked
+stats-legend-none = Not logged
 stats-legend-moon-marker = Full or new moon · 📍 { $city }
 stats-show-ladies = Show 🌸 days on this device
 stats-cell-label = { $date }: { $status }{ $moon ->
@@ -194,7 +194,7 @@ stats-month-practices = { $n ->
         [one] { $n } practice
        *[other] { $n } practices
     }
-stats-online = 🌐 online: { $n }
+stats-online = 🌐 Online: { $n }
 stats-by-series = By series
 stats-series-short = ☀️ Short
 stats-no-details = No details
@@ -207,10 +207,10 @@ stats-duration = ⏱ { $th ->
         }
     } in total · about { $avg } min per practice
 stats-unlogged = { $n ->
-        [one] { $n } unmarked day: tap a day to add it
-       *[other] { $n } unmarked days: tap a day to add it
+        [one] { $n } day not logged: tap a day to add it
+       *[other] { $n } days not logged: tap a day to add it
     }
-stats-month-empty = Nothing marked this month yet. Days you mark will show up here.
+stats-month-empty = Nothing logged this month yet. Days you log will show up here.
 stats-load-failed = Couldn't load your stats. Try again in a moment.
 stats-editor-done = Done
 stats-prev = ‹

@@ -169,7 +169,7 @@ def test_clear(client: TestClient, storage: InMemoryStorage) -> None:
     body = _tap(client, f"d1:x:{_ymd(today)}")
 
     assert storage.day_repo.rows == {}
-    assert body["text"].startswith("Cleared: Today, ")
+    assert body["text"].startswith("Cleared.\n\nToday, ")
 
 
 def test_week_picker_pages_back_and_never_past_today(client: TestClient) -> None:
