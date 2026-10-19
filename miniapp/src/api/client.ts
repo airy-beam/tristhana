@@ -111,8 +111,44 @@ const DAYS_KEY = ["days", "recent"] as const;
 function settleDays(client: ReturnType<typeof useQueryClient>, error: unknown): void {
   const queued = client.isMutating({ predicate: (m) => m.options.scope?.id === "day" });
   if (queued <= 1 || (error instanceof ApiError && error.status === 409)) {
-    void client.invalidateQueries({ queryKey: DAYS_KEY });
+    // Every day query (recent, ranges for the day editor) and the stats built on them.
+    void client.invalidateQueries({ queryKey: ["days"] });
+    void client.invalidateQueries({ queryKey: STATS_KEY });
   }
+}
+
+const STATS_KEY = ["stats"] as const;
+export type Stats = components["schemas"]["StatsOut"];
+export type StatsSummary = components["schemas"]["SummaryOut"];
+
+/** One year of stats (ST-01..03); `year` undefined = the local current year. */
+export function useStats(year: number | undefined) {
+  return useQuery({
+    queryKey: [...STATS_KEY, year ?? "current"],
+    queryFn: async (): Promise<Stats> => {
+      const { data, error, response } = await api.GET("/api/v1/me/stats", {
+        params: { query: year === undefined ? {} : { year } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+/** Logged days in [from, to] (the day editor on the stats screen). */
+export function useDaysRange(from: string, to: string) {
+  return useQuery({
+    queryKey: ["days", "range", from, to],
+    queryFn: async (): Promise<Days> => {
+      const { data, error, response } = await api.GET("/api/v1/me/days", {
+        params: { query: { from, to } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+  });
 }
 
 /** The last 7 days and the server's "today" (PR-01). */
@@ -137,6 +173,31 @@ function withDay(days: Days, date: string, status: DayStatus | null): Days {
   return { ...days, days: next.sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
+type Snapshot = [readonly unknown[], Days | undefined][];
+
+/** Applies `change` optimistically to every cached day query (the recent week and the
+ * stats day editor's ranges; a range only gets days inside it) and returns what to
+ * restore if the server refuses. */
+async function patchDays(
+  client: ReturnType<typeof useQueryClient>,
+  date: string,
+  change: (days: Days) => Days,
+): Promise<Snapshot> {
+  await client.cancelQueries({ queryKey: ["days"] });
+  const before = client.getQueriesData<Days>({ queryKey: ["days"] });
+  for (const [key, days] of before) {
+    const [, kind, from, to] = key as [string, string, string?, string?];
+    const inside =
+      kind !== "range" || (from !== undefined && to !== undefined && from <= date && date <= to);
+    if (days && inside) client.setQueryData(key, change(days));
+  }
+  return before;
+}
+
+function restore(client: ReturnType<typeof useQueryClient>, snapshot: Snapshot | undefined) {
+  for (const [key, days] of snapshot ?? []) client.setQueryData(key, days);
+}
+
 /** Sets (status) or clears (null) a day, optimistically; rolls back if the server refuses. */
 export function useSetDay() {
   const client = useQueryClient();
@@ -152,14 +213,11 @@ export function useSetDay() {
         : await api.DELETE("/api/v1/me/days/{date}", { params });
       if (!response.ok) fail(response, error);
     },
-    onMutate: async ({ date, status }) => {
-      await client.cancelQueries({ queryKey: DAYS_KEY });
-      const before = client.getQueryData<Days>(DAYS_KEY);
-      if (before) client.setQueryData(DAYS_KEY, withDay(before, date, status));
-      return { before };
-    },
+    onMutate: async ({ date, status }) => ({
+      before: await patchDays(client, date, (days) => withDay(days, date, status)),
+    }),
     onError: (_error, _vars, context) => {
-      if (context?.before) client.setQueryData(DAYS_KEY, context.before);
+      restore(client, context?.before);
     },
   });
 }
@@ -237,19 +295,19 @@ export function useSavePractice() {
       return data;
     },
     onMutate: async ({ date, body }) => {
-      await client.cancelQueries({ queryKey: DAYS_KEY });
-      const before = client.getQueryData<Days>(DAYS_KEY);
       const practice = body ? { slot: 1, timezone: null, ...body } : null;
-      if (before) client.setQueryData(DAYS_KEY, withPractice(before, date, practice));
-      return { before };
+      return {
+        before: await patchDays(client, date, (days) => withPractice(days, date, practice)),
+      };
     },
     onSuccess: (saved, { date }) => {
       // The server's normalised practice (e.g. a full series, the stored zone) wins.
-      const days = client.getQueryData<Days>(DAYS_KEY);
-      if (days) client.setQueryData(DAYS_KEY, withPractice(days, date, saved));
+      client.setQueriesData<Days>({ queryKey: ["days"] }, (days) =>
+        days ? withPractice(days, date, saved) : days,
+      );
     },
     onError: (_error, _vars, context) => {
-      if (context?.before) client.setQueryData(DAYS_KEY, context.before);
+      restore(client, context?.before);
     },
     onSettled: (_data, error) => {
       settleDays(client, error);

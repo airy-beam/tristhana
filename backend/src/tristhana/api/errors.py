@@ -14,6 +14,7 @@ type ErrorCode = Literal[
     "auth_expired",
     "invalid_timezone",
     "invalid_range",
+    "invalid_year",
     "date_in_future",
     "date_too_early",
     "day_not_practiced",

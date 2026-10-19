@@ -47,6 +47,23 @@ export function initTelegram(): void {
   }
 }
 
+export function backButtonAvailable(): boolean {
+  return backButton.show.isAvailable();
+}
+
+/** Shows Telegram's Back button while mounted; `onBack` runs when it's pressed. */
+export function useBackButton(onBack: () => void): void {
+  useEffect(() => {
+    if (!backButton.show.isAvailable()) return;
+    backButton.show();
+    const off = backButton.onClick(onBack);
+    return () => {
+      off();
+      backButton.hide.ifAvailable();
+    };
+  }, [onBack]);
+}
+
 /** Tell Telegram the app is ready (hides its loading placeholder). */
 export function markReady(): void {
   miniApp.ready.ifAvailable();

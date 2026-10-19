@@ -206,6 +206,9 @@ class _UnavailableDays:
     async def list_range(self, account_id: UUID, start: date, end: date) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def history(self, account_id: UUID, start: date, end: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
 
 class _UnavailablePractices:
     async def save(self, account_id: UUID, local_date: date, patch: PracticePatch) -> NoReturn:

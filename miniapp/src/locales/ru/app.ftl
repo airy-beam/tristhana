@@ -3,7 +3,7 @@
 # Главный экран: приветствие по имени из Telegram (только для показа).
 home-greeting = Намасте, { $name } 🙏
 home-greeting-anon = Намасте 🙏
-home-subtitle = Твой спутник в практике аштанги. Скоро здесь появится статистика.
+home-subtitle = Твой спутник в практике аштанги.
 
 # Главный экран: статус сервера (в dev или после долгого нажатия на приветствие).
 home-server-status = Сервер { $version } · { $commit }
@@ -154,3 +154,75 @@ remind-weekday = { $d ->
         [6] сб
        *[7] вс
     }
+
+## Статистика (ST-01..03). Только «подряд», никогда «серия», «полоса», «пропуск».
+stats-open = 📊 Моя практика
+stats-title = Моя практика
+stats-year-total = { $year }: { $n ->
+        [one] { $n } практика
+        [few] { $n } практики
+       *[many] { $n } практик
+    }
+stats-consistency = В этом месяце: практика в { $x } из { $y ->
+        [one] { $y } дня
+       *[other] { $y } дней
+    }
+stats-consistency-count = В этом месяце: { $n ->
+        [0] пока без практики
+        [one] { $n } практика
+        [few] { $n } практики
+       *[many] { $n } практик
+    }
+stats-run-current = 🌿 { $n ->
+        [one] { $n } практика
+        [few] { $n } практики
+       *[many] { $n } практик
+    } подряд
+stats-run-longest = Больше всего подряд в этом году: { $n }
+stats-consistency-hint = Дни без отметки не учитываются. Отдых, лунные дни, болезнь и поездки не сбивают счёт: отдых тоже часть практики.
+stats-legend-practiced = Практика
+stats-legend-rest = Отдых
+stats-legend-moon = 🌙 Лунный день (отдых)
+stats-legend-away = Болезнь или поездка
+stats-legend-skipped = Без практики
+stats-legend-none = Без отметки
+stats-legend-moon-marker = Полнолуние или новолуние · 📍 { $city }
+stats-show-ladies = Показывать 🌸 дни на этом устройстве
+stats-cell-label = { $date }: { $status }{ $moon ->
+        [yes] , полнолуние или новолуние
+       *[no] {""}
+    }
+stats-cell-future = { $date }{ $moon ->
+        [yes] : полнолуние или новолуние
+       *[no] {""}
+    }
+stats-back = ‹ Назад
+stats-month-practices = { $n ->
+        [one] { $n } практика
+        [few] { $n } практики
+       *[many] { $n } практик
+    }
+stats-online = 🌐 онлайн: { $n }
+stats-by-series = По сериям
+stats-series-short = ☀️ Короткая
+stats-no-details = Без деталей
+# $th/$tm = всего часов/минут; нулевые части не показываем («45 мин», «2 ч»).
+stats-duration = ⏱ всего { $th ->
+        [0] { $tm } мин
+       *[other] { $tm ->
+            [0] { $th } ч
+           *[other] { $th } ч { $tm } мин
+        }
+    } · в среднем { $avg } мин за практику
+stats-unlogged = { $n ->
+        [one] { $n } день без отметки: нажми на день, чтобы отметить
+        [few] { $n } дня без отметки: нажми на день, чтобы отметить
+       *[many] { $n } дней без отметки: нажми на день, чтобы отметить
+    }
+stats-month-empty = В этом месяце пока нет отметок. Отмеченные дни появятся здесь.
+stats-load-failed = Не получилось загрузить статистику. Попробуй ещё раз чуть позже.
+stats-editor-done = Готово
+stats-prev = ‹
+    .aria-label = Предыдущий год
+stats-next = ›
+    .aria-label = Следующий год

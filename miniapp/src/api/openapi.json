@@ -23,6 +23,17 @@
         "title": "CatalogOut",
         "type": "object"
       },
+      "CellOut": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/DayStatus"
+          },
+          {
+            "const": "none",
+            "type": "string"
+          }
+        ]
+      },
       "CityOut": {
         "properties": {
           "name_en": {
@@ -49,6 +60,34 @@
           "timezone"
         ],
         "title": "CityOut",
+        "type": "object"
+      },
+      "ContextCounts": {
+        "properties": {
+          "led": {
+            "title": "Led",
+            "type": "integer"
+          },
+          "mysore": {
+            "title": "Mysore",
+            "type": "integer"
+          },
+          "private": {
+            "title": "Private",
+            "type": "integer"
+          },
+          "self": {
+            "title": "Self",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mysore",
+          "led",
+          "private",
+          "self"
+        ],
+        "title": "ContextCounts",
         "type": "object"
       },
       "Day": {
@@ -148,6 +187,25 @@
         "title": "DeviceTimezone",
         "type": "object"
       },
+      "Duration": {
+        "properties": {
+          "count": {
+            "description": "Practices with a duration",
+            "title": "Count",
+            "type": "integer"
+          },
+          "total_min": {
+            "title": "Total Min",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_min",
+          "count"
+        ],
+        "title": "Duration",
+        "type": "object"
+      },
       "Error": {
         "properties": {
           "code": {
@@ -167,6 +225,7 @@
           "auth_expired",
           "invalid_timezone",
           "invalid_range",
+          "invalid_year",
           "date_in_future",
           "date_too_early",
           "day_not_practiced",
@@ -411,6 +470,50 @@
           "days"
         ],
         "title": "MoonDays",
+        "type": "object"
+      },
+      "MoonMarker": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "purnima",
+              "amavasya"
+            ],
+            "title": "Phase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "phase"
+        ],
+        "title": "MoonMarker",
+        "type": "object"
+      },
+      "MoonOut": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/MoonMarker"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location",
+          "days"
+        ],
+        "title": "MoonOut",
         "type": "object"
       },
       "MoonSettings": {
@@ -771,6 +874,85 @@
         "title": "Quiet",
         "type": "object"
       },
+      "RestCounts": {
+        "properties": {
+          "ladies": {
+            "title": "Ladies",
+            "type": "integer"
+          },
+          "moon": {
+            "title": "Moon",
+            "type": "integer"
+          },
+          "rest": {
+            "title": "Rest",
+            "type": "integer"
+          },
+          "sick": {
+            "title": "Sick",
+            "type": "integer"
+          },
+          "travel": {
+            "title": "Travel",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rest",
+          "moon",
+          "ladies",
+          "sick",
+          "travel"
+        ],
+        "title": "RestCounts",
+        "type": "object"
+      },
+      "Runs": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Practices in a row now (current year only)",
+            "title": "Current"
+          },
+          "longest": {
+            "description": "Most in a row in this year (a run is counted whole)",
+            "title": "Longest",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "current",
+          "longest"
+        ],
+        "title": "Runs",
+        "type": "object"
+      },
+      "SeriesCount": {
+        "properties": {
+          "number": {
+            "description": "0 = short practice, else the furthest series",
+            "title": "Number",
+            "type": "integer"
+          },
+          "practices": {
+            "title": "Practices",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "practices"
+        ],
+        "title": "SeriesCount",
+        "type": "object"
+      },
       "SeriesOut": {
         "properties": {
           "halves_split": {
@@ -820,6 +1002,73 @@
         "title": "SeriesOut",
         "type": "object"
       },
+      "StatsOut": {
+        "properties": {
+          "cells": {
+            "description": "One per date: Jan 1 … min(today, Dec 31)",
+            "items": {
+              "$ref": "#/components/schemas/CellOut"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "first_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Year"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryOut"
+            },
+            "maxItems": 12,
+            "minItems": 12,
+            "title": "Months",
+            "type": "array"
+          },
+          "moon": {
+            "$ref": "#/components/schemas/MoonOut"
+          },
+          "runs": {
+            "$ref": "#/components/schemas/Runs"
+          },
+          "timezone_known": {
+            "title": "Timezone Known",
+            "type": "boolean"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          },
+          "year_total": {
+            "$ref": "#/components/schemas/SummaryOut"
+          }
+        },
+        "required": [
+          "today",
+          "timezone_known",
+          "year",
+          "first_year",
+          "cells",
+          "moon",
+          "months",
+          "year_total",
+          "runs"
+        ],
+        "title": "StatsOut",
+        "type": "object"
+      },
       "StopOut": {
         "properties": {
           "key": {
@@ -841,6 +1090,67 @@
           "ru"
         ],
         "title": "StopOut",
+        "type": "object"
+      },
+      "SummaryOut": {
+        "properties": {
+          "contexts": {
+            "$ref": "#/components/schemas/ContextCounts"
+          },
+          "duration": {
+            "$ref": "#/components/schemas/Duration"
+          },
+          "online": {
+            "title": "Online",
+            "type": "integer"
+          },
+          "possible": {
+            "description": "Practiced + 'No practice' (rest-like never count)",
+            "title": "Possible",
+            "type": "integer"
+          },
+          "practiced": {
+            "title": "Practiced",
+            "type": "integer"
+          },
+          "rest": {
+            "$ref": "#/components/schemas/RestCounts"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesCount"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "unlogged": {
+            "description": "Unmarked days strictly before today",
+            "title": "Unlogged",
+            "type": "integer"
+          },
+          "unspecified": {
+            "description": "Practiced without details (e.g. pranayama only)",
+            "title": "Unspecified",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "practiced",
+          "possible",
+          "skipped",
+          "unlogged",
+          "rest",
+          "contexts",
+          "online",
+          "series",
+          "unspecified",
+          "duration"
+        ],
+        "title": "SummaryOut",
         "type": "object"
       },
       "ValidationError": {
@@ -1826,6 +2136,83 @@
         "summary": "Put Notification Settings",
         "tags": [
           "moon"
+        ]
+      }
+    },
+    "/api/v1/me/stats": {
+      "get": {
+        "description": "The caller's own stats for a year (ladies' holiday included: only the owner calls\nthis; the Mini App draws it as rest unless the person switches it on).",
+        "operationId": "get_stats_api_v1_me_stats_get",
+        "parameters": [
+          {
+            "description": "Default: the local current year",
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Default: the local current year",
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Stats",
+        "tags": [
+          "stats"
         ]
       }
     },
