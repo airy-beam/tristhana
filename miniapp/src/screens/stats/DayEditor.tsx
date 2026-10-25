@@ -3,6 +3,7 @@ import { Localized } from "@fluent/react";
 import { DAY_STATUSES, useDaysRange, useSetDay, type DayStatus } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
+import { AutoNote } from "../AutoNote";
 import { PracticeDetails } from "../PracticeDetails";
 
 interface Props {
@@ -21,6 +22,7 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
   const setDay = useSetDay();
   // Taps update this cache optimistically (every day query), so it is always current.
   const logged = days.data?.days.find((d) => d.date === date);
+  const auto = logged ? undefined : days.data?.auto.find((a) => a.date === date);
   const stored = logged?.status ?? null;
   const hidden = !showLadies && stored === "ladies";
   const current = hidden ? "rest" : stored;
@@ -41,6 +43,9 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
   return (
     <section className="card editor" aria-labelledby="editor-title">
       <h2 id="editor-title">{label}</h2>
+      {auto && days.data && (
+        <AutoNote auto={auto} location={days.data.moon_location} locale={locale} />
+      )}
       <div className="chips" role="group" aria-labelledby="editor-title">
         {statuses.map((status) => (
           <Localized key={status} id={`status-${status}`}>

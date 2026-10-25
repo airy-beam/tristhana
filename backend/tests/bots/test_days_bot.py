@@ -204,7 +204,7 @@ def test_week_never_pages_before_2000(client: TestClient) -> None:
     assert all(" 2000" in b["text"] for b in days)  # another year: shown with the year
 
 
-def test_clear_does_not_read_the_day_back(
+def test_clear_reads_the_day_back_once(
     client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     today = _today()
@@ -219,7 +219,7 @@ def test_clear_does_not_read_the_day_back(
     monkeypatch.setattr(storage.day_repo, "list_range", counting)
     body = _tap(client, f"d1:x:{_ymd(today)}")
 
-    assert reads == []
+    assert len(reads) == 1  # one read: the day may now show as auto-rest (PR-09)
     assert "Clear" not in [b["text"] for b in _buttons(body)]
 
 

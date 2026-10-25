@@ -4,6 +4,7 @@ one-time offer under "practice saved"."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,7 @@ from tristhana.application.ports.notifications import PracticeReminder, Reminder
 from tristhana.bots.telegram import callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import settings_callbacks as scb
+from tristhana.bots.telegram.day_off import day_off_picker
 from tristhana.bots.telegram.remind_callbacks import PREFIX, RemindCallback, decode, encode
 from tristhana.bots.telegram.runtime import RemindUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, day_label, show
@@ -26,12 +28,13 @@ from tristhana.domain.days import DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
 from tristhana.domain.notifications import (
     COPIED_DATE_AFTER,
-    DAY_OFF_PRESETS,
     PRACTICE_TIMES,
     WEEKDAYS,
     InvalidSettings,
     NotificationSettings,
+    day_off_question,
 )
+from tristhana.domain.rest_days import InvalidDayOff
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.days import DayScreens
@@ -167,8 +170,31 @@ class RemindScreens:
                     status = "remind-on-again" if cb.on else "remind-off-note"
                     locale = principal.account.locale
                     return reminder_screen(self._t, locale, PracticeReminder(cb.day), status)
-        except InvalidSettings:
+                case "day_off":
+                    saved = await self._r.day_off.execute(
+                        principal, [cb.weekday] if cb.weekday else []
+                    )
+                    return self.settings_screen(
+                        Principal(saved.account), saved.settings, follow=saved.reminders_reset
+                    )
+                case "day_off_pick":
+                    return self.day_off(principal)
+                case "day_off_later":
+                    await self._r.dismiss_day_off.execute(principal)
+                    dismissed = replace(principal.account, day_off_dismissed=True)
+                    return await self.settings(Principal(dismissed))
+        except (InvalidSettings, InvalidDayOff):
             return await self.settings(principal)  # stale or forged: just reshow
+
+    def day_off(self, principal: Principal) -> Screen:
+        locale = principal.account.locale
+        return day_off_picker(
+            self._t,
+            locale,
+            principal.account.day_off.days,
+            lambda d: _data(action="day_off", weekday=d),
+            button(self._t, locale, "remind-practice-link", _data(action="view")),
+        )
 
     async def _practice_summary(self, principal: Principal, day: date) -> Screen:
         practice = self._days.practice
@@ -211,14 +237,23 @@ class RemindScreens:
         saved = await self._r.settings.get(principal)
         return self.settings_screen(principal, saved)
 
-    def settings_screen(self, principal: Principal, settings: NotificationSettings) -> Screen:
+    def settings_screen(
+        self, principal: Principal, settings: NotificationSettings, follow: bool = False
+    ) -> Screen:
+        """`follow`: custom reminder days were just reset to follow the day off."""
         account = principal.account
         locale = account.locale
         p = settings.practice
         today, _ = self._days.today(principal)
         lines = [self.status_line(locale, settings, account.timezone, today)]
+        if follow:
+            lines.append(self._t.t(locale, "day-off-reminders-follow"))
         if account.timezone is None:
             lines.append(self._t.t(locale, "moon-zone-needed"))
+        question = day_off_question(account.day_off.days, account.day_off_dismissed, settings)
+        if question is not None:
+            reminders = "on" if question.reminders_on else "off"
+            lines.append(self._t.t(locale, "day-off-ask", d=question.weekday, reminders=reminders))
         lines.append(self._t.t(locale, "remind-explain"))
         times = [
             InlineKeyboardButton(
@@ -227,12 +262,14 @@ class RemindScreens:
             )
             for at in PRACTICE_TIMES
         ]
+        # The presets set the day off itself (PR-09): reminder days follow it.
         presets = [
             InlineKeyboardButton(
-                text=("✓ " if p.days == days else "") + self._t.t(locale, "remind-day-off", d=d),
-                callback_data=_data(action="days", days=days),
+                text=("✓ " if account.day_off.days == frozenset({d}) else "")
+                + self._t.t(locale, "remind-day-off", d=d),
+                callback_data=_data(action="day_off", weekday=d),
             )
-            for d, days in DAY_OFF_PRESETS.items()
+            for d in (6, 7)
         ]
         toggles = [
             InlineKeyboardButton(
@@ -248,6 +285,7 @@ class RemindScreens:
             else button(self._t, locale, "remind-turn-on", _data(action="switch", on=True))
         )
         rows = [
+            *(self._question_rows(locale, question.weekday) if question else []),
             times[:3],
             times[3:],
             presets,
@@ -262,6 +300,27 @@ class RemindScreens:
             [button(self._t, locale, "settings-link", scb.encode(scb.SettingsCallback("view")))],
         ]
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _question_rows(self, locale: Locale, weekday: int) -> list[list[InlineKeyboardButton]]:
+        """[Yes] [the other weekend day, for a weekend day] / [Other…] [Not now]."""
+        first = [
+            button(self._t, locale, "day-off-ask-yes", _data(action="day_off", weekday=weekday))
+        ]
+        if weekday in (6, 7):
+            other = 13 - weekday  # Saturday ↔ Sunday
+            first.append(
+                InlineKeyboardButton(
+                    text=self._t.t(locale, "day-off-ask-instead", d=other),
+                    callback_data=_data(action="day_off", weekday=other),
+                )
+            )
+        return [
+            first,
+            [
+                button(self._t, locale, "day-off-ask-other", _data(action="day_off_pick")),
+                button(self._t, locale, "day-off-ask-later", _data(action="day_off_later")),
+            ],
+        ]
 
     def status_line(
         self, locale: Locale, settings: NotificationSettings, zone: str | None, today: date

@@ -76,10 +76,11 @@ class StartScreens:
         """Greeting + "how was today?" + today's status grid (✓ on today's status)."""
         locale = principal.account.locale
         today, _ = self._days.today(principal)
-        picker = await self._days.status(principal, None)
+        picker, auto = await self._days.today_picker(principal)
         text = "\n\n".join(
             [
                 self._t.t(locale, "start-greeting"),
+                *([auto] if auto else []),  # today shows as auto-rest (PR-09)
                 self._t.t(locale, "start-prompt", day=self._days.day(locale, today, today)),
             ]
         )

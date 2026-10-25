@@ -2,7 +2,9 @@ import { Localized } from "@fluent/react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import {
+  useMe,
   useMoonCities,
+  useNotificationSettings,
   useStats,
   type Stats as StatsData,
   type StatsSummary,
@@ -10,7 +12,8 @@ import {
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, useBackButton } from "../../telegram";
 import { cityName } from "../MoonCard";
-import { loadShowLadies, moonDates, parse, saveShowLadies } from "./cells";
+import { DayOffQuestion } from "../DayOffQuestion";
+import { autoDays, loadShowLadies, moonDates, parse, saveShowLadies } from "./cells";
 import { DayEditor } from "./DayEditor";
 import { Heatmap } from "./Heatmap";
 import { MonthView } from "./MonthView";
@@ -19,11 +22,13 @@ interface Props {
   locale: Locale;
   zone: string | null;
   onBack: () => void;
+  /** Settings, scrolled to the day off (the stats question's "Other…" and link). */
+  onDayOff: () => void;
 }
 
 /** "My practice": consistency, the year heatmap, a month calendar and its summary
  * (ST-01..03). Loaded lazily, so Home stays light. */
-export default function Stats({ locale, zone, onBack }: Props) {
+export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
   useBackButton(onBack);
   const [year, setYear] = useState<number | undefined>(undefined);
   const query = useStats(year);
@@ -50,7 +55,15 @@ export default function Stats({ locale, zone, onBack }: Props) {
     setYear(y === Number(stats.today.slice(0, 4)) ? undefined : y);
   };
   return (
-    <Loaded key={stats.year} stats={stats} locale={locale} zone={zone} onYear={pick} back={back} />
+    <Loaded
+      key={stats.year}
+      stats={stats}
+      locale={locale}
+      zone={zone}
+      onYear={pick}
+      onDayOff={onDayOff}
+      back={back}
+    />
   );
 }
 
@@ -59,12 +72,14 @@ function Loaded({
   locale,
   zone,
   onYear,
+  onDayOff,
   back,
 }: {
   stats: StatsData;
   locale: Locale;
   zone: string | null;
   onYear: (year: number) => void;
+  onDayOff: () => void;
   back: ReactNode;
 }) {
   const cities = useMoonCities().data;
@@ -74,6 +89,7 @@ function Loaded({
   const [editing, setEditing] = useState<string | null>(null);
   const [showLadies, setShowLadies] = useState(loadShowLadies);
   const moon = useMemo(() => moonDates(stats), [stats]);
+  const auto = useMemo(() => autoDays(stats), [stats]);
 
   const fmt = useMemo(
     () => ({
@@ -117,7 +133,7 @@ function Loaded({
         <h1 />
       </Localized>
 
-      {isCurrent && <Consistency stats={stats} />}
+      {isCurrent && <Consistency stats={stats} onDayOff={onDayOff} />}
 
       <section className="card" aria-labelledby="year-title">
         <div className="pager">
@@ -152,6 +168,8 @@ function Loaded({
         <Heatmap
           stats={stats}
           moon={moon}
+          auto={auto}
+          city={city}
           showLadies={showLadies}
           month={month}
           onMonth={setMonth}
@@ -182,6 +200,8 @@ function Loaded({
           stats={stats}
           month={month}
           moon={moon}
+          auto={auto}
+          city={city}
           showLadies={showLadies}
           weekdays={weekdays}
           dateLabel={dateLabel}
@@ -209,9 +229,10 @@ function Loaded({
   );
 }
 
-function Consistency({ stats }: { stats: StatsData }) {
+function Consistency({ stats, onDayOff }: { stats: StatsData; onDayOff: () => void }) {
   const month = stats.months[Number(stats.today.slice(5, 7)) - 1] as StatsSummary;
   const current = stats.runs.current ?? 0;
+  const unset = useMe().data?.day_off === null;
   return (
     <section className="card">
       {month.practiced === 0 ? null : month.skipped > 0 ? (
@@ -236,11 +257,23 @@ function Consistency({ stats }: { stats: StatsData }) {
       <Localized id="stats-consistency-hint">
         <p className="hint small" />
       </Localized>
+      {/* PR-09: asked once; afterwards (or when it can't be asked) a quiet link. */}
+      {unset && <DayOffLink onDayOff={onDayOff} />}
     </section>
   );
 }
 
-const LEGEND = ["practiced", "rest", "moon", "away", "skipped", "none"] as const;
+function DayOffLink({ onDayOff }: { onDayOff: () => void }) {
+  const question = useNotificationSettings().data?.day_off_question;
+  if (question) return <DayOffQuestion onOther={onDayOff} />;
+  return (
+    <Localized id="stats-day-off-link">
+      <button type="button" className="link" onClick={onDayOff} />
+    </Localized>
+  );
+}
+
+const LEGEND = ["practiced", "rest", "moon", "auto", "away", "skipped", "none"] as const;
 
 function Legend({ city, showLadies }: { city: string; showLadies: boolean }) {
   const items: string[] = [...LEGEND];
@@ -274,7 +307,9 @@ function MonthSummary({
   showLadies: boolean;
   current: boolean;
 }) {
-  const logged = s.practiced + s.skipped + Object.values(s.rest).reduce((a, b) => a + b, 0);
+  // Auto-rest counts as rest below, but a month with only auto days is still "empty".
+  const logged =
+    s.practiced + s.skipped + Object.values(s.rest).reduce((a, b) => a + b, 0) - s.auto;
   const unmarked = current && s.unlogged > 0 && (
     <Localized id="stats-unlogged" vars={{ n: s.unlogged }}>
       <p className="hint" />

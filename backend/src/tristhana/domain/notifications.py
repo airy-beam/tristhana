@@ -11,14 +11,14 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from tristhana.domain.moon import MoonDay
+from tristhana.domain.rest_days import WEEKDAYS as WEEKDAYS
+from tristhana.domain.rest_days import Weekdays
 
 MOON_OFFSETS = frozenset({1, 3, 7})
 GRACE = timedelta(hours=3)  # a reminder more than this late is dropped, not sent at 4 am
 SEND_TIMES = (time(7), time(12), time(19), time(21))
 PRACTICE_TIMES = tuple(time(h) for h in (9, 10, 12, 18, 20, 21))  # ashtanga-expert
-WEEKDAYS = frozenset(range(1, 8))  # ISO: Monday = 1
 UNANSWERED_LIMIT = 10  # reminded days left unlogged in a row before one note and a pause
-DAY_OFF_PRESETS = {6: frozenset({1, 2, 3, 4, 5, 7}), 7: frozenset({1, 2, 3, 4, 5, 6})}
 COPIED_DATE_AFTER = timedelta(days=14)  # older: "same as last time" says which day it was
 
 
@@ -73,6 +73,44 @@ DEFAULTS = NotificationSettings(
     quiet=QuietHours(time(22), time(7)),
     daily_cap=3,
 )
+
+
+def reminder_days(days_off: Weekdays | None) -> frozenset[int]:
+    """Practice reminder days that follow the day off (PR-09): never chosen keeps the
+    Mysore default (Saturday off); no fixed day off means every day."""
+    if days_off is None:
+        return PRACTICE_DEFAULT.days
+    return WEEKDAYS - days_off
+
+
+def defaults_for(
+    days_off: Weekdays | None, base: "NotificationSettings | None" = None
+) -> "NotificationSettings":
+    """The defaults for one account: stored `practice_days = NULL` follows its day off."""
+    base = base or DEFAULTS
+    days = reminder_days(days_off)
+    if days == base.practice.days:
+        return base
+    return replace(base, practice=replace(base.practice, days=days))
+
+
+@dataclass(frozen=True, slots=True)
+class DayOffQuestion:
+    weekday: int  # the one day reminders skip
+    reminders_on: bool
+
+
+def day_off_question(
+    days_off: Weekdays | None, dismissed: bool, settings: NotificationSettings
+) -> DayOffQuestion | None:
+    """The one-time "is that your day off?" (PR-09): only while the day off was never
+    chosen nor the question dismissed, and the reminder days miss exactly one weekday."""
+    if days_off is not None or dismissed:
+        return None
+    gaps = WEEKDAYS - settings.practice.days
+    if len(gaps) != 1:
+        return None
+    return DayOffQuestion(next(iter(gaps)), settings.practice.enabled)
 
 
 def default_practice_time(tapped: time) -> time:

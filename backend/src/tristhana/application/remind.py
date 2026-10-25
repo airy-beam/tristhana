@@ -14,11 +14,11 @@ from tristhana.application.ports.storage import Clock
 from tristhana.application.settings import PatchNotificationSettings
 from tristhana.domain.days import DayLog, DayStatus, check_loggable, provisional_zone
 from tristhana.domain.notifications import (
-    DEFAULTS,
     KEEP,
     NotificationPatch,
     NotificationSettings,
     default_practice_time,
+    defaults_for,
 )
 
 
@@ -79,7 +79,8 @@ class AnswerPracticeOffer:
         """A no-op once a choice exists: an old offer in chat history must not undo
         settings made since (in /remind or the app)."""
         account = principal.account
-        current = await self._notifications.settings(account.id, DEFAULTS)
+        defaults = defaults_for(account.day_off.days)
+        current = await self._notifications.settings(account.id, defaults)
         if current.practice.on is not None:
             return current
         if not yes:
@@ -89,4 +90,4 @@ class AnswerPracticeOffer:
             zone = account.timezone or provisional_zone(account.locale)
             tapped = self._clock.now().astimezone(ZoneInfo(zone)).time().replace(tzinfo=None)
             patch = ReminderPatch(on=True, at=default_practice_time(tapped))
-        return await self._notifications.patch_practice(account.id, patch, DEFAULTS)
+        return await self._notifications.patch_practice(account.id, patch, defaults)

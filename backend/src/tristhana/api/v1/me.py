@@ -3,17 +3,20 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Response
+from pydantic import BaseModel, Field, StrictInt
 
 from tristhana.api.deps import (
     CurrentPrincipal,
     client_profile,
+    dismiss_day_off,
     record_device_timezone,
+    set_day_off,
     update_profile,
 )
 from tristhana.api.errors import ApiError, error_responses
 from tristhana.application.accounts import RecordDeviceTimezone
+from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.settings import UpdateProfile
 from tristhana.domain.accounts import (
     KEEP,
@@ -24,6 +27,7 @@ from tristhana.domain.accounts import (
     ProfilePatch,
 )
 from tristhana.domain.locale import Locale
+from tristhana.domain.rest_days import InvalidDayOff, Weekdays
 
 router = APIRouter(prefix="/me", tags=["me"], responses=error_responses(401, 503))
 
@@ -35,6 +39,11 @@ class Me(BaseModel):
     timezone: str | None = Field(description="IANA zone, e.g. Asia/Almaty; null until set")
     name_from_telegram: bool = Field(description="False once a name was chosen in settings")
     locale_from_telegram: bool = Field(description="False once a language was chosen")
+    day_off: list[int] | None = Field(
+        default=None,
+        description="Weekly day off, ISO weekdays (1 = Monday); [] = no fixed day off; "
+        "null = never chosen",
+    )
 
     @classmethod
     def of(cls, account: Account) -> "Me":
@@ -45,7 +54,12 @@ class Me(BaseModel):
             timezone=account.timezone,
             name_from_telegram=not account.name_custom,
             locale_from_telegram=not account.locale_custom,
+            day_off=_weekdays(account.day_off.days),
         )
+
+
+def _weekdays(days: Weekdays | None) -> list[int] | None:
+    return None if days is None else sorted(days)
 
 
 class MePatch(BaseModel):
@@ -54,6 +68,20 @@ class MePatch(BaseModel):
     display_name: str | None = Field(default=None, max_length=200)
     locale: Locale | None = None
     timezone: str | None = Field(default=None, max_length=64, description="IANA zone or UTC")
+
+
+class DayOffBody(BaseModel):
+    day_off: list[StrictInt] = Field(
+        description="ISO weekdays (1 = Monday); [] = no fixed day off; one day for now"
+    )
+
+
+class DayOffOut(BaseModel):
+    day_off: list[int]
+    practice_days: list[int] = Field(description="Practice reminder days, now following it")
+    reminder_days_reset: bool = Field(
+        description="Custom reminder days were replaced: say they now follow the day off"
+    )
 
 
 class DeviceTimezone(BaseModel):
@@ -101,3 +129,31 @@ async def post_device_timezone(
     except InvalidTimezone:
         raise ApiError(422, "invalid_timezone") from None
     return Me.of(account)
+
+
+@router.put("/day-off", responses=error_responses(422))
+async def put_day_off(
+    body: DayOffBody,
+    principal: CurrentPrincipal,
+    use_case: Annotated[SetDayOff, Depends(set_day_off)],
+) -> DayOffOut:
+    """The first choice also shows on past weeks; a change applies from today (PR-09)."""
+    try:
+        saved = await use_case.execute(principal, body.day_off)
+    except InvalidDayOff:
+        raise ApiError(422, "invalid_day_off") from None
+    return DayOffOut(
+        day_off=sorted(saved.account.day_off.days or ()),
+        practice_days=sorted(saved.settings.practice.days),
+        reminder_days_reset=saved.reminders_reset,
+    )
+
+
+@router.delete("/day-off-question", status_code=204)
+async def delete_day_off_question(
+    principal: CurrentPrincipal,
+    use_case: Annotated[DismissDayOffQuestion, Depends(dismiss_day_off)],
+) -> Response:
+    """ "Not now" on the one-time day-off question. Idempotent."""
+    await use_case.execute(principal)
+    return Response(status_code=204)

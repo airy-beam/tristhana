@@ -17,8 +17,10 @@ from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
 from tristhana.domain.notifications import (
     NotificationSettings,
     StoredSettings,
+    defaults_for,
     effective,
 )
+from tristhana.infrastructure.db.accounts import from_mask
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.tables import (
     account,
@@ -147,6 +149,24 @@ class SqlNotificationRepository:
             row = (await conn.execute(stmt)).one()
         return _settings(row, defaults)
 
+    async def reset_practice_days(
+        self, account_id: UUID, defaults: NotificationSettings
+    ) -> tuple[NotificationSettings, frozenset[int] | None]:
+        # The FROM snapshot still holds the days before the update: one statement.
+        before = _S.alias("before")
+        stmt = (
+            update(_S)
+            .where(_S.c.account_id == account_id, before.c.account_id == _S.c.account_id)
+            .values(practice_days=None, updated_at=func.now())
+            .returning(*_SETTINGS_COLUMNS, before.c.practice_days.label("days_before"))
+        )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one_or_none()
+        if row is None:  # no row yet: the days already follow the day off
+            return defaults, None
+        days_before = frozenset(row.days_before) if row.days_before is not None else None
+        return _settings(row, defaults), days_before
+
     async def candidates(
         self, since: datetime, logged_from: date, defaults: NotificationSettings
     ) -> list[ReminderCandidate]:
@@ -163,6 +183,7 @@ class SqlNotificationRepository:
                 account.c.locale,
                 account.c.timezone,
                 account.c.moon_location,
+                account.c.day_off,
                 identity.c.provider_user_id,
                 _S.c.moon_intro_sent_at,
                 *_SETTINGS_COLUMNS,
@@ -216,7 +237,7 @@ class SqlNotificationRepository:
                     locale=locale,
                     zone=r.timezone,
                     location=r.moon_location,
-                    settings=_settings(r, defaults),
+                    settings=_settings(r, defaults_for(from_mask(r.day_off), defaults)),
                     deliveries=tuple(by_account.get(r.id, ())),
                     had_moon_reminder=r.moon_intro_sent_at is not None,
                     logged=frozenset(logged_by.get(r.id, ())),

@@ -38,6 +38,7 @@ from tristhana.application.remind import (
     QuickLogSameAsLast,
     UpdatePracticeReminder,
 )
+from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
 from tristhana.application.stats import GetYearStats
 from tristhana.application.tick import RunTick
@@ -171,7 +172,7 @@ class _Services:
         clock = SystemClock()
         ensure = EnsureAccount(self._storage.accounts, clock)
         days = DayUseCases(
-            get=GetDays(self._storage.days, clock),
+            get=GetDays(self._storage.days, cities, clock),
             set=SetDayStatus(self._storage.days, clock),
             clear=ClearDayStatus(self._storage.days),
         )
@@ -212,7 +213,10 @@ class _Services:
             update=UpdatePracticeReminder(self._storage.notifications),
             offer=AnswerPracticeOffer(self._storage.notifications, clock),
             quick_log=QuickLogSameAsLast(self._storage.days, self._storage.practices, clock),
+            day_off=SetDayOff(self._storage.accounts, self._storage.notifications, clock),
+            dismiss_day_off=DismissDayOffQuestion(self._storage.accounts),
         )
+        app.state.set_day_off, app.state.dismiss_day_off = remind.day_off, remind.dismiss_day_off
         app.state.run_tick = RunTick(
             clock,
             cities,
@@ -231,6 +235,7 @@ class _Services:
             settings=notification_settings,
             cities=cities,
             today=days.get.today,
+            day_off=remind.day_off,
         )
         try:
             async with self._bot.lifespan():

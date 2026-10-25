@@ -1,8 +1,9 @@
-import type { Stats } from "../../api/client";
+import type { AutoDay, Stats } from "../../api/client";
 
 export type Cell = Stats["cells"][number];
-/** What a cell looks like: one colour per status family (ADR-0020). */
-export type Kind = "practiced" | "rest" | "moon" | "ladies" | "away" | "skipped" | "none";
+/** What a cell looks like: one colour per status family (ADR-0020); "auto" = an unlogged
+ * day shown as rest (PR-09), lighter than a logged one. */
+export type Kind = "practiced" | "rest" | "moon" | "ladies" | "away" | "skipped" | "none" | "auto";
 
 /** A ladies' holiday looks like rest unless the person shows 🌸 days on this device. */
 export function kindOf(cell: Cell, showLadies: boolean): Kind {
@@ -19,6 +20,16 @@ export function kindOf(cell: Cell, showLadies: boolean): Kind {
     case "travel":
       return "away";
   }
+}
+
+/** The year's auto-rest by date (the server only sends unlogged days up to today). */
+export function autoDays(stats: Stats): Map<string, AutoDay> {
+  return new Map(stats.auto.map((a) => [a.date, a]));
+}
+
+/** `stats-cell-auto` arguments: "Sat, Oct 24: 🌙 moon day (📍 Mysuru), not logged". */
+export function autoArgs(auto: AutoDay, date: string, city: string) {
+  return { date, kind: auto.kind, city, dayoff: auto.also_day_off ? "yes" : "no" };
 }
 
 /** The Fluent key that names a cell (aria labels follow the 🌸 switch too). */

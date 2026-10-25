@@ -10,6 +10,7 @@ import {
 } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 import { haptics } from "../telegram";
+import { AutoNote } from "./AutoNote";
 import { cityName } from "./MoonCard";
 import { PracticeDetails } from "./PracticeDetails";
 
@@ -54,8 +55,10 @@ export function TodayCard({ zone, locale }: Props) {
 
   const { today } = days.data;
   const todayLog = days.data.days.find((d) => d.date === today);
-  // A moon day is a note, never an auto-filled status: the 🌙 chip stays a choice.
-  const moonToday = moon?.days.find((d) => d.date === today);
+  // Auto-rest is a note, never a pressed chip: logging anything replaces it (PR-09). It
+  // names the city itself, so the moon line isn't shown twice.
+  const auto = todayLog ? undefined : days.data.auto.find((a) => a.date === today);
+  const moonToday = auto ? undefined : moon?.days.find((d) => d.date === today);
   const current = todayLog?.status ?? null;
   // UI-01: a first nudge until this device has saved a day (no extra request).
   // People who already log in the bot have days here, so they never see it.
@@ -95,6 +98,7 @@ export function TodayCard({ zone, locale }: Props) {
           <p className="hint" />
         </Localized>
       )}
+      {auto && <AutoNote auto={auto} location={days.data.moon_location} locale={locale} />}
       {firstHint && (
         <Localized id="home-first-hint">
           <p className="hint" />

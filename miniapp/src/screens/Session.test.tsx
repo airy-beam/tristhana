@@ -108,12 +108,21 @@ describe("Session", () => {
     const seen = stubApi({
       "/api/v1/me": () => json(ME),
       "/api/v1/me/device-timezone": () => json({ ...ME, timezone: "Asia/Almaty" }),
-      "/api/v1/me/days": () => json({ today: "2026-10-19", timezone_known: true, days: [] }),
+      "/api/v1/me/days": () =>
+        json({
+          today: "2026-10-19",
+          timezone_known: true,
+          auto: [],
+          moon_location: "mysuru",
+          days: [],
+        }),
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     client.setQueryData(["days", "recent"], {
       today: "2026-10-18",
       timezone_known: false,
+      auto: [],
+      moon_location: "mysuru",
       days: [],
     });
     render(

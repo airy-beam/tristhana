@@ -46,7 +46,13 @@ def _today_moscow() -> date:
 def test_get_days_defaults_to_this_week(api: TestClient) -> None:
     body = api.get("/api/v1/me/days", headers=_auth()).json()
 
-    assert body == {"today": _today_moscow().isoformat(), "timezone_known": False, "days": []}
+    assert body == {
+        "today": _today_moscow().isoformat(),
+        "timezone_known": False,
+        "days": [],
+        "auto": [],
+        "moon_location": "mysuru",
+    }
 
 
 def test_put_get_delete_round_trip_including_ladies(api: TestClient) -> None:

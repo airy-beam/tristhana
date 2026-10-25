@@ -8,11 +8,11 @@ from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.notifications import NotificationRepository
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch, resolve_profile
 from tristhana.domain.notifications import (
-    DEFAULTS,
     NotificationPatch,
     NotificationSettings,
     apply_patch,
     check_settings,
+    defaults_for,
     effective,
 )
 
@@ -47,5 +47,6 @@ class PatchNotificationSettings:
         merged = apply_patch(stored, patch)
         if practice_as_on:
             merged = replace(merged, practice_on=True)
-        check_settings(effective(merged, DEFAULTS))
-        return await self._notifications.patch(account_id, patch.columns(), DEFAULTS)
+        defaults = defaults_for(principal.account.day_off.days)
+        check_settings(effective(merged, defaults))
+        return await self._notifications.patch(account_id, patch.columns(), defaults)

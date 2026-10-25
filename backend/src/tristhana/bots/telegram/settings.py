@@ -19,6 +19,7 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import TimeArg, Translator
 from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import remind_callbacks as rcb
+from tristhana.bots.telegram.day_off import day_off_line, day_off_picker
 from tristhana.bots.telegram.moon import moon_status
 from tristhana.bots.telegram.remind import practice_status
 from tristhana.bots.telegram.runtime import SettingsUseCases
@@ -34,6 +35,7 @@ from tristhana.domain.accounts import (
 )
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
+from tristhana.domain.rest_days import InvalidDayOff
 
 ZONE_PAGE = 12  # 2 columns x 6 rows
 _LANGUAGES: tuple[tuple[Locale | None, str], ...] = (
@@ -103,8 +105,29 @@ class SettingsScreens:
                 except InvalidTimezone:
                     return await self.view(principal)
                 return await self.view(Principal(account))
+            case "day_off_pick":
+                return self.day_off(principal)
+            case "day_off":
+                try:
+                    saved = await self._s.day_off.execute(
+                        principal, [cb.weekday] if cb.weekday else []
+                    )
+                except InvalidDayOff:  # forged
+                    return await self.view(principal)
+                return await self.view(Principal(saved.account), follow=saved.reminders_reset)
 
-    async def view(self, principal: Principal) -> Screen:
+    def day_off(self, principal: Principal) -> Screen:
+        locale = principal.account.locale
+        return day_off_picker(
+            self._t,
+            locale,
+            principal.account.day_off.days,
+            lambda d: _data(action="day_off", weekday=d),
+            button(self._t, locale, "settings-link", _data(action="view")),
+        )
+
+    async def view(self, principal: Principal, follow: bool = False) -> Screen:
+        """`follow`: custom reminder days were just reset to follow the day off."""
         account = principal.account
         locale = account.locale
         settings = await self._s.settings.get(principal)
@@ -121,6 +144,7 @@ class SettingsScreens:
             if zone
             else self._t.t(locale, "settings-zone-unset-line"),
             self._t.t(locale, "settings-moon-line", city=city.name(locale)),
+            day_off_line(self._t, locale, account.day_off.days),
             moon_status(self._t, locale, settings, zone, today),
             practice_status(self._t, locale, settings, zone, today),
             self._t.t(locale, "settings-quiet-off-line", n=settings.daily_cap)
@@ -142,7 +166,10 @@ class SettingsScreens:
                 )
                 for code, key in _LANGUAGES
             ],
-            [button(self._t, locale, "settings-zone-button", _data(action="zones", page=0))],
+            [
+                button(self._t, locale, "settings-zone-button", _data(action="zones", page=0)),
+                button(self._t, locale, "settings-day-off-button", _data(action="day_off_pick")),
+            ],
             [
                 button(self._t, locale, "settings-moon-link", mcb.encode(mcb.MoonCallback("view"))),
                 button(
@@ -155,6 +182,10 @@ class SettingsScreens:
                 )
             ],
         ]
+        if follow:
+            lines = [self._t.t(locale, "day-off-reminders-follow"), "", *lines]
+            edit = rcb.encode(rcb.RemindCallback("view"))
+            rows.insert(0, [button(self._t, locale, "day-off-reminders-edit", edit)])
         if self._app:
             rows.append(
                 [

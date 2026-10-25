@@ -11,12 +11,12 @@ from sqlalchemy import and_, delete, exists, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tristhana.application.ports.days import History
+from tristhana.application.ports.days import History, RangeView
 from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.infrastructure.crypto import UnreadableSeal
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.practice import to_practice
-from tristhana.infrastructure.db.tables import day_log, practice
+from tristhana.infrastructure.db.tables import day_log, moon_day, practice
 
 log = logging.getLogger(__name__)
 
@@ -99,6 +99,28 @@ class SqlDayLogRepository:
         async with connection(self._engine) as conn:
             rows = (await conn.execute(self._range(account_id, start, end))).all()
         return self._days(account_id, rows)
+
+    async def range_with_moon(
+        self, account_id: UUID, start: date, end: date, location: str
+    ) -> RangeView:
+        moon = (
+            select(func.array_agg(moon_day.c.date).label("moon_dates"))
+            .where(moon_day.c.location == location, moon_day.c.date.between(start, end))
+            .subquery("moon")
+        )
+        days = self._range(account_id, start, end).subquery("days")
+        # One row even when nothing is logged: the moon dates always come back (as `history`).
+        stmt = (
+            select(moon.c.moon_dates, *days.c)
+            .select_from(moon.outerjoin(days, literal(True)))
+            .order_by(days.c.local_date, days.c.slot)
+        )
+        async with connection(self._engine) as conn:
+            rows = (await conn.execute(stmt)).all()
+        moon_dates = frozenset(rows[0].moon_dates or ()) if rows else frozenset[date]()
+        return RangeView(
+            self._days(account_id, [r for r in rows if r.local_date is not None]), moon_dates
+        )
 
     async def history(self, account_id: UUID, start: date, end: date) -> History:
         first = (

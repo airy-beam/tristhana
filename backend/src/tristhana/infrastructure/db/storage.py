@@ -27,6 +27,7 @@ from tristhana.domain.days import DayLog
 from tristhana.domain.moon import MoonDay
 from tristhana.domain.notifications import NotificationSettings, StoredSettings
 from tristhana.domain.practice import Practice
+from tristhana.domain.rest_days import DayOff
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -192,6 +193,12 @@ class _UnavailableAccounts:
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def set_day_off(self, account_id: UUID, day_off: DayOff) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def dismiss_day_off_question(self, account_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
 
 class _UnavailableDays:
     async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> NoReturn:
@@ -206,6 +213,11 @@ class _UnavailableDays:
         raise StorageUnavailable("not configured")
 
     async def list_range(self, account_id: UUID, start: date, end: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def range_with_moon(
+        self, account_id: UUID, start: date, end: date, location: str
+    ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
     async def history(self, account_id: UUID, start: date, end: date) -> NoReturn:
@@ -268,6 +280,11 @@ class _UnavailableNotifications:
     async def patch(
         self, account_id: UUID, columns: dict[str, object], defaults: NotificationSettings
     ) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def reset_practice_days(
+        self, account_id: UUID, defaults: NotificationSettings
+    ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
     async def mark_intro_sent(self, account_id: UUID, at: datetime) -> NoReturn:

@@ -14,6 +14,7 @@ from uuid import UUID
 from zoneinfo import available_timezones
 
 from tristhana.domain.locale import Locale, negotiate_locale
+from tristhana.domain.rest_days import NEVER_CHOSEN, DayOff
 
 DISPLAY_NAME_MAX = 64
 # Write `last_seen_at` (and refresh the profile) at most this often when nothing changed.
@@ -54,6 +55,9 @@ class Account:
     moon_location: str | None = None  # city slug (MD-03); None = the default (Mysuru)
     name_custom: bool = False  # chosen in settings: Telegram's name no longer overwrites it
     locale_custom: bool = False  # chosen in settings: Telegram's language no longer does
+    created_at: datetime | None = None  # None only in tests: then no join-date bound
+    day_off: DayOff = NEVER_CHOSEN  # PR-09
+    day_off_dismissed: bool = False  # "Not now" on the one-time day-off question
 
 
 @dataclass(frozen=True, slots=True)

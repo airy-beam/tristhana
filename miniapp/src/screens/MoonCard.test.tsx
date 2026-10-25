@@ -56,6 +56,13 @@ function stubApi(moon: MoonDays = MOON, settings: NotificationSettings = SETTING
     vi.fn(async (request: Request) => {
       seen.push(request);
       const path = new URL(request.url).pathname;
+      if (path === "/api/v1/me/day-off") {
+        const { day_off } = (await request.clone().json()) as { day_off: number[] };
+        const off = new Set(day_off);
+        const practice_days = [1, 2, 3, 4, 5, 6, 7].filter((d) => !off.has(d));
+        return json({ day_off, practice_days, reminder_days_reset: false });
+      }
+      if (path === "/api/v1/me") return json({ ...ME, day_off: [6] });
       if (request.method === "PUT") return json(await request.clone().json());
       if (request.method === "PATCH") {
         // Echo the merged settings, as the server does.
@@ -70,7 +77,14 @@ function stubApi(moon: MoonDays = MOON, settings: NotificationSettings = SETTING
       if (path === "/api/v1/me/moon-days") return json(moon);
       if (path === "/api/v1/moon/cities") return json(CITIES);
       if (path === "/api/v1/me/notification-settings") return json(settings);
-      if (path === "/api/v1/me/days") return json({ today: TODAY, timezone_known: true, days: [] });
+      if (path === "/api/v1/me/days")
+        return json({
+          today: TODAY,
+          timezone_known: true,
+          auto: [],
+          moon_location: "mysuru",
+          days: [],
+        });
       return json({});
     }),
   );
@@ -215,13 +229,14 @@ describe("PracticeReminderCard", () => {
     expect(await put?.json()).toMatchObject({ practice: { days: [3, 6] } });
   });
 
-  it("sets Sunday as the day off in one tap", async () => {
+  it("sets Sunday as the day off in one tap (PR-09: reminder days follow it)", async () => {
     const seen = stubApi(MOON, {
       ...SETTINGS,
       practice: { on: true, at: "10:00:00", days: [1, 2, 3, 4, 5, 7] },
     });
     renderWith(<PracticeReminderCard zone="Asia/Almaty" />);
 
+    // ✓ follows the chosen day off (Saturday in the stub), not the reminder days.
     expect(
       await screen.findByRole("button", {
         name: (n) => plain(n) === "Day off: Sat",
@@ -231,10 +246,17 @@ describe("PracticeReminderCard", () => {
     fireEvent.click(screen.getByRole("button", { name: (n) => plain(n) === "Day off: Sun" }));
 
     await vi.waitFor(() => {
-      expect(seen.some((r) => r.method === "PATCH")).toBe(true);
+      expect(seen.some((r) => r.method === "PUT")).toBe(true);
     });
-    const put = seen.find((r) => r.method === "PATCH");
-    expect(await put?.json()).toMatchObject({ practice: { days: [1, 2, 3, 4, 5, 6] } });
+    const put = seen.find((r) => r.method === "PUT");
+    expect(new URL(put?.url ?? "").pathname).toBe("/api/v1/me/day-off");
+    expect(await put?.json()).toEqual({ day_off: [7] });
+    expect(
+      await screen.findByRole("button", {
+        name: (n) => plain(n) === "Day off: Sun",
+        pressed: true,
+      }),
+    ).toBeInTheDocument();
   });
 
   it("asks for a time zone before showing times", async () => {

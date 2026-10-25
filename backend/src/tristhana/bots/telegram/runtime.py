@@ -32,6 +32,7 @@ from tristhana.application.remind import (
     QuickLogSameAsLast,
     UpdatePracticeReminder,
 )
+from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.settings import UpdateProfile
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
@@ -72,6 +73,8 @@ class RemindUseCases:
     update: UpdatePracticeReminder
     offer: AnswerPracticeOffer
     quick_log: QuickLogSameAsLast
+    day_off: SetDayOff
+    dismiss_day_off: DismissDayOffQuestion
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +83,7 @@ class SettingsUseCases:
     settings: NotificationSettingsUseCase
     cities: Cities
     today: Callable[[Principal], tuple[date, bool]]  # GetDays.today: no DB access
+    day_off: SetDayOff
 
 
 @dataclass(frozen=True, slots=True)

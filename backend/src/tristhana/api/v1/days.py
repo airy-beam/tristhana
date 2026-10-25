@@ -12,6 +12,7 @@ from tristhana.api.errors import ApiError, error_responses
 from tristhana.api.v1.practice import PracticeOut
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayLog, DayStatus, InvalidRange
+from tristhana.domain.rest_days import AutoDay, AutoKind
 
 router = APIRouter(prefix="/me/days", tags=["days"], responses=error_responses(401, 503))
 
@@ -30,10 +31,26 @@ class Day(BaseModel):
         )
 
 
+class AutoDayOut(BaseModel):
+    """An unlogged day shown as rest (PR-09, ADR-0022): never stored, a log always wins."""
+
+    date: dt.date
+    kind: AutoKind
+    also_day_off: bool = Field(default=False, description="A moon day on the weekly day off")
+
+    @classmethod
+    def all(cls, auto: dict[dt.date, AutoDay]) -> "list[AutoDayOut]":
+        return [
+            cls(date=d, kind=a.kind, also_day_off=a.also_day_off) for d, a in sorted(auto.items())
+        ]
+
+
 class Days(BaseModel):
     today: dt.date = Field(description="The caller's local date (server-computed)")
     timezone_known: bool = Field(description="False: today comes from a provisional zone")
     days: list[Day] = Field(description="Logged days only, oldest first")
+    auto: list[AutoDayOut] = Field(default=[], description="Unlogged days shown as rest")
+    moon_location: str = Field(description="The city auto moon days follow")
 
 
 class DayStatusBody(BaseModel):
@@ -53,7 +70,11 @@ async def list_days(
     except InvalidRange:
         raise ApiError(422, "invalid_range") from None
     return Days(
-        today=view.today, timezone_known=view.timezone_known, days=[Day.of(d) for d in view.days]
+        today=view.today,
+        timezone_known=view.timezone_known,
+        days=[Day.of(d) for d in view.days],
+        auto=AutoDayOut.all(view.auto),
+        moon_location=view.city.slug,
     )
 
 

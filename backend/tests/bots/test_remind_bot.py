@@ -132,14 +132,17 @@ def test_remind_screen_off_by_default(client: TestClient, storage: InMemoryStora
 
     assert body["text"].startswith("🔕 Practice reminder is off")
     assert "Not on moon days" in body["text"]
+    assert "😌 Is Saturday your weekly day off?" in body["text"]  # PR-09, asked once
     rows = _rows(body)
-    assert rows[0] == ["09:00", "10:00", "12:00"]
-    assert rows[1] == ["18:00", "20:00", "21:00"]
-    assert rows[2] == ["✓ Day off: Sat", "Day off: Sun"]
-    assert rows[3] == ["✓ Mon", "✓ Tue", "✓ Wed", "✓ Thu"]
-    assert rows[4] == ["✓ Fri", "Sat", "✓ Sun"]
-    assert rows[5] == ["🔔 Turn on"]
-    assert rows[6] == ["🌙 Moon reminders"]
+    assert rows[0] == ["Yes", "Sunday"]
+    assert rows[1] == ["Other…", "Not now"]
+    assert rows[2] == ["09:00", "10:00", "12:00"]
+    assert rows[3] == ["18:00", "20:00", "21:00"]
+    assert rows[4] == ["Day off: Sat", "Day off: Sun"]  # no ✓: the day off isn't chosen
+    assert rows[5] == ["✓ Mon", "✓ Tue", "✓ Wed", "✓ Thu"]
+    assert rows[6] == ["✓ Fri", "Sat", "✓ Sun"]
+    assert rows[7] == ["🔔 Turn on"]
+    assert rows[8] == ["🌙 Moon reminders"]
 
 
 def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage) -> None:
@@ -147,7 +150,7 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
 
     on = _tap(client, "r1:o:1", "ru")
     evening = _tap(client, "r1:t:2000", "ru")
-    sunday_off = _tap(client, "r1:w:123456", "ru")
+    sunday_off = _tap(client, "r1:d:7", "ru")  # the preset sets the day off (PR-09)
 
     assert on["text"].startswith(
         "🔔 Напоминание о практике: каждый день, кроме субботы в 10:00 Алматы (UTC+5)"  # noqa: RUF001

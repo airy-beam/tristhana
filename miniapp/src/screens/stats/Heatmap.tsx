@@ -1,7 +1,7 @@
 import { useLocalization } from "@fluent/react";
 
-import type { Stats } from "../../api/client";
-import { cellAt, dateOf, daysInMonth, kindOf, labelKey, mondayFirst } from "./cells";
+import type { AutoDay, Stats } from "../../api/client";
+import { autoArgs, cellAt, dateOf, daysInMonth, kindOf, labelKey, mondayFirst } from "./cells";
 
 const SIZE = 10;
 const GAP = 2;
@@ -10,6 +10,9 @@ const STEP = SIZE + GAP;
 interface Props {
   stats: Stats;
   moon: Set<string>;
+  auto: Map<string, AutoDay>;
+  /** The followed city, named in auto moon days. */
+  city: string;
   showLadies: boolean;
   month: number;
   onMonth: (month: number) => void;
@@ -18,7 +21,17 @@ interface Props {
 }
 
 /** 12 mini-months in a 3 × 4 grid (fits a 360 px phone); tapping one opens it below. */
-export function Heatmap({ stats, moon, showLadies, month, onMonth, monthName, dateLabel }: Props) {
+export function Heatmap({
+  stats,
+  moon,
+  auto,
+  city,
+  showLadies,
+  month,
+  onMonth,
+  monthName,
+  dateLabel,
+}: Props) {
   const { l10n } = useLocalization();
   return (
     <div className="heatmap">
@@ -52,15 +65,19 @@ export function Heatmap({ stats, moon, showLadies, month, onMonth, monthName, da
                 const slot = offset + i;
                 const x = (slot % 7) * STEP;
                 const y = Math.floor(slot / 7) * STEP;
-                const kind = cell === undefined ? "future" : kindOf(cell, showLadies);
+                const rest = cell === "none" ? auto.get(day) : undefined;
+                const kind =
+                  cell === undefined ? "future" : rest ? "auto" : kindOf(cell, showLadies);
                 const title =
                   cell === undefined
                     ? null
-                    : l10n.getString("stats-cell-label", {
-                        date: dateLabel(day),
-                        status: l10n.getString(labelKey(cell, showLadies)),
-                        moon: moon.has(day) ? "yes" : "no",
-                      });
+                    : rest
+                      ? l10n.getString("stats-cell-auto", autoArgs(rest, dateLabel(day), city))
+                      : l10n.getString("stats-cell-label", {
+                          date: dateLabel(day),
+                          status: l10n.getString(labelKey(cell, showLadies)),
+                          moon: moon.has(day) ? "yes" : "no",
+                        });
                 return (
                   <g key={day}>
                     <rect x={x} y={y} width={SIZE} height={SIZE} rx={2} className={`cell ${kind}`}>

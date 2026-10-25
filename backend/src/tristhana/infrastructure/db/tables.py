@@ -51,12 +51,22 @@ account = Table(
     # Chosen in settings (ID-06): Telegram's name/language no longer overwrite them.
     Column("name_custom", Boolean(), nullable=False, server_default=text("false")),
     Column("locale_custom", Boolean(), nullable=False, server_default=text("false")),
+    # The weekly day off (PR-09, ADR-0022): ISO-weekday bitmask (bit d-1); 0 = none, NULL =
+    # never chosen. `day_off_before` was in effect before `day_off_since`.
+    Column("day_off", SmallInteger()),
+    Column("day_off_since", Date()),
+    Column("day_off_before", SmallInteger()),
+    Column("day_off_dismissed_at", DateTime(timezone=True)),  # "Not now" on the question
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),
     CheckConstraint("char_length(display_name) <= 64", name="display_name_length"),
     CheckConstraint("locale IN ('en', 'ru')", name="locale"),
     CheckConstraint("moon_location ~ '^[a-z-]{1,24}$'", name="moon_location"),
+    CheckConstraint("day_off BETWEEN 0 AND 127", name="day_off"),
+    CheckConstraint("day_off_before BETWEEN 0 AND 127", name="day_off_before"),
+    CheckConstraint("day_off_before IS NULL OR day_off_since IS NOT NULL", name="day_off_period"),
+    CheckConstraint("day_off_since IS NULL OR day_off IS NOT NULL", name="day_off_since_set"),
 )
 
 identity = Table(

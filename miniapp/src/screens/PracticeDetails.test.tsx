@@ -107,6 +107,8 @@ function stubApi(days: Days): Request[] {
 const practicedToday: Days = {
   today: TODAY,
   timezone_known: true,
+  auto: [],
+  moon_location: "mysuru",
   days: [{ date: TODAY, status: "practiced", practices: [] }],
 };
 

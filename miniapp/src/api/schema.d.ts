@@ -62,6 +62,46 @@ export interface paths {
         patch: operations["patch_me_api_v1_me_patch"];
         trace?: never;
     };
+    "/api/v1/me/day-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Day Off
+         * @description The first choice also shows on past weeks; a change applies from today (PR-09).
+         */
+        put: operations["put_day_off_api_v1_me_day_off_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/day-off-question": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Day Off Question
+         * @description "Not now" on the one-time day-off question. Idempotent.
+         */
+        delete: operations["delete_day_off_question_api_v1_me_day_off_question_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/days": {
         parameters: {
             query?: never;
@@ -268,6 +308,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AutoDayOut
+         * @description An unlogged day shown as rest (PR-09, ADR-0022): never stored, a log always wins.
+         */
+        AutoDayOut: {
+            /**
+             * Also Day Off
+             * @description A moon day on the weekly day off
+             * @default false
+             */
+            also_day_off: boolean;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            kind: components["schemas"]["AutoKind"];
+        };
+        /**
+         * AutoKind
+         * @enum {string}
+         */
+        AutoKind: "moon" | "day_off";
         /** CatalogOut */
         CatalogOut: {
             /**
@@ -316,6 +379,39 @@ export interface components {
             practices: components["schemas"]["PracticeOut"][];
             status: components["schemas"]["DayStatus"];
         };
+        /** DayOffBody */
+        DayOffBody: {
+            /**
+             * Day Off
+             * @description ISO weekdays (1 = Monday); [] = no fixed day off; one day for now
+             */
+            day_off: number[];
+        };
+        /** DayOffOut */
+        DayOffOut: {
+            /** Day Off */
+            day_off: number[];
+            /**
+             * Practice Days
+             * @description Practice reminder days, now following it
+             */
+            practice_days: number[];
+            /**
+             * Reminder Days Reset
+             * @description Custom reminder days were replaced: say they now follow the day off
+             */
+            reminder_days_reset: boolean;
+        };
+        /** DayOffQuestionOut */
+        DayOffQuestionOut: {
+            /** Reminders On */
+            reminders_on: boolean;
+            /**
+             * Weekday
+             * @description The one weekday practice reminders skip
+             */
+            weekday: number;
+        };
         /**
          * DayStatus
          * @enum {string}
@@ -328,10 +424,21 @@ export interface components {
         /** Days */
         Days: {
             /**
+             * Auto
+             * @description Unlogged days shown as rest
+             * @default []
+             */
+            auto: components["schemas"]["AutoDayOut"][];
+            /**
              * Days
              * @description Logged days only, oldest first
              */
             days: components["schemas"]["Day"][];
+            /**
+             * Moon Location
+             * @description The city auto moon days follow
+             */
+            moon_location: string;
             /**
              * Timezone Known
              * @description False: today comes from a provisional zone
@@ -367,7 +474,7 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -422,6 +529,11 @@ export interface components {
         };
         /** Me */
         Me: {
+            /**
+             * Day Off
+             * @description Weekly day off, ISO weekdays (1 = Monday); [] = no fixed day off; null = never chosen
+             */
+            day_off?: number[] | null;
             /** Display Name */
             display_name: string | null;
             /**
@@ -544,6 +656,8 @@ export interface components {
         NotificationSettingsOut: {
             /** Daily Cap */
             daily_cap: number;
+            /** @description Ask once: is that weekday the day off? (PR-09) */
+            day_off_question?: components["schemas"]["DayOffQuestionOut"] | null;
             moon: components["schemas"]["MoonSettings"];
             practice: components["schemas"]["PracticeSettings"];
             quiet: components["schemas"]["Quiet"];
@@ -724,6 +838,12 @@ export interface components {
         /** StatsOut */
         StatsOut: {
             /**
+             * Auto
+             * @description The year's auto-rest, up to today
+             * @default []
+             */
+            auto: components["schemas"]["AutoDayOut"][];
+            /**
              * Cells
              * @description One per date: Jan 1 … min(today, Dec 31)
              */
@@ -756,6 +876,12 @@ export interface components {
         };
         /** SummaryOut */
         SummaryOut: {
+            /**
+             * Auto
+             * @description Unlogged days shown as rest (moon, day off)
+             * @default 0
+             */
+            auto: number;
             contexts: components["schemas"]["ContextCounts"];
             duration: components["schemas"]["Duration"];
             /** Online */
@@ -774,7 +900,7 @@ export interface components {
             skipped: number;
             /**
              * Unlogged
-             * @description Unmarked days strictly before today
+             * @description Unmarked days strictly before today (auto excluded)
              */
             unlogged: number;
             /**
@@ -934,6 +1060,93 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_day_off_api_v1_me_day_off_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DayOffBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DayOffOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_day_off_question_api_v1_me_day_off_question_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
