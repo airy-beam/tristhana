@@ -101,9 +101,11 @@ jobs:
         run: |
           gcloud auth configure-docker "$REGISTRY" --quiet
           docker tag tristhana:ci "$REPO:$GITHUB_SHA"
-          docker push "$REPO:$GITHUB_SHA"
-          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$REPO:$GITHUB_SHA")"
-          echo "image=$digest" >> "$GITHUB_OUTPUT"
+          # The digest comes from the push itself: RepoDigests order isn't stable across Docker
+          # versions (it listed the local "tristhana" name first on 2026-10-25).
+          digest="$(docker push "$REPO:$GITHUB_SHA" | tee /dev/stderr | sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p')"
+          test -n "$digest"
+          echo "image=$REPO@$digest" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: image
