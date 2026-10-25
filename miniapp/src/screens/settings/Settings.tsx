@@ -441,7 +441,11 @@ function Quiet({ zone }: { zone: string | null }) {
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 
-/** The weekly day off (PR-09): one weekday or none; nothing pressed until chosen. */
+const MAX_DAYS_OFF = 2; // as the server's domain limit
+
+/** The days off (PR-09): the one day setting. Pressed = a day off (at most two; a third
+ * waits until one is unpressed); the other days are the practice days, and practice
+ * reminders come on them. Nothing pressed until chosen. */
 function DayOff({ me }: { me: Me }) {
   const setDayOff = useSetDayOff();
   // The cached account, so a tap shows at once (the prop updates with it in the app).
@@ -460,18 +464,24 @@ function DayOff({ me }: { me: Me }) {
         <h2 id="day-off-title" />
       </Localized>
       <div className="chips" role="group" aria-labelledby="day-off-title">
-        {WEEKDAYS.map((d) => (
-          <Localized key={d} id="remind-weekday" vars={{ d }}>
-            <button
-              type="button"
-              className="chip"
-              aria-pressed={current?.length === 1 && current[0] === d}
-              onClick={() => {
-                choose([d]);
-              }}
-            />
-          </Localized>
-        ))}
+        {WEEKDAYS.map((d) => {
+          const off = current?.includes(d) ?? false;
+          const full = !off && (current?.length ?? 0) >= MAX_DAYS_OFF;
+          return (
+            <Localized key={d} id="remind-weekday" vars={{ d }}>
+              <button
+                type="button"
+                className="chip"
+                aria-pressed={off}
+                disabled={full}
+                onClick={() => {
+                  const days = current ?? [];
+                  choose(off ? days.filter((x) => x !== d) : [...days, d].sort((a, b) => a - b));
+                }}
+              />
+            </Localized>
+          );
+        })}
         <Localized id="day-off-none">
           <button
             type="button"
@@ -483,11 +493,6 @@ function DayOff({ me }: { me: Me }) {
           />
         </Localized>
       </div>
-      {setDayOff.data?.reminder_days_reset && (
-        <Localized id="day-off-reminders-follow">
-          <p className="hint" role="status" />
-        </Localized>
-      )}
       <Localized id="settings-day-off-hint" vars={{ first: current === null ? "yes" : "no" }}>
         <p className="hint small" />
       </Localized>

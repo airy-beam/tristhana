@@ -383,7 +383,7 @@ export interface components {
         DayOffBody: {
             /**
              * Day Off
-             * @description ISO weekdays (1 = Monday); [] = no fixed day off; one day for now
+             * @description ISO weekdays (1 = Monday); [] = no fixed day off; at most two
              */
             day_off: number[];
         };
@@ -393,14 +393,9 @@ export interface components {
             day_off: number[];
             /**
              * Practice Days
-             * @description Practice reminder days, now following it
+             * @description The other days: practice reminders come then
              */
             practice_days: number[];
-            /**
-             * Reminder Days Reset
-             * @description Custom reminder days were replaced: say they now follow the day off
-             */
-            reminder_days_reset: boolean;
         };
         /** DayOffQuestionOut */
         DayOffQuestionOut: {
@@ -728,7 +723,11 @@ export interface components {
         PracticePatchBody: {
             /** At */
             at?: string | null;
-            /** Days */
+            /**
+             * Days
+             * @deprecated
+             * @description Ignored: reminders come on the practice days (PUT /me/day-off)
+             */
             days?: number[] | null;
             /** On */
             on?: boolean | null;

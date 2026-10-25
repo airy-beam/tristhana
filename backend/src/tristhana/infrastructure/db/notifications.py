@@ -47,7 +47,6 @@ def _stored(row: Any) -> StoredSettings:
         daily_cap=row.daily_cap,
         practice_on=row.practice_on,
         practice_at=row.practice_at,
-        practice_days=frozenset(row.practice_days) if row.practice_days is not None else None,
     )
 
 
@@ -56,7 +55,7 @@ def _settings(row: Any, defaults: NotificationSettings) -> NotificationSettings:
     return effective(_stored(row), defaults)
 
 
-_SORTED = {"moon_offsets", "practice_days"}  # arrays are stored sorted
+_SORTED = {"moon_offsets"}  # arrays are stored sorted
 
 
 _SETTINGS_COLUMNS = (
@@ -67,7 +66,6 @@ _SETTINGS_COLUMNS = (
     _S.c.daily_cap,
     _S.c.practice_on,
     _S.c.practice_at,
-    _S.c.practice_days,
 )
 
 
@@ -97,7 +95,6 @@ class SqlNotificationRepository:
             values |= {
                 "practice_on": settings.practice.on,
                 "practice_at": settings.practice.at,
-                "practice_days": sorted(settings.practice.days),
             }
         return await self._upsert(account_id, values, settings)
 
@@ -133,8 +130,6 @@ class SqlNotificationRepository:
             values["practice_on"] = patch.on
         if patch.at is not None:
             values["practice_at"] = patch.at
-        if patch.days is not None:
-            values["practice_days"] = sorted(patch.days)
         return await self._upsert(account_id, values, defaults)
 
     async def _upsert(
@@ -148,24 +143,6 @@ class SqlNotificationRepository:
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
         return _settings(row, defaults)
-
-    async def reset_practice_days(
-        self, account_id: UUID, defaults: NotificationSettings
-    ) -> tuple[NotificationSettings, frozenset[int] | None]:
-        # The FROM snapshot still holds the days before the update: one statement.
-        before = _S.alias("before")
-        stmt = (
-            update(_S)
-            .where(_S.c.account_id == account_id, before.c.account_id == _S.c.account_id)
-            .values(practice_days=None, updated_at=func.now())
-            .returning(*_SETTINGS_COLUMNS, before.c.practice_days.label("days_before"))
-        )
-        async with connection(self._engine) as conn:
-            row = (await conn.execute(stmt)).one_or_none()
-        if row is None:  # no row yet: the days already follow the day off
-            return defaults, None
-        days_before = frozenset(row.days_before) if row.days_before is not None else None
-        return _settings(row, defaults), days_before
 
     async def candidates(
         self, since: datetime, logged_from: date, defaults: NotificationSettings

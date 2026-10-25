@@ -1,16 +1,14 @@
 """SetDayOff / DismissDayOffQuestion on fakes (PR-09)."""
 
 from dataclasses import replace
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime
 
 import pytest
 
 from tests.fakes import FixedClock, InMemoryStorage
 from tristhana.application.policies import Principal
-from tristhana.application.ports.notifications import ReminderPatch
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.domain.accounts import Account, IdentityKey, IdentityProvider, NewAccount
-from tristhana.domain.notifications import defaults_for
 from tristhana.domain.rest_days import DayOff, InvalidDayOff
 
 NOW = datetime(2026, 10, 25, 4, tzinfo=UTC)  # Sunday 09:00 in Almaty
@@ -25,7 +23,7 @@ async def _me(storage: InMemoryStorage) -> Account:
 
 
 def _set(storage: InMemoryStorage) -> SetDayOff:
-    return SetDayOff(storage.accounts, storage.notifications, FixedClock(NOW))
+    return SetDayOff(storage.accounts, FixedClock(NOW))
 
 
 async def test_first_choice_applies_to_all_history() -> None:
@@ -33,8 +31,15 @@ async def test_first_choice_applies_to_all_history() -> None:
     me = await _me(storage)
     saved = await _set(storage).execute(Principal(me), [7])
     assert saved.account.day_off == DayOff(frozenset({7}), TODAY)  # no "before": all history
-    assert saved.settings.practice.days == frozenset({1, 2, 3, 4, 5, 6})
-    assert saved.reminders_reset is False  # nothing was stored
+    assert saved.practice_days == frozenset({1, 2, 3, 4, 5, 6})
+
+
+async def test_two_days_off_leave_five_practice_days() -> None:
+    storage = InMemoryStorage()
+    me = await _me(storage)
+    saved = await _set(storage).execute(Principal(me), [6, 7])
+    assert saved.account.day_off.days == frozenset({6, 7})
+    assert saved.practice_days == frozenset({1, 2, 3, 4, 5})
 
 
 async def test_a_later_change_applies_from_local_today() -> None:
@@ -53,39 +58,13 @@ async def test_a_same_day_correction_of_the_first_choice_stays_retroactive() -> 
     assert saved.account.day_off == DayOff(frozenset({7}), TODAY)
 
 
-async def test_custom_reminder_days_are_reset_with_a_note() -> None:
-    storage = InMemoryStorage()
-    me = await _me(storage)
-    custom = frozenset({1, 3, 5})
-    await storage.notifications.patch_practice(
-        me.id, ReminderPatch(on=True, at=time(10), days=custom), defaults_for(None)
-    )
-    saved = await _set(storage).execute(Principal(me), [7])
-    assert saved.reminders_reset is True
-    assert saved.settings.practice.days == frozenset({1, 2, 3, 4, 5, 6})
-    assert saved.settings.practice.on is True
-
-
-async def test_re_tapping_the_current_day_off_keeps_custom_reminder_days() -> None:
+async def test_re_tapping_the_current_day_off_writes_nothing() -> None:
     storage = InMemoryStorage()
     me = await _me(storage)
     chosen = (await _set(storage).execute(Principal(me), [6])).account
-    custom = frozenset({1, 3, 5})
-    await storage.notifications.patch_practice(
-        me.id, ReminderPatch(days=custom), defaults_for(frozenset({6}))
-    )
-    saved = await _set(storage).execute(Principal(chosen), [6])
-    assert saved.reminders_reset is False
-    assert saved.settings.practice.days == custom
-
-
-async def test_stored_days_equal_to_the_new_ones_need_no_note() -> None:
-    storage = InMemoryStorage()
-    me = await _me(storage)
-    await storage.notifications.patch_practice(
-        me.id, ReminderPatch(days=frozenset({1, 2, 3, 4, 5, 7})), defaults_for(None)
-    )
-    assert (await _set(storage).execute(Principal(me), [6])).reminders_reset is False
+    writes = storage.accounts.writes
+    await _set(storage).execute(Principal(chosen), [6])
+    assert storage.accounts.writes == writes
 
 
 async def test_no_fixed_day_off_means_reminders_every_day() -> None:
@@ -93,10 +72,10 @@ async def test_no_fixed_day_off_means_reminders_every_day() -> None:
     me = await _me(storage)
     saved = await _set(storage).execute(Principal(me), [])
     assert saved.account.day_off == DayOff(frozenset(), TODAY)
-    assert saved.settings.practice.days == frozenset(range(1, 8))
+    assert saved.practice_days == frozenset(range(1, 8))
 
 
-@pytest.mark.parametrize("days", [[6, 7], [8], [6, 6]])
+@pytest.mark.parametrize("days", [[5, 6, 7], [8], [6, 6]])
 async def test_invalid_day_off_is_refused_before_any_write(days: list[int]) -> None:
     storage = InMemoryStorage()
     me = await _me(storage)

@@ -60,7 +60,7 @@ function stubApi(moon: MoonDays = MOON, settings: NotificationSettings = SETTING
         const { day_off } = (await request.clone().json()) as { day_off: number[] };
         const off = new Set(day_off);
         const practice_days = [1, 2, 3, 4, 5, 6, 7].filter((d) => !off.has(d));
-        return json({ day_off, practice_days, reminder_days_reset: false });
+        return json({ day_off, practice_days });
       }
       if (path === "/api/v1/me") return json({ ...ME, day_off: [6] });
       if (request.method === "PUT") return json(await request.clone().json());
@@ -211,52 +211,19 @@ describe("PracticeReminderCard", () => {
     ).toBeInTheDocument();
   });
 
-  it("toggles a weekday and keeps the last one", async () => {
-    const seen = stubApi(MOON, {
-      ...SETTINGS,
-      practice: { on: true, at: "20:00:00", days: [3] },
-    });
+  it("comes on the practice days, with no day choices of its own (PR-09)", async () => {
+    stubApi(MOON, { ...SETTINGS, practice: { on: true, at: "10:00:00", days: [1, 2, 3, 4, 5] } });
     renderWith(<PracticeReminderCard zone="Asia/Almaty" />);
 
-    const wed = await screen.findByRole("button", { name: (n) => plain(n) === "Wed" });
-    expect(wed).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: (n) => plain(n) === "Sat" }));
-
-    await vi.waitFor(() => {
-      expect(seen.some((r) => r.method === "PATCH")).toBe(true);
-    });
-    const put = seen.find((r) => r.method === "PATCH");
-    expect(await put?.json()).toMatchObject({ practice: { days: [3, 6] } });
-  });
-
-  it("sets Sunday as the day off in one tap (PR-09: reminder days follow it)", async () => {
-    const seen = stubApi(MOON, {
-      ...SETTINGS,
-      practice: { on: true, at: "10:00:00", days: [1, 2, 3, 4, 5, 7] },
-    });
-    renderWith(<PracticeReminderCard zone="Asia/Almaty" />);
-
-    // ✓ follows the chosen day off (Saturday in the stub), not the reminder days.
     expect(
-      await screen.findByRole("button", {
-        name: (n) => plain(n) === "Day off: Sat",
-        pressed: true,
-      }),
+      await screen.findByText(
+        (t) =>
+          plain(t) === "On your practice days: Mon, Tue, Wed, Thu, Fri. Change them under Day off.",
+      ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: (n) => plain(n) === "Day off: Sun" }));
-
-    await vi.waitFor(() => {
-      expect(seen.some((r) => r.method === "PUT")).toBe(true);
-    });
-    const put = seen.find((r) => r.method === "PUT");
-    expect(new URL(put?.url ?? "").pathname).toBe("/api/v1/me/day-off");
-    expect(await put?.json()).toEqual({ day_off: [7] });
     expect(
-      await screen.findByRole("button", {
-        name: (n) => plain(n) === "Day off: Sun",
-        pressed: true,
-      }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: (n) => plain(n) === "Sat" }),
+    ).not.toBeInTheDocument();
   });
 
   it("asks for a time zone before showing times", async () => {

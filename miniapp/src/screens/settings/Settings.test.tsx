@@ -60,7 +60,6 @@ function stubApi(): Request[] {
         return json({
           day_off,
           practice_days: [1, 2, 3, 4, 5, 6, 7].filter((d) => !day_off.includes(d)),
-          reminder_days_reset: true,
         });
       }
       if (path === "/api/v1/me") return json({ ...ME, day_off: null });
@@ -286,20 +285,29 @@ describe("Day off (PR-09)", () => {
     dayOffFails = false;
   });
 
-  it("starts with nothing pressed, saves a tap at once and says reminders follow", async () => {
+  it("starts with nothing pressed and takes up to two days off", async () => {
     const seen = stubApi();
     renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
     const group = await screen.findByRole("group", { name: "Day off" });
+    const chip = (name: string) =>
+      within(group).getByRole("button", { name: (n) => plain(n) === name });
     expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
     expect(screen.getByText(/Past weeks show it too/)).toBeInTheDocument();
 
-    fireEvent.click(within(group).getByRole("button", { name: (n) => plain(n) === "Sun" }));
+    fireEvent.click(chip("Sun"));
+    await vi.waitFor(() => {
+      expect(chip("Sun")).toHaveAttribute("aria-pressed", "true");
+    });
+    fireEvent.click(chip("Sat"));
+    await vi.waitFor(() => {
+      expect(chip("Sat")).toHaveAttribute("aria-pressed", "true");
+    });
 
-    expect(
-      await within(group).findByRole("button", { name: (n) => plain(n) === "Sun", pressed: true }),
-    ).toBeInTheDocument();
-    expect(await bodies(seen, "PUT", "/api/v1/me/day-off")).toEqual([{ day_off: [7] }]);
-    expect(await screen.findByText("Reminder days now follow your day off.")).toBeInTheDocument();
+    expect(chip("Mon")).toBeDisabled(); // a third day off waits until one is unpressed
+    expect(await bodies(seen, "PUT", "/api/v1/me/day-off")).toEqual([
+      { day_off: [7] },
+      { day_off: [6, 7] },
+    ]);
   });
 
   it("rolls back when the save fails", async () => {

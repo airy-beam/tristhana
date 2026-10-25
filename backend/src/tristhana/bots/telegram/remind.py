@@ -152,9 +152,6 @@ class RemindScreens:
                 case "time":
                     saved = await self._r.update.execute(principal, ReminderPatch(at=cb.at))
                     return self.settings_screen(principal, saved)
-                case "days":
-                    saved = await self._r.update.execute(principal, ReminderPatch(days=cb.days))
-                    return self.settings_screen(principal, saved)
                 case "yes" | "no":
                     saved = await self._r.offer.execute(principal, cb.action == "yes")
                     if cb.action == "yes":
@@ -170,13 +167,12 @@ class RemindScreens:
                     status = "remind-on-again" if cb.on else "remind-off-note"
                     locale = principal.account.locale
                     return reminder_screen(self._t, locale, PracticeReminder(cb.day), status)
-                case "day_off":
-                    saved = await self._r.day_off.execute(
-                        principal, [cb.weekday] if cb.weekday else []
-                    )
-                    return self.settings_screen(
-                        Principal(saved.account), saved.settings, follow=saved.reminders_reset
-                    )
+                case "day_off":  # the question's answers
+                    saved = await self._r.day_off.execute(principal, cb.days_off)
+                    return await self.settings(Principal(saved.account))
+                case "day_off_toggle":
+                    saved = await self._r.day_off.execute(principal, cb.days_off)
+                    return self.day_off(Principal(saved.account))
                 case "day_off_pick":
                     return self.day_off(principal)
                 case "day_off_later":
@@ -192,7 +188,8 @@ class RemindScreens:
             self._t,
             locale,
             principal.account.day_off.days,
-            lambda d: _data(action="day_off", weekday=d),
+            lambda days: _data(action="day_off_toggle", days_off=days),
+            _data(action="day_off_pick"),
             button(self._t, locale, "remind-practice-link", _data(action="view")),
         )
 
@@ -237,17 +234,14 @@ class RemindScreens:
         saved = await self._r.settings.get(principal)
         return self.settings_screen(principal, saved)
 
-    def settings_screen(
-        self, principal: Principal, settings: NotificationSettings, follow: bool = False
-    ) -> Screen:
-        """`follow`: custom reminder days were just reset to follow the day off."""
+    def settings_screen(self, principal: Principal, settings: NotificationSettings) -> Screen:
         account = principal.account
         locale = account.locale
         p = settings.practice
         today, _ = self._days.today(principal)
         lines = [self.status_line(locale, settings, account.timezone, today)]
-        if follow:
-            lines.append(self._t.t(locale, "day-off-reminders-follow"))
+        if p.enabled:
+            lines.append(self._t.t(locale, "remind-days-follow"))
         if account.timezone is None:
             lines.append(self._t.t(locale, "moon-zone-needed"))
         question = day_off_question(account.day_off.days, account.day_off_dismissed, settings)
@@ -262,23 +256,6 @@ class RemindScreens:
             )
             for at in PRACTICE_TIMES
         ]
-        # The presets set the day off itself (PR-09): reminder days follow it.
-        presets = [
-            InlineKeyboardButton(
-                text=("✓ " if account.day_off.days == frozenset({d}) else "")
-                + self._t.t(locale, "remind-day-off", d=d),
-                callback_data=_data(action="day_off", weekday=d),
-            )
-            for d in (6, 7)
-        ]
-        toggles = [
-            InlineKeyboardButton(
-                text=("✓ " if d in p.days else "") + self._t.t(locale, "remind-weekday", d=d),
-                # The last remaining day can't be removed: tapping it keeps the set.
-                callback_data=_data(action="days", days=(p.days ^ {d}) or p.days),
-            )
-            for d in sorted(WEEKDAYS)
-        ]
         switch = (
             button(self._t, locale, "remind-turn-off", _data(action="switch", on=False))
             if p.enabled
@@ -288,9 +265,8 @@ class RemindScreens:
             *(self._question_rows(locale, question.weekday) if question else []),
             times[:3],
             times[3:],
-            presets,
-            toggles[:4],
-            toggles[4:],
+            # Reminders come on the practice days: the one day setting is the day off.
+            [button(self._t, locale, "settings-day-off-button", _data(action="day_off_pick"))],
             [switch],
             [
                 button(
@@ -303,15 +279,14 @@ class RemindScreens:
 
     def _question_rows(self, locale: Locale, weekday: int) -> list[list[InlineKeyboardButton]]:
         """[Yes] [the other weekend day, for a weekend day] / [Other…] [Not now]."""
-        first = [
-            button(self._t, locale, "day-off-ask-yes", _data(action="day_off", weekday=weekday))
-        ]
+        yes = _data(action="day_off", days_off=frozenset({weekday}))
+        first = [button(self._t, locale, "day-off-ask-yes", yes)]
         if weekday in (6, 7):
             other = 13 - weekday  # Saturday ↔ Sunday
             first.append(
                 InlineKeyboardButton(
                     text=self._t.t(locale, "day-off-ask-instead", d=other),
-                    callback_data=_data(action="day_off", weekday=other),
+                    callback_data=_data(action="day_off", days_off=frozenset({other})),
                 )
             )
         return [

@@ -5,20 +5,20 @@ s1:l:a          language: as in Telegram (s1:l:en / s1:l:ru = chosen)
 s1:zp:2         time zone city picker, page 2
 s1:z:<slug>     time zone = that city's zone
 s1:o            day off picker (PR-09)
-s1:o:6          day off = Saturday (ISO digit; 0 = no fixed day off)
+s1:o:67         days off = Saturday + Sunday (ISO digits, at most two; 0 = none) → picker
 """
 
 import re
 from dataclasses import dataclass
 from typing import Literal
 
+from tristhana.bots.telegram.remind_callbacks import days_off_code, parse_days_off
 from tristhana.domain.locale import LOCALES, Locale
 
 PREFIX = "s1"
 type Action = Literal["view", "language", "zones", "zone", "day_off_pick", "day_off"]
 
 _SLUG = re.compile(r"[a-z-]{1,24}")
-_DAY_OFF_DIGITS = frozenset("01234567")
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,7 +27,7 @@ class SettingsCallback:
     locale: Locale | None = None  # None = as in Telegram
     page: int = 0
     slug: str | None = None
-    weekday: int = 0  # the day off; 0 = no fixed day off
+    days_off: frozenset[int] = frozenset()  # empty = no fixed day off
 
 
 def encode(cb: SettingsCallback) -> str:
@@ -43,7 +43,7 @@ def encode(cb: SettingsCallback) -> str:
         case "day_off_pick":
             return f"{PREFIX}:o"
         case "day_off":
-            return f"{PREFIX}:o:{cb.weekday}"
+            return f"{PREFIX}:o:{days_off_code(cb.days_off)}"
 
 
 def decode(data: str | None) -> SettingsCallback | None:
@@ -64,7 +64,7 @@ def decode(data: str | None) -> SettingsCallback | None:
             return SettingsCallback("zone", slug=slug)
         case ["o"]:
             return SettingsCallback("day_off_pick")
-        case ["o", d] if d in _DAY_OFF_DIGITS:  # one digit: longer codes stay free (2 days)
-            return SettingsCallback("day_off", weekday=int(d))
+        case ["o", code] if (days := parse_days_off(code)) is not None:
+            return SettingsCallback("day_off", days_off=days)
         case _:
             return None

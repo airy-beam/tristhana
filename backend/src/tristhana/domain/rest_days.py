@@ -16,7 +16,7 @@ from tristhana.domain.days import local_today
 type Weekdays = frozenset[int]  # ISO: Monday = 1
 
 WEEKDAYS: Weekdays = frozenset(range(1, 8))
-MAX_DAYS_OFF = 1  # the API shape already allows more (two days off later)
+MAX_DAYS_OFF = 2  # owner, 2026-10-25: e.g. Mysore Mon-Fri shalas
 
 
 class InvalidDayOff(ValueError):

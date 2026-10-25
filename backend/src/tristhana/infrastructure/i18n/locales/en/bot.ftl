@@ -267,8 +267,8 @@ remind-weekday = { $d ->
         [6] Sat
        *[7] Sun
     }
-remind-day-off = Day off: { remind-weekday }
 remind-moon-link = 🌙 Moon reminders
+remind-days-follow = They come on your practice days: change them with 😌 Day off.
 remind-practice-link = 🧘 Practice reminder
 
 ## Settings (ID-06).
@@ -316,12 +316,21 @@ day-off-weekly = { $d ->
     }
 day-off-button = { day-off-weekday }
 settings-day-off-line = 😌 Day off: { day-off-weekday }
+settings-days-off-line = 😌 Days off: { day-off-weekday }, { $e ->
+        [1] Monday
+        [2] Tuesday
+        [3] Wednesday
+        [4] Thursday
+        [5] Friday
+        [6] Saturday
+       *[7] Sunday
+    }
 settings-day-off-none-line = 😌 No fixed day off
 settings-day-off-unset-line = 😌 Day off: not chosen
 settings-day-off-button = 😌 Day off
-day-off-pick = 😌 Which day is your weekly day off?
+day-off-pick = 😌 Which days are your days off? Tap one, or two (e.g. Saturday and Sunday). The other days are your practice days.
 day-off-none = No fixed day off
-day-off-explain = Your day off shows as rest in your log and stats, and practice reminders skip it. { $first ->
+day-off-explain = Days off show as rest in your log and stats. Practice reminders come on your practice days only. { $first ->
         [yes] Past weeks show it too.
        *[no] A change applies from today; earlier weeks keep the previous day.
     } If a day went differently, log it as usual. With no fixed day off, reminders come every day.
@@ -341,5 +350,3 @@ day-off-ask-instead = { $d ->
     }
 day-off-ask-other = Other…
 day-off-ask-later = Not now
-day-off-reminders-follow = Reminder days now follow your day off.
-day-off-reminders-edit = ✏️ Reminder days

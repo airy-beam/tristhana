@@ -4,13 +4,14 @@
     r1:v                 /remind screen
     r1:o:1 / r1:o:0      turn on / off
     r1:t:1000            send time 10:00
-    r1:w:123457          weekdays (ISO digits; at least one)
+    r1:w:123457          (retired with PR-09: reminder days follow the day off) → /remind
     r1:y:20261019        the offer under "practice saved": yes (date = the day shown)
     r1:n:20261019        the offer: no, thanks
     r1:s:20261019        from a reminder: practiced, same as last time
     r1:q:20261019:0      from a reminder: turn off (1 = turn back on)
-    r1:d:6               the day off = Saturday (ISO digit; 0 = none; PR-09) → /remind
+    r1:d:6 / r1:d:67     the days off (ISO digits, at most two; 0 = none; PR-09) → /remind
     r1:dp                the day off picker, opened from /remind
+    r1:dt:67             set the days off from that picker, and stay in it
     r1:dn                the one-time day-off question: not now
 """
 
@@ -19,26 +20,25 @@ from datetime import date, datetime, time
 from typing import Literal
 
 from tristhana.domain.days import MIN_LOG_DATE
-from tristhana.domain.notifications import WEEKDAYS
+from tristhana.domain.rest_days import MAX_DAYS_OFF, WEEKDAYS
 
 PREFIX = "r1"
 type Action = Literal[
     "view",
     "switch",
     "time",
-    "days",
     "yes",
     "no",
     "same",
     "quick",
     "day_off",
     "day_off_pick",
+    "day_off_toggle",
     "day_off_later",
 ]
 
 _DATED: dict[str, Action] = {"y": "yes", "n": "no", "s": "same"}
 _DATED_CODES = {v: k for k, v in _DATED.items()}
-_DAY_OFF_DIGITS = frozenset("01234567")
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,13 +46,23 @@ class RemindCallback:
     action: Action
     on: bool = False
     at: time | None = None
-    days: frozenset[int] | None = None
     day: date | None = None
-    weekday: int = 0  # the day off; 0 = no fixed day off
+    days_off: frozenset[int] = frozenset()  # empty = no fixed day off
 
 
-def days_code(days: frozenset[int]) -> str:
-    return "".join(str(d) for d in sorted(days))
+def days_off_code(days: frozenset[int]) -> str:
+    """ISO digits, "0" for no fixed day off (shared with `s1:o:`)."""
+    return "".join(str(d) for d in sorted(days)) or "0"
+
+
+def parse_days_off(code: str) -> frozenset[int] | None:
+    """None for anything but "0" or 1-2 distinct weekday digits."""
+    if code == "0":
+        return frozenset()
+    if not code.isdigit() or len(set(code)) != len(code) or len(code) > MAX_DAYS_OFF:
+        return None
+    days = frozenset(int(c) for c in code)
+    return days if days <= WEEKDAYS else None
 
 
 def encode(cb: RemindCallback) -> str:
@@ -64,14 +74,13 @@ def encode(cb: RemindCallback) -> str:
         case "time":
             assert cb.at is not None  # noqa: S101
             return f"{PREFIX}:t:{cb.at:%H%M}"
-        case "days":
-            assert cb.days  # noqa: S101
-            return f"{PREFIX}:w:{days_code(cb.days)}"
         case "quick":
             assert cb.day is not None  # noqa: S101
             return f"{PREFIX}:q:{cb.day:%Y%m%d}:{int(cb.on)}"
         case "day_off":
-            return f"{PREFIX}:d:{cb.weekday}"
+            return f"{PREFIX}:d:{days_off_code(cb.days_off)}"
+        case "day_off_toggle":
+            return f"{PREFIX}:dt:{days_off_code(cb.days_off)}"
         case "day_off_pick":
             return f"{PREFIX}:dp"
         case "day_off_later":
@@ -104,16 +113,16 @@ def decode(data: str | None) -> RemindCallback | None:
                 return RemindCallback("time", at=datetime.strptime(hhmm, "%H%M").time())
             except ValueError:
                 return None
-        case ["w", code] if (
-            code.isdigit() and len(set(code)) == len(code) and {int(c) for c in code} <= WEEKDAYS
-        ):
-            return RemindCallback("days", days=frozenset(int(c) for c in code))
+        case ["w", _]:  # an old keyboard: reminder days aren't chosen any more
+            return RemindCallback("view")
         case ["y" | "n" | "s" as kind, ymd] if (day := _date(ymd)) is not None:
             return RemindCallback(_DATED[kind], day=day)
         case ["q", ymd, "0" | "1" as flag] if (day := _date(ymd)) is not None:
             return RemindCallback("quick", on=flag == "1", day=day)
-        case ["d", d] if d in _DAY_OFF_DIGITS:  # one digit: longer codes stay free (2 days)
-            return RemindCallback("day_off", weekday=int(d))
+        case ["d", code] if (days := parse_days_off(code)) is not None:
+            return RemindCallback("day_off", days_off=days)
+        case ["dt", code] if (days := parse_days_off(code)) is not None:
+            return RemindCallback("day_off_toggle", days_off=days)
         case ["dp"]:
             return RemindCallback("day_off_pick")
         case ["dn"]:

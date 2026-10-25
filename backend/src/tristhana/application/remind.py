@@ -62,7 +62,6 @@ class UpdatePracticeReminder:
             NotificationPatch(
                 practice_on=KEEP if patch.on is None else patch.on,
                 practice_at=KEEP if patch.at is None else patch.at,
-                practice_days=KEEP if patch.days is None else patch.days,
             ),
             practice_as_on=patch.at is not None,
         )

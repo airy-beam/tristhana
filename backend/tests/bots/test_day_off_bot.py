@@ -19,7 +19,6 @@ from tristhana.bots.telegram import remind_callbacks as rcb
 from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.remind import reminder_screen
 from tristhana.domain.moon import MoonDay, MoonDayKind
-from tristhana.domain.notifications import DEFAULTS
 from tristhana.domain.rest_days import DayOff
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.main import create_app
@@ -148,7 +147,7 @@ def test_settings_picker_sets_the_day_off_and_returns(
 ) -> None:
     _me(client, storage)
     picker = _tap(client, "s1:o")
-    assert picker["text"].startswith("😌 Which day is your weekly day off?")
+    assert picker["text"].startswith("😌 Which days are your days off?")
     assert "Past weeks show it too." in picker["text"]
     assert _rows(picker) == [
         ["Saturday", "Sunday"],
@@ -157,26 +156,19 @@ def test_settings_picker_sets_the_day_off_and_returns(
         ["No fixed day off"],
         ["⚙️ Settings"],
     ]
-    saved = _tap(client, "s1:o:7")
-    assert "😌 Day off: Sunday" in saved["text"]
+    one = _tap(client, "s1:o:7")  # stays on the picker: a second day can be added
+    assert _rows(one)[0] == ["Saturday", "😌 Sunday"]
+    assert "A change applies from today" in one["text"]
+    data = [b["callback_data"] for row in one["reply_markup"]["inline_keyboard"] for b in row]
+    assert data[:2] == ["s1:o:67", "s1:o:0"]  # Saturday adds, Sunday removes
+    two = _tap(client, "s1:o:67")
+    assert _rows(two)[0] == ["😌 Saturday", "😌 Sunday"]
+    full = [b["callback_data"] for row in two["reply_markup"]["inline_keyboard"] for b in row]
+    assert full[2] == "s1:o"  # Monday: no third day off, the picker just stays
     [account] = storage.repo.accounts.values()
-    assert account.day_off.days == frozenset({7})
-    assert account.day_off.before is None  # the first choice: all history
-    again = _tap(client, "s1:o")
-    assert "✓ Sunday" in _texts(again)
-    assert "A change applies from today" in again["text"]
-
-
-def test_custom_reminder_days_reset_shows_the_follow_note(
-    client: TestClient, storage: InMemoryStorage
-) -> None:
-    account = _me(client, storage)
-    storage.notifications.stored[account.id] = replace(
-        DEFAULTS, practice=replace(DEFAULTS.practice, days=frozenset({1, 3, 5}))
-    )
-    saved = _tap(client, "s1:o:6")
-    assert saved["text"].startswith("Reminder days now follow your day off.")
-    assert _rows(saved)[0] == ["✏️ Reminder days"]
+    assert account.day_off.days == frozenset({6, 7})
+    assert account.day_off.before is None  # corrections the same day: still all history
+    assert "😌 Days off: Saturday, Sunday" in _tap(client, "s1:v")["text"]
 
 
 def test_question_yes_sets_the_day_off_and_hides_it(
@@ -185,7 +177,8 @@ def test_question_yes_sets_the_day_off_and_hides_it(
     _me(client, storage)
     answered = _tap(client, "r1:d:6")
     assert "weekly day off?" not in answered["text"]
-    assert "✓ Day off: Sat" in _texts(answered)
+    [account] = storage.repo.accounts.values()
+    assert account.day_off.days == frozenset({6})
 
 
 def test_question_names_the_skipped_day_when_reminders_are_on(
@@ -195,18 +188,6 @@ def test_question_names_the_skipped_day_when_reminders_are_on(
     on = _tap(client, "r1:o:1")
     asked = "😌 Practice reminders don't come on Saturdays. Is that your weekly day off?"
     assert asked in on["text"]
-
-
-def test_question_for_a_weekday_has_no_weekend_alternative(
-    client: TestClient, storage: InMemoryStorage
-) -> None:
-    account = _me(client, storage)
-    storage.notifications.stored[account.id] = replace(
-        DEFAULTS, practice=replace(DEFAULTS.practice, days=frozenset({1, 2, 3, 4, 6, 7}))
-    )
-    body = _command(client, "/remind")
-    assert "Is Friday your weekly day off?" in body["text"]
-    assert _rows(body)[:2] == [["Yes"], ["Other…", "Not now"]]
 
 
 def test_not_now_hides_the_question_for_good(client: TestClient, storage: InMemoryStorage) -> None:
@@ -224,7 +205,7 @@ def test_other_opens_the_picker_with_a_way_back_to_remind(
     _me(client, storage)
     picker = _tap(client, "r1:dp")
     buttons = [b for row in picker["reply_markup"]["inline_keyboard"] for b in row]
-    assert buttons[0]["callback_data"] == "r1:d:6"
+    assert buttons[0]["callback_data"] == "r1:dt:6"
     assert buttons[-1]["callback_data"] == "r1:v"
 
 
@@ -272,14 +253,14 @@ def test_week_picker_shows_auto_days(client: TestClient, storage: InMemoryStorag
 
 
 def test_callback_codecs_round_trip_and_reject_forged_codes() -> None:
-    for data in ("s1:o", "s1:o:0", "s1:o:6"):
+    for data in ("s1:o", "s1:o:0", "s1:o:6", "s1:o:67"):
         cb = scb.decode(data)
         assert cb is not None
         assert scb.encode(cb) == data
         assert len(data.encode()) <= 64
-    for data in ("r1:d:0", "r1:d:7", "r1:dp", "r1:dn"):
+    for data in ("r1:d:0", "r1:d:7", "r1:d:67", "r1:dt:15", "r1:dp", "r1:dn"):
         cb = rcb.decode(data)
         assert cb is not None
         assert rcb.encode(cb) == data
-    for forged in ("s1:o:67", "s1:o:8", "r1:d:9", "r1:d:67", "r1:d:"):
+    for forged in ("s1:o:567", "s1:o:8", "s1:o:66", "r1:d:9", "r1:d:76x", "r1:d:", "r1:dt:00"):
         assert (scb.decode(forged) if forged.startswith("s1") else rcb.decode(forged)) is None

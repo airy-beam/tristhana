@@ -109,12 +109,10 @@ class SettingsScreens:
                 return self.day_off(principal)
             case "day_off":
                 try:
-                    saved = await self._s.day_off.execute(
-                        principal, [cb.weekday] if cb.weekday else []
-                    )
+                    saved = await self._s.day_off.execute(principal, cb.days_off)
                 except InvalidDayOff:  # forged
-                    return await self.view(principal)
-                return await self.view(Principal(saved.account), follow=saved.reminders_reset)
+                    return self.day_off(principal)
+                return self.day_off(Principal(saved.account))  # pick a second one, or go back
 
     def day_off(self, principal: Principal) -> Screen:
         locale = principal.account.locale
@@ -122,12 +120,12 @@ class SettingsScreens:
             self._t,
             locale,
             principal.account.day_off.days,
-            lambda d: _data(action="day_off", weekday=d),
+            lambda days: _data(action="day_off", days_off=days),
+            _data(action="day_off_pick"),
             button(self._t, locale, "settings-link", _data(action="view")),
         )
 
-    async def view(self, principal: Principal, follow: bool = False) -> Screen:
-        """`follow`: custom reminder days were just reset to follow the day off."""
+    async def view(self, principal: Principal) -> Screen:
         account = principal.account
         locale = account.locale
         settings = await self._s.settings.get(principal)
@@ -182,10 +180,6 @@ class SettingsScreens:
                 )
             ],
         ]
-        if follow:
-            lines = [self._t.t(locale, "day-off-reminders-follow"), "", *lines]
-            edit = rcb.encode(rcb.RemindCallback("view"))
-            rows.insert(0, [button(self._t, locale, "day-off-reminders-edit", edit)])
         if self._app:
             rows.append(
                 [

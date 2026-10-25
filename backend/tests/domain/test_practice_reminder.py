@@ -242,11 +242,11 @@ def test_reminder_days_follow_the_day_off() -> None:
     assert reminder_days(frozenset({7})) == frozenset({1, 2, 3, 4, 5, 6})
 
 
-def test_stored_null_days_follow_the_day_off_and_stored_days_override() -> None:
+def test_reminder_days_are_always_the_practice_days() -> None:
     sunday_off = defaults_for(frozenset({7}))
     assert effective(StoredSettings(), sunday_off).practice.days == frozenset({1, 2, 3, 4, 5, 6})
-    custom = frozenset({1, 3, 5})
-    assert effective(StoredSettings(practice_days=custom), sunday_off).practice.days == custom
+    weekend_off = defaults_for(frozenset({6, 7}))
+    assert effective(StoredSettings(), weekend_off).practice.days == frozenset({1, 2, 3, 4, 5})
     assert defaults_for(None) is DEFAULTS
 
 

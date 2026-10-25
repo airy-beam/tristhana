@@ -138,11 +138,9 @@ def test_remind_screen_off_by_default(client: TestClient, storage: InMemoryStora
     assert rows[1] == ["Other…", "Not now"]
     assert rows[2] == ["09:00", "10:00", "12:00"]
     assert rows[3] == ["18:00", "20:00", "21:00"]
-    assert rows[4] == ["Day off: Sat", "Day off: Sun"]  # no ✓: the day off isn't chosen
-    assert rows[5] == ["✓ Mon", "✓ Tue", "✓ Wed", "✓ Thu"]
-    assert rows[6] == ["✓ Fri", "Sat", "✓ Sun"]
-    assert rows[7] == ["🔔 Turn on"]
-    assert rows[8] == ["🌙 Moon reminders"]
+    assert rows[4] == ["😌 Day off"]  # PR-09: one day setting; reminders follow it
+    assert rows[5] == ["🔔 Turn on"]
+    assert rows[6] == ["🌙 Moon reminders"]
 
 
 def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage) -> None:
@@ -150,7 +148,7 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
 
     on = _tap(client, "r1:o:1", "ru")
     evening = _tap(client, "r1:t:2000", "ru")
-    sunday_off = _tap(client, "r1:d:7", "ru")  # the preset sets the day off (PR-09)
+    sunday_off = _tap(client, "r1:d:7", "ru")  # the day off decides the days (PR-09)
 
     assert on["text"].startswith(
         "🔔 Напоминание о практике: каждый день, кроме субботы в 10:00 Алматы (UTC+5)"  # noqa: RUF001
@@ -159,20 +157,15 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
     assert sunday_off["text"].startswith(
         "🔔 Напоминание о практике: каждый день, кроме воскресенья"  # noqa: RUF001
     )
-    assert "✓ Выходной: вс" in _texts(sunday_off)
+    assert "Они приходят в дни практики" in sunday_off["text"]
 
 
-def test_the_last_weekday_cannot_be_removed(client: TestClient, storage: InMemoryStorage) -> None:
+def test_old_weekday_keyboards_just_reshow_the_screen(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
     _me(client, storage)
-    _tap(client, "r1:w:3")
-
-    body = _tap(client, "r1:o:1")
-
-    wed = next(
-        b for row in body["reply_markup"]["inline_keyboard"] for b in row if b["text"] == "✓ Wed"
-    )
-    assert wed["callback_data"] == "r1:w:3"  # tapping keeps the set
-    assert "Wed at 10:00" in body["text"]
+    body = _tap(client, "r1:w:3")  # PR-09: reminder days aren't chosen any more
+    assert body["text"].startswith("🔕 Practice reminder is off")
 
 
 def test_without_a_zone_the_time_is_local_and_the_zone_is_asked_for(client: TestClient) -> None:
@@ -315,9 +308,6 @@ def test_turn_off_from_a_reminder_and_back(client: TestClient, storage: InMemory
         "r1:x",
         "r1:o:2",
         "r1:t:2561",
-        "r1:w:",
-        "r1:w:8",
-        "r1:w:11",
         "r1:s:20261399",
         "r1:q:20261019:2",
         "r0:v",
@@ -333,7 +323,8 @@ def test_every_remind_callback_fits_64_bytes() -> None:
         RemindCallback("view"),
         RemindCallback("switch", on=True),
         RemindCallback("time", at=time(21)),
-        RemindCallback("days", days=frozenset(range(1, 8))),
+        RemindCallback("day_off", days_off=frozenset({6, 7})),
+        RemindCallback("day_off_toggle", days_off=frozenset()),
         RemindCallback("yes", day=day),
         RemindCallback("no", day=day),
         RemindCallback("same", day=day),

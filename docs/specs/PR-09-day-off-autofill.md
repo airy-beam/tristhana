@@ -4,6 +4,14 @@
 - Requirements: **PR-09** (auto-fill: moon days and the weekly day off are pre-marked as rest; the user can override). Settles **Q21** (explicit always wins) and the 07 Moon Days question (moon day on the day off). Touches PR-01/04 (day screens), PR-10 (reminder days), ST-01..03 (cells, summary), ID-06 (settings). Budget: < 300 ms p50 per tap (warm).
 - Related: ADR-0005, 0008, 0016, 0018, 0019, 0020, 0021. New: **ADR-0022** (auto-rest derived at read time; Accepted).
 
+## Amendment (owner, 2026-10-25, after go-live): one day setting
+Two settings (the day off and the reminder days) were confusing. Now:
+- **Days off: up to two** (`MAX_DAYS_OFF = 2`; e.g. Mysore Mon–Fri shalas). The other days are the **practice days**, and **practice reminders come on them only**: reminder days are never chosen separately.
+- Stored custom reminder days are dropped (migration **0008** sets `practice_days` NULL; the column stays until a later contract migration). `PATCH /me/notification-settings` `practice.days` is deprecated and ignored; `DayOffOut` = `{day_off, practice_days}` (no `reminder_days_reset`).
+- Bot: the day-off picker toggles days (😌 = day off) and stays open (`s1:o:<digits|0>`, `r1:dt:<digits|0>`); with two days off a third tap just reshows the picker. `/remind` has no day buttons: a "They come on your practice days" line and a [😌 Day off] button (`r1:dp`). Old `r1:w:*` keyboards reshow `/remind`. `/settings`: "😌 Days off: Saturday, Sunday".
+- Mini App: Day off chips toggle (pressed = day off, a third is disabled until one is unpressed); the reminder card shows "On your practice days: …".
+- Sections below that describe custom reminder days, the "now follow your day off" note and one day off are superseded by this amendment.
+
 ## 0. Implementation plan (in order; TDD per step)
 1. **Domain**: new `domain/rest_days.py`; `domain/accounts.py` (`Account` fields); `domain/notifications.py` (`reminder_days`, `defaults_for`, `day_off_question`); `domain/stats.py` (`auto` input). Tests: `tests/domain/test_rest_days.py` (new), `test_notifications.py`, `test_stats.py`, `test_accounts.py`.
 2. **Application**: `ports/days.py` (`RangeView`, `range_with_moon`), `ports/accounts.py` (`set_day_off`, `dismiss_day_off_question`), `ports/notifications.py` (`reset_practice_days`); `application/days.py` (`GetDays` + `Cities`), `application/stats.py`, new `application/rest_days.py` (`SetDayOff`, `DismissDayOffQuestion`); `settings.py`, `remind.py`, `moon.py`, `tick.py` pass `defaults_for(account.day_off.days)` instead of `DEFAULTS`. Wiring: `main.py`, `api/deps.py`, `bots/telegram/runtime.py`.

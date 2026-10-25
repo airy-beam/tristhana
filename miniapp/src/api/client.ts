@@ -410,7 +410,7 @@ function merged(settings: NotificationSettings, patch: SettingsPatch): Notificat
       ? {
           on: practice.on !== undefined ? practice.on : settings.practice.on,
           at: practice.at ?? settings.practice.at,
-          days: practice.days ?? settings.practice.days,
+          days: settings.practice.days, // the practice days: set under Day off (PR-09)
         }
       : settings.practice,
   };

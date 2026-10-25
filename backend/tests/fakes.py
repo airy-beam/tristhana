@@ -326,8 +326,6 @@ class InMemoryNotifications:
     unreachable: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
     days: "InMemoryDays | None" = None  # logged days for the practice reminder
     intro_sent: set[UUID] = field(default_factory=set[UUID])
-    # Stored `practice_days` is NULL: the days follow the defaults (the day off, PR-09).
-    follow_days: set[UUID] = field(default_factory=set[UUID])
 
     async def settings(
         self, account_id: UUID, defaults: NotificationSettings
@@ -335,25 +333,13 @@ class InMemoryNotifications:
         stored = self.stored.get(account_id)
         if stored is None:
             return defaults
-        if account_id in self.follow_days:
-            return replace(stored, practice=replace(stored.practice, days=defaults.practice.days))
-        return stored
-
-    async def reset_practice_days(
-        self, account_id: UUID, defaults: NotificationSettings
-    ) -> tuple[NotificationSettings, frozenset[int] | None]:
-        stored = self.stored.get(account_id)
-        before = None if stored is None or account_id in self.follow_days else stored.practice.days
-        if stored is not None:
-            self.follow_days.add(account_id)
-        return await self.settings(account_id, defaults), before
+        # Reminder days are the practice days (PR-09): never stored.
+        return replace(stored, practice=replace(stored.practice, days=defaults.practice.days))
 
     async def save(
         self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
     ) -> NotificationSettings:
-        if with_practice:
-            self.follow_days.discard(account_id)  # the real save writes explicit days
-        else:
+        if not with_practice:
             current = self.stored.get(account_id)
             settings = replace(
                 settings, practice=current.practice if current else settings.practice
@@ -373,7 +359,6 @@ class InMemoryNotifications:
             s.daily_cap,
             s.practice.on,
             s.practice.at,
-            None if account_id in self.follow_days else s.practice.days,
         )
 
     async def patch(
@@ -381,10 +366,6 @@ class InMemoryNotifications:
     ) -> NotificationSettings:
         row = replace(await self.stored_row(account_id), **columns)  # type: ignore[arg-type]
         self.stored[account_id] = effective(row, defaults)
-        if row.practice_days is None:
-            self.follow_days.add(account_id)
-        else:
-            self.follow_days.discard(account_id)
         return await self.settings(account_id, defaults)
 
     async def mark_intro_sent(self, account_id: UUID, at: datetime) -> None:
@@ -394,10 +375,6 @@ class InMemoryNotifications:
         self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
     ) -> NotificationSettings:
         current = await self.settings(account_id, defaults)
-        if account_id not in self.stored:
-            self.follow_days.add(account_id)  # a new row stores NULL days
-        if patch.days is not None:
-            self.follow_days.discard(account_id)
         self.stored[account_id] = replace(current, practice=patch.apply(current.practice))
         return await self.settings(account_id, defaults)
 
@@ -616,7 +593,7 @@ def remind_use_cases(
         update=UpdatePracticeReminder(storage.notifications),
         offer=AnswerPracticeOffer(storage.notifications, clock),
         quick_log=QuickLogSameAsLast(storage.days, storage.practices, clock),
-        day_off=SetDayOff(storage.accounts, storage.notifications, clock),
+        day_off=SetDayOff(storage.accounts, clock),
         dismiss_day_off=DismissDayOffQuestion(storage.accounts),
     )
 
@@ -631,5 +608,5 @@ def settings_use_cases(storage: "InMemoryStorage | None" = None) -> SettingsUseC
         settings=NotificationSettingsUseCase(storage.notifications),
         cities=moon_use_cases(storage).cities,
         today=day_use_cases(storage.days).get.today,
-        day_off=SetDayOff(storage.accounts, storage.notifications, FixedClock()),
+        day_off=SetDayOff(storage.accounts, FixedClock()),
     )
