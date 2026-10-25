@@ -115,7 +115,7 @@ No owner steps ☁️. On merge, the existing migrate job applies `0003`, and th
 
 ## 9. Decisions (owner + ashtanga-expert, 2026-10-19) — override the text above
 - Q1–Q10 as recommended. Expert corrections applied:
-  - **Implied blocks:** `()` = short = opening + standing + finishing, **no backbending**; any non-empty `series` implies opening, standing, series, backbending, finishing. No separate "standing only" length.
+  - **Implied blocks:** `()` = short = opening + standing + finishing, backbending optional (owner, Q38, 2026-10-25); any non-empty `series` implies opening, standing, series, backbending, finishing. No separate "standing only" length.
   - **Context `home` → `self`** ("Self-practice" / «Самостоятельно»: home, hotel, shala outside class hours). DB CHECK `('mysore','led','private','self')`, online hidden for `self`. RU: «Майсор», «Лед-класс», «Индивидуально» (EN "1:1"), «🌐 Онлайн». Context buttons in two rows: `[Mysore] [Led]` / `[1:1] [Self-practice]`.
   - **Duration chips:** `[30][45][60][75]` / `[90][120][150][180]`.
   - **Copy:** `preset-short` "☀️ Short: sun salutations, standing, finishing" / «☀️ Короткая: приветствия солнцу, стоячие, завершающие» (own row); new keys `preset-half-primary` "½ Primary → Navasana" / «½ первой → Навасана», `preset-full-primary` "Full Primary" / «Вся первая серия»; `length-pick` "Where did your practice end?" / «Где закончилась практика?»; one full series reads "Full { $series }" / «{ $series } целиком»; RU series names lowercase inside sentences.
