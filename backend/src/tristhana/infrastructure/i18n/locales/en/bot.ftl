@@ -268,7 +268,7 @@ remind-weekday = { $d ->
        *[7] Sun
     }
 remind-moon-link = 🌙 Moon reminders
-remind-days-follow = They come on your practice days: change them with 😌 Day off.
+remind-days-follow = They come on your practice days. To change the days, tap 😌 Day off.
 remind-practice-link = 🧘 Practice reminder
 
 ## Settings (ID-06).
@@ -328,12 +328,12 @@ settings-days-off-line = 😌 Days off: { day-off-weekday }, { $e ->
 settings-day-off-none-line = 😌 No fixed day off
 settings-day-off-unset-line = 😌 Day off: not chosen
 settings-day-off-button = 😌 Day off
-day-off-pick = 😌 Which days are your days off? Tap one, or two (e.g. Saturday and Sunday). The other days are your practice days.
+day-off-pick = 😌 Which day is your day off? Tap one or two; tap again to untick. The other days are your practice days.
 day-off-none = No fixed day off
-day-off-explain = Days off show as rest in your log and stats. Practice reminders come on your practice days only. { $first ->
-        [yes] Past weeks show it too.
-       *[no] A change applies from today; earlier weeks keep the previous day.
-    } If a day went differently, log it as usual. With no fixed day off, reminders come every day.
+day-off-explain = Days off show as rest in your log and stats, and practice reminders come on practice days only. { $first ->
+        [yes] Past weeks show them too.
+       *[no] A change applies from today; earlier weeks stay as they were.
+    } If a day goes differently, just log it. With no fixed day off, reminders come every day except moon days.
 log-auto-moon = 🌙 Moon day (📍 { $city }), a traditional rest day{ $dayoff ->
         [yes] {" "}and your weekly day off too
        *[no] {""}

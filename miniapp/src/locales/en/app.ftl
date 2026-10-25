@@ -252,10 +252,10 @@ settings-save-failed = Couldn't save. Try again in a moment.
 
 ## Weekly day off and auto-rest (PR-09). { $d } is an ISO weekday (1 = Monday).
 settings-day-off = Day off
-settings-day-off-hint = Pick one or two days off; the other days are your practice days. Days off show as rest in your log and stats, and practice reminders come on practice days only. { $first ->
-        [yes] Past weeks show it too.
-       *[no] A change applies from today; earlier weeks keep the previous day.
-    } If a day went differently, log it as usual. With no fixed day off, reminders come every day.
+settings-day-off-hint = Pick one or two; the other days are your practice days. Days off show as rest in your log and stats, and practice reminders come on practice days only. { $first ->
+        [yes] Past weeks show them too.
+       *[no] A change applies from today; earlier weeks stay as they were.
+    } If a day goes differently, just log it. With no fixed day off, reminders come every day except moon days.
 day-off-none = No fixed day off
 remind-days-follow = On your practice days: { $days }. Change them under Day off.
 remind-every-day = every day

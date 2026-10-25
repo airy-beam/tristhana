@@ -292,7 +292,7 @@ describe("Day off (PR-09)", () => {
     const chip = (name: string) =>
       within(group).getByRole("button", { name: (n) => plain(n) === name });
     expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
-    expect(screen.getByText(/Past weeks show it too/)).toBeInTheDocument();
+    expect(screen.getByText(/Past weeks show them too/)).toBeInTheDocument();
 
     fireEvent.click(chip("Sun"));
     await vi.waitFor(() => {
