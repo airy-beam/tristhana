@@ -282,11 +282,6 @@ class _UnavailableNotifications:
     ) -> NotificationSettings:
         raise StorageUnavailable("not configured")
 
-    async def reset_practice_days(
-        self, account_id: UUID, defaults: NotificationSettings
-    ) -> NoReturn:
-        raise StorageUnavailable("not configured")
-
     async def mark_intro_sent(self, account_id: UUID, at: datetime) -> NoReturn:
         raise StorageUnavailable("not configured")
 

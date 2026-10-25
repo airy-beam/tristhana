@@ -198,7 +198,12 @@ class MoonPatchBody(BaseModel):
 class PracticePatchBody(BaseModel):
     on: bool | None = None
     at: dt.time | None = None
-    days: list[Annotated[int, Field(ge=1, le=7)]] | None = Field(default=None, min_length=1)
+    days: list[Annotated[int, Field(ge=1, le=7)]] | None = Field(
+        default=None,
+        min_length=1,
+        deprecated=True,
+        description="Ignored: reminders come on the practice days (PUT /me/day-off)",
+    )
 
 
 class NotificationSettingsPatch(BaseModel):
@@ -234,9 +239,6 @@ def _domain_patch(body: NotificationSettingsPatch) -> NotificationPatch:
         daily_cap=body.daily_cap if "daily_cap" in sent else KEEP,
         practice_on=p.on if p and "on" in practice else KEEP,
         practice_at=_time(p.at) if p and "at" in practice else KEEP,
-        practice_days=(frozenset(p.days) if p.days is not None else None)
-        if p and "days" in practice
-        else KEEP,
     )
 
 

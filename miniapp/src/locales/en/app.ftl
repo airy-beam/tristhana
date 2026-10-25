@@ -141,8 +141,6 @@ remind-card-title = 🧘 Practice reminder
 remind-switch = 🔔 Ask me once a day
 remind-explain-app = Once a day I'll ask in the bot how it went, with one-tap buttons. Not on moon days or days you've already logged.
 remind-time-label = Time · { $zone }
-remind-day-off = Day off: { remind-weekday }
-remind-days-label = Days
 remind-weekday = { $d ->
         [1] Mon
         [2] Tue
@@ -254,11 +252,13 @@ settings-save-failed = Couldn't save. Try again in a moment.
 
 ## Weekly day off and auto-rest (PR-09). { $d } is an ISO weekday (1 = Monday).
 settings-day-off = Day off
-settings-day-off-hint = Your day off shows as rest in your log and stats, and practice reminders skip it. { $first ->
+settings-day-off-hint = Pick one or two days off; the other days are your practice days. Days off show as rest in your log and stats, and practice reminders come on practice days only. { $first ->
         [yes] Past weeks show it too.
        *[no] A change applies from today; earlier weeks keep the previous day.
     } If a day went differently, log it as usual. With no fixed day off, reminders come every day.
 day-off-none = No fixed day off
+remind-days-follow = On your practice days: { $days }. Change them under Day off.
+remind-every-day = every day
 day-off-weekday = { $d ->
         [1] Monday
         [2] Tuesday
@@ -293,7 +293,6 @@ day-off-ask-instead = { $d ->
     }
 day-off-ask-other = Other…
 day-off-ask-later = Not now
-day-off-reminders-follow = Reminder days now follow your day off.
 stats-legend-auto = Day off or moon day (not logged)
 stats-cell-auto = { $date }: { $kind ->
         [moon] 🌙 moon day (📍 { $city })

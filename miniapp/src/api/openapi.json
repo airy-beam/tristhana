@@ -153,7 +153,7 @@
       "DayOffBody": {
         "properties": {
           "day_off": {
-            "description": "ISO weekdays (1 = Monday); [] = no fixed day off; one day for now",
+            "description": "ISO weekdays (1 = Monday); [] = no fixed day off; at most two",
             "items": {
               "type": "integer"
             },
@@ -177,23 +177,17 @@
             "type": "array"
           },
           "practice_days": {
-            "description": "Practice reminder days, now following it",
+            "description": "The other days: practice reminders come then",
             "items": {
               "type": "integer"
             },
             "title": "Practice Days",
             "type": "array"
-          },
-          "reminder_days_reset": {
-            "description": "Custom reminder days were replaced: say they now follow the day off",
-            "title": "Reminder Days Reset",
-            "type": "boolean"
           }
         },
         "required": [
           "day_off",
-          "practice_days",
-          "reminder_days_reset"
+          "practice_days"
         ],
         "title": "DayOffOut",
         "type": "object"
@@ -1076,6 +1070,8 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
+            "description": "Ignored: reminders come on the practice days (PUT /me/day-off)",
             "title": "Days"
           },
           "on": {

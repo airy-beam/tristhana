@@ -3,7 +3,7 @@ with the day range in one statement, reminder days that follow, and migration 00
 
 import asyncio
 import base64
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 import pytest
@@ -15,7 +15,7 @@ from tristhana.application.ports.notifications import ReminderPatch
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.moon import MoonDay, MoonDayKind
-from tristhana.domain.notifications import DEFAULTS, StoredSettings, defaults_for
+from tristhana.domain.notifications import DEFAULTS, StoredSettings
 from tristhana.domain.rest_days import DayOff
 from tristhana.infrastructure.crypto import FieldCipher
 from tristhana.infrastructure.db import migrate
@@ -128,21 +128,6 @@ async def test_range_with_moon_returns_logs_and_moon_dates(engine: AsyncEngine) 
     assert (await days.range_with_moon(me, start, end, "almaty")).moon_dates == frozenset()
 
 
-async def test_reset_practice_days_returns_the_days_before(engine: AsyncEngine) -> None:
-    me = await _account(engine)
-    repo = SqlNotificationRepository(engine)
-    sunday_off = defaults_for(SUN)
-    assert await repo.reset_practice_days(me, sunday_off) == (sunday_off, None)  # no row
-    custom = frozenset({1, 3, 5})
-    await repo.patch_practice(me, ReminderPatch(on=True, at=time(10), days=custom), DEFAULTS)
-    settings, before = await repo.reset_practice_days(me, sunday_off)
-    assert before == custom
-    assert settings.practice.days == frozenset({1, 2, 3, 4, 5, 6})
-    assert settings.practice.on is True
-    assert (await repo.stored_row(me)).practice_days is None
-    assert (await repo.reset_practice_days(me, sunday_off))[1] is None
-
-
 async def test_candidates_follow_each_accounts_day_off(engine: AsyncEngine) -> None:
     me = await _account(engine)
     await SqlAccountRepository(engine).set_day_off(me, DayOff(SUN))
@@ -173,7 +158,33 @@ async def test_0007_nulls_default_reminder_days_and_keeps_custom_ones(
     repo = SqlNotificationRepository(engine)
     assert await repo.stored_row(me) == StoredSettings()  # Sun-Fri reads the same as before
     assert (await repo.settings(me, DEFAULTS)).practice.days == frozenset({1, 2, 3, 4, 5, 7})
-    assert (await repo.stored_row(other)).practice_days == frozenset({1, 2, 3, 4, 5, 6})
     # No day off is inferred from the stored days.
     accounts = SqlAccountRepository(engine)
     assert (await accounts.set_timezone_if_unset(other, "UTC")).day_off == DayOff()
+
+
+async def test_0008_clears_custom_reminder_days(migrated_url: str, engine: AsyncEngine) -> None:
+    me = await _account(engine)
+    await asyncio.to_thread(migrate.downgrade, migrated_url, "0007")
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO tristhana.notification_settings (account_id, practice_days) "
+                    "VALUES (:id, :days)"
+                ),
+                {"id": me, "days": [1, 3, 5]},
+            )
+    finally:
+        await asyncio.to_thread(migrate.upgrade, migrated_url)
+    async with engine.connect() as conn:
+        stored = (
+            await conn.execute(
+                text(
+                    "SELECT practice_days FROM tristhana.notification_settings"
+                    " WHERE account_id = :id"
+                ),
+                {"id": me},
+            )
+        ).scalar_one()
+    assert stored is None

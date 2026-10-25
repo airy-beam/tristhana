@@ -1,19 +1,14 @@
-import { Localized } from "@fluent/react";
+import { Localized, useLocalization } from "@fluent/react";
 
 import {
-  useMe,
   useNotificationSettings,
   usePatchNotificationSettings,
-  useSetDayOff,
   type NotificationSettings,
 } from "../api/client";
 import { haptics } from "../telegram";
 import { zoneLabel } from "./practiceText";
 
 const TIMES = ["09:00", "10:00", "12:00", "18:00", "20:00", "21:00"] as const;
-const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
-// One-tap "Day off: Sat / Sun": they set the day off itself; reminder days follow (PR-09).
-const DAY_OFF = [6, 7] as const;
 
 type Practice = NotificationSettings["practice"];
 
@@ -26,20 +21,24 @@ export function inQuiet(quiet: NotificationSettings["quiet"], at: string): boole
   return s < e ? s <= a && a < e : a >= s || a < e;
 }
 
-/** The daily practice reminder (PR-10): on/off, time, weekdays. Off until chosen. */
+/** The daily practice reminder (PR-10): on/off and time. It comes on the practice days,
+ * which the Day off section decides (PR-09). Off until chosen. */
 export function PracticeReminderCard({ zone }: { zone: string | null }) {
   const query = useNotificationSettings();
   const save = usePatchNotificationSettings();
-  const setDayOff = useSetDayOff();
-  const dayOff = useMe().data?.day_off ?? null;
+  const { l10n } = useLocalization();
   const settings = query.data;
   if (!settings) return null;
   const practice = settings.practice;
   const on = practice.on === true;
 
+  const daysText = (days: readonly number[]) =>
+    days.length === 7
+      ? l10n.getString("remind-every-day")
+      : days.map((d) => l10n.getString("remind-weekday", { d })).join(", ");
+
   const update = (change: Partial<Practice>) => {
     haptics.impact("light");
-    if (change.days) setDayOff.reset(); // customised again: the follow note is stale
     save.mutate(
       { practice: change },
       {
@@ -96,59 +95,16 @@ export function PracticeReminderCard({ zone }: { zone: string | null }) {
                 </button>
               ))}
             </div>
-            <Localized id="remind-days-label">
-              <p className="label" />
+            <Localized id="remind-days-follow" vars={{ days: daysText(practice.days) }}>
+              <p className="hint small" />
             </Localized>
-            <div className="chips" role="group">
-              {DAY_OFF.map((d) => (
-                <Localized key={d} id="remind-day-off" vars={{ d }}>
-                  <button
-                    type="button"
-                    className="chip"
-                    aria-pressed={dayOff?.length === 1 && dayOff[0] === d}
-                    onClick={() => {
-                      haptics.impact("light");
-                      setDayOff.mutate([d]);
-                    }}
-                  />
-                </Localized>
-              ))}
-            </div>
-            {setDayOff.data?.reminder_days_reset && (
-              <Localized id="day-off-reminders-follow">
-                <p className="hint" role="status" />
-              </Localized>
-            )}
-            <div className="chips" role="group">
-              {WEEKDAYS.map((d) => {
-                const picked = practice.days.includes(d);
-                const last = picked && practice.days.length === 1;
-                return (
-                  <Localized key={d} id="remind-weekday" vars={{ d }}>
-                    <button
-                      type="button"
-                      className="chip"
-                      aria-pressed={picked}
-                      disabled={last}
-                      onClick={() => {
-                        update({
-                          days: picked
-                            ? practice.days.filter((x) => x !== d)
-                            : [...practice.days, d].sort((a, b) => a - b),
-                        });
-                      }}
-                    />
-                  </Localized>
-                );
-              })}
-            </div>
           </>
         ) : (
           <Localized id="moon-zone-needed-app">
             <p className="hint" />
           </Localized>
         ))}
-      {(save.isError || setDayOff.isError) && (
+      {save.isError && (
         <Localized id="moon-save-failed">
           <p className="status" role="alert" />
         </Localized>

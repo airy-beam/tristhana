@@ -181,6 +181,7 @@ notification_settings = Table(
     Column("daily_cap", SmallInteger()),
     Column("practice_on", Boolean()),  # NULL = never chosen (the one-time offer may show)
     Column("practice_at", Time()),
+    # Unused since PR-09 (reminder days follow the day off); always NULL, drop later.
     Column("practice_days", ARRAY(SmallInteger())),
     Column("unreachable_at", DateTime(timezone=True)),
     Column("moon_intro_sent_at", DateTime(timezone=True)),  # Q24: the intro went out once

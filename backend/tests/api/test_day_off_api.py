@@ -49,23 +49,12 @@ def test_day_off_is_null_until_chosen(api: TestClient) -> None:
 def test_put_day_off_returns_the_reminder_days_that_follow(api: TestClient) -> None:
     out = _put(api, [7])
     assert out.status_code == 200
-    assert out.json() == {
-        "day_off": [7],
-        "practice_days": [1, 2, 3, 4, 5, 6],
-        "reminder_days_reset": False,
-    }
+    assert out.json() == {"day_off": [7], "practice_days": [1, 2, 3, 4, 5, 6]}
+    weekend = _put(api, [6, 7]).json()
+    assert weekend == {"day_off": [6, 7], "practice_days": [1, 2, 3, 4, 5]}
 
 
-def test_custom_reminder_days_reset_is_reported(api: TestClient) -> None:
-    api.patch(
-        "/api/v1/me/notification-settings",
-        json={"practice": {"days": [1, 3, 5]}},
-        headers=_auth(),
-    )
-    assert _put(api, [7]).json()["reminder_days_reset"] is True
-
-
-@pytest.mark.parametrize("day_off", [[6, 7], [8], [0], [6, 6], None])
+@pytest.mark.parametrize("day_off", [[5, 6, 7], [8], [0], [6, 6], None])
 def test_invalid_day_off_is_422(api: TestClient, day_off: Any) -> None:
     out = _put(api, day_off)
     assert out.status_code == 422

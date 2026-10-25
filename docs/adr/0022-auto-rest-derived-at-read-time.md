@@ -36,3 +36,7 @@ PR-09: moon days and the weekly day off are "pre-marked as rest (the user can ov
 - **Fully retroactive day off (no effective-from)**. This is simpler, but switching Saturday → Sunday would recolour a year of history and bring back past "unmarked" invitations for this month.
 - **A `day_off_period` table with full history**. Exact, but it costs a join or an extra statement on every read. It's the upgrade path if people change their day off often.
 - **A single weekday `smallint` (0–7)**. Simpler today, but two days off would need a migration and an API change. A bitmask costs nothing extra now.
+
+## Amendment (2026-10-25, owner)
+One day setting: up to two days off; the other days are the practice days, and practice reminders come on them only. Reminder days are no longer stored or chosen (migration 0008 clears `practice_days`; the column is dropped later). This removes the "custom days reset" note and its extra statement: setting the day off is one statement.
+

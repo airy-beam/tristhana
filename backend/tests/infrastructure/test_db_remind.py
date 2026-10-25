@@ -13,7 +13,7 @@ from tristhana.application.ports.notifications import ReminderPatch
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DayLog, DayStatus
-from tristhana.domain.notifications import DEFAULTS
+from tristhana.domain.notifications import DEFAULTS, defaults_for
 from tristhana.domain.practice import PracticeContext, PracticeLength
 from tristhana.infrastructure.crypto import FieldCipher
 from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -46,15 +46,15 @@ async def test_practice_settings_default_patch_and_save(engine: AsyncEngine) -> 
     assert (await repo.settings(me, DEFAULTS)).practice == DEFAULTS.practice
     on = await repo.patch_practice(me, ReminderPatch(on=True), DEFAULTS)
     sun_off = await repo.patch_practice(
-        me, ReminderPatch(days=frozenset({1, 2, 3, 4, 5, 6}), at=time(20)), DEFAULTS
+        me, ReminderPatch(at=time(20)), defaults_for(frozenset({7}))
     )
 
     assert on.practice.on is True
     assert on.practice.at == DEFAULTS.practice.at  # NULL column = the default
     assert (sun_off.practice.on, sun_off.practice.at) == (True, time(20))
-    assert sun_off.practice.days == {1, 2, 3, 4, 5, 6}
+    assert sun_off.practice.days == {1, 2, 3, 4, 5, 6}  # the practice days, never stored
     saved = await repo.save(me, replace(sun_off, practice=replace(sun_off.practice, on=False)))
-    assert await repo.settings(me, DEFAULTS) == saved
+    assert await repo.settings(me, defaults_for(frozenset({7}))) == saved
 
 
 async def test_candidates_include_practice_only_accounts_with_their_logged_days(

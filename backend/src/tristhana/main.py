@@ -213,7 +213,7 @@ class _Services:
             update=UpdatePracticeReminder(self._storage.notifications),
             offer=AnswerPracticeOffer(self._storage.notifications, clock),
             quick_log=QuickLogSameAsLast(self._storage.days, self._storage.practices, clock),
-            day_off=SetDayOff(self._storage.accounts, self._storage.notifications, clock),
+            day_off=SetDayOff(self._storage.accounts, clock),
             dismiss_day_off=DismissDayOffQuestion(self._storage.accounts),
         )
         app.state.set_day_off, app.state.dismiss_day_off = remind.day_off, remind.dismiss_day_off

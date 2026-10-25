@@ -72,16 +72,13 @@ class MePatch(BaseModel):
 
 class DayOffBody(BaseModel):
     day_off: list[StrictInt] = Field(
-        description="ISO weekdays (1 = Monday); [] = no fixed day off; one day for now"
+        description="ISO weekdays (1 = Monday); [] = no fixed day off; at most two"
     )
 
 
 class DayOffOut(BaseModel):
     day_off: list[int]
-    practice_days: list[int] = Field(description="Practice reminder days, now following it")
-    reminder_days_reset: bool = Field(
-        description="Custom reminder days were replaced: say they now follow the day off"
-    )
+    practice_days: list[int] = Field(description="The other days: practice reminders come then")
 
 
 class DeviceTimezone(BaseModel):
@@ -144,8 +141,7 @@ async def put_day_off(
         raise ApiError(422, "invalid_day_off") from None
     return DayOffOut(
         day_off=sorted(saved.account.day_off.days or ()),
-        practice_days=sorted(saved.settings.practice.days),
-        reminder_days_reset=saved.reminders_reset,
+        practice_days=sorted(saved.practice_days),
     )
 
 

@@ -196,11 +196,11 @@ async def test_update_patches_one_field_and_validates(
     update = UpdatePracticeReminder(notifications)
 
     await update.execute(Principal(me), ReminderPatch(on=True))
-    saved = await update.execute(Principal(me), ReminderPatch(days=frozenset({1, 2, 3, 4, 5, 6})))
+    saved = await update.execute(Principal(me), ReminderPatch(at=time(9)))
 
-    assert (saved.practice.on, saved.practice.at) == (True, time(10))
-    assert saved.practice.days == {1, 2, 3, 4, 5, 6}
-    for bad in (ReminderPatch(days=frozenset()), ReminderPatch(on=True, at=time(23))):
+    assert (saved.practice.on, saved.practice.at) == (True, time(9))
+    assert saved.practice.days == {1, 2, 3, 4, 5, 7}  # the practice days (Sat off by default)
+    for bad in (ReminderPatch(at=time(9, 5)), ReminderPatch(on=True, at=time(23))):
         with pytest.raises(InvalidSettings):
             await update.execute(Principal(me), bad)
 
@@ -386,7 +386,7 @@ async def test_a_time_in_quiet_hours_is_refused_even_while_off(
 async def test_tick_follows_the_day_off_when_reminder_days_are_not_custom(
     accounts: InMemoryAccounts, notifications: InMemoryNotifications, moon: InMemoryMoon
 ) -> None:
-    """PR-09: stored practice days NULL = follow the day off (Monday here)."""
+    """PR-09: reminders come on the practice days only (Monday is the day off here)."""
     me = await _account(accounts)
     await notifications.patch_practice(me.id, ReminderPatch(on=True), DEFAULTS)
     await accounts.set_day_off(me.id, DayOff(frozenset({1})))
@@ -395,18 +395,3 @@ async def test_tick_follows_the_day_off_when_reminder_days_are_not_custom(
     await _tick(notifications, moon, notifier).execute(BUDGET)
 
     assert notifier.practice == []
-
-
-async def test_an_unlogged_day_off_is_not_logged_for_custom_reminder_days(
-    accounts: InMemoryAccounts, notifications: InMemoryNotifications, moon: InMemoryMoon
-) -> None:
-    """ADR-0022: auto-rest is never a log, so chosen days that include the day off still
-    get their reminder."""
-    me = await _opted_in(accounts, notifications, days=frozenset(range(1, 8)))
-    await accounts.set_day_off(me.id, DayOff(frozenset({1})))
-    notifier = FakeNotifier()
-
-    await _tick(notifications, moon, notifier).execute(BUDGET)
-
-    [(_, reminder)] = notifier.practice
-    assert reminder.day == MON

@@ -31,8 +31,12 @@ def test_check_day_off_allows_one_weekday_or_none() -> None:
     assert check_day_off([]) == NONE
 
 
-@pytest.mark.parametrize("days", [[6, 7], [0], [8], [6, 6]])
-def test_check_day_off_rejects_more_than_one_or_out_of_range(days: list[int]) -> None:
+def test_two_days_off_are_allowed() -> None:
+    assert check_day_off([6, 7]) == frozenset({6, 7})
+
+
+@pytest.mark.parametrize("days", [[5, 6, 7], [0], [8], [6, 6]])
+def test_check_day_off_rejects_more_than_two_or_out_of_range(days: list[int]) -> None:
     with pytest.raises(InvalidDayOff):
         check_day_off(days)
 

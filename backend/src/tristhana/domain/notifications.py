@@ -86,7 +86,8 @@ def reminder_days(days_off: Weekdays | None) -> frozenset[int]:
 def defaults_for(
     days_off: Weekdays | None, base: "NotificationSettings | None" = None
 ) -> "NotificationSettings":
-    """The defaults for one account: stored `practice_days = NULL` follows its day off."""
+    """The defaults for one account: its practice days are the reminder days (PR-09: one
+    setting, the day off; reminder days are no longer chosen separately)."""
     base = base or DEFAULTS
     days = reminder_days(days_off)
     if days == base.practice.days:
@@ -283,7 +284,6 @@ class StoredSettings:
     daily_cap: int | None = None
     practice_on: bool | None = None  # None = never chosen
     practice_at: time | None = None
-    practice_days: frozenset[int] | None = None
 
 
 def effective(stored: StoredSettings, defaults: NotificationSettings) -> NotificationSettings:
@@ -302,7 +302,7 @@ def effective(stored: StoredSettings, defaults: NotificationSettings) -> Notific
         practice=PracticeReminders(
             stored.practice_on,
             stored.practice_at or defaults.practice.at,
-            stored.practice_days if stored.practice_days is not None else defaults.practice.days,
+            defaults.practice.days,  # the practice days (the day off decides them)
         ),
     )
 
@@ -325,7 +325,6 @@ class NotificationPatch:
     daily_cap: int | _Keep | None = KEEP
     practice_on: bool | _Keep | None = KEEP
     practice_at: time | _Keep | None = KEEP
-    practice_days: frozenset[int] | _Keep | None = KEEP
 
     def columns(self) -> dict[str, object]:
         """The stored columns this patch writes (only those sent)."""
@@ -336,7 +335,6 @@ class NotificationPatch:
             "daily_cap",
             "practice_on",
             "practice_at",
-            "practice_days",
         ):
             value = getattr(self, name)
             if not isinstance(value, _Keep):
