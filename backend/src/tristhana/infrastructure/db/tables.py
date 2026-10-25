@@ -181,17 +181,11 @@ notification_settings = Table(
     Column("daily_cap", SmallInteger()),
     Column("practice_on", Boolean()),  # NULL = never chosen (the one-time offer may show)
     Column("practice_at", Time()),
-    # Unused since PR-09 (reminder days follow the day off); always NULL, drop later.
-    Column("practice_days", ARRAY(SmallInteger())),
     Column("unreachable_at", DateTime(timezone=True)),
     Column("moon_intro_sent_at", DateTime(timezone=True)),  # Q24: the intro went out once
     _timestamp("updated_at"),
     CheckConstraint("moon_offsets <@ '{1,3,7}'::smallint[]", name="moon_offsets"),
     CheckConstraint("daily_cap BETWEEN 1 AND 10", name="daily_cap"),
-    CheckConstraint(
-        "practice_days <@ '{1,2,3,4,5,6,7}'::smallint[] AND cardinality(practice_days) > 0",
-        name="practice_days",
-    ),
     CheckConstraint("(quiet_start IS NULL) = (quiet_end IS NULL)", name="quiet_pair"),
 )
 

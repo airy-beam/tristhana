@@ -38,5 +38,5 @@ PR-09: moon days and the weekly day off are "pre-marked as rest (the user can ov
 - **A single weekday `smallint` (0–7)**. Simpler today, but two days off would need a migration and an API change. A bitmask costs nothing extra now.
 
 ## Amendment (2026-10-25, owner)
-One day setting: up to two days off; the other days are the practice days, and practice reminders come on them only. Reminder days are no longer stored or chosen (migration 0008 clears `practice_days`; the column is dropped later). This removes the "custom days reset" note and its extra statement: setting the day off is one statement.
+One day setting: up to two days off; the other days are the practice days, and practice reminders come on them only. Reminder days are no longer stored or chosen (migration 0008 clears `practice_days`, 0009 drops the column). This removes the "custom days reset" note and its extra statement: setting the day off is one statement.
 

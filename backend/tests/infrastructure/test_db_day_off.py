@@ -175,16 +175,42 @@ async def test_0008_clears_custom_reminder_days(migrated_url: str, engine: Async
                 ),
                 {"id": me, "days": [1, 3, 5]},
             )
+        await asyncio.to_thread(migrate.upgrade, migrated_url, None, "0008")
+        async with engine.connect() as conn:
+            stored = (
+                await conn.execute(
+                    text(
+                        "SELECT practice_days FROM tristhana.notification_settings"
+                        " WHERE account_id = :id"
+                    ),
+                    {"id": me},
+                )
+            ).scalar_one()
     finally:
         await asyncio.to_thread(migrate.upgrade, migrated_url)
+    assert stored is None
+
+
+async def _has_practice_days(engine: AsyncEngine) -> bool:
     async with engine.connect() as conn:
-        stored = (
+        return (
             await conn.execute(
                 text(
-                    "SELECT practice_days FROM tristhana.notification_settings"
-                    " WHERE account_id = :id"
-                ),
-                {"id": me},
+                    "SELECT count(*) FROM information_schema.columns WHERE table_schema = "
+                    "'tristhana' AND table_name = 'notification_settings' "
+                    "AND column_name = 'practice_days'"
+                )
             )
-        ).scalar_one()
-    assert stored is None
+        ).scalar_one() == 1
+
+
+async def test_0009_drops_practice_days_and_downgrade_brings_it_back(
+    migrated_url: str, engine: AsyncEngine
+) -> None:
+    assert not await _has_practice_days(engine)
+    await asyncio.to_thread(migrate.downgrade, migrated_url, "0008")
+    try:
+        assert await _has_practice_days(engine)
+    finally:
+        await asyncio.to_thread(migrate.upgrade, migrated_url)
+    assert not await _has_practice_days(engine)
