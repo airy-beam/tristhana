@@ -251,3 +251,55 @@ settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
 settings-privacy-sharing = For now, only you see what you log. When teachers join, you choose what they see.
 settings-save-failed = Couldn't save. Try again in a moment.
+
+## Weekly day off and auto-rest (PR-09). { $d } is an ISO weekday (1 = Monday).
+settings-day-off = Day off
+settings-day-off-hint = Your day off shows as rest in your log and stats, and practice reminders skip it. { $first ->
+        [yes] Past weeks show it too.
+       *[no] A change applies from today; earlier weeks keep the previous day.
+    } If a day went differently, log it as usual. With no fixed day off, reminders come every day.
+day-off-none = No fixed day off
+day-off-weekday = { $d ->
+        [1] Monday
+        [2] Tuesday
+        [3] Wednesday
+        [4] Thursday
+        [5] Friday
+        [6] Saturday
+       *[7] Sunday
+    }
+day-off-weekly = { $d ->
+        [1] on Mondays
+        [2] on Tuesdays
+        [3] on Wednesdays
+        [4] on Thursdays
+        [5] on Fridays
+        [6] on Saturdays
+       *[7] on Sundays
+    }
+today-auto-moon = 🌙 Moon day (📍 { $city }), a traditional rest day{ $dayoff ->
+        [yes] {" "}and your weekly day off too
+       *[no] {""}
+    }. If you practiced, log it below.
+today-auto-day-off = 😌 Your weekly day off, shown as rest. If the day went differently, log it below.
+day-off-ask = { $reminders ->
+        [on] 😌 Practice reminders don't come { day-off-weekly }. Is that your weekly day off?
+       *[off] 😌 Is { day-off-weekday } your weekly day off?
+    }
+day-off-ask-yes = Yes
+day-off-ask-instead = { $d ->
+        [6] Saturday
+       *[7] Sunday
+    }
+day-off-ask-other = Other…
+day-off-ask-later = Not now
+day-off-reminders-follow = Reminder days now follow your day off.
+stats-legend-auto = Day off or moon day (not logged)
+stats-cell-auto = { $date }: { $kind ->
+        [moon] 🌙 moon day (📍 { $city })
+       *[day_off] 😌 day off
+    }{ $dayoff ->
+        [yes] , also your day off
+       *[no] {""}
+    }, not logged
+stats-day-off-link = 😌 Set your weekly day off

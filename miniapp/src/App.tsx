@@ -28,12 +28,18 @@ interface AppProps {
 
 export function App({ locale, firstName, inTelegram }: AppProps) {
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
-  const [view, setView] = useState<"home" | "stats" | "settings">("home");
+  const [view, setView] = useState<"home" | "stats" | "settings" | "day-off">("home");
   const home = useCallback(() => {
     setView("home");
   }, []);
   const settings = useCallback(() => {
     setView("settings");
+  }, []);
+  const stats = useCallback(() => {
+    setView("stats"); // back from the day off opened on the stats screen
+  }, []);
+  const dayOff = useCallback(() => {
+    setView("day-off"); // Settings, scrolled to the day off (PR-09)
   }, []);
   // Telegram's ⋯ menu "Settings" item (ID-06).
   useSettingsButton(settings);
@@ -54,11 +60,15 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
         {(me) =>
           me && view === "stats" ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
-              <Stats locale={me.locale} zone={me.timezone} onBack={home} />
+              <Stats locale={me.locale} zone={me.timezone} onBack={home} onDayOff={dayOff} />
             </Suspense>
-          ) : me && view === "settings" ? (
+          ) : me && (view === "settings" || view === "day-off") ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
-              <Settings me={me} onBack={home} />
+              <Settings
+                me={me}
+                onBack={view === "day-off" ? stats : home}
+                focus={view === "day-off" ? "day-off" : undefined}
+              />
             </Suspense>
           ) : (
             <Home

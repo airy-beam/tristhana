@@ -106,7 +106,12 @@ def test_notification_settings_round_trip(api: TestClient) -> None:
     assert defaults["timezone"] is None
     practice = {"on": None, "at": "10:00:00", "days": [1, 2, 3, 4, 5, 7]}
     assert defaults["practice"] == practice
-    assert saved.json() == body | {"timezone": None, "practice": practice}  # omitted: kept
+    question = {"weekday": 6, "reminders_on": False}  # PR-09: the day off is not chosen yet
+    assert saved.json() == body | {
+        "timezone": None,
+        "practice": practice,
+        "day_off_question": question,
+    }  # omitted: kept
     assert (bad.status_code, bad.json()) == (422, {"code": "invalid_settings"})
 
 

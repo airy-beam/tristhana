@@ -5,7 +5,8 @@ Rules (owner, 2026-10-19; Q18). Rest-like days (rest, moon, ladies' holiday, sic
 are part of the practice: they never count for or against anyone. "Possible days" are
 practiced + "No practice". A run counts practice days only; rest-like days are transparent,
 "No practice" ends it quietly, and so do more than MAX_UNLOGGED_BRIDGE unmarked days in a
-row. Today never ends a run: the day isn't over.
+row. Today never ends a run: the day isn't over. Auto-rest (PR-09, ADR-0022) counts as rest in
+summaries but stays unmarked for runs, so weekly auto Saturdays can't keep a run alive.
 """
 
 from collections import Counter
@@ -15,6 +16,7 @@ from datetime import date, timedelta
 
 from tristhana.domain.days import REST_LIKE, DayLog, DayStatus
 from tristhana.domain.practice import PracticeContext
+from tristhana.domain.rest_days import AutoDay, AutoKind
 
 # A week: an unlogged ladies' holiday next to a day off and a moon day must not end a run;
 # someone back after months must not see an old run continue (ashtanga-expert).
@@ -28,7 +30,8 @@ type Cell = DayStatus | None
 class Summary:
     practiced: int = 0
     skipped: int = 0
-    unlogged: int = 0  # strictly before today
+    unlogged: int = 0  # strictly before today, auto-rest excluded
+    auto: int = 0  # unlogged days shown as rest (moon day or the day off)
     rest: dict[DayStatus, int] = field(default_factory=dict[DayStatus, int])
     contexts: dict[PracticeContext, int] = field(default_factory=dict[PracticeContext, int])
     online: int = 0
@@ -62,6 +65,7 @@ class YearStats:
     year_total: Summary
     current_run: int | None  # only for the current year
     longest_run: int  # the longest run touching the year (counted whole)
+    auto: dict[date, AutoDay] = field(default_factory=dict[date, AutoDay])  # in the year
 
 
 def _days_between(start: date, end: date) -> list[date]:
@@ -76,18 +80,31 @@ def _series_bucket(series: tuple[str, ...], number: SeriesNumber) -> int | None:
     return max(numbers) if numbers and len(numbers) == len(series) else None
 
 
+_AUTO_STATUS = {AutoKind.MOON: DayStatus.MOON, AutoKind.DAY_OFF: DayStatus.REST}
+_NO_AUTO: Mapping[date, AutoDay] = {}
+
+
 def summarize(
-    days: Mapping[date, DayLog], start: date, end: date, today: date, number: SeriesNumber
+    days: Mapping[date, DayLog],
+    start: date,
+    end: date,
+    today: date,
+    number: SeriesNumber,
+    auto: Mapping[date, AutoDay] = _NO_AUTO,
 ) -> Summary:
     """The period [start, end]; days after today are ignored."""
     rest: Counter[DayStatus] = Counter()
     contexts: Counter[PracticeContext] = Counter()
     series: Counter[int] = Counter()
-    practiced = skipped = unlogged = online = unspecified = total = count = 0
+    practiced = skipped = unlogged = auto_count = online = unspecified = total = count = 0
     for d in _days_between(start, min(end, today)):
         day = days.get(d)
         if day is None:
-            unlogged += d < today
+            if d in auto:
+                rest[_AUTO_STATUS[auto[d].kind]] += 1
+                auto_count += 1
+            else:
+                unlogged += d < today
             continue
         if day.status in REST_LIKE:
             rest[day.status] += 1
@@ -116,6 +133,7 @@ def summarize(
         practiced=practiced,
         skipped=skipped,
         unlogged=unlogged,
+        auto=auto_count,
         rest=dict(rest),
         contexts=dict(contexts),
         online=online,
@@ -162,15 +180,20 @@ def find_runs(days: Mapping[date, DayLog], start: date, today: date) -> Runs:
 
 
 def year_stats(
-    days: Mapping[date, DayLog], year: int, today: date, number: SeriesNumber
+    days: Mapping[date, DayLog],
+    year: int,
+    today: date,
+    number: SeriesNumber,
+    auto: Mapping[date, AutoDay] = _NO_AUTO,
 ) -> YearStats:
     """`days` should cover the previous and the next year (up to today), so a run crossing
-    New Year is counted whole."""
+    New Year is counted whole. `auto` = the year's auto-rest (only summaries use it)."""
     start, end = date(year, 1, 1), date(year, 12, 31)
     shown = _days_between(start, min(end, today)) if start <= today else []
     cells: list[Cell] = [days[d].status if d in days else None for d in shown]
     months = [
-        summarize(days, date(year, m, 1), _month_end(year, m), today, number) for m in range(1, 13)
+        summarize(days, date(year, m, 1), _month_end(year, m), today, number, auto)
+        for m in range(1, 13)
     ]
     found = find_runs(days, date(year - 1, 1, 1), min(date(year + 1, 12, 31), today))
     touching = [r for r in found.runs if r.first.year <= year <= r.last.year]
@@ -178,9 +201,10 @@ def year_stats(
     return YearStats(
         cells=cells,
         months=months,
-        year_total=summarize(days, start, end, today, number),
+        year_total=summarize(days, start, end, today, number, auto),
         current_run=current,
         longest_run=max((r.practices for r in touching), default=0),
+        auto={d: a for d, a in auto.items() if start <= d <= min(end, today)},
     )
 
 

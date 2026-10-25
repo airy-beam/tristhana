@@ -16,6 +16,7 @@ from tristhana.application.moon import (
 from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
 from tristhana.application.practice import ClearPractice, GetPracticePresets, SavePractice
+from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
 from tristhana.application.stats import GetYearStats
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
@@ -128,6 +129,14 @@ def client_profile(request: Request, _: "CurrentPrincipal") -> ExternalProfile:
 
 def update_profile(request: Request) -> "UpdateProfile":
     return cast("UpdateProfile", request.app.state.update_profile)
+
+
+def set_day_off(request: Request) -> "SetDayOff":
+    return cast("SetDayOff", request.app.state.set_day_off)
+
+
+def dismiss_day_off(request: Request) -> "DismissDayOffQuestion":
+    return cast("DismissDayOffQuestion", request.app.state.dismiss_day_off)
 
 
 def patch_notification_settings(request: Request) -> "PatchNotificationSettings":

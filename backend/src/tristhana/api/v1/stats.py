@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from tristhana.api.deps import CurrentPrincipal, year_stats
 from tristhana.api.errors import ApiError, error_responses
+from tristhana.api.v1.days import AutoDayOut
 from tristhana.application.stats import GetYearStats, InvalidYear
 from tristhana.domain.days import DayStatus
 from tristhana.domain.practice import PracticeContext
@@ -47,7 +48,8 @@ class SummaryOut(BaseModel):
     practiced: int
     possible: int = Field(description="Practiced + 'No practice' (rest-like never count)")
     skipped: int
-    unlogged: int = Field(description="Unmarked days strictly before today")
+    unlogged: int = Field(description="Unmarked days strictly before today (auto excluded)")
+    auto: int = Field(default=0, description="Unlogged days shown as rest (moon, day off)")
     rest: RestCounts
     contexts: ContextCounts
     online: int
@@ -62,6 +64,7 @@ class SummaryOut(BaseModel):
             possible=s.possible,
             skipped=s.skipped,
             unlogged=s.unlogged,
+            auto=s.auto,
             rest=RestCounts(**{k: s.rest.get(DayStatus(k), 0) for k in RestCounts.model_fields}),
             contexts=ContextCounts(**{c.value: s.contexts.get(c, 0) for c in PracticeContext}),
             online=s.online,
@@ -96,6 +99,7 @@ class StatsOut(BaseModel):
     months: list[SummaryOut] = Field(min_length=12, max_length=12)
     year_total: SummaryOut
     runs: Runs
+    auto: list[AutoDayOut] = Field(default=[], description="The year's auto-rest, up to today")
 
 
 @router.get("", responses=error_responses(422))
@@ -124,4 +128,5 @@ async def get_stats(
         months=[SummaryOut.of(m) for m in s.months],
         year_total=SummaryOut.of(s.year_total),
         runs=Runs(current=s.current_run, longest=s.longest_run),
+        auto=AutoDayOut.all(s.auto),
     )

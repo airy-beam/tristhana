@@ -14,6 +14,7 @@ from aiogram.filters import Command
 from aiogram.methods import SendMessage
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from tristhana.application.days import DaysView
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram import practice_callbacks as pcb
@@ -31,6 +32,7 @@ from tristhana.bots.telegram.screens import (
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
+from tristhana.domain.rest_days import AutoKind
 
 WEEK = 7
 # Grid order: Practiced alone on top; "No practice" last, next to Travel (ashtanga-expert).
@@ -50,6 +52,7 @@ _WEEK_EMOJI: dict[DayStatus | None, str] = {
     DayStatus.TRAVEL: "✈️",
     DayStatus.SKIPPED: "🌱",
 }
+_AUTO_STATUS = {AutoKind.MOON: DayStatus.MOON, AutoKind.DAY_OFF: DayStatus.REST}
 
 
 def register(
@@ -107,7 +110,8 @@ class DayScreens:
                 return await self.saved(principal, day, status)
             case "clear", date() as day, _:
                 await self._days.clear.execute(principal, day)
-                return await self.status(principal, day, note="log-cleared", known=True)
+                # Read back: the day may now show as auto-rest (PR-09).
+                return await self.status(principal, day, note="log-cleared")
             case "week", date() as day, _:
                 return await self.week(principal, day)
             case "open", date() as day, _:
@@ -116,28 +120,48 @@ class DayScreens:
                 return await self.status(principal, None)
 
     async def status(
-        self, principal: Principal, day: date | None, note: str | None = None, known: bool = False
+        self, principal: Principal, day: date | None, note: str | None = None
     ) -> Screen:
         """The picker for one day (today when `day` is None), with ✓ on the current status.
-        `known`: the day is known to be empty (just cleared), so skip reading it back."""
+        An auto-rest day (PR-09) has no ✓, just a line saying why it shows as rest."""
+        screen, _ = await self._picker(principal, day, note)
+        return screen
+
+    async def today_picker(self, principal: Principal) -> tuple[Screen, str | None]:
+        """Today's picker and its auto-rest line (for /start, which has its own text)."""
+        return await self._picker(principal, None, None)
+
+    async def _picker(
+        self, principal: Principal, day: date | None, note: str | None
+    ) -> tuple[Screen, str | None]:
         today, _ = self._days.get.today(principal)
         day = day or today
-        current = None
-        if not known:
-            view = await self._days.get.execute(principal, day, day)
-            current = view.days[0].status if view.days else None
+        view = await self._days.get.execute(principal, day, day)
+        current = view.days[0].status if view.days else None
         locale = principal.account.locale
         label = self.day(locale, day, today)
-        text = self._t.t(locale, "log-prompt", day=label)
-        if note:
-            text = self._t.t(locale, note, day=label) + "\n\n" + text
+        lines = [self._t.t(locale, note, day=label)] if note else []
+        auto = self.auto_line(locale, view, day)
+        if auto:
+            lines.append(auto)
+        text = "\n\n".join([*lines, self._t.t(locale, "log-prompt", day=label)])
         rows = [[self._status_button(locale, day, s, current) for s in row] for row in _GRID]
         last = [self._button(locale, "log-another-day", encode(DayCallback("week", today)))]
         if current is DayStatus.PRACTICED:
             last.insert(0, self._button(locale, "practice-details", _details(day)))
         if current is not None:
             last.append(self._button(locale, "log-clear", encode(DayCallback("clear", day))))
-        return Screen(text, InlineKeyboardMarkup(inline_keyboard=[*rows, last]))
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=[*rows, last])), auto
+
+    def auto_line(self, locale: Locale, view: DaysView, day: date) -> str | None:
+        """ "🌙 Moon day (📍 Mysuru), a traditional rest day…" for an unlogged auto day."""
+        auto = view.auto.get(day)
+        if auto is None:
+            return None
+        if auto.kind is AutoKind.MOON:
+            dayoff = "yes" if auto.also_day_off else "no"
+            return self._t.t(locale, "log-auto-moon", city=view.city.name(locale), dayoff=dayoff)
+        return self._t.t(locale, "log-auto-day-off")
 
     async def saved(self, principal: Principal, day: date, status: DayStatus) -> Screen:
         today, _ = self._days.get.today(principal)
@@ -199,20 +223,22 @@ class DayScreens:
         start = max(end - timedelta(days=WEEK - 1), MIN_LOG_DATE)
         view = await self._days.get.execute(principal, start, end)
         logged = {d.local_date: d.status for d in view.days}
+        # Auto-rest (PR-09) shows like the rest it stands for: 🌙 or 😌.
+        shown = {d: _AUTO_STATUS[a.kind] for d, a in view.auto.items()} | logged
         locale = principal.account.locale
         text = self._t.t(locale, "log-pick-day")
         if note:
             text = self._t.t(locale, note) + "\n\n" + text
-        return Screen(text, self._week_markup(locale, end, logged, today))
+        return Screen(text, self._week_markup(locale, end, shown, today))
 
     def _week_markup(
-        self, locale: Locale, end: date, logged: dict[date, DayStatus], today: date
+        self, locale: Locale, end: date, shown: dict[date, DayStatus], today: date
     ) -> InlineKeyboardMarkup:
         days = [end - timedelta(days=i) for i in range(WEEK)]  # newest first
         days = [d for d in days if d >= MIN_LOG_DATE]
         buttons = [
             InlineKeyboardButton(
-                text=f"{_WEEK_EMOJI.get(logged.get(d), '·')} {self.day(locale, d, today)}",
+                text=f"{_WEEK_EMOJI.get(shown.get(d), '·')} {self.day(locale, d, today)}",
                 callback_data=_open(d),
             )
             for d in days

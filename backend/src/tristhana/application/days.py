@@ -7,7 +7,9 @@ from datetime import date, timedelta
 from tristhana.application.policies import Principal
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.storage import Clock
+from tristhana.domain.accounts import Account
 from tristhana.domain.days import (
+    MIN_LOG_DATE,
     DayLog,
     DayStatus,
     check_loggable,
@@ -15,6 +17,8 @@ from tristhana.domain.days import (
     local_today,
     provisional_zone,
 )
+from tristhana.domain.moon import Cities, City
+from tristhana.domain.rest_days import AutoDay, auto_days, joined_on
 
 DEFAULT_WINDOW = timedelta(days=7)
 
@@ -24,6 +28,8 @@ class DaysView:
     today: date
     timezone_known: bool  # False: "today" came from a provisional zone (bot-only users)
     days: list[DayLog]
+    auto: dict[date, AutoDay]  # unlogged days shown as rest (PR-09, ADR-0022)
+    city: City  # whose moon days the auto days follow
 
 
 def _zone(principal: Principal) -> tuple[str, bool]:
@@ -33,9 +39,15 @@ def _zone(principal: Principal) -> tuple[str, bool]:
     return provisional_zone(account.locale), False
 
 
+def joined(account: Account, zone: str) -> date:
+    """The first date auto-rest may fill: the local date the account was created."""
+    return joined_on(account.created_at, zone) if account.created_at else MIN_LOG_DATE
+
+
 class GetDays:
-    def __init__(self, days: DayLogRepository, clock: Clock) -> None:
+    def __init__(self, days: DayLogRepository, cities: Cities, clock: Clock) -> None:
         self._days = days
+        self._cities = cities
         self._clock = clock
 
     def today(self, principal: Principal) -> tuple[date, bool]:
@@ -46,13 +58,20 @@ class GetDays:
     async def execute(
         self, principal: Principal, start: date | None = None, end: date | None = None
     ) -> DaysView:
-        """Raises `InvalidRange`. Defaults to the 7 days ending today."""
-        today, known = self.today(principal)
+        """Raises `InvalidRange`. Defaults to the 7 days ending today. One statement."""
+        account = principal.account
+        zone, known = _zone(principal)
+        today = local_today(self._clock.now(), zone)
         end = end or today
         start = start or end - DEFAULT_WINDOW + timedelta(days=1)
         check_range(start, end)
-        logged = await self._days.list_range(principal.account.id, start, end)
-        return DaysView(today=today, timezone_known=known, days=logged)
+        city = self._cities.get(account.moon_location) or self._cities.default
+        view = await self._days.range_with_moon(account.id, start, end, city.slug)
+        logged = {d.local_date for d in view.days}
+        auto = auto_days(
+            start, end, today, joined(account, zone), logged, account.day_off, view.moon_dates
+        )
+        return DaysView(today, known, view.days, auto, city)
 
 
 class SetDayStatus:

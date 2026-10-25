@@ -85,11 +85,19 @@ class NotificationRepository(Protocol):
         self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
     ) -> NotificationSettings: ...
 
+    async def reset_practice_days(
+        self, account_id: UUID, defaults: NotificationSettings
+    ) -> tuple[NotificationSettings, frozenset[int] | None]:
+        """Practice days back to "follow the day off" (NULL), in one statement; returns the
+        effective settings and the days stored before (None: none were stored)."""
+        ...
+
     async def candidates(
         self, since: datetime, logged_from: date, defaults: NotificationSettings
     ) -> list[ReminderCandidate]:
         """Deliveries created since `since`; for practice-reminder accounts, logged days from
-        `logged_from` on (one statement for all accounts, never one per account)."""
+        `logged_from` on (one statement for all accounts, never one per account). Each
+        account's practice days follow its own day off (`defaults_for`)."""
         ...
 
     async def claim(self, account_id: UUID, key: str, category: str, local_date: date) -> bool:

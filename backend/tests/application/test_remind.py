@@ -39,6 +39,7 @@ from tristhana.domain.notifications import (
     send_instant,
 )
 from tristhana.domain.practice import Practice, PracticeContext, PracticeLength
+from tristhana.domain.rest_days import DayOff
 from tristhana.infrastructure.seed.cities_yaml import load_cities
 
 CITIES = load_cities(Path(__file__).resolve().parents[3] / "data" / "seed" / "cities.yaml")
@@ -380,3 +381,32 @@ async def test_a_time_in_quiet_hours_is_refused_even_while_off(
         await UpdatePracticeReminder(notifications).execute(
             Principal(me), ReminderPatch(at=time(3))
         )
+
+
+async def test_tick_follows_the_day_off_when_reminder_days_are_not_custom(
+    accounts: InMemoryAccounts, notifications: InMemoryNotifications, moon: InMemoryMoon
+) -> None:
+    """PR-09: stored practice days NULL = follow the day off (Monday here)."""
+    me = await _account(accounts)
+    await notifications.patch_practice(me.id, ReminderPatch(on=True), DEFAULTS)
+    await accounts.set_day_off(me.id, DayOff(frozenset({1})))
+    notifier = FakeNotifier()
+
+    await _tick(notifications, moon, notifier).execute(BUDGET)
+
+    assert notifier.practice == []
+
+
+async def test_an_unlogged_day_off_is_not_logged_for_custom_reminder_days(
+    accounts: InMemoryAccounts, notifications: InMemoryNotifications, moon: InMemoryMoon
+) -> None:
+    """ADR-0022: auto-rest is never a log, so chosen days that include the day off still
+    get their reminder."""
+    me = await _opted_in(accounts, notifications, days=frozenset(range(1, 8)))
+    await accounts.set_day_off(me.id, DayOff(frozenset({1})))
+    notifier = FakeNotifier()
+
+    await _tick(notifications, moon, notifier).execute(BUDGET)
+
+    [(_, reminder)] = notifier.practice
+    assert reminder.day == MON

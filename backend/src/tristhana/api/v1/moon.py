@@ -23,6 +23,7 @@ from tristhana.application.moon import (
     UnknownLocation,
 )
 from tristhana.application.settings import PatchNotificationSettings
+from tristhana.domain.accounts import Account
 from tristhana.domain.days import InvalidRange
 from tristhana.domain.moon import Cities, MoonDayKind
 from tristhana.domain.notifications import (
@@ -33,6 +34,7 @@ from tristhana.domain.notifications import (
     NotificationSettings,
     PracticeReminders,
     QuietHours,
+    day_off_question,
 )
 
 router = APIRouter(tags=["moon"])
@@ -96,18 +98,32 @@ class NotificationSettingsBody(_SettingsCommon):
     )
 
 
+class DayOffQuestionOut(BaseModel):
+    weekday: int = Field(description="The one weekday practice reminders skip")
+    reminders_on: bool
+
+
 class NotificationSettingsOut(_SettingsCommon):
     practice: PracticeSettings
     timezone: str | None = Field(description="Reminders need it; null = none are sent")
+    day_off_question: DayOffQuestionOut | None = Field(
+        default=None, description="Ask once: is that weekday the day off? (PR-09)"
+    )
 
 
-def _settings_out(s: NotificationSettings, zone: str | None) -> NotificationSettingsOut:
+def _settings_out(s: NotificationSettings, account: Account) -> NotificationSettingsOut:
+    question = day_off_question(account.day_off.days, account.day_off_dismissed, s)
     return NotificationSettingsOut(
         moon=MoonSettings(offsets=sorted(s.moon.offsets), at=s.moon.at),  # type: ignore[arg-type]
         quiet=Quiet(start=s.quiet.start, end=s.quiet.end),
         daily_cap=s.daily_cap,
         practice=PracticeSettings(on=s.practice.on, at=s.practice.at, days=sorted(s.practice.days)),
-        timezone=zone,
+        timezone=account.timezone,
+        day_off_question=(
+            DayOffQuestionOut(weekday=question.weekday, reminders_on=question.reminders_on)
+            if question
+            else None
+        ),
     )
 
 
@@ -171,7 +187,7 @@ async def get_notification_settings(
     principal: CurrentPrincipal,
     use_case: Annotated[NotificationSettingsUseCase, Depends(notification_settings)],
 ) -> NotificationSettingsOut:
-    return _settings_out(await use_case.get(principal), principal.account.timezone)
+    return _settings_out(await use_case.get(principal), principal.account)
 
 
 class MoonPatchBody(BaseModel):
@@ -237,7 +253,7 @@ async def patch_notification_settings(
         saved = await use_case.execute(principal, _domain_patch(body))
     except InvalidSettings:
         raise ApiError(422, "invalid_settings") from None
-    return _settings_out(saved, principal.account.timezone)
+    return _settings_out(saved, principal.account)
 
 
 @router.put("/me/notification-settings", responses=error_responses(401, 422, 503), deprecated=True)
@@ -261,4 +277,4 @@ async def put_notification_settings(
         saved = await use_case.save(principal, settings, practice)
     except InvalidSettings:
         raise ApiError(422, "invalid_settings") from None
-    return _settings_out(saved, principal.account.timezone)
+    return _settings_out(saved, principal.account)

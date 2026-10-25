@@ -12,6 +12,7 @@ from tristhana.application.stats import GetYearStats, InvalidYear
 from tristhana.domain.accounts import Account, IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.moon import MoonDay, MoonDayKind
+from tristhana.domain.rest_days import AutoDay, AutoKind, DayOff
 from tristhana.infrastructure.seed.cities_yaml import load_cities
 
 CITIES = load_cities(Path(__file__).resolve().parents[3] / "data" / "seed" / "cities.yaml")
@@ -92,3 +93,23 @@ async def test_year_zero_is_invalid_not_the_current_year() -> None:
 
     with pytest.raises(InvalidYear):
         await _use_case(InMemoryDays(), InMemoryMoon()).execute(Principal(me), 0)
+
+
+async def test_auto_rest_counts_in_the_month_but_not_as_unmarked() -> None:
+    """PR-09: since joining (Oct 18 in the fakes), an unlogged moon day and day off are
+    rest in the summary; future days are never auto."""
+    accounts, days, moon = InMemoryAccounts(), InMemoryDays(), InMemoryMoon()
+    me = await accounts.set_day_off((await _me(accounts)).id, DayOff(frozenset({1})))
+    moon.days_by_location["mysuru"] = [
+        MoonDay(date(2026, 10, 18), MoonDayKind.AMAVASYA),
+        MoonDay(date(2026, 10, 25), MoonDayKind.PURNIMA),
+    ]
+    view = await _use_case(days, moon, datetime(2026, 10, 20, 5, tzinfo=UTC)).execute(Principal(me))
+    assert view.stats.auto == {
+        date(2026, 10, 18): AutoDay(AutoKind.MOON),
+        date(2026, 10, 19): AutoDay(AutoKind.DAY_OFF),  # Monday
+    }
+    october = view.stats.months[9]
+    assert october.auto == 2
+    assert october.rest == {DayStatus.MOON: 1, DayStatus.REST: 1}
+    assert october.unlogged == 17  # Oct 1-17: before joining stays unmarked

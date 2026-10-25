@@ -74,6 +74,8 @@ describe("TodayCard", () => {
     stubApi({
       today: TODAY,
       timezone_known: true,
+      auto: [],
+      moon_location: "mysuru",
       days: [
         { date: "2026-10-17", status: "rest", practices: [] },
         { date: TODAY, status: "moon", practices: [] },
@@ -88,7 +90,10 @@ describe("TodayCard", () => {
   });
 
   it("saves a tap optimistically with haptic feedback", async () => {
-    const seen = stubApi({ today: TODAY, timezone_known: true, days: [] }, 0);
+    const seen = stubApi(
+      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
+      0,
+    );
     renderCard();
     const rest = await screen.findByRole("button", { name: /Rest day/ });
 
@@ -108,7 +113,10 @@ describe("TodayCard", () => {
   });
 
   it("rolls back and says so when saving fails", async () => {
-    stubApi({ today: TODAY, timezone_known: true, days: [] }, 503);
+    stubApi(
+      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
+      503,
+    );
     renderCard();
 
     fireEvent.click(await screen.findByRole("button", { name: /Practiced/ }));
@@ -122,6 +130,8 @@ describe("TodayCard", () => {
     const seen = stubApi({
       today: TODAY,
       timezone_known: true,
+      auto: [],
+      moon_location: "mysuru",
       days: [{ date: TODAY, status: "ladies", practices: [] }],
     });
     renderCard();
@@ -158,7 +168,13 @@ describe("TodayCard", () => {
   });
 
   describe("first-log hint", () => {
-    const empty: Days = { today: TODAY, timezone_known: true, days: [] };
+    const empty: Days = {
+      today: TODAY,
+      timezone_known: true,
+      auto: [],
+      moon_location: "mysuru",
+      days: [],
+    };
     const hint = "Start by logging today: practice or rest.";
 
     it("shows until this device saves a day, and stays hidden after", async () => {
@@ -182,6 +198,8 @@ describe("TodayCard", () => {
       stubApi({
         today: TODAY,
         timezone_known: true,
+        auto: [],
+        moon_location: "mysuru",
         days: [{ date: "2026-10-17", status: "practiced", practices: [] }], // yesterday
       });
       renderCard();
@@ -189,5 +207,52 @@ describe("TodayCard", () => {
       await screen.findByRole("button", { name: "😌 Rest day" });
       expect(screen.queryByText(hint)).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("TodayCard auto-rest (PR-09)", () => {
+  function stubAuto(auto: Days["auto"]) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((request: Request) => {
+        const path = new URL(request.url).pathname;
+        if (path === "/api/v1/me/moon-days")
+          return Promise.resolve(
+            json({
+              location: { slug: "mysuru", explicit: false },
+              today: TODAY,
+              days: [{ date: TODAY, phase: "purnima" }],
+            }),
+          );
+        if (path === "/api/v1/moon/cities")
+          return Promise.resolve(
+            json([
+              { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
+            ]),
+          );
+        return Promise.resolve(
+          json({ today: TODAY, timezone_known: true, auto, moon_location: "mysuru", days: [] }),
+        );
+      }),
+    );
+  }
+
+  it("names the moon day once, with no chip pressed", async () => {
+    stubAuto([{ date: TODAY, kind: "moon", also_day_off: true }]);
+    renderCard();
+
+    const note = await screen.findByText(/a traditional rest day/);
+    expect(visible(note)).toBe(
+      "🌙 Moon day (📍 Mysuru), a traditional rest day and your weekly day off too. If you practiced, log it below.",
+    );
+    expect(screen.queryByText(/Full moon today/)).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
+  });
+
+  it("shows the day off as rest until something is logged", async () => {
+    stubAuto([{ date: TODAY, kind: "day_off", also_day_off: false }]);
+    renderCard();
+
+    expect(await screen.findByText(/Your weekly day off, shown as rest/)).toBeInTheDocument();
   });
 });

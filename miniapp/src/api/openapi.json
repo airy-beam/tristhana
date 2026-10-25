@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "AutoDayOut": {
+        "description": "An unlogged day shown as rest (PR-09, ADR-0022): never stored, a log always wins.",
+        "properties": {
+          "also_day_off": {
+            "default": false,
+            "description": "A moon day on the weekly day off",
+            "title": "Also Day Off",
+            "type": "boolean"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AutoKind"
+          }
+        },
+        "required": [
+          "date",
+          "kind"
+        ],
+        "title": "AutoDayOut",
+        "type": "object"
+      },
+      "AutoKind": {
+        "enum": [
+          "moon",
+          "day_off"
+        ],
+        "title": "AutoKind",
+        "type": "string"
+      },
       "CatalogOut": {
         "properties": {
           "series": {
@@ -117,6 +150,73 @@
         "title": "Day",
         "type": "object"
       },
+      "DayOffBody": {
+        "properties": {
+          "day_off": {
+            "description": "ISO weekdays (1 = Monday); [] = no fixed day off; one day for now",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Day Off",
+            "type": "array"
+          }
+        },
+        "required": [
+          "day_off"
+        ],
+        "title": "DayOffBody",
+        "type": "object"
+      },
+      "DayOffOut": {
+        "properties": {
+          "day_off": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Day Off",
+            "type": "array"
+          },
+          "practice_days": {
+            "description": "Practice reminder days, now following it",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Practice Days",
+            "type": "array"
+          },
+          "reminder_days_reset": {
+            "description": "Custom reminder days were replaced: say they now follow the day off",
+            "title": "Reminder Days Reset",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "day_off",
+          "practice_days",
+          "reminder_days_reset"
+        ],
+        "title": "DayOffOut",
+        "type": "object"
+      },
+      "DayOffQuestionOut": {
+        "properties": {
+          "reminders_on": {
+            "title": "Reminders On",
+            "type": "boolean"
+          },
+          "weekday": {
+            "description": "The one weekday practice reminders skip",
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weekday",
+          "reminders_on"
+        ],
+        "title": "DayOffQuestionOut",
+        "type": "object"
+      },
       "DayStatus": {
         "enum": [
           "practiced",
@@ -144,6 +244,15 @@
       },
       "Days": {
         "properties": {
+          "auto": {
+            "default": [],
+            "description": "Unlogged days shown as rest",
+            "items": {
+              "$ref": "#/components/schemas/AutoDayOut"
+            },
+            "title": "Auto",
+            "type": "array"
+          },
           "days": {
             "description": "Logged days only, oldest first",
             "items": {
@@ -151,6 +260,11 @@
             },
             "title": "Days",
             "type": "array"
+          },
+          "moon_location": {
+            "description": "The city auto moon days follow",
+            "title": "Moon Location",
+            "type": "string"
           },
           "timezone_known": {
             "description": "False: today comes from a provisional zone",
@@ -167,7 +281,8 @@
         "required": [
           "today",
           "timezone_known",
-          "days"
+          "days",
+          "moon_location"
         ],
         "title": "Days",
         "type": "object"
@@ -235,6 +350,7 @@
           "timezone_unknown",
           "unknown_location",
           "invalid_settings",
+          "invalid_day_off",
           "unavailable"
         ],
         "type": "string"
@@ -369,6 +485,21 @@
       },
       "Me": {
         "properties": {
+          "day_off": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Weekly day off, ISO weekdays (1 = Monday); [] = no fixed day off; null = never chosen",
+            "title": "Day Off"
+          },
           "display_name": {
             "anyOf": [
               {
@@ -678,6 +809,17 @@
             "minimum": 1.0,
             "title": "Daily Cap",
             "type": "integer"
+          },
+          "day_off_question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DayOffQuestionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ask once: is that weekday the day off? (PR-09)"
           },
           "moon": {
             "$ref": "#/components/schemas/MoonSettings"
@@ -1192,6 +1334,15 @@
       },
       "StatsOut": {
         "properties": {
+          "auto": {
+            "default": [],
+            "description": "The year's auto-rest, up to today",
+            "items": {
+              "$ref": "#/components/schemas/AutoDayOut"
+            },
+            "title": "Auto",
+            "type": "array"
+          },
           "cells": {
             "description": "One per date: Jan 1 … min(today, Dec 31)",
             "items": {
@@ -1282,6 +1433,12 @@
       },
       "SummaryOut": {
         "properties": {
+          "auto": {
+            "default": 0,
+            "description": "Unlogged days shown as rest (moon, day off)",
+            "title": "Auto",
+            "type": "integer"
+          },
           "contexts": {
             "$ref": "#/components/schemas/ContextCounts"
           },
@@ -1316,7 +1473,7 @@
             "type": "integer"
           },
           "unlogged": {
-            "description": "Unmarked days strictly before today",
+            "description": "Unmarked days strictly before today (auto excluded)",
             "title": "Unlogged",
             "type": "integer"
           },
@@ -1577,6 +1734,113 @@
           }
         ],
         "summary": "Patch Me",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/day-off": {
+      "put": {
+        "description": "The first choice also shows on past weeks; a change applies from today (PR-09).",
+        "operationId": "put_day_off_api_v1_me_day_off_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DayOffBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DayOffOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Day Off",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/day-off-question": {
+      "delete": {
+        "description": "\"Not now\" on the one-time day-off question. Idempotent.",
+        "operationId": "delete_day_off_question_api_v1_me_day_off_question_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Day Off Question",
         "tags": [
           "me"
         ]

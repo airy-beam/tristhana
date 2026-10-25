@@ -14,12 +14,12 @@ from tristhana.domain.accounts import Account
 from tristhana.domain.days import check_range, local_today, provisional_zone
 from tristhana.domain.moon import Cities, City, MoonDay
 from tristhana.domain.notifications import (
-    DEFAULTS,
     KEEP,
     NotificationPatch,
     NotificationSettings,
     PracticeReminders,
     check_settings,
+    defaults_for,
 )
 
 DEFAULT_WINDOW = timedelta(days=60)
@@ -77,7 +77,9 @@ class GetMoonView:
         end = end or start + DEFAULT_WINDOW
         check_range(start, end)
         days = await self._moon.days(city.slug, start, end)
-        settings = await self._notifications.settings(account.id, DEFAULTS)
+        settings = await self._notifications.settings(
+            account.id, defaults_for(account.day_off.days)
+        )
         return MoonView(city, explicit, today, days, settings, account.timezone)
 
 
@@ -135,7 +137,8 @@ class NotificationSettingsUseCase:
         self._notifications = notifications
 
     async def get(self, principal: Principal) -> NotificationSettings:
-        return await self._notifications.settings(principal.account.id, DEFAULTS)
+        account = principal.account
+        return await self._notifications.settings(account.id, defaults_for(account.day_off.days))
 
     async def save(
         self,
@@ -147,7 +150,8 @@ class NotificationSettingsUseCase:
         `InvalidSettings`."""
         account_id = principal.account.id
         if practice is None:  # validate against the stored one, but don't write it back
-            stored = (await self._notifications.settings(account_id, DEFAULTS)).practice
+            defaults = defaults_for(principal.account.day_off.days)
+            stored = (await self._notifications.settings(account_id, defaults)).practice
             check_settings(replace(settings, practice=stored))
             return await self._notifications.save(account_id, settings, with_practice=False)
         settings = replace(settings, practice=practice)

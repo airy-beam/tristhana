@@ -17,6 +17,7 @@ from tristhana.domain.accounts import (
     ProfileUpdate,
 )
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
+from tristhana.domain.rest_days import DayOff, Weekdays
 from tristhana.infrastructure.db.engine import connection, sqlstate
 from tristhana.infrastructure.db.tables import account, identity
 
@@ -29,7 +30,21 @@ _COLUMNS = (
     account.c.moon_location,
     account.c.name_custom,
     account.c.locale_custom,
+    account.c.created_at,
+    account.c.day_off,
+    account.c.day_off_since,
+    account.c.day_off_before,
+    account.c.day_off_dismissed_at,
 )
+
+
+def to_mask(days: Weekdays | None) -> int | None:
+    """ISO weekdays as a bitmask (bit d-1); None stays None (never chosen)."""
+    return None if days is None else sum(1 << (d - 1) for d in days)
+
+
+def from_mask(mask: int | None) -> Weekdays | None:
+    return None if mask is None else frozenset(d for d in range(1, 8) if mask & (1 << (d - 1)))
 
 
 class SqlAccountRepository:
@@ -134,6 +149,31 @@ class SqlAccountRepository:
             row = (await conn.execute(stmt)).one()
         return _account(row)
 
+    async def set_day_off(self, account_id: UUID, day_off: DayOff) -> Account:
+        stmt = (
+            update(account)
+            .where(account.c.id == account_id)
+            .values(
+                day_off=to_mask(day_off.days),
+                day_off_since=day_off.since,
+                day_off_before=to_mask(day_off.before),
+                updated_at=func.now(),
+            )
+            .returning(*_COLUMNS)
+        )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one()
+        return _account(row)
+
+    async def dismiss_day_off_question(self, account_id: UUID) -> None:
+        stmt = (
+            update(account)
+            .where(account.c.id == account_id, account.c.day_off_dismissed_at.is_(None))
+            .values(day_off_dismissed_at=func.now())
+        )
+        async with connection(self._engine) as conn:
+            await conn.execute(stmt)
+
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> Account:
         stmt = (
             update(account)
@@ -161,4 +201,7 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         moon_location=row.moon_location,
         name_custom=row.name_custom,
         locale_custom=row.locale_custom,
+        created_at=row.created_at,
+        day_off=DayOff(from_mask(row.day_off), row.day_off_since, from_mask(row.day_off_before)),
+        day_off_dismissed=row.day_off_dismissed_at is not None,
     )

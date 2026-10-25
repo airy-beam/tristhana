@@ -294,3 +294,52 @@ settings-moon-link = 🌙 Moon days
 settings-pick-zone = Pick the city whose time you live by. Not in the list? Open the app: it can use your phone's zone.
 settings-open-app = ⚙️ More in the app
 settings-link = ⚙️ Settings
+
+## Weekly day off and auto-rest (PR-09).
+day-off-weekday = { $d ->
+        [1] Monday
+        [2] Tuesday
+        [3] Wednesday
+        [4] Thursday
+        [5] Friday
+        [6] Saturday
+       *[7] Sunday
+    }
+day-off-weekly = { $d ->
+        [1] on Mondays
+        [2] on Tuesdays
+        [3] on Wednesdays
+        [4] on Thursdays
+        [5] on Fridays
+        [6] on Saturdays
+       *[7] on Sundays
+    }
+day-off-button = { day-off-weekday }
+settings-day-off-line = 😌 Day off: { day-off-weekday }
+settings-day-off-none-line = 😌 No fixed day off
+settings-day-off-unset-line = 😌 Day off: not chosen
+settings-day-off-button = 😌 Day off
+day-off-pick = 😌 Which day is your weekly day off?
+day-off-none = No fixed day off
+day-off-explain = Your day off shows as rest in your log and stats, and practice reminders skip it. { $first ->
+        [yes] Past weeks show it too.
+       *[no] A change applies from today; earlier weeks keep the previous day.
+    } If a day went differently, log it as usual. With no fixed day off, reminders come every day.
+log-auto-moon = 🌙 Moon day (📍 { $city }), a traditional rest day{ $dayoff ->
+        [yes] {" "}and your weekly day off too
+       *[no] {""}
+    }. If you practiced, log it below.
+log-auto-day-off = 😌 Your weekly day off, shown as rest. If the day went differently, log it below.
+day-off-ask = { $reminders ->
+        [on] 😌 Practice reminders don't come { day-off-weekly }. Is that your weekly day off?
+       *[off] 😌 Is { day-off-weekday } your weekly day off?
+    }
+day-off-ask-yes = Yes
+day-off-ask-instead = { $d ->
+        [6] Saturday
+       *[7] Sunday
+    }
+day-off-ask-other = Other…
+day-off-ask-later = Not now
+day-off-reminders-follow = Reminder days now follow your day off.
+day-off-reminders-edit = ✏️ Reminder days

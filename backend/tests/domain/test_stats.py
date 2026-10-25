@@ -6,6 +6,7 @@ import pytest
 
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.practice import Practice, PracticeContext, PracticeLength
+from tristhana.domain.rest_days import AutoDay, AutoKind
 from tristhana.domain.stats import (
     MAX_UNLOGGED_BRIDGE,
     find_runs,
@@ -187,3 +188,48 @@ def test_a_past_year_counts_a_run_into_january_whole() -> None:
 
 def test_a_no_practice_today_ends_the_current_run() -> None:
     assert _runs("PPN", today_offset=2) == (None, 2)
+
+
+# PR-09: auto-rest (ADR-0022).
+
+SAT = date(2026, 10, 3)  # the first Saturday after START
+
+
+def test_auto_days_count_as_rest_and_not_as_unmarked() -> None:
+    wed = date(2026, 10, 7)
+    auto = {SAT: AutoDay(AutoKind.DAY_OFF), wed: AutoDay(AutoKind.MOON)}
+    today = START + timedelta(days=10)
+    summary = summarize(_days("PP"), START, today, today, _number, auto)
+    assert summary.auto == 2
+    assert summary.rest == {R: 1, M: 1}
+    assert summary.unlogged == 10 - 2 - 2  # 10 days before today, 2 logged, 2 auto
+    assert summary.possible == 2
+
+
+def test_auto_saturdays_do_not_keep_a_run_alive() -> None:
+    """Three months unlogged except auto Saturdays: the run still ends."""
+    today = START + timedelta(days=90)
+    found = find_runs(_days("P"), START, today)
+    assert found.current is None
+
+
+def test_practice_around_an_auto_day_off_stays_one_run() -> None:
+    """P(Fri) auto(Sat) P(Sun): auto days are unmarked, inside the 7-day bridge."""
+    fri = date(2026, 10, 2)
+    days = _days("P.P", fri)
+    found = find_runs(days, fri, fri + timedelta(days=3))
+    assert found.current is not None
+    assert found.current.practices == 2
+
+
+def test_year_stats_keep_only_the_years_auto_days_up_to_today() -> None:
+    today = date(2026, 10, 5)
+    auto = {
+        date(2025, 12, 27): AutoDay(AutoKind.DAY_OFF),
+        SAT: AutoDay(AutoKind.DAY_OFF),
+        date(2026, 10, 10): AutoDay(AutoKind.DAY_OFF),
+    }
+    stats = year_stats({}, 2026, today, _number, auto)
+    assert stats.auto == {SAT: AutoDay(AutoKind.DAY_OFF)}
+    assert stats.months[9].auto == 1
+    assert stats.cells[SAT.timetuple().tm_yday - 1] is None  # cells keep their enum

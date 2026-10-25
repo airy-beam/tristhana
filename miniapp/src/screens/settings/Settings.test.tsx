@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import type { City, Me, NotificationSettings } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
@@ -40,6 +40,8 @@ const SETTINGS: NotificationSettings = {
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
 
+let dayOffFails = false;
+
 function stubApi(): Request[] {
   const seen: Request[] = [];
   vi.stubGlobal(
@@ -51,6 +53,17 @@ function stubApi(): Request[] {
         return json({ ...ME, ...(await request.clone().json()) });
       }
       if (request.method === "PATCH") return json(SETTINGS);
+      if (path === "/api/v1/me/day-off") {
+        if (dayOffFails)
+          return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
+        const { day_off } = (await request.clone().json()) as { day_off: number[] };
+        return json({
+          day_off,
+          practice_days: [1, 2, 3, 4, 5, 6, 7].filter((d) => !day_off.includes(d)),
+          reminder_days_reset: true,
+        });
+      }
+      if (path === "/api/v1/me") return json({ ...ME, day_off: null });
       if (path === "/api/v1/moon/cities") return json(CITIES);
       if (path === "/api/v1/me/notification-settings") return json(SETTINGS);
       if (path === "/api/v1/me/moon-days") {
@@ -265,5 +278,38 @@ describe("time zone cities", () => {
     fireEvent.change(select, { target: { value: "sochi" } });
 
     expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ timezone: "Europe/Moscow" }]);
+  });
+});
+
+describe("Day off (PR-09)", () => {
+  afterEach(() => {
+    dayOffFails = false;
+  });
+
+  it("starts with nothing pressed, saves a tap at once and says reminders follow", async () => {
+    const seen = stubApi();
+    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
+    const group = await screen.findByRole("group", { name: "Day off" });
+    expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    expect(screen.getByText(/Past weeks show it too/)).toBeInTheDocument();
+
+    fireEvent.click(within(group).getByRole("button", { name: (n) => plain(n) === "Sun" }));
+
+    expect(
+      await within(group).findByRole("button", { name: (n) => plain(n) === "Sun", pressed: true }),
+    ).toBeInTheDocument();
+    expect(await bodies(seen, "PUT", "/api/v1/me/day-off")).toEqual([{ day_off: [7] }]);
+    expect(await screen.findByText("Reminder days now follow your day off.")).toBeInTheDocument();
+  });
+
+  it("rolls back when the save fails", async () => {
+    dayOffFails = true;
+    stubApi();
+    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
+    const group = await screen.findByRole("group", { name: "Day off" });
+    fireEvent.click(within(group).getByRole("button", { name: "No fixed day off" }));
+
+    expect(await screen.findAllByText("Couldn't save. Try again in a moment.")).not.toHaveLength(0);
+    expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
   });
 });

@@ -105,6 +105,11 @@ export const DAY_STATUSES: readonly DayStatus[] = [
 
 const DAYS_KEY = ["days", "recent"] as const;
 
+/** An API older than this bundle sends no auto-rest (PR-09; the two deploy separately). */
+function withAuto<T extends { auto: unknown[] }>(data: T): T {
+  return { ...data, auto: Array.isArray(data.auto) ? data.auto : [] };
+}
+
 /** Day-scope mutations run one at a time, but each `onMutate` (optimistic update) runs at
  * tap time; so after the last queued one settles (or the server refused with a conflict),
  * refetch, and the cache matches the server whatever the order of failures was. */
@@ -130,7 +135,13 @@ export function useStats(year: number | undefined) {
         params: { query: year === undefined ? {} : { year } },
       });
       if (!data) fail(response, error);
-      return data;
+      // An older API has no auto-rest counts in the summaries either.
+      const counted = (s: StatsSummary): StatsSummary => ({
+        ...s,
+        auto: Number.isFinite(s.auto) ? s.auto : 0,
+      });
+      const stats = withAuto(data);
+      return { ...stats, months: stats.months.map(counted), year_total: counted(stats.year_total) };
     },
     staleTime: 60_000,
   });
@@ -145,7 +156,7 @@ export function useDaysRange(from: string, to: string) {
         params: { query: { from, to } },
       });
       if (!data) fail(response, error);
-      return data;
+      return withAuto(data);
     },
     staleTime: 60_000,
   });
@@ -158,7 +169,7 @@ export function useDays() {
     queryFn: async (): Promise<Days> => {
       const { data, error, response } = await api.GET("/api/v1/me/days");
       if (!data) fail(response, error);
-      return data;
+      return withAuto(data);
     },
     staleTime: 60_000,
   });
@@ -170,7 +181,9 @@ function withDay(days: Days, date: string, status: DayStatus | null): Days {
   // Details live only on a practiced day (the server drops them on any other status).
   const practices = status === "practiced" ? (before?.practices ?? []) : [];
   const next = status ? [...others, { date, status, practices }] : others;
-  return { ...days, days: next.sort((a, b) => a.date.localeCompare(b.date)) };
+  // A log always wins over auto-rest (PR-09); a cleared day gets it back on the refetch.
+  const auto = status ? days.auto.filter((a) => a.date !== date) : days.auto;
+  return { ...days, days: next.sort((a, b) => a.date.localeCompare(b.date)), auto };
 }
 
 type Snapshot = [readonly unknown[], Days | undefined][];
@@ -452,6 +465,69 @@ export function usePatchMe() {
           void client.invalidateQueries({ queryKey: key });
         }
       }
+    },
+  });
+}
+
+export type AutoDay = components["schemas"]["AutoDayOut"];
+export type DayOffOut = components["schemas"]["DayOffOut"];
+
+/** The weekly day off (PR-09): [] = no fixed day off. Reminder days follow it, and past
+ * weeks (auto-rest) are drawn again, so days, stats and settings are refreshed. */
+export function useSetDayOff() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "settings" },
+    mutationFn: async (dayOff: number[]): Promise<DayOffOut> => {
+      const { data, error, response } = await api.PUT("/api/v1/me/day-off", {
+        body: { day_off: dayOff },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onMutate: async (dayOff) => {
+      await client.cancelQueries({ queryKey: ["me"] });
+      await client.cancelQueries({ queryKey: SETTINGS_KEY });
+      const me = client.getQueryData<Me>(["me"]);
+      if (me) client.setQueryData<Me>(["me"], { ...me, day_off: dayOff });
+      const settings = client.getQueryData<NotificationSettings>(SETTINGS_KEY);
+      if (settings) {
+        // Reminder days follow the day off (the server's answer replaces this guess).
+        const days = [1, 2, 3, 4, 5, 6, 7].filter((d) => !dayOff.includes(d));
+        const practice = { ...settings.practice, days };
+        client.setQueryData(SETTINGS_KEY, { ...settings, practice, day_off_question: null });
+      }
+      return { me, settings };
+    },
+    onSuccess: (saved) => {
+      client.setQueryData<NotificationSettings>(SETTINGS_KEY, (s) =>
+        s ? { ...s, practice: { ...s.practice, days: saved.practice_days } } : s,
+      );
+      for (const key of [["days"], STATS_KEY]) void client.invalidateQueries({ queryKey: key });
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.me) client.setQueryData(["me"], context.me);
+      if (context?.settings) client.setQueryData(SETTINGS_KEY, context.settings);
+    },
+  });
+}
+
+/** "Not now" on the one-time day-off question: it doesn't come back. */
+export function useDismissDayOffQuestion() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "settings" },
+    mutationFn: async () => {
+      const { error, response } = await api.DELETE("/api/v1/me/day-off-question");
+      if (!response.ok) fail(response, error);
+    },
+    onMutate: () => {
+      const settings = client.getQueryData<NotificationSettings>(SETTINGS_KEY);
+      if (settings) client.setQueryData(SETTINGS_KEY, { ...settings, day_off_question: null });
+      return { settings };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.settings) client.setQueryData(SETTINGS_KEY, context.settings);
     },
   });
 }

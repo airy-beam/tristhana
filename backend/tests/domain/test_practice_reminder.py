@@ -11,15 +11,22 @@ from tristhana.domain.notifications import (
     GRACE,
     PRACTICE_TIMES,
     UNANSWERED_LIMIT,
+    WEEKDAYS,
     Candidate,
+    DayOffQuestion,
     InvalidSettings,
     NotificationSettings,
     PracticeReminders,
+    StoredSettings,
     check_settings,
+    day_off_question,
     default_practice_time,
+    defaults_for,
     due_practice_reminder,
+    effective,
     pause_key,
     practice_key,
+    reminder_days,
     send_instant,
 )
 
@@ -224,3 +231,58 @@ def test_berlin_spring_forward_keeps_the_wall_clock() -> None:
     assert _at(before, zone="Europe/Berlin").hour == 9
     assert _at(after, zone="Europe/Berlin").hour == 8
     assert due_practice_reminder(_at(after, zone="Europe/Berlin"), c) is not None
+
+
+# PR-09: reminder days follow the weekly day off; the one-time day-off question.
+
+
+def test_reminder_days_follow_the_day_off() -> None:
+    assert reminder_days(None) == frozenset({1, 2, 3, 4, 5, 7})  # never chosen: Sat off
+    assert reminder_days(frozenset()) == WEEKDAYS
+    assert reminder_days(frozenset({7})) == frozenset({1, 2, 3, 4, 5, 6})
+
+
+def test_stored_null_days_follow_the_day_off_and_stored_days_override() -> None:
+    sunday_off = defaults_for(frozenset({7}))
+    assert effective(StoredSettings(), sunday_off).practice.days == frozenset({1, 2, 3, 4, 5, 6})
+    custom = frozenset({1, 3, 5})
+    assert effective(StoredSettings(practice_days=custom), sunday_off).practice.days == custom
+    assert defaults_for(None) is DEFAULTS
+
+
+def _question(
+    days_off: frozenset[int] | None, dismissed: bool, days: set[int], on: bool
+) -> DayOffQuestion | None:
+    practice = replace(DEFAULTS.practice, on=on, days=frozenset(days))
+    return day_off_question(days_off, dismissed, replace(DEFAULTS, practice=practice))
+
+
+def test_day_off_question_asks_about_the_one_skipped_weekday() -> None:
+    assert _question(None, False, {1, 2, 3, 4, 5, 7}, True) == DayOffQuestion(6, True)
+    assert _question(None, False, {1, 2, 3, 4, 6, 7}, False) == DayOffQuestion(5, False)
+
+
+@pytest.mark.parametrize(
+    ("days_off", "dismissed", "days"),
+    [
+        (frozenset({6}), False, {1, 2, 3, 4, 5, 7}),  # already chosen
+        (frozenset[int](), False, {1, 2, 3, 4, 5, 6, 7}),  # chosen: no fixed day off
+        (None, True, {1, 2, 3, 4, 5, 7}),  # "Not now"
+        (None, False, {1, 2, 3, 4, 5, 6, 7}),  # reminders every day
+        (None, False, {1, 2, 3, 4, 5}),  # two gaps
+    ],
+)
+def test_day_off_question_is_skipped(
+    days_off: frozenset[int] | None, dismissed: bool, days: set[int]
+) -> None:
+    assert _question(days_off, dismissed, days, True) is None
+
+
+def test_an_unlogged_day_off_is_not_logged_for_the_tick() -> None:
+    """ADR-0022: auto-rest is never a log, so custom days that include the day off still
+    get their reminder."""
+    sat = date(2026, 10, 24)
+    practice = replace(DEFAULTS.practice, on=True, days=frozenset(range(1, 8)))
+    c = Candidate("Asia/Almaty", replace(DEFAULTS, practice=practice), ())
+    now = send_instant(sat, practice.at, "Asia/Almaty")
+    assert due_practice_reminder(now, c) is not None

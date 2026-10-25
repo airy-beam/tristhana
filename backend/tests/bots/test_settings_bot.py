@@ -105,7 +105,11 @@ def test_settings_screen_without_a_zone(client: TestClient, storage: InMemorySto
     assert "🕐 Time zone: not set yet" in body["text"]
     assert "🌙 Moon days: 📍 Mysuru" in body["text"]
     assert "🔕 Quiet hours 22:00–07:00 · at most 3 messages a day" in body["text"]  # noqa: RUF001
-    assert _rows(body)[:2] == [["✓ As in Telegram", "English", "Русский"], ["🕐 Time zone"]]
+    assert _rows(body)[:2] == [
+        ["✓ As in Telegram", "English", "Русский"],
+        ["🕐 Time zone", "😌 Day off"],
+    ]
+    assert "😌 Day off: not chosen" in body["text"]
 
 
 def test_language_tap_switches_at_once_and_sticks(

@@ -2,12 +2,13 @@
 
 from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, date, datetime
+from functools import cache
 from typing import Any
 from uuid import UUID, uuid4
 
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.accounts import IdentityTaken
-from tristhana.application.ports.days import History
+from tristhana.application.ports.days import History, RangeView
 from tristhana.application.ports.notifications import (
     Delivery,
     DeliveryResult,
@@ -28,6 +29,7 @@ from tristhana.application.practice import (
     SavePractice,
 )
 from tristhana.application.practice_patch import PracticePatch
+from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.bots.telegram.runtime import (
     DayUseCases,
     MoonUseCases,
@@ -43,9 +45,15 @@ from tristhana.domain.accounts import (
     ProfileUpdate,
 )
 from tristhana.domain.days import DayLog, DayStatus
-from tristhana.domain.moon import MoonDay, MoonDayKind, MoonLocation
-from tristhana.domain.notifications import NotificationSettings, StoredSettings, effective
+from tristhana.domain.moon import Cities, MoonDay, MoonDayKind, MoonLocation
+from tristhana.domain.notifications import (
+    NotificationSettings,
+    StoredSettings,
+    defaults_for,
+    effective,
+)
 from tristhana.domain.practice import Practice, PracticeContext
+from tristhana.domain.rest_days import DayOff
 
 NOW = datetime(2026, 10, 18, 6, 0, tzinfo=UTC)
 
@@ -118,6 +126,14 @@ class InMemoryAccounts:
             return account
         return self._save(replace(account, timezone=timezone))
 
+    async def set_day_off(self, account_id: UUID, day_off: DayOff) -> Account:
+        self._check()
+        return self._save(replace(self.accounts[account_id], day_off=day_off))
+
+    async def dismiss_day_off_question(self, account_id: UUID) -> None:
+        self._check()
+        self._save(replace(self.accounts[account_id], day_off_dismissed=True))
+
     def _insert(self, key: IdentityKey, new: NewAccount) -> Account:
         account = Account(
             id=uuid4(),
@@ -125,6 +141,7 @@ class InMemoryAccounts:
             locale=new.locale,
             timezone=None,
             last_seen_at=self.clock.now(),
+            created_at=self.clock.now(),
         )
         self.identities[key] = account.id
         return self._save(account)
@@ -148,6 +165,7 @@ class InMemoryDays:
         default_factory=dict[tuple[UUID, date], Practice]
     )
     down: bool = False
+    moon: "InMemoryMoon | None" = None  # for `range_with_moon`
 
     async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> DayLog:
         self._check()
@@ -176,6 +194,13 @@ class InMemoryDays:
             if a == account_id and start <= when <= end
         ]
         return sorted(found, key=lambda d: d.local_date)
+
+    async def range_with_moon(
+        self, account_id: UUID, start: date, end: date, location: str
+    ) -> RangeView:
+        days = await self.list_range(account_id, start, end)
+        moon = await self.moon.days(location, start, end) if self.moon else []
+        return RangeView(days, frozenset(d.date for d in moon))
 
     async def history(self, account_id: UUID, start: date, end: date) -> History:
         days = await self.list_range(account_id, start, end)
@@ -301,16 +326,34 @@ class InMemoryNotifications:
     unreachable: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
     days: "InMemoryDays | None" = None  # logged days for the practice reminder
     intro_sent: set[UUID] = field(default_factory=set[UUID])
+    # Stored `practice_days` is NULL: the days follow the defaults (the day off, PR-09).
+    follow_days: set[UUID] = field(default_factory=set[UUID])
 
     async def settings(
         self, account_id: UUID, defaults: NotificationSettings
     ) -> NotificationSettings:
-        return self.stored.get(account_id, defaults)
+        stored = self.stored.get(account_id)
+        if stored is None:
+            return defaults
+        if account_id in self.follow_days:
+            return replace(stored, practice=replace(stored.practice, days=defaults.practice.days))
+        return stored
+
+    async def reset_practice_days(
+        self, account_id: UUID, defaults: NotificationSettings
+    ) -> tuple[NotificationSettings, frozenset[int] | None]:
+        stored = self.stored.get(account_id)
+        before = None if stored is None or account_id in self.follow_days else stored.practice.days
+        if stored is not None:
+            self.follow_days.add(account_id)
+        return await self.settings(account_id, defaults), before
 
     async def save(
         self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
     ) -> NotificationSettings:
-        if not with_practice:
+        if with_practice:
+            self.follow_days.discard(account_id)  # the real save writes explicit days
+        else:
             current = self.stored.get(account_id)
             settings = replace(
                 settings, practice=current.practice if current else settings.practice
@@ -330,7 +373,7 @@ class InMemoryNotifications:
             s.daily_cap,
             s.practice.on,
             s.practice.at,
-            s.practice.days,
+            None if account_id in self.follow_days else s.practice.days,
         )
 
     async def patch(
@@ -338,7 +381,11 @@ class InMemoryNotifications:
     ) -> NotificationSettings:
         row = replace(await self.stored_row(account_id), **columns)  # type: ignore[arg-type]
         self.stored[account_id] = effective(row, defaults)
-        return self.stored[account_id]
+        if row.practice_days is None:
+            self.follow_days.add(account_id)
+        else:
+            self.follow_days.discard(account_id)
+        return await self.settings(account_id, defaults)
 
     async def mark_intro_sent(self, account_id: UUID, at: datetime) -> None:
         self.intro_sent.add(account_id)
@@ -346,9 +393,13 @@ class InMemoryNotifications:
     async def patch_practice(
         self, account_id: UUID, patch: ReminderPatch, defaults: NotificationSettings
     ) -> NotificationSettings:
-        current = self.stored.get(account_id, defaults)
+        current = await self.settings(account_id, defaults)
+        if account_id not in self.stored:
+            self.follow_days.add(account_id)  # a new row stores NULL days
+        if patch.days is not None:
+            self.follow_days.discard(account_id)
         self.stored[account_id] = replace(current, practice=patch.apply(current.practice))
-        return self.stored[account_id]
+        return await self.settings(account_id, defaults)
 
     async def candidates(
         self, since: datetime, logged_from: date, defaults: NotificationSettings
@@ -356,7 +407,7 @@ class InMemoryNotifications:
         out: list[ReminderCandidate] = []
         for key, account_id in self.accounts.identities.items():
             account = self.accounts.accounts[account_id]
-            settings = self.stored.get(account_id, defaults)
+            settings = await self.settings(account_id, defaults_for(account.day_off.days, defaults))
             on = settings.moon.on or settings.practice.enabled
             if account.timezone is None or not on or account_id in self.unreachable:
                 continue
@@ -458,6 +509,8 @@ class InMemoryStorage:
     def __post_init__(self) -> None:
         if self.notification_repo is None:
             self.notification_repo = InMemoryNotifications(self.repo, days=self.day_repo)
+        if self.day_repo.moon is None:
+            self.day_repo.moon = self.moon_repo
 
     started: bool = False
 
@@ -496,8 +549,19 @@ class InMemoryStorage:
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:
     repo, clock = repo or InMemoryDays(), clock or FixedClock()
     return DayUseCases(
-        get=GetDays(repo, clock), set=SetDayStatus(repo, clock), clear=ClearDayStatus(repo)
+        get=GetDays(repo, cities(), clock),
+        set=SetDayStatus(repo, clock),
+        clear=ClearDayStatus(repo),
     )
+
+
+@cache
+def cities() -> Cities:
+    from pathlib import Path
+
+    from tristhana.infrastructure.seed.cities_yaml import load_cities
+
+    return load_cities(Path(__file__).resolve().parents[2] / "data" / "seed" / "cities.yaml")
 
 
 def practice_use_cases(repo: InMemoryDays | None = None) -> PracticeUseCases:
@@ -517,7 +581,6 @@ def practice_use_cases(repo: InMemoryDays | None = None) -> PracticeUseCases:
 
 
 def moon_use_cases(storage: "InMemoryStorage | None" = None) -> MoonUseCases:
-    from pathlib import Path
 
     from tristhana.application.moon import (
         GetMoonView,
@@ -525,15 +588,14 @@ def moon_use_cases(storage: "InMemoryStorage | None" = None) -> MoonUseCases:
         UpdateMoonReminders,
         UseCityTimezone,
     )
-    from tristhana.infrastructure.seed.cities_yaml import load_cities
 
     storage = storage or InMemoryStorage()
-    cities = load_cities(Path(__file__).resolve().parents[2] / "data" / "seed" / "cities.yaml")
+    known = cities()
     return MoonUseCases(
-        cities=cities,
-        view=GetMoonView(cities, storage.moon, storage.notifications, FixedClock()),
-        set_location=SetMoonLocation(cities, storage.accounts),
-        use_city_zone=UseCityTimezone(cities, storage.accounts),
+        cities=known,
+        view=GetMoonView(known, storage.moon, storage.notifications, FixedClock()),
+        set_location=SetMoonLocation(known, storage.accounts),
+        use_city_zone=UseCityTimezone(known, storage.accounts),
         reminders=UpdateMoonReminders(storage.notifications),
     )
 
@@ -554,6 +616,8 @@ def remind_use_cases(
         update=UpdatePracticeReminder(storage.notifications),
         offer=AnswerPracticeOffer(storage.notifications, clock),
         quick_log=QuickLogSameAsLast(storage.days, storage.practices, clock),
+        day_off=SetDayOff(storage.accounts, storage.notifications, clock),
+        dismiss_day_off=DismissDayOffQuestion(storage.accounts),
     )
 
 
@@ -567,4 +631,5 @@ def settings_use_cases(storage: "InMemoryStorage | None" = None) -> SettingsUseC
         settings=NotificationSettingsUseCase(storage.notifications),
         cities=moon_use_cases(storage).cities,
         today=day_use_cases(storage.days).get.today,
+        day_off=SetDayOff(storage.accounts, storage.notifications, FixedClock()),
     )

@@ -21,6 +21,7 @@ const EMPTY: StatsSummary = {
   possible: 0,
   skipped: 0,
   unlogged: 0,
+  auto: 0,
   rest: { rest: 0, moon: 0, ladies: 0, sick: 0, travel: 0 },
   contexts: { mysore: 0, led: 0, private: 0, self: 0 },
   online: 0,
@@ -48,6 +49,7 @@ function stats(overrides: Partial<StatsData> = {}): StatsData {
   return {
     today: TODAY,
     timezone_known: true,
+    auto: [],
     year: 2026,
     first_year: 2025,
     cells,
@@ -61,6 +63,16 @@ function stats(overrides: Partial<StatsData> = {}): StatsData {
 
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+
+const NOTIFY = {
+  moon: { offsets: [1, 7], at: "19:00:00" },
+  quiet: { start: "22:00:00", end: "07:00:00" },
+  daily_cap: 3,
+  practice: { on: true, at: "10:00:00", days: [1, 2, 3, 4, 5, 7] },
+  timezone: "Asia/Almaty",
+};
+let dayOff: number[] | null = [6];
+let question: { weekday: number; reminders_on: boolean } | null = null;
 
 function stubApi(data: StatsData = stats()): Request[] {
   const seen: Request[] = [];
@@ -79,9 +91,20 @@ function stubApi(data: StatsData = stats()): Request[] {
         ]);
       }
       if (url.pathname === "/api/v1/me/days") {
-        return json({ today: TODAY, timezone_known: true, days: [] });
+        return json({
+          today: TODAY,
+          timezone_known: true,
+          auto: [],
+          moon_location: "mysuru",
+          days: [],
+        });
       }
       if (request.method === "PUT") return new Response(null, { status: 204 });
+      if (url.pathname === "/api/v1/me/day-off-question")
+        return new Response(null, { status: 204 });
+      if (url.pathname === "/api/v1/me") return json({ day_off: dayOff });
+      if (url.pathname === "/api/v1/me/notification-settings")
+        return json({ ...NOTIFY, day_off_question: question });
       return json({});
     }),
   );
@@ -93,7 +116,7 @@ function renderStats(locale: Locale = "en") {
   return render(
     <QueryClientProvider client={client}>
       <L10nProvider locale={locale}>
-        <Stats locale={locale} zone="Asia/Almaty" onBack={vi.fn()} />
+        <Stats locale={locale} zone="Asia/Almaty" onBack={vi.fn()} onDayOff={vi.fn()} />
       </L10nProvider>
     </QueryClientProvider>,
   );
@@ -260,6 +283,8 @@ describe("Stats", () => {
           return json({
             today: TODAY,
             timezone_known: true,
+            auto: [],
+            moon_location: "mysuru",
             days: [{ date: "2026-10-18", status: "ladies", practices: [] }],
           });
         }
@@ -287,5 +312,96 @@ describe("Stats", () => {
     renderStats();
 
     expect(await screen.findByRole("button", { name: "‹ Back" })).toBeInTheDocument();
+  });
+});
+
+describe("Stats auto-rest and the day-off question (PR-09)", () => {
+  afterEach(() => {
+    dayOff = [6];
+    question = null;
+  });
+
+  it("draws an unlogged day off lighter, named with the city for a moon day", async () => {
+    stubApi(
+      stats({
+        auto: [
+          { date: "2026-10-10", kind: "day_off", also_day_off: false },
+          { date: "2026-10-03", kind: "moon", also_day_off: true },
+        ],
+      }),
+    );
+    renderStats();
+
+    const moonDay = await screen.findByRole("button", {
+      name: (n) => plain(n).startsWith("Sat, Oct 3:"),
+    });
+    await vi.waitFor(() => {
+      // The city name comes with the cities list.
+      expect(plain(moonDay.getAttribute("aria-label") ?? "")).toBe(
+        "Sat, Oct 3: 🌙 moon day (📍 Mysuru), also your day off, not logged",
+      );
+    });
+    expect(moonDay).toHaveClass("auto");
+    const dayOffCell = screen.getByRole("button", {
+      name: (n) => plain(n).startsWith("Sat, Oct 10:"),
+    });
+    expect(plain(dayOffCell.getAttribute("aria-label") ?? "")).toBe(
+      "Sat, Oct 10: 😌 day off, not logged",
+    );
+    expect(screen.getByText("Day off or moon day (not logged)")).toBeInTheDocument();
+  });
+
+  it("asks once on the stats card; Not now leaves a quiet link", async () => {
+    dayOff = null;
+    question = { weekday: 6, reminders_on: true };
+    const seen = stubApi();
+    const onDayOff = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <L10nProvider locale="en">
+          <Stats locale="en" zone="Asia/Almaty" onBack={vi.fn()} onDayOff={onDayOff} />
+        </L10nProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText(
+        (t) =>
+          plain(t) ===
+          "😌 Practice reminders don't come on Saturdays. Is that your weekly day off?",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Other…" }));
+    expect(onDayOff).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+
+    expect(
+      await screen.findByRole("button", { name: "😌 Set your weekly day off" }),
+    ).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(seen.some((r) => r.method === "DELETE")).toBe(true);
+    });
+  });
+
+  it("shows nothing once a day off is chosen", async () => {
+    stubApi();
+    renderStats();
+    await screen.findByText(/in a row/);
+    expect(screen.queryByText("😌 Set your weekly day off")).not.toBeInTheDocument();
+  });
+
+  it("still renders against an API without auto-rest", async () => {
+    const old: Partial<StatsData> = stats({
+      months: Array.from({ length: 12 }, () => ({ ...EMPTY })),
+    });
+    delete old.auto;
+    for (const m of old.months ?? []) delete (m as Partial<StatsSummary>).auto;
+    stubApi(old as StatsData);
+    renderStats();
+    expect(
+      await screen.findByRole("button", { name: (n) => plain(n).startsWith("Sat, Oct 3:") }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Nothing logged this month yet/)).toBeInTheDocument();
   });
 });

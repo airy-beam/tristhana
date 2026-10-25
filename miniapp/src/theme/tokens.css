@@ -268,6 +268,23 @@ body {
   fill: #ead9b5;
   background: #ead9b5;
 }
+/* Auto-rest (PR-09): an unlogged day shown as rest. The rest hue, lighter, with a dashed
+   edge, so it never looks like a logged day; the moon ring still sits on top. */
+.cell.auto {
+  fill: color-mix(in srgb, #9ccfb4 45%, transparent);
+  stroke: #6fb08d;
+  stroke-width: 1;
+  stroke-dasharray: 2 1.5;
+}
+.swatch.auto,
+.day.auto {
+  background: color-mix(in srgb, #9ccfb4 45%, transparent);
+  outline: 1px dashed #6fb08d;
+  outline-offset: -1px;
+}
+.question {
+  margin-top: 8px;
+}
 .moon-ring {
   fill: none;
   stroke: var(--c-text);

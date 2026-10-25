@@ -9,6 +9,7 @@ from tristhana.domain.accounts import (
     ProfileChange,
     ProfileUpdate,
 )
+from tristhana.domain.rest_days import DayOff
 
 
 class IdentityTaken(Exception):
@@ -40,4 +41,10 @@ class AccountRepository(Protocol):
 
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> Account:
         """Sets the zone only if the account has none; returns the account either way."""
+        ...
+
+    async def set_day_off(self, account_id: UUID, day_off: DayOff) -> Account: ...
+
+    async def dismiss_day_off_question(self, account_id: UUID) -> None:
+        """Idempotent: the first "Not now" is kept."""
         ...

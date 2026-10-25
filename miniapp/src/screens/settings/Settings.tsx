@@ -1,12 +1,14 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
+  useMe,
   useMoonCities,
   useMoonDays,
   useNotificationSettings,
   usePatchMe,
   usePatchNotificationSettings,
+  useSetDayOff,
   useSetMoonLocation,
   type Me,
   type NotificationSettings,
@@ -26,12 +28,17 @@ const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")
 interface Props {
   me: Me;
   onBack: () => void;
+  /** Open scrolled to a section (the stats "Set your weekly day off" link). */
+  focus?: "day-off" | undefined;
 }
 
 /** Everything in one place (ID-06): profile, time zone, moon days, reminders, privacy.
  * Loaded lazily, so Home stays light. */
-export default function Settings({ me, onBack }: Props) {
+export default function Settings({ me, onBack, focus }: Props) {
   useBackButton(onBack);
+  useEffect(() => {
+    if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
+  }, [focus]);
   return (
     <main className="screen settings">
       {!backButtonAvailable() && (
@@ -44,6 +51,7 @@ export default function Settings({ me, onBack }: Props) {
       </Localized>
       <Profile me={me} />
       <Zone me={me} />
+      <DayOff me={me} />
       <Moon locale={me.locale} zone={me.timezone} />
       <PracticeReminderCard zone={me.timezone} />
       <Quiet zone={me.timezone} />
@@ -423,6 +431,67 @@ function Quiet({ zone }: { zone: string | null }) {
         ))}
       </div>
       {save.isError && (
+        <Localized id="settings-save-failed">
+          <p className="status" role="alert" />
+        </Localized>
+      )}
+    </section>
+  );
+}
+
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+
+/** The weekly day off (PR-09): one weekday or none; nothing pressed until chosen. */
+function DayOff({ me }: { me: Me }) {
+  const setDayOff = useSetDayOff();
+  // The cached account, so a tap shows at once (the prop updates with it in the app).
+  const current = (useMe().data ?? me).day_off ?? null;
+  const choose = (days: number[]) => {
+    haptics.impact("light");
+    setDayOff.mutate(days, {
+      onError: () => {
+        haptics.notify("error");
+      },
+    });
+  };
+  return (
+    <section className="card" id="day-off" aria-labelledby="day-off-title">
+      <Localized id="settings-day-off">
+        <h2 id="day-off-title" />
+      </Localized>
+      <div className="chips" role="group" aria-labelledby="day-off-title">
+        {WEEKDAYS.map((d) => (
+          <Localized key={d} id="remind-weekday" vars={{ d }}>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={current?.length === 1 && current[0] === d}
+              onClick={() => {
+                choose([d]);
+              }}
+            />
+          </Localized>
+        ))}
+        <Localized id="day-off-none">
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={current?.length === 0}
+            onClick={() => {
+              choose([]);
+            }}
+          />
+        </Localized>
+      </div>
+      {setDayOff.data?.reminder_days_reset && (
+        <Localized id="day-off-reminders-follow">
+          <p className="hint" role="status" />
+        </Localized>
+      )}
+      <Localized id="settings-day-off-hint" vars={{ first: current === null ? "yes" : "no" }}>
+        <p className="hint small" />
+      </Localized>
+      {setDayOff.isError && (
         <Localized id="settings-save-failed">
           <p className="status" role="alert" />
         </Localized>
