@@ -66,6 +66,11 @@ async def test_moon_candidates(engine: AsyncEngine) -> None:
     blocked = await _account(engine, "4")
     repo = SqlNotificationRepository(engine)
     await repo.patch(off, {"moon_offsets": frozenset[int]()}, DEFAULTS)
+    async with engine.connect() as conn:  # seen before the block, whatever today's date is
+        await conn.execute(
+            text("UPDATE tristhana.account SET last_seen_at = :seen WHERE id = :id"),
+            {"seen": NOW - timedelta(days=1), "id": blocked},
+        )
     await repo.mark_unreachable(blocked, NOW)
 
     candidates = await repo.candidates(NOW - timedelta(days=12), NOW.date(), DEFAULTS)

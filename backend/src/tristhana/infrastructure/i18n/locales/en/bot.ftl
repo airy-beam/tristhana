@@ -95,7 +95,7 @@ practice-no-previous = Nothing to copy yet: this is your first practice with det
 
 length-pick =
     Where did your practice end?
-    ☀️ Short: Surya Namaskara, standing and finishing.
+    ☀️ Short: Surya Namaskara, standing, optional backbends and finishing.
 preset-short = ☀️ Short → standing
 preset-half-primary = ½ Primary → Navasana
 preset-full-primary = Full Primary

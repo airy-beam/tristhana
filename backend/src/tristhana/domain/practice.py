@@ -44,7 +44,7 @@ class TimezoneUnknown(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class PracticeLength:
-    """`series` in practice order (empty = short practice: no series, no backbending);
+    """`series` in practice order (empty = short practice: no series; backbending optional);
     every series is full except: the first may be one half (`first_part`, only when another
     series follows: "Primary, 2nd half + Intermediate"), the last may end early (`end`, a
     stop point; None = full)."""
