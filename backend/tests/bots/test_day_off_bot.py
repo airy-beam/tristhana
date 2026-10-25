@@ -147,8 +147,8 @@ def test_settings_picker_sets_the_day_off_and_returns(
 ) -> None:
     _me(client, storage)
     picker = _tap(client, "s1:o")
-    assert picker["text"].startswith("😌 Which days are your days off?")
-    assert "Past weeks show it too." in picker["text"]
+    assert picker["text"].startswith("😌 Which day is your day off? Tap one or two")
+    assert "Past weeks show them too." in picker["text"]
     assert _rows(picker) == [
         ["Saturday", "Sunday"],
         ["Monday", "Tuesday", "Wednesday"],

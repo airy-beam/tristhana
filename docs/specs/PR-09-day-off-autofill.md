@@ -10,6 +10,7 @@ Two settings (the day off and the reminder days) were confusing. Now:
 - Stored custom reminder days are dropped (migration **0008** sets `practice_days` NULL; the column stays until a later contract migration). `PATCH /me/notification-settings` `practice.days` is deprecated and ignored; `DayOffOut` = `{day_off, practice_days}` (no `reminder_days_reset`).
 - Bot: the day-off picker toggles days (😌 = day off) and stays open (`s1:o:<digits|0>`, `r1:dt:<digits|0>`); with two days off a third tap just reshows the picker. `/remind` has no day buttons: a "They come on your practice days" line and a [😌 Day off] button (`r1:dp`). Old `r1:w:*` keyboards reshow `/remind`. `/settings`: "😌 Days off: Saturday, Sunday".
 - Mini App: Day off chips toggle (pressed = day off, a third is disabled until one is unpressed); the reminder card shows "On your practice days: …".
+- Copy (ux-writer + ashtanga-expert, 2026-10-25): the `.ftl` files are the source of truth; §8 is the original draft. Title and button stay singular ("Day off" / «Выходной»: «Выходные» reads as "the weekend"); "practice days" / «дни практики»; with no fixed day off reminders come "every day except moon days".
 - Sections below that describe custom reminder days, the "now follow your day off" note and one day off are superseded by this amendment.
 
 ## 0. Implementation plan (in order; TDD per step)
