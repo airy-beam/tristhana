@@ -1,5 +1,6 @@
 """Rest-period taps (WH-01 part 2, ADR-0023): the day count for a pause, "Other…" / Back,
-"Keep the pause", and ending a pause early (from a day screen or `/remind`).
+"Just today" (no pause), "Keep the pause", and ending a pause early (from a day screen or
+`/remind`).
 
 Every tap answers the callback first and edits the message in place. Other… / Back are a
 pure render; starting or keeping a pause is one statement; ending early also re-reads
@@ -65,6 +66,8 @@ class RestScreens:
                     assert cb.kind is not None  # noqa: S101 - decoded with a kind
                     more = cb.action == "more"
                     return self._days.question(principal, cb.day, cb.kind, cb.reminders_on, more)
+                case "only":
+                    return await self._only(principal, cb)
                 case "start":
                     return await self._start(principal, cb)
                 case "keep":
@@ -84,6 +87,13 @@ class RestScreens:
         return self._days.period_saved(
             principal, cb.day, cb.kind, placed.period, placed.practice_on
         )
+
+    async def _only(self, principal: Principal, cb: RestCallback) -> Screen:
+        assert cb.kind is not None  # noqa: S101
+        # The day is saved already. One statement: a pause starting that day (a re-asked
+        # first day) goes, since "just that day" means no pause; usually a no-op.
+        await self._rest.end.execute(principal, cb.day)
+        return self._days.saved_screen(principal, cb.day, cb.kind)
 
     async def _keep(self, principal: Principal, cb: RestCallback) -> Screen | None:
         assert cb.kind is not None  # noqa: S101

@@ -246,6 +246,58 @@ def test_other_and_back_are_a_pure_render(
     assert _texts(back)[:4] == ["2 days", "3 days", "5 days", "Other…"]
 
 
+@pytest.mark.parametrize(
+    ("offset", "lang", "label"),
+    [
+        (0, "en", "Just today"),
+        (-1, "en", "Just yesterday"),
+        (0, "ru", "Только сегодня"),
+        (-1, "ru", "Только вчера"),
+    ],
+)
+def test_the_question_offers_just_that_day(
+    client: TestClient, storage: InMemoryStorage, offset: int, lang: str, label: str
+) -> None:
+    _me(client, storage, lang=lang)
+
+    first = _tap(client, f"d1:s:{_ymd(offset)}:k", lang)
+    other = _tap(client, f"a1:m:{_ymd(offset)}:k:0", lang)
+
+    for body in (first, other):
+        assert label in _texts(body)
+        assert f"a1:o:{_ymd(offset)}:k" in _data(body)
+
+
+def test_just_today_keeps_the_day_without_a_pause(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage, reminders=True)
+    _tap(client, f"d1:s:{_ymd(0)}:l")
+
+    body = _tap(client, f"a1:o:{_ymd(0)}:l")
+
+    assert _periods(storage, me) == []
+    assert storage.day_repo.rows[(me.id, _d(0))][0].status is L
+    text = body["text"]
+    assert text.startswith("✓ Today, ")
+    assert "How many days" not in text
+    assert "Pause practice reminders" not in text
+    assert not any(d.startswith("a1:") for d in _data(body))
+
+
+def test_just_today_on_a_pauses_first_day_removes_the_pause(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+    _period(storage, me, -1, 2, K)
+    _log(storage, me, -1, K)
+
+    _tap(client, f"a1:o:{_ymd(-1)}:k")
+
+    assert _periods(storage, me) == []
+    assert storage.day_repo.rows[(me.id, _d(-1))][0].status is K
+
+
 @pytest.mark.parametrize(("offset", "code"), [(-2, "l"), (-9, "k"), (0, "r"), (0, "s")])
 def test_no_question_for_backfill_or_other_statuses(
     client: TestClient, storage: InMemoryStorage, offset: int, code: str
@@ -670,6 +722,8 @@ def _a1() -> ModuleType:
         "a1:e:20261024:1",
         "a1:e:20261024:0",
         "a1:er:20261024",
+        "a1:o:20261026:l",
+        "a1:o:20261026:t",
     ],
 )
 def test_rest_callbacks_round_trip_and_stay_small(data: str) -> None:
@@ -719,6 +773,9 @@ def test_rest_callbacks_decode_absolute_values() -> None:
         "a1:e:20261024:2",
         "a1:er:2026102",
         "a1:x:20261024",
+        "a1:o:20261026",
+        "a1:o:20261026:r",  # plain rest has no period
+        "a1:o:20261026:l:1",
     ],
 )
 def test_rest_callbacks_reject_anything_else(data: str | None) -> None:

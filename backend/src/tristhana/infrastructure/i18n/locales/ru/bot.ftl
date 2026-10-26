@@ -379,6 +379,10 @@ pause-days = { $n ->
     }
 pause-other = Другое…
 pause-back = ‹ Назад
+pause-only = { $rel ->
+        [yesterday] Только вчера
+       *[today] Только сегодня
+    }
 pause-set = ⏸ { $reminders ->
         [on] Напоминания о практике на паузе по { $until } включительно.
        *[off] Готово, по { $until } включительно.

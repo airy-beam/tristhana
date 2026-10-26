@@ -369,6 +369,10 @@ pause-days = { $n ->
     }
 pause-other = Other…
 pause-back = ‹ Back
+pause-only = { $rel ->
+        [yesterday] Just yesterday
+       *[today] Just today
+    }
 pause-set = ⏸ { $reminders ->
         [on] Practice reminders are paused through { $until }.
        *[off] Set through { $until }.

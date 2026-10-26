@@ -232,12 +232,13 @@ class DayScreens:
         locale = principal.account.locale
         today, _ = self._days.get.today(principal)
         lines = self.saved_lines(principal, day, kind)
+        rel = "yesterday" if day == today - timedelta(days=1) else "today"
         lines.append(
             self._t.t(
                 locale,
                 "pause-ask",
                 label=self.label(locale, kind),
-                rel="yesterday" if day == today - timedelta(days=1) else "today",
+                rel=rel,
                 reminders=_on(reminders_on),
             )
         )
@@ -254,6 +255,8 @@ class DayScreens:
         rows.append(
             [self._button(locale, "pause-back" if more else "pause-other", acb.encode(flip))]
         )
+        only = acb.encode(acb.RestCallback("only", day, kind))
+        rows.append([self._button(locale, "pause-only", only, rel=rel)])
         rows.append(self._change_row(locale, day, today))
         rows += self.app_rows(principal)
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
@@ -394,8 +397,8 @@ class DayScreens:
             callback_data=encode(DayCallback("set", day, status)),
         )
 
-    def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
-        return InlineKeyboardButton(text=self._t.t(locale, key), callback_data=data)
+    def _button(self, locale: Locale, key: str, data: str, **args: str) -> InlineKeyboardButton:
+        return InlineKeyboardButton(text=self._t.t(locale, key, **args), callback_data=data)
 
     def day(self, locale: Locale, day: date, today: date) -> str:
         return day_label(self._t, locale, day, today)
