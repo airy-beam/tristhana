@@ -281,7 +281,8 @@ export interface paths {
         /**
          * Post Rest Period
          * @description Starts a period on `start` (logged already). It replaces what it overlaps: an earlier
-         *     period ends the day before, periods starting inside it are removed.
+         *     period ends the day before, periods starting inside it are removed. 422
+         *     `invalid_rest_period` also when `start` is logged by now with another status.
          */
         post: operations["post_rest_period_api_v1_me_rest_periods_post"];
         delete?: never;
@@ -302,7 +303,8 @@ export interface paths {
          * Put Rest Period
          * @description "Keep the pause": restores a period cut by 🧘 Practiced exactly as it was (same
          *     overlap rule as a new one). `period: null` once it is over (nothing left to keep), or
-         *     when no 🧘 Practiced day inside it shows it was cut (never a backfill).
+         *     when no 🧘 Practiced day inside it shows it was cut (never a backfill), or when a newer
+         *     pause started after the cut (never undone).
          */
         put: operations["put_rest_period_api_v1_me_rest_periods__start__put"];
         post?: never;

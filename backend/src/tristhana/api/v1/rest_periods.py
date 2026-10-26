@@ -90,7 +90,8 @@ async def post_rest_period(
     use_case: Annotated[StartRestPeriod, Depends(start_rest_period)],
 ) -> RestPeriodOut:
     """Starts a period on `start` (logged already). It replaces what it overlaps: an earlier
-    period ends the day before, periods starting inside it are removed."""
+    period ends the day before, periods starting inside it are removed. 422
+    `invalid_rest_period` also when `start` is logged by now with another status."""
     try:
         placed = await use_case.execute(principal, body.start, body.days, DayStatus(body.kind))
     except InvalidRestPeriod:
@@ -98,7 +99,8 @@ async def post_rest_period(
     except DateInFuture:
         raise ApiError(422, "date_in_future") from None
     out = RestPeriodOut.of(placed.period)
-    assert out is not None  # noqa: S101 - just placed
+    if out is None:  # the day shows another status by now (a stale question)
+        raise ApiError(422, "invalid_rest_period")
     return out
 
 
@@ -111,7 +113,8 @@ async def put_rest_period(
 ) -> PeriodResult:
     """ "Keep the pause": restores a period cut by 🧘 Practiced exactly as it was (same
     overlap rule as a new one). `period: null` once it is over (nothing left to keep), or
-    when no 🧘 Practiced day inside it shows it was cut (never a backfill)."""
+    when no 🧘 Practiced day inside it shows it was cut (never a backfill), or when a newer
+    pause started after the cut (never undone)."""
     try:
         kept = await use_case.execute(principal, RestPeriod(start, body.end, DayStatus(body.kind)))
     except InvalidRestPeriod:

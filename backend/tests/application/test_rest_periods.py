@@ -20,7 +20,12 @@ from tristhana.application import remind as remind_app
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.policies import Principal
 from tristhana.application.ports.notifications import ReminderPatch
-from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
+from tristhana.application.rest_periods import (
+    EndRestPeriod,
+    RestoreRestPeriod,
+    SkipRestPeriod,
+    StartRestPeriod,
+)
 from tristhana.application.stats import GetYearStats
 from tristhana.application.tick import RunTick
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
@@ -594,3 +599,84 @@ async def test_moon_reminders_still_come_during_a_pause(storage: InMemoryStorage
 
     assert len(notifier.moon) == 1
     assert notifier.practice == []
+
+
+# Second review (2026-10-27)
+
+
+async def test_a_stale_keep_never_deletes_a_newer_pause(
+    storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    """Owner: 🌸 Oct 20-26, 🧘 Oct 22 cuts it to 20-21, 🤒 Oct 23 for 5 days; the old Keep
+    tapped on Oct 24 changes nothing."""
+    me = await _me(storage)
+    _store(storage, me, RestPeriod(date(2026, 10, 20), date(2026, 10, 26), L))
+    on_24 = FixedClock(datetime(2026, 10, 24, 6, tzinfo=UTC))
+    saved = await SetDayStatus(storage.days, on_24).execute(
+        me, date(2026, 10, 22), DayStatus.PRACTICED
+    )
+    _store(storage, me, RestPeriod(date(2026, 10, 23), date(2026, 10, 27), K))
+    assert saved.cut is not None
+
+    kept = await RestoreRestPeriod(storage.rest_periods, on_24).execute(me, saved.cut)
+
+    assert kept is None
+    assert _periods(storage, me) == [
+        RestPeriod(date(2026, 10, 20), date(2026, 10, 21), L),
+        RestPeriod(date(2026, 10, 23), date(2026, 10, 27), K),
+    ]
+
+
+async def test_re_saving_practiced_never_cuts_again(
+    storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    """🧘 cut the pause, Keep put it back; tapping ✓🧘 again leaves it kept."""
+    me = await _me(storage)
+    _store(storage, me, _p(-2, 3, K))
+    set_status = SetDayStatus(storage.days, clock)
+    first = await set_status.execute(me, TODAY, DayStatus.PRACTICED)
+    assert first.cut is not None
+    await RestoreRestPeriod(storage.rest_periods, clock).execute(me, first.cut)
+
+    again = await set_status.execute(me, TODAY, DayStatus.PRACTICED)
+
+    assert again.cut is None
+    assert _periods(storage, me) == [_p(-2, 3, K)]
+
+
+async def test_a_stale_day_count_after_the_start_was_re_logged_starts_nothing(
+    storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    me = await _me(storage)
+    _log(storage, me, TODAY, DayStatus.PRACTICED)
+
+    placed = await StartRestPeriod(storage.rest_periods, clock).execute(me, TODAY, 3, K)
+
+    assert placed.period is None
+    assert _periods(storage, me) == []
+
+
+async def test_the_day_count_needs_a_matching_or_empty_start_day(
+    storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    me = await _me(storage)
+    _log(storage, me, _d(-1), L)
+    start = StartRestPeriod(storage.rest_periods, clock)
+
+    assert (await start.execute(me, _d(-1), 3, L)).period == _p(-1, 1, L)
+    assert (await start.execute(me, TODAY, 3, K)).period == _p(0, 2, K)  # not logged yet
+
+
+@pytest.mark.parametrize(
+    ("day", "expected"),
+    [(_d(0), []), (_d(-1), []), (_d(-3), [_p(-3, 2, K)])],
+)
+async def test_just_that_day_only_drops_a_recent_pause_starting_that_day(
+    storage: InMemoryStorage, clock: FixedClock, day: date, expected: list[RestPeriod]
+) -> None:
+    me = await _me(storage)
+    _store(storage, me, RestPeriod(day, _d(2), K))
+
+    await SkipRestPeriod(storage.rest_periods, clock).execute(me, day)
+
+    assert _periods(storage, me) == expected

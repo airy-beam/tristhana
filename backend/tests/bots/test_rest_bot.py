@@ -880,3 +880,75 @@ def test_the_pause_stays_on_remind_after_a_tap(
 
     assert f"⏸ Paused through {_until(3)}" in body["text"]
     assert f"a1:er:{_ymd(-1)}" in _data(body)
+
+
+# Second review (2026-10-27)
+
+
+def test_practiced_inside_an_unreadable_pause_shows_the_details_without_keep(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """A period whose seal can't be read is plain rest: 🧘 inside still works, no Keep."""
+    me = _me(client, storage)
+    _period(storage, me, -1, 3, DayStatus.REST)
+
+    body = _tap(client, f"d1:s:{_ymd(0)}:p")
+
+    assert "Add details?" in body["text"]
+    assert "⏸ Keep the pause" not in _texts(body)
+    assert storage.day_repo.rows[(me.id, _d(0))][0].status is DayStatus.PRACTICED
+
+
+def test_an_old_just_that_day_tap_never_ends_a_running_pause(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """Sick from 3 days ago through the day after tomorrow; the first day's old
+    "Just that day" button tapped today changes nothing."""
+    me = _me(client, storage)
+    _log(storage, me, -3, K)
+    _period(storage, me, -3, 2, K)
+
+    _tap(client, f"a1:o:{_ymd(-3)}:k")
+
+    assert _periods(storage, me) == [RestPeriod(_d(-3), _d(2), K)]
+
+
+def test_just_yesterday_never_shortens_a_pause_that_started_earlier(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+    _period(storage, me, -2, 2, K)
+    _log(storage, me, -1, K)
+
+    _tap(client, f"a1:o:{_ymd(-1)}:k")
+
+    assert _periods(storage, me) == [RestPeriod(_d(-2), _d(2), K)]
+
+
+def test_a_stale_keep_never_deletes_a_newer_pause(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """🌸 from 4 days ago, 🧘 two days ago cuts it, 🤒 yesterday for 5 days; the old Keep
+    is tapped today: nothing changes."""
+    me = _me(client, storage)
+    _period(storage, me, -4, 2, L)
+    _tap(client, f"d1:s:{_ymd(-2)}:p")  # cut to [-4, -3]
+    _period(storage, me, -1, 3, K)  # the newer pause
+
+    body = _tap(client, f"a1:k:{_ymd(-4)}:{_ymd(2)}:l:{_ymd(-2)}")
+
+    assert _periods(storage, me) == [RestPeriod(_d(-4), _d(-3), L), RestPeriod(_d(-1), _d(3), K)]
+    assert body is None or "Pause kept" not in body.get("text", "")
+
+
+def test_a_stale_day_count_after_the_day_became_practiced_starts_nothing(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+    _log(storage, me, 0, DayStatus.PRACTICED)  # re-logged elsewhere after the question
+
+    body = _tap(client, f"a1:p:{_ymd(0)}:k:3")
+
+    assert _periods(storage, me) == []
+    assert "⏸" not in body["text"]  # today's current screen, no pause line
+    assert "✓ 🧘 Practiced" in _texts(body)

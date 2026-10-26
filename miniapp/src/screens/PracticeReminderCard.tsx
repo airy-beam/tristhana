@@ -84,10 +84,7 @@ export function PracticeReminderCard({ zone }: { zone: string | null }) {
               className="link"
               onClick={() => {
                 haptics.impact("light");
-                // "Today" = the day after the pause's first day at least; the server
-                // decides the real end (its own today).
-                const today = new Date().toISOString().slice(0, 10);
-                resume.mutate({ start: pausedStart, today });
+                resume.mutate({ start: pausedStart }); // the server's "today" decides the end
               }}
             />
           </Localized>

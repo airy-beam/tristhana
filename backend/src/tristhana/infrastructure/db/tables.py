@@ -119,7 +119,7 @@ rest_period = Table(
     metadata,
     Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
     Column("start_date", Date(), nullable=False),
-    Column("end_date", Date(), nullable=False),
+    Column("end_date", Date(), nullable=False, index=True),  # the tick's paused days (0011)
     Column("sealed_kind", LargeBinary(), nullable=False),
     _timestamp("created_at"),
     _timestamp("updated_at"),

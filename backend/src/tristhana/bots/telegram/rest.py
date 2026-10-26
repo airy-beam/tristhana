@@ -84,15 +84,18 @@ class RestScreens:
         assert cb.kind is not None  # noqa: S101
         # One statement: the pause, and whether practice reminders are on (the wording).
         placed = await self._rest.start.execute(principal, cb.day, cb.days, cb.kind)
+        if placed.period is None:  # the day was logged otherwise since: show it as it is
+            return await self._days.status(principal, cb.day)
         return self._days.period_saved(
             principal, cb.day, cb.kind, placed.period, placed.practice_on
         )
 
     async def _only(self, principal: Principal, cb: RestCallback) -> Screen:
         assert cb.kind is not None  # noqa: S101
-        # The day is saved already. One statement: a pause starting that day (a re-asked
-        # first day) goes, since "just that day" means no pause; usually a no-op.
-        await self._rest.end.execute(principal, cb.day)
+        # The day is saved already. At most one statement: a pause starting that day (a
+        # re-asked first day) goes, since "just that day" means no pause; an old button
+        # tapped days later changes nothing.
+        await self._rest.skip.execute(principal, cb.day)
         return self._days.saved_screen(principal, cb.day, cb.kind)
 
     async def _keep(self, principal: Principal, cb: RestCallback) -> Screen | None:

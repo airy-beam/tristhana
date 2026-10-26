@@ -3038,7 +3038,7 @@
     },
     "/api/v1/me/rest-periods": {
       "post": {
-        "description": "Starts a period on `start` (logged already). It replaces what it overlaps: an earlier\nperiod ends the day before, periods starting inside it are removed.",
+        "description": "Starts a period on `start` (logged already). It replaces what it overlaps: an earlier\nperiod ends the day before, periods starting inside it are removed. 422\n`invalid_rest_period` also when `start` is logged by now with another status.",
         "operationId": "post_rest_period_api_v1_me_rest_periods_post",
         "requestBody": {
           "content": {
@@ -3105,7 +3105,7 @@
     },
     "/api/v1/me/rest-periods/{start}": {
       "put": {
-        "description": "\"Keep the pause\": restores a period cut by 🧘 Practiced exactly as it was (same\noverlap rule as a new one). `period: null` once it is over (nothing left to keep), or\nwhen no 🧘 Practiced day inside it shows it was cut (never a backfill).",
+        "description": "\"Keep the pause\": restores a period cut by 🧘 Practiced exactly as it was (same\noverlap rule as a new one). `period: null` once it is over (nothing left to keep), or\nwhen no 🧘 Practiced day inside it shows it was cut (never a backfill), or when a newer\npause started after the cut (never undone).",
         "operationId": "put_rest_period_api_v1_me_rest_periods__start__put",
         "parameters": [
           {

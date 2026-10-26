@@ -42,6 +42,8 @@ export function PauseOffer({
   showLadies?: boolean;
 }) {
   const [more, setMore] = useState(false);
+  // Answered, waiting for the server: hidden; shown again if it fails, so it can be retried.
+  const [sending, setSending] = useState(false);
   const start = useStartRestPeriod();
   const keep = useKeepRestPeriod();
   const end = useEndRestPeriod();
@@ -50,6 +52,16 @@ export function PauseOffer({
   const offer = saved.pause_offer;
   const cut = saved.cut;
   const named = (kind: string) => (kind === "ladies" && !showLadies ? "rest" : kind);
+  const handlers = {
+    onSuccess: () => {
+      onDone();
+    },
+    onError: () => {
+      haptics.notify("error");
+      setSending(false);
+    },
+  };
+  if (sending) return null;
 
   if (offer) {
     const label = l10n.getString(`status-${named(offer.kind)}`);
@@ -67,15 +79,8 @@ export function PauseOffer({
                 className="chip"
                 onClick={() => {
                   haptics.impact("light");
-                  onDone(); // optimistic: the period line takes its place
-                  start.mutate(
-                    { start: offer.start, days: n, kind: offer.kind },
-                    {
-                      onError: () => {
-                        haptics.notify("error");
-                      },
-                    },
-                  );
+                  setSending(true); // optimistic: the period line takes its place
+                  start.mutate({ start: offer.start, days: n, kind: offer.kind }, handlers);
                 }}
               />
             </Localized>
@@ -96,10 +101,12 @@ export function PauseOffer({
             className="link"
             onClick={() => {
               haptics.impact("light");
-              onDone(); // the day is saved: just no pause
               // A re-asked first day of a pause: "just that day" means no pause.
               if (saved.period?.start === offer.start) {
-                end.mutate({ start: offer.start, today });
+                setSending(true);
+                end.mutate({ start: offer.start }, handlers);
+              } else {
+                onDone(); // the day is saved: just no pause
               }
             }}
           />
@@ -122,12 +129,8 @@ export function PauseOffer({
             className="link"
             onClick={() => {
               haptics.impact("light");
-              onDone();
-              keep.mutate(cut, {
-                onError: () => {
-                  haptics.notify("error");
-                },
-              });
+              setSending(true);
+              keep.mutate(cut, handlers);
             }}
           />
         </Localized>
@@ -181,7 +184,7 @@ export function PeriodLine({
             onClick={() => {
               haptics.impact("light");
               end.mutate(
-                { start: period.start, today },
+                { start: period.start },
                 {
                   onError: () => {
                     haptics.notify("error");

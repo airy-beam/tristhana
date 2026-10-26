@@ -599,3 +599,97 @@ async def test_patch_returns_the_pause_in_the_same_statement(engine: AsyncEngine
     assert pause is not None
     assert (pause.start, pause.until) == (d(-1), d(3))
     assert none is None
+
+
+# Second review (2026-10-27)
+
+
+async def test_a_stale_restore_never_deletes_a_newer_period(engine: AsyncEngine) -> None:
+    """🌸 [-6, 0], 🧘 on -4 cuts it to [-6, -5], 🤒 from -3; the old keep changes nothing."""
+    me = await _account(engine)
+    repo = _periods_repo(engine)
+    days = _days(engine)
+    await repo.place(me, p(-6, 0, L))
+    cut = (await days.upsert(me, DayLog(d(-4), DayStatus.PRACTICED), ZONE)).cut
+    await days.upsert(me, DayLog(d(-3), K), ZONE)
+    await repo.place(me, p(-3, 1, K))
+    assert cut == p(-6, 0, L)
+
+    with _statements(engine) as seen:
+        kept = await repo.restore(me, cut, d(-2))
+
+    assert kept is None
+    assert len(seen) == 1
+    assert await _all(engine, me) == [p(-6, -5, L), p(-3, 1, K)]
+
+
+async def test_re_saving_practiced_never_cuts_again(engine: AsyncEngine) -> None:
+    me = await _account(engine)
+    repo = _periods_repo(engine)
+    days = _days(engine)
+    await repo.place(me, p(-2, 3, K))
+    first = await days.upsert(me, DayLog(d(0), DayStatus.PRACTICED), ZONE)
+    assert first.cut == p(-2, 3, K)
+    assert await repo.restore(me, p(-2, 3, K), cases.BASE) == p(-2, 3, K)
+
+    with _statements(engine) as seen:
+        again = await days.upsert(me, DayLog(d(0), DayStatus.PRACTICED), ZONE)
+
+    assert len(seen) == 1
+    assert again.cut is None
+    assert await _all(engine, me) == [p(-2, 3, K)]
+
+
+@pytest.mark.parametrize(
+    ("logged", "placed"),
+    [
+        (None, True),  # not logged (yet): fine
+        (DayStatus.SICK, True),
+        (DayStatus.PRACTICED, False),  # re-logged elsewhere: a stale chip starts nothing
+        (DayStatus.TRAVEL, False),
+        (DayStatus.REST, False),
+    ],
+)
+async def test_place_needs_a_start_day_showing_the_kind(
+    engine: AsyncEngine, logged: DayStatus | None, placed: bool
+) -> None:
+    me = await _account(engine)
+    if logged is not None:
+        await _days(engine).upsert(me, DayLog(d(0), logged), ZONE)
+
+    with _statements(engine) as seen:
+        result = await _periods_repo(engine).place(me, p(0, 2, K))
+
+    assert len(seen) == 1
+    assert (result.period is not None) is placed
+    assert await _all(engine, me) == ([p(0, 2, K)] if placed else [])
+
+
+async def test_place_for_ladies_needs_a_sealed_rest_start_day(engine: AsyncEngine) -> None:
+    """🌸 is stored as `rest` + a seal: SQL sees only `rest` (the kind is never plain)."""
+    me = await _account(engine)
+    days, repo = _days(engine), _periods_repo(engine)
+    await days.upsert(me, DayLog(d(0), L), ZONE)
+    await days.upsert(me, DayLog(d(-1), DayStatus.SKIPPED), ZONE)
+
+    assert (await repo.place(me, p(0, 2, L))).period == p(0, 2, L)
+    assert (await repo.place(me, p(-1, 1, L))).period is None
+
+
+_HAS_END_INDEX = (
+    "SELECT count(*) FROM pg_indexes WHERE schemaname = 'tristhana'"
+    " AND tablename = 'rest_period' AND indexname = 'rest_period_end_date_idx'"
+)
+
+
+async def test_0011_adds_the_end_date_index_and_downgrade_drops_it(
+    migrated_url: str, engine: AsyncEngine
+) -> None:
+    assert await _exists(engine, _HAS_END_INDEX)
+    await asyncio.to_thread(migrate.downgrade, migrated_url, "0010")
+    try:
+        assert not await _exists(engine, _HAS_END_INDEX)
+        assert await _exists(engine, _HAS_TABLE)  # 0010's table stays
+    finally:
+        await asyncio.to_thread(migrate.upgrade, migrated_url)
+    assert await _exists(engine, _HAS_END_INDEX)
