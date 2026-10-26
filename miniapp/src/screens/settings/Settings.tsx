@@ -55,7 +55,7 @@ export default function Settings({ me, onBack, focus }: Props) {
       <Moon locale={me.locale} zone={me.timezone} />
       <PracticeReminderCard zone={me.timezone} />
       <Quiet zone={me.timezone} />
-      <Privacy />
+      <Privacy me={me} />
     </main>
   );
 }
@@ -505,8 +505,11 @@ function DayOff({ me }: { me: Me }) {
   );
 }
 
-function Privacy() {
+function Privacy({ me }: { me: Me }) {
   const [showLadies, setShowLadies] = useState(loadShowLadies);
+  // "Hide the 🌸 button" (WH-01): one account setting for the bot and the app.
+  const [button, setButton] = useState(!me.hide_ladies);
+  const patch = usePatchMe();
   return (
     <section className="card">
       <Localized id="settings-privacy">
@@ -531,6 +534,32 @@ function Privacy() {
           <span />
         </Localized>
       </label>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={button}
+          onChange={(e) => {
+            const shown = e.target.checked;
+            haptics.impact("light");
+            setButton(shown); // optimistic
+            patch.mutate(
+              { hide_ladies: !shown },
+              {
+                onError: () => {
+                  setButton(!shown);
+                  haptics.notify("error");
+                },
+              },
+            );
+          }}
+        />
+        <Localized id="settings-ladies-button">
+          <span />
+        </Localized>
+      </label>
+      <Localized id="settings-ladies-button-hint">
+        <p className="hint small" />
+      </Localized>
     </section>
   );
 }

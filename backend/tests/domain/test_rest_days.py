@@ -166,3 +166,19 @@ def test_berlin_dst_sunday_moon_day_is_one_auto_day() -> None:
     sun = date(2026, 10, 25)  # clocks go back in Berlin
     found = auto_days(sun, sun, sun, JOINED, set(), DayOff(SUN), {sun})
     assert found == {sun: AutoDay(AutoKind.MOON, also_day_off=True)}
+
+
+# WH-01 part 2 (ADR-0023): a rest period wins over moon days and the day off.
+
+
+def test_covered_dates_are_never_auto_days() -> None:
+    start, end = _week()
+    sat, wed = date(2026, 10, 24), date(2026, 10, 21)
+    found = auto_days(start, end, end, JOINED, set(), DayOff(SAT), {wed}, covered={sat, wed})
+    assert found == {}
+
+
+def test_covered_defaults_to_nothing() -> None:
+    start, end = _week()
+    found = auto_days(start, end, end, JOINED, set(), DayOff(SAT), set(), covered=frozenset())
+    assert found == {date(2026, 10, 24): AutoDay(AutoKind.DAY_OFF)}

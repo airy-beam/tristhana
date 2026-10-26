@@ -23,6 +23,7 @@ const ME: Me = {
   timezone: "Asia/Almaty",
   name_from_telegram: true,
   locale_from_telegram: true,
+  hide_ladies: false, // WH-01 part 2
 };
 
 const TODAY = "2026-10-19";

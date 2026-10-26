@@ -8,7 +8,11 @@ from zoneinfo import ZoneInfo
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.days import DayLogRepository
-from tristhana.application.ports.notifications import NotificationRepository, ReminderPatch
+from tristhana.application.ports.notifications import (
+    NotificationRepository,
+    PracticePause,
+    ReminderPatch,
+)
 from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import Clock
 from tristhana.application.settings import PatchNotificationSettings
@@ -20,6 +24,7 @@ from tristhana.domain.notifications import (
     default_practice_time,
     defaults_for,
 )
+from tristhana.domain.rest_periods import RestPeriod
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +32,7 @@ class QuickLog:
     day: DayLog | None  # None: the day was cleared between the two statements
     copied_from: date | None  # the practice that was copied, if any
     already: bool  # the day was logged before the tap: nothing was written
+    cut: RestPeriod | None = None  # a rest period this 🧘 cut, as it was (WH-01 "keep")
 
 
 class QuickLogSameAsLast:
@@ -41,30 +47,63 @@ class QuickLogSameAsLast:
         account = principal.account
         check_loggable(local_date, self._clock.now(), account.timezone)
         day = DayLog(local_date, DayStatus.PRACTICED)
-        if not await self._days.insert_if_absent(account.id, day, account.timezone):
+        inserted = await self._days.insert_if_absent(account.id, day, account.timezone)
+        if not inserted.inserted:
             stored = await self._days.list_range(account.id, local_date, local_date)
             return QuickLog(stored[0] if stored else None, None, already=True)
         copied = await self._practices.copy_usual(account.id, local_date, account.timezone)
         if copied is None:
-            return QuickLog(day, None, already=False)
-        return QuickLog(replace(day, practices=(copied.practice,)), copied.source, already=False)
+            return QuickLog(day, None, already=False, cut=inserted.cut)
+        practiced = replace(day, practices=(copied.practice,))
+        return QuickLog(practiced, copied.source, already=False, cut=inserted.cut)
+
+
+class LogFromReminder:
+    """🧘 / 😌 on a reminder (Q26, WH-01): log the day only if it is still empty, so a day
+    logged since (maybe a private 🌸) is never overwritten; then it is shown as stored."""
+
+    _ALLOWED = frozenset({DayStatus.PRACTICED, DayStatus.REST})
+
+    def __init__(self, days: DayLogRepository, clock: Clock) -> None:
+        self._days, self._clock = days, clock
+
+    async def execute(self, principal: Principal, local_date: date, status: DayStatus) -> QuickLog:
+        """Raises `DateInFuture` / `DateTooEarly`. Two statements only when already logged."""
+        if status not in self._ALLOWED:
+            raise ValueError(f"a reminder logs only practiced or rest, not {status}")
+        account = principal.account
+        check_loggable(local_date, self._clock.now(), account.timezone)
+        day = DayLog(local_date, status)
+        inserted = await self._days.insert_if_absent(account.id, day, account.timezone)
+        if not inserted.inserted:
+            stored = await self._days.list_range(account.id, local_date, local_date)
+            return QuickLog(stored[0] if stored else None, None, already=True)
+        return QuickLog(day, None, already=False, cut=inserted.cut)
 
 
 class UpdatePracticeReminder:
-    def __init__(self, notifications: NotificationRepository) -> None:
-        self._patch = PatchNotificationSettings(notifications)
+    def __init__(self, notifications: NotificationRepository, clock: Clock | None = None) -> None:
+        self._patch = PatchNotificationSettings(notifications, clock)
 
     async def execute(self, principal: Principal, patch: ReminderPatch) -> NotificationSettings:
         """Raises `InvalidSettings`. A time inside the (stored) quiet hours is refused even
         while the reminder is off: it could never fire once turned on."""
-        return await self._patch.execute(
-            principal,
-            NotificationPatch(
-                practice_on=KEEP if patch.on is None else patch.on,
-                practice_at=KEEP if patch.at is None else patch.at,
-            ),
-            practice_as_on=patch.at is not None,
+        return await self._patch.execute(principal, _practice(patch), patch.at is not None)
+
+    async def execute_with_pause(
+        self, principal: Principal, patch: ReminderPatch
+    ) -> tuple[NotificationSettings, PracticePause | None]:
+        """`execute` plus the rest period covering today (WH-01), for `/remind`."""
+        return await self._patch.execute_with_pause(
+            principal, _practice(patch), patch.at is not None
         )
+
+
+def _practice(patch: ReminderPatch) -> NotificationPatch:
+    return NotificationPatch(
+        practice_on=KEEP if patch.on is None else patch.on,
+        practice_at=KEEP if patch.at is None else patch.at,
+    )
 
 
 class AnswerPracticeOffer:

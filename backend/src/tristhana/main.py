@@ -35,10 +35,12 @@ from tristhana.application.practice import (
 )
 from tristhana.application.remind import (
     AnswerPracticeOffer,
+    LogFromReminder,
     QuickLogSameAsLast,
     UpdatePracticeReminder,
 )
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
+from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
 from tristhana.application.stats import GetYearStats
 from tristhana.application.tick import RunTick
@@ -49,6 +51,7 @@ from tristhana.bots.telegram.runtime import (
     MoonUseCases,
     PracticeUseCases,
     RemindUseCases,
+    RestUseCases,
     SettingsUseCases,
     build_runtime,
 )
@@ -202,21 +205,28 @@ class _Services:
         app.state.year_stats = GetYearStats(
             self._storage.days, self._storage.moon, cities, loaded.catalog, clock
         )
-        notification_settings = NotificationSettingsUseCase(self._storage.notifications)
+        notification_settings = NotificationSettingsUseCase(self._storage.notifications, clock)
         app.state.notification_settings = notification_settings
         app.state.update_profile = UpdateProfile(self._storage.accounts)
         app.state.patch_notification_settings = PatchNotificationSettings(
-            self._storage.notifications
+            self._storage.notifications, clock
         )
         remind = RemindUseCases(
             settings=notification_settings,
-            update=UpdatePracticeReminder(self._storage.notifications),
+            update=UpdatePracticeReminder(self._storage.notifications, clock),
             offer=AnswerPracticeOffer(self._storage.notifications, clock),
             quick_log=QuickLogSameAsLast(self._storage.days, self._storage.practices, clock),
             day_off=SetDayOff(self._storage.accounts, clock),
             dismiss_day_off=DismissDayOffQuestion(self._storage.accounts),
         )
         app.state.set_day_off, app.state.dismiss_day_off = remind.day_off, remind.dismiss_day_off
+        rest = RestUseCases(
+            start=StartRestPeriod(self._storage.rest_periods, clock),
+            restore=RestoreRestPeriod(self._storage.rest_periods, clock),
+            end=EndRestPeriod(self._storage.rest_periods, clock),
+            log_from_reminder=LogFromReminder(self._storage.days, clock),
+        )
+        app.state.rest = rest
         app.state.run_tick = RunTick(
             clock,
             cities,
@@ -230,6 +240,7 @@ class _Services:
         self._bot.practices = practices
         self._bot.moon = moon
         self._bot.remind = remind
+        self._bot.rest = rest
         self._bot.settings = SettingsUseCases(
             profile=app.state.update_profile,
             settings=notification_settings,
@@ -257,6 +268,7 @@ class _LazyBot:
         self.moon: MoonUseCases | None = None
         self.remind: RemindUseCases | None = None
         self.settings: SettingsUseCases | None = None
+        self.rest: RestUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -282,6 +294,7 @@ class _LazyBot:
                 self.settings,
                 FluentTranslator(),
                 self._settings.miniapp_url,
+                self.rest,
             )
         return self._runtime
 

@@ -16,8 +16,9 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from tristhana.application.days import DaysView
 from tristhana.application.policies import Principal
-from tristhana.application.ports.i18n import Translator
+from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.bots.telegram import practice_callbacks as pcb
+from tristhana.bots.telegram import rest_callbacks as acb
 from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encode
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
 from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases, RemindUseCases
@@ -33,6 +34,7 @@ from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
 from tristhana.domain.rest_days import AutoKind
+from tristhana.domain.rest_periods import PAUSE_DAYS, RestPeriod
 
 WEEK = 7
 # Grid order: Practiced alone on top; "No practice" last, next to Travel (ashtanga-expert).
@@ -42,6 +44,14 @@ _GRID: tuple[tuple[DayStatus, ...], ...] = (
     (DayStatus.LADIES, DayStatus.SICK),
     (DayStatus.TRAVEL, DayStatus.SKIPPED),
 )
+# "Hide the 🌸 button" (WH-01): the same order without it.
+_GRID_NO_LADIES: tuple[tuple[DayStatus, ...], ...] = (
+    (DayStatus.PRACTICED,),
+    (DayStatus.REST, DayStatus.MOON),
+    (DayStatus.SICK, DayStatus.TRAVEL),
+    (DayStatus.SKIPPED,),
+)
+CHIPS_PER_ROW = 3
 # The week picker is glanceable in chat history, so a ladies' holiday shows as rest there.
 _WEEK_EMOJI: dict[DayStatus | None, str] = {
     DayStatus.PRACTICED: "🧘",
@@ -104,6 +114,9 @@ class DayScreens:
     def today(self, principal: Principal) -> tuple[date, bool]:
         return self._days.get.today(principal)
 
+    async def read(self, principal: Principal, start: date, end: date) -> DaysView:
+        return await self._days.get.execute(principal, start, end)
+
     async def handle(self, principal: Principal, cb: DayCallback) -> Screen:
         match cb.action, cb.day, cb.status:
             case "set", date() as day, DayStatus() as status:
@@ -132,7 +145,7 @@ class DayScreens:
         return await self._picker(principal, None, None)
 
     async def _picker(
-        self, principal: Principal, day: date | None, note: str | None
+        self, principal: Principal, day: date | None, note: str | None, lead: str | None = None
     ) -> tuple[Screen, str | None]:
         today, _ = self._days.get.today(principal)
         day = day or today
@@ -141,11 +154,17 @@ class DayScreens:
         locale = principal.account.locale
         label = self.day(locale, day, today)
         lines = [self._t.t(locale, note, day=label)] if note else []
+        if lead:
+            lines.insert(0, lead)
         auto = self.auto_line(locale, view, day)
         if auto:
             lines.append(auto)
         text = "\n\n".join([*lines, self._t.t(locale, "log-prompt", day=label)])
-        rows = [[self._status_button(locale, day, s, current) for s in row] for row in _GRID]
+        shown = current or view.covered.get(day)
+        rows = self.status_rows(principal, day, current, shown)
+        period = view.period_on(day)
+        if period is not None and period.end >= today:  # still running: it can end early
+            rows.append([self.end_button(locale, period, view.practice_on)])
         last = [self._button(locale, "log-another-day", encode(DayCallback("week", today)))]
         if current is DayStatus.PRACTICED:
             last.insert(0, self._button(locale, "practice-details", _details(day)))
@@ -153,8 +172,29 @@ class DayScreens:
             last.append(self._button(locale, "log-clear", encode(DayCallback("clear", day))))
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=[*rows, last])), auto
 
+    def status_rows(
+        self,
+        principal: Principal,
+        day: date,
+        current: DayStatus | None,
+        shown: DayStatus | None,
+    ) -> list[list[InlineKeyboardButton]]:
+        """The status grid, ✓ on the logged status; without 🌸 when the person hid it,
+        unless the day shows as 🌸 (WH-01)."""
+        locale = principal.account.locale
+        hide = principal.account.hide_ladies and shown is not DayStatus.LADIES
+        grid = _GRID_NO_LADIES if hide else _GRID
+        return [[self._status_button(locale, day, s, current) for s in row] for row in grid]
+
     def auto_line(self, locale: Locale, view: DaysView, day: date) -> str | None:
-        """ "🌙 Moon day (📍 Mysuru), a traditional rest day…" for an unlogged auto day."""
+        """ "🌙 Moon day (📍 Mysuru), a traditional rest day…" for an unlogged auto day, or
+        "🤒 Sick / injury through …" for an unlogged day a rest period covers (WH-01)."""
+        covered = view.covered.get(day)
+        period = view.period_on(day)
+        if covered is not None and period is not None:
+            return self._t.t(
+                locale, "log-auto-period", label=self.label(locale, covered), until=_until(period)
+            )
         auto = view.auto.get(day)
         if auto is None:
             return None
@@ -166,25 +206,116 @@ class DayScreens:
     async def saved(self, principal: Principal, day: date, status: DayStatus) -> Screen:
         today, _ = self._days.get.today(principal)
         try:
-            await self._days.set.execute(principal, day, status)
+            saved = await self._days.set.execute(principal, day, status)
         except DateInFuture:  # a stale keyboard after a zone change, or a forged tap
             return await self.week(principal, today, note="log-date-future")
         except DateTooEarly:
             return await self.week(principal, today, note="log-date-too-early")
         if status is DayStatus.PRACTICED and self.practice is not None:
-            return await self.practice.details(principal, day)
+            return await self.practice.details(principal, day, cut=saved.cut)
+        if saved.offer is not None:  # "for how many days?" (WH-01)
+            return self.question(principal, day, status, saved.offer.reminders_on)
+        if saved.period is not None:
+            return self.period_saved(principal, day, status, saved.period, saved.practice_on)
         return self.saved_screen(principal, day, status)
+
+    def question(
+        self,
+        principal: Principal,
+        day: date,
+        kind: DayStatus,
+        reminders_on: bool,
+        more: bool = False,
+    ) -> Screen:
+        """V + "for how many days?" with the kind's day counts (or its "Other…" ones). A
+        pure render: Other… and Back need no DB. Ignoring it means no pause."""
+        locale = principal.account.locale
+        today, _ = self._days.get.today(principal)
+        lines = self.saved_lines(principal, day, kind)
+        lines.append(
+            self._t.t(
+                locale,
+                "pause-ask",
+                label=self.label(locale, kind),
+                rel="yesterday" if day == today - timedelta(days=1) else "today",
+                reminders=_on(reminders_on),
+            )
+        )
+        first, other = PAUSE_DAYS[kind]
+        chips = [
+            InlineKeyboardButton(
+                text=self._t.t(locale, "pause-days", n=n),
+                callback_data=acb.encode(acb.RestCallback("start", day, kind, days=n)),
+            )
+            for n in (other if more else first)
+        ]
+        rows = [chips[i : i + CHIPS_PER_ROW] for i in range(0, len(chips), CHIPS_PER_ROW)]
+        flip = acb.RestCallback("back" if more else "more", day, kind, reminders_on=reminders_on)
+        rows.append(
+            [self._button(locale, "pause-back" if more else "pause-other", acb.encode(flip))]
+        )
+        rows.append(self._change_row(locale, day, today))
+        rows += self.app_rows(principal)
+        return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def period_saved(
+        self,
+        principal: Principal,
+        day: date,
+        status: DayStatus,
+        period: RestPeriod,
+        reminders_on: bool,
+    ) -> Screen:
+        """A day logged inside a rest period (or the pause just chosen): what the pause
+        does, and [End the pause]. Rendered without a read."""
+        locale = principal.account.locale
+        today, _ = self._days.get.today(principal)
+        lines = self.saved_lines(principal, day, status)
+        lines.append(self.pause_set_line(locale, period, reminders_on))
+        rows: list[list[InlineKeyboardButton]] = []
+        if period.end >= today:
+            rows.append([self.end_button(locale, period, reminders_on)])
+        rows.append(self._change_row(locale, day, today))
+        rows += self.app_rows(principal)
+        return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def pause_set_line(self, locale: Locale, period: RestPeriod, reminders_on: bool) -> str:
+        return self._t.t(
+            locale,
+            "pause-set",
+            label=self.label(locale, period.kind),
+            until=_until(period),
+            reminders=_on(reminders_on),
+        )
+
+    def end_button(
+        self, locale: Locale, period: RestPeriod, reminders_on: bool
+    ) -> InlineKeyboardButton:
+        data = acb.encode(acb.RestCallback("end", period.start, reminders_on=reminders_on))
+        return InlineKeyboardButton(
+            text=self._t.t(locale, "pause-end", reminders=_on(reminders_on)), callback_data=data
+        )
+
+    async def ended(self, principal: Principal, lead: str | None) -> Screen:
+        """After "End the pause": the line, then today's picker (so today can be logged in
+        the same message)."""
+        screen, _ = await self._picker(principal, None, None, lead=lead)
+        return screen
+
+    def label(self, locale: Locale, status: DayStatus) -> str:
+        return self._t.t(locale, f"status-{status.value}")
+
+    def _change_row(self, locale: Locale, day: date, today: date) -> list[InlineKeyboardButton]:
+        return [
+            self._button(locale, "log-change", _open(day)),
+            self._button(locale, "log-another-day", encode(DayCallback("week", today))),
+        ]
 
     def saved_screen(self, principal: Principal, day: date, status: DayStatus) -> Screen:
         """What a day shows once logged (not practiced: that has its own summary)."""
         today, _ = self._days.get.today(principal)
         locale = principal.account.locale
-        rows = [
-            [
-                self._button(locale, "log-change", _open(day)),
-                self._button(locale, "log-another-day", encode(DayCallback("week", today))),
-            ]
-        ]
+        rows = [self._change_row(locale, day, today)]
         rows += self.app_rows(principal)
         return Screen(
             "\n\n".join(self.saved_lines(principal, day, status)),
@@ -223,8 +354,9 @@ class DayScreens:
         start = max(end - timedelta(days=WEEK - 1), MIN_LOG_DATE)
         view = await self._days.get.execute(principal, start, end)
         logged = {d.local_date: d.status for d in view.days}
-        # Auto-rest (PR-09) shows like the rest it stands for: 🌙 or 😌.
-        shown = {d: _AUTO_STATUS[a.kind] for d, a in view.auto.items()} | logged
+        # Auto-rest (PR-09) shows like the rest it stands for: 🌙 or 😌; days a rest period
+        # covers as its kind (🌸 as 😌 here, WH-01).
+        shown = {d: _AUTO_STATUS[a.kind] for d, a in view.auto.items()} | view.covered | logged
         locale = principal.account.locale
         text = self._t.t(locale, "log-pick-day")
         if note:
@@ -267,6 +399,14 @@ class DayScreens:
 
     def day(self, locale: Locale, day: date, today: date) -> str:
         return day_label(self._t, locale, day, today)
+
+
+def _on(flag: bool) -> str:
+    return "on" if flag else "off"
+
+
+def _until(period: RestPeriod) -> DateArg:
+    return DateArg(period.end)
 
 
 def _open(day: date) -> str:

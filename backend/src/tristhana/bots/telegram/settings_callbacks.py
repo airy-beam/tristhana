@@ -6,6 +6,7 @@ s1:zp:2         time zone city picker, page 2
 s1:z:<slug>     time zone = that city's zone
 s1:o            day off picker (PR-09)
 s1:o:67         days off = Saturday + Sunday (ISO digits, at most two; 0 = none) → picker
+s1:h:1 / s1:h:0 hide / show the 🌸 button in the status grids (WH-01) → /settings
 """
 
 import re
@@ -16,7 +17,7 @@ from tristhana.bots.telegram.remind_callbacks import days_off_code, parse_days_o
 from tristhana.domain.locale import LOCALES, Locale
 
 PREFIX = "s1"
-type Action = Literal["view", "language", "zones", "zone", "day_off_pick", "day_off"]
+type Action = Literal["view", "language", "zones", "zone", "day_off_pick", "day_off", "hide_ladies"]
 
 _SLUG = re.compile(r"[a-z-]{1,24}")
 
@@ -28,6 +29,7 @@ class SettingsCallback:
     page: int = 0
     slug: str | None = None
     days_off: frozenset[int] = frozenset()  # empty = no fixed day off
+    hide: bool = False  # hide_ladies
 
 
 def encode(cb: SettingsCallback) -> str:
@@ -44,6 +46,8 @@ def encode(cb: SettingsCallback) -> str:
             return f"{PREFIX}:o"
         case "day_off":
             return f"{PREFIX}:o:{days_off_code(cb.days_off)}"
+        case "hide_ladies":
+            return f"{PREFIX}:h:{int(cb.hide)}"
 
 
 def decode(data: str | None) -> SettingsCallback | None:
@@ -66,5 +70,7 @@ def decode(data: str | None) -> SettingsCallback | None:
             return SettingsCallback("day_off_pick")
         case ["o", code] if (days := parse_days_off(code)) is not None:
             return SettingsCallback("day_off", days_off=days)
+        case ["h", "0" | "1" as flag]:
+            return SettingsCallback("hide_ladies", hide=flag == "1")
         case _:
             return None

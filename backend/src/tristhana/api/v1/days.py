@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from tristhana.api.deps import CurrentPrincipal, clear_day_status, get_days, set_day_status
 from tristhana.api.errors import ApiError, error_responses
 from tristhana.api.v1.practice import PracticeOut
+from tristhana.api.v1.rest_periods import PauseOfferOut, RestPeriodOut
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayLog, DayStatus, InvalidRange
 from tristhana.domain.rest_days import AutoDay, AutoKind
@@ -51,6 +52,23 @@ class Days(BaseModel):
     days: list[Day] = Field(description="Logged days only, oldest first")
     auto: list[AutoDayOut] = Field(default=[], description="Unlogged days shown as rest")
     moon_location: str = Field(description="The city auto moon days follow")
+    periods: list[RestPeriodOut] = Field(
+        default=[],
+        description="Rest periods overlapping the window, unclipped (WH-01): their unlogged "
+        "days up to today show as their kind; `auto` never includes them",
+    )
+    practice_on: bool = Field(default=False, description="Practice reminders on (labels)")
+
+
+class DaySaved(Day):
+    pause_offer: PauseOfferOut | None = Field(
+        default=None, description="Ask: for how many days? (after 🌸/🤒/✈️ today or yesterday)"
+    )
+    period: RestPeriodOut | None = Field(default=None, description="The period covering it")
+    cut: RestPeriodOut | None = Field(
+        default=None,
+        description="A period 🧘 Practiced just cut, as it was (for 'keep the pause')",
+    )
 
 
 class DayStatusBody(BaseModel):
@@ -75,6 +93,8 @@ async def list_days(
         days=[Day.of(d) for d in view.days],
         auto=AutoDayOut.all(view.auto),
         moon_location=view.city.slug,
+        periods=RestPeriodOut.all(view.periods),
+        practice_on=view.practice_on,
     )
 
 
@@ -84,13 +104,26 @@ async def put_day(
     body: DayStatusBody,
     principal: CurrentPrincipal,
     use_case: Annotated[SetDayStatus, Depends(set_day_status)],
-) -> Day:
+) -> DaySaved:
+    """Overwrites any earlier status. Inside a rest period (WH-01): 🧘 Practiced ends it the
+    day before (on its start day, removes it) and returns it as `cut`; other statuses
+    change only that day. After 🌸/🤒/✈️ on today or yesterday, `pause_offer` may ask for
+    how many days (POST /me/rest-periods)."""
     try:
-        return Day.of(await use_case.execute(principal, date, body.status))
+        saved = await use_case.execute(principal, date, body.status)
     except DateInFuture:
         raise ApiError(422, "date_in_future") from None
     except DateTooEarly:
         raise ApiError(422, "date_too_early") from None
+    day = Day.of(saved.day)
+    return DaySaved(
+        date=day.date,
+        status=day.status,
+        practices=day.practices,
+        pause_offer=PauseOfferOut.of(saved.offer),
+        period=RestPeriodOut.of(saved.period),
+        cut=RestPeriodOut.of(saved.cut),
+    )
 
 
 @router.delete("/{date}", status_code=204)
@@ -99,6 +132,6 @@ async def delete_day(
     principal: CurrentPrincipal,
     use_case: Annotated[ClearDayStatus, Depends(clear_day_status)],
 ) -> Response:
-    """Idempotent: 204 even if nothing was logged."""
+    """Idempotent: 204 even if nothing was logged. Removes a rest period starting that day."""
     await use_case.execute(principal, date)
     return Response(status_code=204)

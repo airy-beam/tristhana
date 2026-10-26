@@ -20,6 +20,7 @@ from tristhana.application.ports.notifications import (
     ReminderPatch,
 )
 from tristhana.application.ports.practice import PracticeRepository
+from tristhana.application.ports.rest_periods import RestPeriodRepository
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileChange, ProfileUpdate
@@ -28,6 +29,7 @@ from tristhana.domain.moon import MoonDay
 from tristhana.domain.notifications import NotificationSettings, StoredSettings
 from tristhana.domain.practice import Practice
 from tristhana.domain.rest_days import DayOff
+from tristhana.domain.rest_periods import RestPeriod
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -60,6 +62,7 @@ class PostgresStorage:
         self._practices: PracticeRepository | None = None
         self._moon: MoonCalendarRepository | None = None
         self._notifications: NotificationRepository | None = None
+        self._rest_periods: RestPeriodRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -68,6 +71,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.moon import SqlMoonCalendarRepository
         from tristhana.infrastructure.db.notifications import SqlNotificationRepository
         from tristhana.infrastructure.db.practice import SqlPracticeRepository
+        from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
 
         self._engine = build_engine(
             self._url,
@@ -80,6 +84,7 @@ class PostgresStorage:
         self._practices = SqlPracticeRepository(self._engine)
         self._moon = SqlMoonCalendarRepository(self._engine)
         self._notifications = SqlNotificationRepository(self._engine)
+        self._rest_periods = SqlRestPeriodRepository(self._engine, self._cipher)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -132,6 +137,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._notifications
 
+    @property
+    def rest_periods(self) -> RestPeriodRepository:
+        if self._rest_periods is None:
+            raise RuntimeError("storage not started")
+        return self._rest_periods
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -170,6 +181,21 @@ class UnconfiguredStorage:
     @property
     def notifications(self) -> NotificationRepository:
         return _UnavailableNotifications()
+
+    @property
+    def rest_periods(self) -> RestPeriodRepository:
+        return _UnavailableRestPeriods()
+
+
+class _UnavailableRestPeriods:
+    async def place(self, account_id: UUID, period: RestPeriod) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def restore(self, account_id: UUID, period: RestPeriod, today: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def end(self, account_id: UUID, start: date, today: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
 
 
 class _UnavailableAccounts:
@@ -264,9 +290,23 @@ class _UnavailableNotifications:
     ) -> NotificationSettings:
         raise StorageUnavailable("not configured")
 
+    async def settings_with_pause(
+        self, account_id: UUID, defaults: NotificationSettings, today: date
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def save(
         self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
     ) -> NotificationSettings:
+        raise StorageUnavailable("not configured")
+
+    async def patch_with_pause(
+        self,
+        account_id: UUID,
+        columns: dict[str, object],
+        defaults: NotificationSettings,
+        today: date,
+    ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
     async def patch_practice(

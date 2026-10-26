@@ -21,6 +21,7 @@ const ME: Me = {
   timezone: "Asia/Almaty",
   name_from_telegram: true,
   locale_from_telegram: true,
+  hide_ladies: false, // WH-01 part 2
 };
 const CITIES: City[] = [
   { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
@@ -41,6 +42,7 @@ const json = (body: unknown) =>
   new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
 
 let dayOffFails = false;
+let meFails = false;
 
 function stubApi(): Request[] {
   const seen: Request[] = [];
@@ -50,6 +52,7 @@ function stubApi(): Request[] {
       seen.push(request);
       const path = new URL(request.url).pathname;
       if (request.method === "PATCH" && path === "/api/v1/me") {
+        if (meFails) return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
         return json({ ...ME, ...(await request.clone().json()) });
       }
       if (request.method === "PATCH") return json(SETTINGS);
@@ -319,5 +322,61 @@ describe("Day off (PR-09)", () => {
 
     expect(await screen.findAllByText("Couldn't save. Try again in a moment.")).not.toHaveLength(0);
     expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+  });
+});
+
+describe("Hide the 🌸 button (WH-01 part 2)", () => {
+  afterEach(() => {
+    meFails = false;
+  });
+
+  const shown = { ...ME, hide_ladies: false } as Me;
+  const toggle = () =>
+    screen.findByRole("checkbox", {
+      name: (n) => plain(n) === "Show the 🌸 Ladies' holiday button",
+    });
+
+  it("is on by default, explains itself, and saves at once", async () => {
+    const seen = stubApi();
+    renderWith(<Settings me={shown} onBack={vi.fn()} />);
+
+    const box = await toggle();
+    expect(box).toBeChecked();
+    expect(
+      screen.getByText("In the bot and here. Days you already logged stay as they are."),
+    ).toBeInTheDocument();
+    fireEvent.click(box);
+
+    expect(box).not.toBeChecked(); // optimistic
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ hide_ladies: true }]);
+  });
+
+  it("reads the stored choice", async () => {
+    stubApi();
+    renderWith(<Settings me={{ ...ME, hide_ladies: true }} onBack={vi.fn()} />);
+
+    expect(await toggle()).not.toBeChecked();
+  });
+
+  it("rolls back when the save fails", async () => {
+    meFails = true;
+    stubApi();
+    renderWith(<Settings me={shown} onBack={vi.fn()} />);
+    const box = await toggle();
+
+    fireEvent.click(box);
+
+    await vi.waitFor(() => {
+      expect(box).toBeChecked();
+    });
+  });
+
+  it("is separate from the device-only 🌸 days switch", async () => {
+    stubApi();
+    renderWith(<Settings me={shown} onBack={vi.fn()} />);
+    fireEvent.click(await toggle());
+
+    expect(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" })).not.toBeChecked();
+    expect(localStorage.getItem("stats.showLadies")).not.toBe("1");
   });
 });

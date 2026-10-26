@@ -58,6 +58,7 @@ class Account:
     created_at: datetime | None = None  # None only in tests: then no join-date bound
     day_off: DayOff = NEVER_CHOSEN  # PR-09
     day_off_dismissed: bool = False  # "Not now" on the one-time day-off question
+    hide_ladies: bool = False  # WH-01: leave the 🌸 button out of the status grids
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +100,7 @@ class ProfilePatch:
     display_name: str | _Keep | None = KEEP
     locale: Locale | _Keep | None = KEEP
     timezone: str | _Keep = KEEP
+    hide_ladies: bool | _Keep | None = KEEP  # None = the default (shown)
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +114,7 @@ class ProfileChange:
     locale_custom: bool
     timezone: str | None
     fields: frozenset[str] = frozenset({"name", "locale", "timezone"})
+    hide_ladies: bool = False  # written only with "hide_ladies" in `fields`
 
 
 def resolve_profile(
@@ -146,7 +149,13 @@ def resolve_profile(
     if not isinstance(patch.timezone, _Keep):
         fields.add("timezone")
         zone = parse_timezone(patch.timezone)
-    return ProfileChange(name, name_custom, locale, locale_custom, zone, frozenset(fields))
+    hide_ladies = account.hide_ladies
+    if not isinstance(patch.hide_ladies, _Keep):
+        fields.add("hide_ladies")
+        hide_ladies = bool(patch.hide_ladies)
+    return ProfileChange(
+        name, name_custom, locale, locale_custom, zone, frozenset(fields), hide_ladies
+    )
 
 
 def normalize_display_name(raw: str | None) -> str | None:

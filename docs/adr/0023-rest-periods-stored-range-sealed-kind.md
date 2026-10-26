@@ -1,0 +1,25 @@
+# ADR-0023: Multi-day rest is a stored period (range), its days derived at read time, its kind sealed
+- Status: accepted (owner, 2026-10-26)
+- Date: 2026-10-26
+## Context
+WH-01 part 2 (owner, 2026-10-26; Q28/Q35): starting a 🌸 / sick / travel day asks once "for how many days?" (3 · 4 · 5 · other); practice reminders pause for those days and the days fill as that status unless something else is logged (anything logged wins, like ADR-0022). Constraints: `day_log` rows are the person's own statements, every `rest` row is sealed (ADR-0016), ladies' holiday must never be visible in plain text or to teachers/aggregates (WH-02/04), dates can't be logged in the future (PR-01), the tick must not grow a statement per account (ADR-0018), and bot taps should take one statement. Spec: `docs/specs/WH-01-multi-day-rest.md`.
+## Decision
+1. **Store the range, not the days.** `rest_period(account_id, start_date, end_date, sealed_kind)`, inclusive, PK `(account_id, start_date)`, at most 14 days (DB CHECK); the per-kind limit (🌸 7, sick/travel 14) and the allowed day choices are domain rules, because the kind is sealed. Coverage never overlaps (a new period ends or removes what it overlaps).
+2. **Days are derived at read time** (same mechanism as ADR-0022): for an unlogged date ≤ today, precedence is logged > period > moon > day off. Logging 🧘 Practiced inside a period ends it the day before (on its start day: removes it); "No practice" and other statuses change only their day; clearing its start day removes it. These rules are kind-agnostic, so SQL applies them in the same statement as the day upsert. A cut period can be restored exactly ("keep the pause") from a stateless callback that carries the period itself (start, end, kind).
+3. **Stats treat covered days as logged rest of their kind** (cells, rest counts, runs: marked, so they bridge), unlike auto days. Each period is a fresh statement made today or yesterday (never backfilled), so a run continues only while the person keeps telling us about their days; chained periods can bridge a long break, which is acceptable because runs are personal and non-competitive.
+4. **The kind is sealed on every period** (`l`/`k`/`t`, one byte, the ADR-0016 format, AAD `rest_period.sealed_kind|account_id|start_date`), with no plain kind column, so a 🌸 period looks exactly like a sick or travel one. Dates stay plain (SQL needs them; `day_log` rest dates are already visible).
+5. **Reminders** read covered dates in the tick's existing logged-days statement (UNION ALL) and skip them like logged days.
+6. **Writes that place a period are serialised per account** (`pg_advisory_xact_lock` in the write's transaction), so coverage never overlaps even for two taps at once; readers that pick "the period covering today" still take the latest start, one row. **"Keep the pause" restores only after a cut:** the restore statement inserts (and applies the overlap rule) only if a 🧘 Practiced day lies in [start, min(end, today)] (`INSERT … SELECT … WHERE EXISTS`), so a forged callback or API call can never backfill past rest days.
+## Consequences
+- No future-dated `day_log` rows, no rewrite job, no backfill; "explicit wins" holds without every writer using insert-if-absent; exports (ST-09) list the periods as periods, not as invented daily logs.
+- Every reader that shows days must merge covered days (`GetDays`, `GetYearStats`, later teacher/share views).
+- **ST-06/ST-08:** teacher and aggregate paths show covered days as plain "rest" (not logged), never the kind, unless a later policy decrypts it per the student's opt-in. Sick/travel periods are therefore less visible to teachers than sick/travel logs; accepted (privacy first).
+- The 🌸 7-day limit isn't visible to SQL, so the DB can't enforce it; the domain, the callback decoder and the API do, with tests.
+- The 14-day cap makes the overlap read a PK range (`start_date BETWEEN from − 13 AND to`).
+- Placing a period runs in a short transaction (BEGIN, the advisory lock, the write, COMMIT): still one data statement, a few extra round trips on a rare tap.
+- Residual leak: the dates of a period (e.g. monthly 3–5 day ranges) are visible in a dump, the same class of leak as `day_log` rest dates.
+## Alternatives considered
+- **Materialise one `day_log` row per day** when N is chosen: rejected for ADR-0022's reasons (rows look like statements, need seals, need insert-if-absent everywhere) plus future-dated rows (breaks PR-01's no-future rule and makes the "already logged" check ambiguous), and ending early would have to delete rows the person may have edited.
+- **A single "paused until" date on `notification_settings`** (+ fill only from day_log): one column, but no history, so past pause days would revert to unmarked when the next pause starts, and the fill wouldn't survive.
+- **Plain kind column with `rest` + seal for 🌸 (the `day_log` pattern):** periods only exist for 🌸/sick/travel, so a `rest` period would always mean 🌸.
+- **Seal the end date too:** hides the range length but forces every read and the tick to unseal before filtering; little gain while `day_log` dates are plain.

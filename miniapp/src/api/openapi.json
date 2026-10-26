@@ -211,6 +211,66 @@
         "title": "DayOffQuestionOut",
         "type": "object"
       },
+      "DaySaved": {
+        "properties": {
+          "cut": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RestPeriodOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A period 🧘 Practiced just cut, as it was (for 'keep the pause')"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "pause_offer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PauseOfferOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ask: for how many days? (after 🌸/🤒/✈️ today or yesterday)"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RestPeriodOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The period covering it"
+          },
+          "practices": {
+            "default": [],
+            "description": "Only on a practiced day",
+            "items": {
+              "$ref": "#/components/schemas/PracticeOut"
+            },
+            "title": "Practices",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DayStatus"
+          }
+        },
+        "required": [
+          "date",
+          "status"
+        ],
+        "title": "DaySaved",
+        "type": "object"
+      },
       "DayStatus": {
         "enum": [
           "practiced",
@@ -259,6 +319,21 @@
             "description": "The city auto moon days follow",
             "title": "Moon Location",
             "type": "string"
+          },
+          "periods": {
+            "default": [],
+            "description": "Rest periods overlapping the window, unclipped (WH-01): their unlogged days up to today show as their kind; `auto` never includes them",
+            "items": {
+              "$ref": "#/components/schemas/RestPeriodOut"
+            },
+            "title": "Periods",
+            "type": "array"
+          },
+          "practice_on": {
+            "default": false,
+            "description": "Practice reminders on (labels)",
+            "title": "Practice On",
+            "type": "boolean"
           },
           "timezone_known": {
             "description": "False: today comes from a provisional zone",
@@ -345,6 +420,7 @@
           "unknown_location",
           "invalid_settings",
           "invalid_day_off",
+          "invalid_rest_period",
           "unavailable"
         ],
         "type": "string"
@@ -384,6 +460,31 @@
           "commit"
         ],
         "title": "Health",
+        "type": "object"
+      },
+      "KeepBody": {
+        "properties": {
+          "end": {
+            "description": "Inclusive, as the period was before it was cut",
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ladies",
+              "sick",
+              "travel"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "end",
+          "kind"
+        ],
+        "title": "KeepBody",
         "type": "object"
       },
       "Length": {
@@ -505,6 +606,12 @@
             ],
             "title": "Display Name"
           },
+          "hide_ladies": {
+            "default": false,
+            "description": "Leave the 🌸 button out of the status chips (WH-01)",
+            "title": "Hide Ladies",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -561,6 +668,18 @@
               }
             ],
             "title": "Display Name"
+          },
+          "hide_ladies": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = the default (shown)",
+            "title": "Hide Ladies"
           },
           "locale": {
             "anyOf": [
@@ -819,7 +938,7 @@
             "$ref": "#/components/schemas/MoonSettings"
           },
           "practice": {
-            "$ref": "#/components/schemas/PracticeSettings"
+            "$ref": "#/components/schemas/PracticeSettingsOut"
           },
           "quiet": {
             "$ref": "#/components/schemas/Quiet"
@@ -895,6 +1014,75 @@
           }
         },
         "title": "NotificationSettingsPatch",
+        "type": "object"
+      },
+      "PauseOfferOut": {
+        "description": "\"For how many days?\" after 🌸 / 🤒 / ✈️ on today or yesterday (WH-01).",
+        "properties": {
+          "choices": {
+            "description": "Day counts for the first screen",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "ladies",
+              "sick",
+              "travel"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "more": {
+            "description": "Day counts behind Other…",
+            "items": {
+              "type": "integer"
+            },
+            "title": "More",
+            "type": "array"
+          },
+          "reminders_on": {
+            "description": "Practice reminders on: the pause wording",
+            "title": "Reminders On",
+            "type": "boolean"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "kind",
+          "reminders_on",
+          "choices",
+          "more"
+        ],
+        "title": "PauseOfferOut",
+        "type": "object"
+      },
+      "PeriodResult": {
+        "properties": {
+          "period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RestPeriodOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: nothing is left (or none)"
+          }
+        },
+        "required": [
+          "period"
+        ],
+        "title": "PeriodResult",
         "type": "object"
       },
       "PracticeBody": {
@@ -1157,6 +1345,72 @@
         "title": "PracticeSettings",
         "type": "object"
       },
+      "PracticeSettingsOut": {
+        "properties": {
+          "at": {
+            "description": "Local wall clock, 15-minute grid",
+            "format": "time",
+            "title": "At",
+            "type": "string"
+          },
+          "days": {
+            "description": "ISO weekdays (1 = Monday)",
+            "items": {
+              "maximum": 7.0,
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Days",
+            "type": "array"
+          },
+          "on": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = never chosen (off; the bot may offer it once)",
+            "title": "On"
+          },
+          "paused_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The rest period covering today starts then (WH-01)",
+            "title": "Paused Start"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Practice reminders skip days through this date (inclusive); null when no period covers today (the deprecated PUT never reads it)",
+            "title": "Paused Until"
+          }
+        },
+        "required": [
+          "on",
+          "at",
+          "days"
+        ],
+        "title": "PracticeSettingsOut",
+        "type": "object"
+      },
       "Preset": {
         "properties": {
           "kind": {
@@ -1231,6 +1485,39 @@
           "travel"
         ],
         "title": "RestCounts",
+        "type": "object"
+      },
+      "RestPeriodOut": {
+        "properties": {
+          "end": {
+            "description": "Inclusive",
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`rest`: the kind can't be read any more (a lost key): plain rest",
+            "enum": [
+              "ladies",
+              "sick",
+              "travel",
+              "rest"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "kind"
+        ],
+        "title": "RestPeriodOut",
         "type": "object"
       },
       "Runs": {
@@ -1326,6 +1613,37 @@
           "stops"
         ],
         "title": "SeriesOut",
+        "type": "object"
+      },
+      "StartBody": {
+        "properties": {
+          "days": {
+            "description": "Including `start`; one of the offer's choices or more",
+            "title": "Days",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "ladies",
+              "sick",
+              "travel"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "start": {
+            "description": "Today or yesterday (the day just logged)",
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "days",
+          "kind"
+        ],
+        "title": "StartBody",
         "type": "object"
       },
       "StatsOut": {
@@ -1937,7 +2255,7 @@
     },
     "/api/v1/me/days/{date}": {
       "delete": {
-        "description": "Idempotent: 204 even if nothing was logged.",
+        "description": "Idempotent: 204 even if nothing was logged. Removes a rest period starting that day.",
         "operationId": "delete_day_api_v1_me_days__date__delete",
         "parameters": [
           {
@@ -1997,6 +2315,7 @@
         ]
       },
       "put": {
+        "description": "Overwrites any earlier status. Inside a rest period (WH-01): 🧘 Practiced ends it the\nday before (on its start day, removes it) and returns it as `cut`; other statuses\nchange only that day. After 🌸/🤒/✈️ on today or yesterday, `pause_offer` may ask for\nhow many days (POST /me/rest-periods).",
         "operationId": "put_day_api_v1_me_days__date__put",
         "parameters": [
           {
@@ -2025,7 +2344,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Day"
+                  "$ref": "#/components/schemas/DaySaved"
                 }
               }
             },
@@ -2714,6 +3033,221 @@
         "summary": "Put Notification Settings",
         "tags": [
           "moon"
+        ]
+      }
+    },
+    "/api/v1/me/rest-periods": {
+      "post": {
+        "description": "Starts a period on `start` (logged already). It replaces what it overlaps: an earlier\nperiod ends the day before, periods starting inside it are removed.",
+        "operationId": "post_rest_period_api_v1_me_rest_periods_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestPeriodOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Rest Period",
+        "tags": [
+          "rest-periods"
+        ]
+      }
+    },
+    "/api/v1/me/rest-periods/{start}": {
+      "put": {
+        "description": "\"Keep the pause\": restores a period cut by 🧘 Practiced exactly as it was (same\noverlap rule as a new one). `period: null` once it is over (nothing left to keep), or\nwhen no 🧘 Practiced day inside it shows it was cut (never a backfill).",
+        "operationId": "put_rest_period_api_v1_me_rest_periods__start__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeepBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Rest Period",
+        "tags": [
+          "rest-periods"
+        ]
+      }
+    },
+    "/api/v1/me/rest-periods/{start}/end": {
+      "post": {
+        "description": "End early: the period stops covering today (removed when ≤ 1 day is left; past days\nstay). Idempotent.",
+        "operationId": "end_rest_period_early_api_v1_me_rest_periods__start__end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "End Rest Period Early",
+        "tags": [
+          "rest-periods"
         ]
       }
     },

@@ -52,6 +52,8 @@ def test_get_days_defaults_to_this_week(api: TestClient) -> None:
         "days": [],
         "auto": [],
         "moon_location": "mysuru",
+        "periods": [],  # WH-01 part 2
+        "practice_on": False,
     }
 
 
@@ -60,8 +62,9 @@ def test_put_get_delete_round_trip_including_ladies(api: TestClient) -> None:
     put = api.put(f"/api/v1/me/days/{today}", json={"status": "ladies"}, headers=_auth())
 
     assert put.status_code == 200
-    assert put.json() == {"date": today.isoformat(), "status": "ladies", "practices": []}
-    assert api.get("/api/v1/me/days", headers=_auth()).json()["days"] == [put.json()]
+    day: dict[str, Any] = {"date": today.isoformat(), "status": "ladies", "practices": []}
+    assert put.json().items() >= day.items()  # + the pause offer (WH-01 part 2)
+    assert api.get("/api/v1/me/days", headers=_auth()).json()["days"] == [day]
 
     for _ in range(2):  # idempotent
         assert api.delete(f"/api/v1/me/days/{today}", headers=_auth()).status_code == 204

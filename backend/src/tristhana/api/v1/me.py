@@ -44,6 +44,9 @@ class Me(BaseModel):
         description="Weekly day off, ISO weekdays (1 = Monday); [] = no fixed day off; "
         "null = never chosen",
     )
+    hide_ladies: bool = Field(
+        default=False, description="Leave the 🌸 button out of the status chips (WH-01)"
+    )
 
     @classmethod
     def of(cls, account: Account) -> "Me":
@@ -55,6 +58,7 @@ class Me(BaseModel):
             name_from_telegram=not account.name_custom,
             locale_from_telegram=not account.locale_custom,
             day_off=_weekdays(account.day_off.days),
+            hide_ladies=account.hide_ladies,
         )
 
 
@@ -68,6 +72,7 @@ class MePatch(BaseModel):
     display_name: str | None = Field(default=None, max_length=200)
     locale: Locale | None = None
     timezone: str | None = Field(default=None, max_length=64, description="IANA zone or UTC")
+    hide_ladies: bool | None = Field(default=None, description="null = the default (shown)")
 
 
 class DayOffBody(BaseModel):
@@ -102,6 +107,7 @@ async def patch_me(
         display_name=body.display_name if "display_name" in sent else KEEP,
         locale=body.locale if "locale" in sent else KEEP,
         timezone=body.timezone if "timezone" in sent and body.timezone is not None else KEEP,
+        hide_ladies=body.hide_ladies if "hide_ladies" in sent else KEEP,
     )
     if "timezone" in sent and body.timezone is None:
         raise ApiError(422, "invalid_timezone")  # a zone can be changed, not removed

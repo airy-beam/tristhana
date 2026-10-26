@@ -124,6 +124,7 @@ class RunTick:
                 1 for d in c.deliveries if d.local_date == local_today and d.counts_today
             ),
             logged=c.logged,
+            paused=c.paused,
             practice_sent=tuple(
                 d.local_date
                 for d in c.deliveries

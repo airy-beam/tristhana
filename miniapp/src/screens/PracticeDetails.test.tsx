@@ -105,6 +105,8 @@ function stubApi(days: Days): Request[] {
 }
 
 const practicedToday: Days = {
+  periods: [], // WH-01 part 2
+  practice_on: false,
   today: TODAY,
   timezone_known: true,
   auto: [],

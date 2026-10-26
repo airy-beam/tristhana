@@ -29,6 +29,7 @@ _CODES: dict[DayStatus, str] = {
     DayStatus.TRAVEL: "t",
     DayStatus.SKIPPED: "s",
 }
+STATUS_CODES = _CODES  # shared with `rest_callbacks` (a1:)
 _STATUSES = {code: status for status, code in _CODES.items()}
 _ACTIONS: dict[str, Action] = {"o": "open", "x": "clear", "w": "week"}
 _LETTERS = {action: letter for letter, action in _ACTIONS.items()}

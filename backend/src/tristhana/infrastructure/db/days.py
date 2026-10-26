@@ -3,19 +3,27 @@ status on every rest row (ADR-0016); this adapter is the only place that knows."
 
 import logging
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Protocol
 from uuid import UUID
 
 from sqlalchemy import and_, delete, exists, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.sql.elements import Label
 
-from tristhana.application.ports.days import History, RangeView
+from tristhana.application.ports.days import History, Inserted, RangeView, Upserted
 from tristhana.domain.days import DayLog, DayStatus, public_status
+from tristhana.domain.rest_periods import RestPeriod
 from tristhana.infrastructure.crypto import UnreadableSeal
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.practice import to_practice
+from tristhana.infrastructure.db.rest_periods import (
+    cut_ctes,
+    open_periods,
+    period_arrays,
+    practice_on_column,
+)
 from tristhana.infrastructure.db.tables import day_log, moon_day, practice
 
 log = logging.getLogger(__name__)
@@ -34,12 +42,30 @@ def _aad(account_id: UUID, local_date: date) -> bytes:
     return b"day_log.sealed_status|" + account_id.bytes + local_date.isoformat().encode()
 
 
+_practice_on = practice_on_column
+
+
+def _snapshot(account_id: UUID, when: date) -> tuple[Label[Any], ...]:
+    """RETURNING columns read from the pre-statement snapshot (WH-01): the day before's
+    status, the periods covering the day before or the day, practice reminders on."""
+    before = and_(day_log.c.account_id == account_id, day_log.c.local_date == when - _DAY)
+    return (
+        select(day_log.c.status).where(before).scalar_subquery().label("prev_status"),
+        select(day_log.c.sealed_status).where(before).scalar_subquery().label("prev_sealed"),
+        *period_arrays(account_id, when - _DAY, when),
+        _practice_on(account_id),
+    )
+
+
+_DAY = timedelta(days=1)
+
+
 class SqlDayLogRepository:
     def __init__(self, engine: AsyncEngine, cipher: Cipher) -> None:
         self._engine = engine
         self._cipher = cipher
 
-    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> DayLog:
+    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> Upserted:
         public = public_status(day.status)
         sealed = (
             self._cipher.seal(_SEALED[day.status], _aad(account_id, day.local_date))
@@ -65,33 +91,76 @@ class SqlDayLogRepository:
                     day_log.c.status != "practiced",
                 )
             )
-        # Same statement: a day that is no longer practiced loses its details (PR-02).
+        # Same statement: a day that is no longer practiced loses its details (PR-02), and
+        # 🧘 Practiced cuts a rest period covering the day (WH-01, ADR-0023).
         stmt = stmt.add_cte(stale.cte("gone"))
+        for cte in cut_ctes(account_id, day.local_date, day.status):
+            stmt = stmt.add_cte(cte)
+        stmt = stmt.returning(*_snapshot(account_id, day.local_date))
         async with connection(self._engine) as conn:
-            await conn.execute(stmt)
-        return day
+            row = (await conn.execute(stmt)).one()
+        prev = (
+            self._status(account_id, day.local_date - _DAY, row.prev_status, row.prev_sealed)
+            if row.prev_status is not None
+            else None
+        )
+        periods = open_periods(
+            self._cipher, account_id, row.period_starts, row.period_ends, row.period_seals
+        )
+        return Upserted(
+            day,
+            prev=prev,
+            periods=periods,
+            practice_on=bool(row.practice_on),
+            cut=_cut(periods, day),
+        )
 
-    async def insert_if_absent(self, account_id: UUID, day: DayLog, timezone: str | None) -> bool:
-        if public_status(day.status) is DayStatus.REST:
-            raise ValueError("reminder taps only log non-private statuses")  # nothing to seal
+    async def insert_if_absent(
+        self, account_id: UUID, day: DayLog, timezone: str | None
+    ) -> Inserted:
+        if day.status is DayStatus.LADIES:
+            raise ValueError("reminder taps only log non-private statuses")
+        sealed = (
+            self._cipher.seal(_SEALED[day.status], _aad(account_id, day.local_date))
+            if day.status is DayStatus.REST
+            else None
+        )
         stmt = (
             insert(day_log)
             .values(
                 account_id=account_id,
                 local_date=day.local_date,
                 status=day.status.value,
+                sealed_status=sealed,
                 timezone=timezone,
             )
             .on_conflict_do_nothing(index_elements=[day_log.c.account_id, day_log.c.local_date])
-            .returning(day_log.c.local_date)
+            .returning(
+                day_log.c.local_date, *period_arrays(account_id, day.local_date, day.local_date)
+            )
         )
+        # The cut applies only when the day is still empty (the snapshot before the insert).
+        empty = ~exists().where(
+            day_log.c.account_id == account_id, day_log.c.local_date == day.local_date
+        )
+        for cte in cut_ctes(account_id, day.local_date, day.status, only_if=empty):
+            stmt = stmt.add_cte(cte)
         async with connection(self._engine) as conn:
-            return (await conn.execute(stmt)).one_or_none() is not None
+            row = (await conn.execute(stmt)).one_or_none()
+        if row is None:
+            return Inserted(False)
+        periods = open_periods(
+            self._cipher, account_id, row.period_starts, row.period_ends, row.period_seals
+        )
+        return Inserted(True, _cut(periods, day))
 
     async def delete(self, account_id: UUID, local_date: date) -> None:
         stmt = delete(day_log).where(
             day_log.c.account_id == account_id, day_log.c.local_date == local_date
         )
+        # Same statement: clearing a rest period's start day removes it (ADR-0023).
+        for cte in cut_ctes(account_id, local_date, None):
+            stmt = stmt.add_cte(cte)
         async with connection(self._engine) as conn:
             await conn.execute(stmt)
 
@@ -111,7 +180,12 @@ class SqlDayLogRepository:
         days = self._range(account_id, start, end).subquery("days")
         # One row even when nothing is logged: the moon dates always come back (as `history`).
         stmt = (
-            select(moon.c.moon_dates, *days.c)
+            select(
+                moon.c.moon_dates,
+                *period_arrays(account_id, start, end),
+                _practice_on(account_id),
+                *days.c,
+            )
             .select_from(moon.outerjoin(days, literal(True)))
             .order_by(days.c.local_date, days.c.slot)
         )
@@ -119,7 +193,10 @@ class SqlDayLogRepository:
             rows = (await conn.execute(stmt)).all()
         moon_dates = frozenset(rows[0].moon_dates or ()) if rows else frozenset[date]()
         return RangeView(
-            self._days(account_id, [r for r in rows if r.local_date is not None]), moon_dates
+            self._days(account_id, [r for r in rows if r.local_date is not None]),
+            moon_dates,
+            self._periods(account_id, rows),
+            bool(rows[0].practice_on) if rows else False,
         )
 
     async def history(self, account_id: UUID, start: date, end: date) -> History:
@@ -131,7 +208,7 @@ class SqlDayLogRepository:
         days = self._range(account_id, start, end).subquery("days")
         # One row even when the range is empty: the first date always comes back.
         stmt = (
-            select(first.c.first_date, *days.c)
+            select(first.c.first_date, *period_arrays(account_id, start, end), *days.c)
             .select_from(first.outerjoin(days, literal(True)))
             .order_by(days.c.local_date, days.c.slot)
         )
@@ -139,7 +216,17 @@ class SqlDayLogRepository:
             rows = (await conn.execute(stmt)).all()
         first_date = rows[0].first_date if rows else None
         return History(
-            self._days(account_id, [r for r in rows if r.local_date is not None]), first_date
+            self._days(account_id, [r for r in rows if r.local_date is not None]),
+            first_date,
+            self._periods(account_id, rows),
+        )
+
+    def _periods(self, account_id: UUID, rows: Sequence[Any]) -> tuple[RestPeriod, ...]:
+        if not rows:
+            return ()
+        r = rows[0]
+        return open_periods(
+            self._cipher, account_id, r.period_starts, r.period_ends, r.period_seals
         )
 
     def _range(self, account_id: UUID, start: date, end: date) -> Any:  # a Select
@@ -201,3 +288,10 @@ class SqlDayLogRepository:
             # Lost or retired key: only the rest/ladies distinction is lost, never the day.
             log.warning("unreadable day_log seal for account %s", account_id)
             return DayStatus.REST
+
+
+def _cut(periods: Sequence[RestPeriod], day: DayLog) -> RestPeriod | None:
+    """The period as it was before a 🧘 Practiced on `day` cut it (for "keep the pause")."""
+    if day.status is not DayStatus.PRACTICED:
+        return None
+    return next((p for p in periods if p.covers(day.local_date)), None)

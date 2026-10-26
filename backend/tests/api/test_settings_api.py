@@ -79,7 +79,13 @@ def test_notification_settings_patch_changes_only_what_was_sent(api: TestClient)
     ).json()
 
     assert moon["moon"]["offsets"] == [3, 7]
-    assert moon["practice"] == {"on": True, "at": "20:00:00", "days": [1, 2, 3, 4, 5, 7]}
+    assert moon["practice"] == {
+        "on": True,
+        "at": "20:00:00",
+        "days": [1, 2, 3, 4, 5, 7],
+        "paused_start": None,  # WH-01 part 2
+        "paused_until": None,
+    }
     assert quiet.json()["quiet"] == {"start": "23:00:00", "end": "06:00:00"}
     # 19:30 to 07:00 would swallow the 20:00 practice and the 19:00 moon reminders.
     assert (conflict.status_code, conflict.json()) == (422, {"code": "invalid_settings"})

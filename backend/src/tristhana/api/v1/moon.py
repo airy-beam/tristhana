@@ -22,6 +22,7 @@ from tristhana.application.moon import (
     SetMoonLocation,
     UnknownLocation,
 )
+from tristhana.application.ports.notifications import PracticePause
 from tristhana.application.settings import PatchNotificationSettings
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import InvalidRange
@@ -86,6 +87,17 @@ class PracticeSettings(BaseModel):
     )
 
 
+class PracticeSettingsOut(PracticeSettings):
+    paused_start: dt.date | None = Field(
+        default=None, description="The rest period covering today starts then (WH-01)"
+    )
+    paused_until: dt.date | None = Field(
+        default=None,
+        description="Practice reminders skip days through this date (inclusive); null "
+        "when no period covers today (the deprecated PUT never reads it)",
+    )
+
+
 class _SettingsCommon(BaseModel):
     moon: MoonSettings
     quiet: Quiet
@@ -104,20 +116,28 @@ class DayOffQuestionOut(BaseModel):
 
 
 class NotificationSettingsOut(_SettingsCommon):
-    practice: PracticeSettings
+    practice: PracticeSettingsOut
     timezone: str | None = Field(description="Reminders need it; null = none are sent")
     day_off_question: DayOffQuestionOut | None = Field(
         default=None, description="Ask once: is that weekday the day off? (PR-09)"
     )
 
 
-def _settings_out(s: NotificationSettings, account: Account) -> NotificationSettingsOut:
+def _settings_out(
+    s: NotificationSettings, account: Account, pause: PracticePause | None = None
+) -> NotificationSettingsOut:
     question = day_off_question(account.day_off.days, account.day_off_dismissed, s)
     return NotificationSettingsOut(
         moon=MoonSettings(offsets=sorted(s.moon.offsets), at=s.moon.at),  # type: ignore[arg-type]
         quiet=Quiet(start=s.quiet.start, end=s.quiet.end),
         daily_cap=s.daily_cap,
-        practice=PracticeSettings(on=s.practice.on, at=s.practice.at, days=sorted(s.practice.days)),
+        practice=PracticeSettingsOut(
+            on=s.practice.on,
+            at=s.practice.at,
+            days=sorted(s.practice.days),
+            paused_start=pause.start if pause else None,
+            paused_until=pause.until if pause else None,
+        ),
         timezone=account.timezone,
         day_off_question=(
             DayOffQuestionOut(weekday=question.weekday, reminders_on=question.reminders_on)
@@ -187,7 +207,8 @@ async def get_notification_settings(
     principal: CurrentPrincipal,
     use_case: Annotated[NotificationSettingsUseCase, Depends(notification_settings)],
 ) -> NotificationSettingsOut:
-    return _settings_out(await use_case.get(principal), principal.account)
+    saved, pause = await use_case.get_with_pause(principal)
+    return _settings_out(saved, principal.account, pause)
 
 
 class MoonPatchBody(BaseModel):
@@ -252,10 +273,10 @@ async def patch_notification_settings(
     if any(getattr(body, g) is None for g in {"moon", "practice"} & body.model_fields_set):
         raise ApiError(422, "invalid_settings")  # reset single fields, not a whole group
     try:
-        saved = await use_case.execute(principal, _domain_patch(body))
+        saved, pause = await use_case.execute_with_pause(principal, _domain_patch(body))
     except InvalidSettings:
         raise ApiError(422, "invalid_settings") from None
-    return _settings_out(saved, principal.account)
+    return _settings_out(saved, principal.account, pause)
 
 
 @router.put("/me/notification-settings", responses=error_responses(401, 422, 503), deprecated=True)

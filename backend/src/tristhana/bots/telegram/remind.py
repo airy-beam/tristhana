@@ -15,13 +15,18 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
-from tristhana.application.ports.notifications import PracticeReminder, ReminderPatch
+from tristhana.application.ports.notifications import (
+    PracticePause,
+    PracticeReminder,
+    ReminderPatch,
+)
 from tristhana.bots.telegram import callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
+from tristhana.bots.telegram import rest_callbacks as acb
 from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.day_off import day_off_picker
 from tristhana.bots.telegram.remind_callbacks import PREFIX, RemindCallback, decode, encode
-from tristhana.bots.telegram.runtime import RemindUseCases
+from tristhana.bots.telegram.runtime import RemindUseCases, RestUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, day_label, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayStatus
@@ -66,15 +71,9 @@ def reminder_screen(
     rows = [
         [button(t, locale, "remind-same", _data(action="same", day=r.day))],
         [
-            button(
-                t,
-                locale,
-                "remind-practiced",
-                dcb.encode(dcb.DayCallback("set", r.day, DayStatus.PRACTICED)),
-            ),
-            button(
-                t, locale, "status-rest", dcb.encode(dcb.DayCallback("set", r.day, DayStatus.REST))
-            ),
+            # Insert-if-absent (Q26): a day logged since (maybe 🌸) is never overwritten.
+            button(t, locale, "remind-practiced", _data(action="log_practiced", day=r.day)),
+            button(t, locale, "status-rest", _data(action="log_rest", day=r.day)),
         ],
         [
             button(t, locale, "remind-other", dcb.encode(dcb.DayCallback("open", r.day))),
@@ -117,9 +116,13 @@ def offer_row(t: Translator, locale: Locale, day: date) -> list[InlineKeyboardBu
 
 
 def register_remind(
-    router: Router, remind: RemindUseCases, days: DayScreens, translator: Translator
-) -> None:
-    screens = RemindScreens(remind, days, translator)
+    router: Router,
+    remind: RemindUseCases,
+    days: DayScreens,
+    translator: Translator,
+    rest: RestUseCases | None = None,
+) -> RemindScreens:
+    screens = RemindScreens(remind, days, translator, rest)
 
     @router.message(Command("remind"))
     async def on_remind(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
@@ -132,12 +135,21 @@ def register_remind(
         screen = await answered(callback, screens.handle(Principal(account), cb))
         return show(callback, screen) if screen else None
 
+    return screens
+
 
 class RemindScreens:
-    def __init__(self, remind: RemindUseCases, days: DayScreens, translator: Translator) -> None:
+    def __init__(
+        self,
+        remind: RemindUseCases,
+        days: DayScreens,
+        translator: Translator,
+        rest: RestUseCases | None = None,
+    ) -> None:
         self._r = remind
         self._days = days
         self._t = translator
+        self._rest = rest
 
     async def handle(self, principal: Principal, cb: RemindCallback | None) -> Screen | None:
         if cb is None:
@@ -147,11 +159,13 @@ class RemindScreens:
                 case "view":
                     return await self.settings(principal)
                 case "switch":
-                    saved = await self._r.update.execute(principal, ReminderPatch(on=cb.on))
-                    return self.settings_screen(principal, saved)
+                    patch = ReminderPatch(on=cb.on)
+                    saved, pause = await self._r.update.execute_with_pause(principal, patch)
+                    return self.settings_screen(principal, saved, pause)
                 case "time":
-                    saved = await self._r.update.execute(principal, ReminderPatch(at=cb.at))
-                    return self.settings_screen(principal, saved)
+                    patch = ReminderPatch(at=cb.at)
+                    saved, pause = await self._r.update.execute_with_pause(principal, patch)
+                    return self.settings_screen(principal, saved, pause)
                 case "yes" | "no":
                     saved = await self._r.offer.execute(principal, cb.action == "yes")
                     if cb.action == "yes":
@@ -161,6 +175,11 @@ class RemindScreens:
                 case "same":
                     assert cb.day is not None  # noqa: S101
                     return await self._same(principal, cb.day)
+                case "log_practiced" | "log_rest":
+                    assert cb.day is not None  # noqa: S101
+                    practiced = cb.action == "log_practiced"
+                    status = DayStatus.PRACTICED if practiced else DayStatus.REST
+                    return await self._log(principal, cb.day, status)
                 case "quick":
                     assert cb.day is not None  # noqa: S101
                     await self._r.update.execute(principal, ReminderPatch(on=cb.on))
@@ -198,6 +217,31 @@ class RemindScreens:
         assert practice is not None  # noqa: S101 - wired by days.register
         return await practice.summary(principal, day, offer=False)
 
+    async def _log(self, principal: Principal, day: date, status: DayStatus) -> Screen | None:
+        """🧘 / 😌 from a reminder (Q26): logs the day only if it is still empty; a day
+        logged since shows as stored, with ✏️ Change."""
+        if self._rest is None:
+            return None
+        today, _ = self._days.today(principal)
+        try:
+            logged = await self._rest.log_from_reminder.execute(principal, day, status)
+        except DateInFuture:
+            return await self._days.week(principal, today, note="log-date-future")
+        except DateTooEarly:
+            return await self._days.week(principal, today, note="log-date-too-early")
+        practice = self._days.practice
+        assert practice is not None  # noqa: S101
+        if logged.day is None:  # cleared elsewhere in between
+            return await self._days.status(principal, day)
+        if logged.already:
+            if logged.day.status is DayStatus.PRACTICED:
+                stored = logged.day.practices[0] if logged.day.practices else None
+                return await practice.summary(principal, day, practice=stored, offer=False)
+            return self._days.saved_screen(principal, day, logged.day.status)
+        if status is DayStatus.PRACTICED:
+            return await practice.details(principal, day, cut=logged.cut, known=True)
+        return self._days.saved_screen(principal, day, status)
+
     async def _same(self, principal: Principal, day: date) -> Screen:
         today, _ = self._days.today(principal)
         try:
@@ -216,7 +260,7 @@ class RemindScreens:
                 return await practice.summary(principal, day, practice=stored, offer=False)
             return self._days.saved_screen(principal, day, logged.day.status)
         if not logged.day.practices:  # nothing to copy yet: the details screen
-            return await practice.details(principal, day)
+            return await practice.details(principal, day, cut=logged.cut, known=True)
         note = None
         if logged.copied_from is not None and day - logged.copied_from > COPIED_DATE_AFTER:
             locale = principal.account.locale
@@ -227,19 +271,33 @@ class RemindScreens:
             )
         # Someone answering a reminder has already chosen: no offer (and no settings read).
         return await practice.summary(
-            principal, day, practice=logged.day.practices[0], extra=note, offer=False
+            principal,
+            day,
+            practice=logged.day.practices[0],
+            extra=note,
+            offer=False,
+            cut=logged.cut,
         )
 
     async def settings(self, principal: Principal) -> Screen:
-        saved = await self._r.settings.get(principal)
-        return self.settings_screen(principal, saved)
+        saved, pause = await self._r.settings.get_with_pause(principal)
+        return self.settings_screen(principal, saved, pause)
 
-    def settings_screen(self, principal: Principal, settings: NotificationSettings) -> Screen:
+    def settings_screen(
+        self,
+        principal: Principal,
+        settings: NotificationSettings,
+        pause: PracticePause | None = None,
+    ) -> Screen:
+        """`pause`: the rest period covering today (WH-01), read with the settings."""
         account = principal.account
         locale = account.locale
         p = settings.practice
         today, _ = self._days.today(principal)
         lines = [self.status_line(locale, settings, account.timezone, today)]
+        paused = pause if p.enabled else None
+        if paused is not None:
+            lines.append(self._t.t(locale, "remind-paused-until", until=DateArg(paused.until)))
         if p.enabled:
             lines.append(self._t.t(locale, "remind-days-follow"))
         if account.timezone is None:
@@ -267,6 +325,7 @@ class RemindScreens:
             times[3:],
             # Reminders come on the practice days: the one day setting is the day off.
             [button(self._t, locale, "settings-day-off-button", _data(action="day_off_pick"))],
+            *([[self._resume_button(locale, paused)]] if paused else []),
             [switch],
             [
                 button(
@@ -276,6 +335,10 @@ class RemindScreens:
             [button(self._t, locale, "settings-link", scb.encode(scb.SettingsCallback("view")))],
         ]
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _resume_button(self, locale: Locale, pause: PracticePause) -> InlineKeyboardButton:
+        data = acb.encode(acb.RestCallback("end_remind", pause.start))
+        return button(self._t, locale, "remind-resume", data)
 
     def _question_rows(self, locale: Locale, weekday: int) -> list[list[InlineKeyboardButton]]:
         """[Yes] [the other weekend day, for a weekend day] / [Other…] [Not now]."""

@@ -69,3 +69,25 @@ def test_invalid_values() -> None:
         resolve_profile(ME, ProfilePatch(display_name="x" * 65), TG)
     with pytest.raises(InvalidTimezone):
         resolve_profile(ME, ProfilePatch(timezone="Etc/GMT+5"), TG)
+
+
+# WH-01 part 2: "hide the 🌸 button" is one account setting (bot grids and Mini App chips).
+
+
+def test_the_ladies_button_is_shown_by_default() -> None:
+    assert ME.hide_ladies is False
+
+
+@pytest.mark.parametrize(("sent", "hidden"), [(True, True), (False, False), (None, False)])
+def test_hide_ladies_is_its_own_field_group(sent: bool | None, hidden: bool) -> None:
+    change = resolve_profile(replace(ME, hide_ladies=True), ProfilePatch(hide_ladies=sent), TG)
+
+    assert change.hide_ladies is hidden  # None = back to the default (shown)
+    assert change.fields == {"hide_ladies"}
+
+
+def test_other_settings_keep_the_ladies_button_as_it_is() -> None:
+    change = resolve_profile(replace(ME, hide_ladies=True), ProfilePatch(locale="ru"), TG)
+
+    assert change.hide_ladies is True
+    assert "hide_ladies" not in change.fields
