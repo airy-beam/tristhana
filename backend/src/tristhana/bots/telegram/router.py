@@ -20,11 +20,13 @@ from tristhana.bots.telegram import days as day_screens
 from tristhana.bots.telegram.middleware import AccountMiddleware
 from tristhana.bots.telegram.moon import register_moon
 from tristhana.bots.telegram.remind import register_remind
+from tristhana.bots.telegram.rest import register_rest
 from tristhana.bots.telegram.runtime import (
     DayUseCases,
     MoonUseCases,
     PracticeUseCases,
     RemindUseCases,
+    RestUseCases,
     SettingsUseCases,
 )
 from tristhana.bots.telegram.settings import register_settings
@@ -41,6 +43,7 @@ def build_router(
     settings: SettingsUseCases,
     translator: Translator,
     miniapp_url: str = "",
+    rest: RestUseCases | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -56,7 +59,9 @@ def build_router(
     screens = day_screens.register(router, days, practices, translator, remind, miniapp_url)
     register_start(router, screens, settings, translator, miniapp_url)
     register_moon(router, moon, translator)
-    register_remind(router, remind, screens, translator)
+    remind_screens = register_remind(router, remind, screens, translator, rest)
+    if rest is not None:  # WH-01 rest periods (always wired by the app)
+        register_rest(router, rest, remind, screens, remind_screens, translator)
     register_settings(router, settings, translator, miniapp_url)
 
     @router.callback_query()

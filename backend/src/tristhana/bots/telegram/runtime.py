@@ -29,10 +29,12 @@ from tristhana.application.practice import (
 )
 from tristhana.application.remind import (
     AnswerPracticeOffer,
+    LogFromReminder,
     QuickLogSameAsLast,
     UpdatePracticeReminder,
 )
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
+from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
 from tristhana.application.settings import UpdateProfile
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
@@ -78,6 +80,16 @@ class RemindUseCases:
 
 
 @dataclass(frozen=True, slots=True)
+class RestUseCases:
+    """WH-01 part 2: rest periods and the reminder's insert-if-absent 🧘 / 😌 (Q26)."""
+
+    start: StartRestPeriod
+    restore: RestoreRestPeriod
+    end: EndRestPeriod
+    log_from_reminder: LogFromReminder
+
+
+@dataclass(frozen=True, slots=True)
 class SettingsUseCases:
     profile: UpdateProfile
     settings: NotificationSettingsUseCase
@@ -102,6 +114,7 @@ def build_runtime(
     settings: SettingsUseCases,
     translator: Translator,
     miniapp_url: str = "",
+    rest: RestUseCases | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -110,7 +123,7 @@ def build_runtime(
 
     dispatcher = Dispatcher()
     dispatcher.include_router(
-        build_router(ensure, days, practices, moon, remind, settings, translator, miniapp_url)
+        build_router(ensure, days, practices, moon, remind, settings, translator, miniapp_url, rest)
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
 

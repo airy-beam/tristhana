@@ -104,7 +104,7 @@ async def test_insert_if_absent_never_overwrites(engine: AsyncEngine) -> None:
         me, DayLog(MON + timedelta(days=1), DayStatus.PRACTICED), ZONE
     )
 
-    assert (first, fresh) == (False, True)
+    assert (first.inserted, fresh.inserted) == (False, True)
     stored = await days.list_range(me, MON, MON + timedelta(days=1))
     assert [d.status for d in stored] == [DayStatus.LADIES, DayStatus.PRACTICED]
 

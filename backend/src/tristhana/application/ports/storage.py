@@ -6,6 +6,7 @@ from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import NotificationRepository
 from tristhana.application.ports.practice import PracticeRepository
+from tristhana.application.ports.rest_periods import RestPeriodRepository
 
 
 class StorageUnavailable(Exception):
@@ -41,6 +42,9 @@ class Storage(Protocol):
 
     @property
     def notifications(self) -> NotificationRepository: ...
+
+    @property
+    def rest_periods(self) -> RestPeriodRepository: ...
 
 
 class Clock(Protocol):

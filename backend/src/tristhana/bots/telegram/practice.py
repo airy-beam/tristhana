@@ -6,17 +6,18 @@ the message in place; picker screens need no DB access (the catalog is in memory
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from tristhana.application.policies import Principal
-from tristhana.application.ports.i18n import TimeArg, Translator
+from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.practice import DayNotPracticed, NoPreviousPractice
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.bots.telegram import callbacks as dcb
+from tristhana.bots.telegram import rest_callbacks as acb
 from tristhana.bots.telegram.practice_callbacks import (
     PREFIX,
     PracticeCallback,
@@ -41,6 +42,7 @@ from tristhana.domain.practice import (
     PracticeContext,
     PracticeLength,
 )
+from tristhana.domain.rest_periods import RestPeriod
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.days import DayScreens
@@ -167,14 +169,27 @@ class PracticeScreens:
         day: date,
         practice: Practice | None = None,
         note: str | None = None,
+        cut: RestPeriod | None = None,
+        kept: RestPeriod | None = None,
+        known: bool = False,
     ) -> Screen:
-        if practice is None:
+        """`cut`: a rest period this 🧘 just cut (WH-01): a gentle line and "Keep the
+        pause"; `kept`: it was just restored. `known`: `practice` is the stored value even
+        when None (no read)."""
+        if practice is None and not known:
             practice = await self._current(principal, day)
         locale = principal.account.locale
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
         if note:
             lines.insert(0, self._t.t(locale, note))
         rows: list[list[InlineKeyboardButton]] = []
+        keep = self.keep_row(principal, day, cut)
+        if keep:
+            lines.insert(0, self.cut_line(principal, day, cut))  # type: ignore[arg-type]
+            rows.append(keep)
+        if kept is not None:
+            label = self._t.t(locale, f"status-{kept.kind.value}")
+            lines.insert(0, self._t.t(locale, "pause-kept", label=label, until=DateArg(kept.end)))
         if has_details(practice):
             lines.append(self.summary_text(locale, day, practice))
         else:
@@ -219,6 +234,24 @@ class PracticeScreens:
         rows += self._day_screens.app_rows(principal)
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
+    def keep_row(
+        self, principal: Principal, day: date, cut: RestPeriod | None
+    ) -> list[InlineKeyboardButton] | None:
+        """[⏸ Keep the pause] while the cut period still had days after `day` and isn't
+        over yet; the callback carries the period itself (stateless)."""
+        today, _ = self._days.get.today(principal)
+        if cut is None or cut.end <= day or cut.end < today:
+            return None
+        data = acb.encode(acb.RestCallback("keep", cut.start, cut.kind, end=cut.end, practiced=day))
+        return [self._button(principal.account.locale, "pause-keep", data)]
+
+    def cut_line(self, principal: Principal, day: date, cut: RestPeriod) -> str:
+        locale = principal.account.locale
+        today, _ = self._days.get.today(principal)
+        rel = "today" if day == today else "yesterday" if day == today - timedelta(1) else "other"
+        label = self._t.t(locale, f"status-{cut.kind.value}")
+        return self._t.t(locale, "pause-cut", label=label, until=DateArg(cut.end), rel=rel)
+
     # Screen V: done, a compact summary (+ the one-time practice-reminder offer, PR-10).
     async def summary(
         self,
@@ -227,11 +260,15 @@ class PracticeScreens:
         practice: Practice | None = None,
         extra: str | None = None,
         offer: bool = True,
+        cut: RestPeriod | None = None,
     ) -> Screen:
         if practice is None:
             practice = await self._current(principal, day)
         locale = principal.account.locale
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
+        keep = self.keep_row(principal, day, cut)
+        if keep:
+            lines.insert(0, self.cut_line(principal, day, cut))  # type: ignore[arg-type]
         if has_details(practice):
             lines.append(self.summary_text(locale, day, practice))
         if extra:
@@ -244,6 +281,8 @@ class PracticeScreens:
                 self._button(locale, "log-another-day", dcb.encode(dcb.DayCallback("week", today))),
             ]
         ]
+        if keep:
+            rows.insert(0, keep)
         if offer and day == today and self._remind is not None:
             settings = await self._remind.settings.get(principal)
             if settings.practice.on is None:  # never chosen: offered once, until answered

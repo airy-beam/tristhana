@@ -7,9 +7,13 @@ from datetime import date, timedelta
 from tristhana.application.policies import Principal
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
-from tristhana.application.ports.notifications import MoonPatch, NotificationRepository
+from tristhana.application.ports.notifications import (
+    MoonPatch,
+    NotificationRepository,
+    PracticePause,
+)
 from tristhana.application.ports.storage import Clock
-from tristhana.application.settings import PatchNotificationSettings
+from tristhana.application.settings import PatchNotificationSettings, caller_today
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import check_range, local_today, provisional_zone
 from tristhana.domain.moon import Cities, City, MoonDay
@@ -133,12 +137,23 @@ class UpdateMoonReminders:
 class NotificationSettingsUseCase:
     """The API's full read/replace of the caller's notification settings."""
 
-    def __init__(self, notifications: NotificationRepository) -> None:
+    def __init__(self, notifications: NotificationRepository, clock: Clock) -> None:
         self._notifications = notifications
+        self._clock = clock
 
     async def get(self, principal: Principal) -> NotificationSettings:
         account = principal.account
         return await self._notifications.settings(account.id, defaults_for(account.day_off.days))
+
+    async def get_with_pause(
+        self, principal: Principal
+    ) -> tuple[NotificationSettings, PracticePause | None]:
+        """The settings and the rest period covering the caller's today, for "⏸ Paused
+        through …" (WH-01). One statement."""
+        account = principal.account
+        defaults = defaults_for(account.day_off.days)
+        today = caller_today(principal, self._clock)
+        return await self._notifications.settings_with_pause(account.id, defaults, today)
 
     async def save(
         self,

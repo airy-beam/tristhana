@@ -30,6 +30,7 @@ class ReminderCandidate:
     deliveries: tuple[Delivery, ...]  # recent ones, for dedupe and the daily cap
     had_moon_reminder: bool  # False: the next one carries the intro
     logged: frozenset[date] = frozenset()  # logged days in the window (practice skips them)
+    paused: frozenset[date] = frozenset()  # unlogged days covered by a rest period (WH-01)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,10 +54,24 @@ class ReminderPatch:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PracticePause:
+    """The rest period covering today (WH-01): practice reminders skip [start, until]."""
+
+    start: date
+    until: date
+
+
 class NotificationRepository(Protocol):
     async def settings(
         self, account_id: UUID, defaults: NotificationSettings
     ) -> NotificationSettings: ...
+
+    async def settings_with_pause(
+        self, account_id: UUID, defaults: NotificationSettings, today: date
+    ) -> tuple[NotificationSettings, PracticePause | None]:
+        """`settings` plus the rest period covering `today`, in one statement (WH-01)."""
+        ...
 
     async def save(
         self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
@@ -72,6 +87,16 @@ class NotificationRepository(Protocol):
         self, account_id: UUID, columns: dict[str, object], defaults: NotificationSettings
     ) -> NotificationSettings:
         """Upsert only these stored columns; returns the effective settings."""
+        ...
+
+    async def patch_with_pause(
+        self,
+        account_id: UUID,
+        columns: dict[str, object],
+        defaults: NotificationSettings,
+        today: date,
+    ) -> tuple[NotificationSettings, PracticePause | None]:
+        """`patch` plus the rest period covering `today` in its RETURNING (WH-01)."""
         ...
 
     async def mark_intro_sent(self, account_id: UUID, at: datetime) -> None:

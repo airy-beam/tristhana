@@ -6,7 +6,8 @@ import pytest
 
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.practice import Practice, PracticeContext, PracticeLength
-from tristhana.domain.rest_days import AutoDay, AutoKind
+from tristhana.domain.rest_days import AutoDay, AutoKind, DayOff, auto_days
+from tristhana.domain.rest_periods import RestPeriod, covered_days
 from tristhana.domain.stats import (
     MAX_UNLOGGED_BRIDGE,
     find_runs,
@@ -233,3 +234,77 @@ def test_year_stats_keep_only_the_years_auto_days_up_to_today() -> None:
     assert stats.auto == {SAT: AutoDay(AutoKind.DAY_OFF)}
     assert stats.months[9].auto == 1
     assert stats.cells[SAT.timetuple().tm_yday - 1] is None  # cells keep their enum
+
+
+# WH-01 part 2 (ADR-0023): days covered by a rest period count as logged rest of their kind
+# (GetYearStats merges them into `days`; stats.py itself is unchanged).
+
+
+def _with_periods(pattern: str, periods: list[RestPeriod], today: date) -> dict[date, DayLog]:
+    days = _days(pattern)
+    covered = covered_days(periods, START, today, today, days.keys())
+    return days | {d: DayLog(d, kind) for d, kind in covered.items()}
+
+
+def test_covered_days_count_as_rest_of_their_kind() -> None:
+    period = RestPeriod(date(2026, 10, 5), date(2026, 10, 9), L)  # Mon .. Fri; Mon logged
+    today = date(2026, 10, 12)
+    days = _with_periods("....L", [period], today)  # Oct 5 is the logged origin
+    moon = {date(2026, 10, 7)}  # a moon day inside the pause is one of its days
+    auto = auto_days(START, today, today, START, days.keys(), DayOff(frozenset({6})), moon)
+
+    s = summarize(days, START, today, today, _number, auto)
+
+    assert s.rest.get(L) == 5
+    assert s.rest.get(M, 0) == 0
+    assert date(2026, 10, 7) not in auto
+    assert s.auto == 2  # Saturdays Oct 3 and Oct 10 only
+    # Unmarked before today: Oct 1, 2, 4 and 11 (Saturdays are auto, Oct 5-9 are 🌸).
+    assert s.unlogged == 4
+
+
+def test_seven_covered_days_and_two_unmarked_keep_a_run() -> None:
+    """Covered days are marked rest: they reset the unmarked count, unlike auto days."""
+    pattern = "P" + "L" + "." * 6 + ".." + "P"  # P, 🌸 origin, 6 covered, 2 unmarked, P
+    period = RestPeriod(START + timedelta(days=1), START + timedelta(days=7), L)
+    today = START + timedelta(days=len(pattern))
+    days = _with_periods(pattern, [period], today)
+
+    found = find_runs(days, START, today)
+
+    assert found.current is not None
+    assert found.current.practices == 2
+    # Without the period the same days are 8 unmarked in a row after the 🌸: the run ends.
+    plain = find_runs(_days(pattern), START, today)
+    assert plain.current is not None
+    assert plain.current.practices == 1
+
+
+def test_a_period_after_a_long_gap_does_not_revive_an_ended_run() -> None:
+    gap = MAX_UNLOGGED_BRIDGE + 1
+    pattern = "P" + "." * gap + "K.." + "P"
+    first = START + timedelta(days=1 + gap)
+    period = RestPeriod(first, first + timedelta(days=2), S)
+    today = START + timedelta(days=len(pattern))
+    days = _with_periods(pattern.replace("K", "S"), [period], today)
+
+    found = find_runs(days, START, today)
+
+    assert found.current is not None
+    assert found.current.practices == 1
+    assert max(r.practices for r in found.runs) == 1
+
+
+def test_covered_days_show_their_kind_in_the_cells() -> None:
+    year_start = date(2026, 1, 1)
+    today = date(2026, 1, 6)
+    days = _days("T", year_start)
+    period = RestPeriod(year_start, date(2026, 1, 4), T)
+    covered = covered_days([period], year_start, today, today, days.keys())
+    merged = days | {d: DayLog(d, k) for d, k in covered.items()}
+
+    y = year_stats(merged, 2026, today, _number)
+
+    assert y.cells[:6] == [T, T, T, T, None, None]
+    assert y.year_total.rest == {T: 4}
+    assert y.year_total.unlogged == 1  # Jan 5; today (Jan 6) is never unlogged

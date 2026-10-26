@@ -17,6 +17,7 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
 from tristhana.application.practice import ClearPractice, GetPracticePresets, SavePractice
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
+from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
 from tristhana.application.stats import GetYearStats
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
@@ -64,6 +65,18 @@ def set_day_status(request: Request) -> SetDayStatus:
 
 def clear_day_status(request: Request) -> ClearDayStatus:
     return cast(ClearDayStatus, request.app.state.clear_day_status)
+
+
+def start_rest_period(request: Request) -> "StartRestPeriod":
+    return cast("StartRestPeriod", request.app.state.rest.start)
+
+
+def restore_rest_period(request: Request) -> "RestoreRestPeriod":
+    return cast("RestoreRestPeriod", request.app.state.rest.restore)
+
+
+def end_rest_period(request: Request) -> "EndRestPeriod":
+    return cast("EndRestPeriod", request.app.state.rest.end)
 
 
 def save_practice(request: Request) -> SavePractice:

@@ -286,3 +286,61 @@ def test_an_unlogged_day_off_is_not_logged_for_the_tick() -> None:
     c = Candidate("Asia/Almaty", replace(DEFAULTS, practice=practice), ())
     now = send_instant(sat, practice.at, "Asia/Almaty")
     assert due_practice_reminder(now, c) is not None
+
+
+# WH-01 part 2 (ADR-0023): days covered by a rest period pause the practice reminder.
+
+
+def test_skips_a_paused_day() -> None:
+    assert due_practice_reminder(_at(MON), _c(paused=frozenset({MON}))) is None
+
+
+def test_a_pause_that_ended_yesterday_lets_the_reminder_come_back() -> None:
+    paused = frozenset({MON - timedelta(days=2), MON - timedelta(days=1)})
+    assert due_practice_reminder(_at(MON), _c(paused=paused)) is not None
+
+
+def test_a_paused_reminded_day_counts_as_answered() -> None:
+    """10 reminders sent, one of their days later covered by a pause: not a silence."""
+    base = _silence(UNANSWERED_LIMIT)
+    c = replace(base, paused=frozenset({MON - timedelta(days=4)}))
+
+    due = due_practice_reminder(_at(MON), c)
+
+    assert due is not None
+    assert not due.pause
+
+
+def test_a_pause_after_the_oldest_counted_reminder_resets_the_silence() -> None:
+    """Starting a pause is an answer, even on a day no reminder went out for."""
+    sent = tuple(MON - timedelta(days=i) for i in range(UNANSWERED_LIMIT + 1, 1, -1))
+    c = _c(
+        sent_keys=frozenset(practice_key(d) for d in sent),
+        practice_sent=sent,
+        paused=frozenset({MON - timedelta(days=1)}),  # no reminder that day: it was paused
+    )
+
+    due = due_practice_reminder(_at(MON), c)
+
+    assert due is not None
+    assert not due.pause
+
+
+def test_a_pause_before_the_oldest_counted_reminder_does_not_reset_it() -> None:
+    base = _silence(UNANSWERED_LIMIT)
+    c = replace(base, paused=frozenset({MON - timedelta(days=UNANSWERED_LIMIT + 3)}))
+
+    due = due_practice_reminder(_at(MON), c)
+
+    assert due is not None
+    assert due.pause
+
+
+def test_moon_reminders_keep_coming_during_a_pause() -> None:
+    """Owner, §11.1: only practice reminders pause."""
+    from tristhana.domain.notifications import due_moon_reminders
+
+    tomorrow = MoonDay(MON + timedelta(days=1), MoonDayKind.PURNIMA)
+    c = Candidate(ZONE, DEFAULTS, (tomorrow,), paused=frozenset({MON}))
+
+    assert due_moon_reminders(send_instant(MON, DEFAULTS.moon.at, ZONE), c) != []

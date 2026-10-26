@@ -22,7 +22,11 @@ function json(body: unknown, status = 200): Response {
 
 /** GET /me/days returns `days`; writes answer with `writeStatus` (0 = never answer).
  * Records every request. */
-function stubApi(days: Days, writeStatus = 200): Request[] {
+/** Older fixtures predate WH-01: `periods` / `practice_on` default to none / off. */
+type DaysFixture = Omit<Days, "periods" | "practice_on"> & Partial<Days>;
+
+function stubApi(fixture: DaysFixture, writeStatus = 200): Request[] {
+  const days: Days = { periods: [], practice_on: false, ...fixture };
   const seen: Request[] = [];
   vi.stubGlobal(
     "fetch",
@@ -168,7 +172,7 @@ describe("TodayCard", () => {
   });
 
   describe("first-log hint", () => {
-    const empty: Days = {
+    const empty: DaysFixture = {
       today: TODAY,
       timezone_known: true,
       auto: [],

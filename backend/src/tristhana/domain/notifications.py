@@ -186,6 +186,7 @@ class Candidate:
     logged: frozenset[date] = field(default_factory=frozenset[date])  # recent logged days
     practice_sent: tuple[date, ...] = ()  # recent days a practice reminder went out for
     practice_paused: tuple[date, ...] = ()  # recent days the long-silence note went out
+    paused: frozenset[date] = field(default_factory=frozenset[date])  # covered by a period
 
 
 def due_moon_reminders(now: datetime, c: Candidate) -> list[DueReminder]:
@@ -252,6 +253,7 @@ def due_practice_reminder(now: datetime, c: Candidate, picked: int = 0) -> DuePr
         if (
             day.isoweekday() not in practice.days
             or day in c.logged
+            or day in c.paused
             or day in moon_dates
             or practice_key(day) in c.sent_keys
             or pause_key(day) in c.sent_keys
@@ -265,12 +267,17 @@ def due_practice_reminder(now: datetime, c: Candidate, picked: int = 0) -> DuePr
 
 def _silent(c: Candidate, day: date) -> bool:
     """The last UNANSWERED_LIMIT reminders before `day` (since the last pause note, so
-    turning reminders back on starts a fresh count) all left their day unlogged."""
+    turning reminders back on starts a fresh count) all left their day unlogged. A date
+    covered by a rest period counts as answered, and one after the oldest counted reminder
+    resets the run: starting a pause is an answer (WH-01)."""
     since = max((d for d in c.practice_paused if d < day), default=None)
     before = sorted(
         (d for d in c.practice_sent if d < day and (since is None or d > since)), reverse=True
     )[:UNANSWERED_LIMIT]
-    return len(before) == UNANSWERED_LIMIT and not any(d in c.logged for d in before)
+    if len(before) < UNANSWERED_LIMIT or any(d in c.logged for d in before):
+        return False
+    oldest = before[-1]
+    return not any(oldest <= d < day for d in c.paused)
 
 
 @dataclass(frozen=True, slots=True)

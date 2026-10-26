@@ -1,26 +1,29 @@
 """In-memory adapters for tests above the infrastructure layer."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields, replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from functools import cache
 from typing import Any
 from uuid import UUID, uuid4
 
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.accounts import IdentityTaken
-from tristhana.application.ports.days import History, RangeView
+from tristhana.application.ports.days import History, Inserted, RangeView, Upserted
 from tristhana.application.ports.notifications import (
     Delivery,
     DeliveryResult,
     DeliveryStatus,
     MoonReminder,
     Notification,
+    PracticePause,
     PracticeReminder,
     Recipient,
     ReminderCandidate,
     ReminderPatch,
 )
 from tristhana.application.ports.practice import CopiedPractice
+from tristhana.application.ports.rest_periods import Ended, Placed
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice import (
     ClearPractice,
@@ -54,6 +57,7 @@ from tristhana.domain.notifications import (
 )
 from tristhana.domain.practice import Practice, PracticeContext
 from tristhana.domain.rest_days import DayOff
+from tristhana.domain.rest_periods import UNCHANGED, RestPeriod, cut_by_log, end_from, place
 
 NOW = datetime(2026, 10, 18, 6, 0, tzinfo=UTC)
 
@@ -113,6 +117,8 @@ class InMemoryAccounts:
             current = replace(current, locale=change.locale, locale_custom=change.locale_custom)
         if "timezone" in change.fields:
             current = replace(current, timezone=change.timezone)
+        if "hide_ladies" in change.fields:  # WH-01 part 2
+            current = replace(current, hide_ladies=change.hide_ladies)  # type: ignore[call-arg]
         return self._save(current)
 
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account:
@@ -157,6 +163,79 @@ class InMemoryAccounts:
 
 
 @dataclass
+class InMemoryRestPeriods:
+    """Rest periods (WH-01, ADR-0023). The overlap and cut rules are the domain's, as the
+    SQL implements them (parity tests run the same table against Postgres)."""
+
+    rows: dict[tuple[UUID, date], RestPeriod] = field(
+        default_factory=dict[tuple[UUID, date], RestPeriod]
+    )
+    down: bool = False
+    # Wired by `InMemoryDays` / `InMemoryStorage` (the DB reads both in the same statement).
+    practiced: Callable[[UUID, date, date], bool] = lambda _a, _s, _e: False
+    practice_on: Callable[[UUID], bool] = lambda _: False
+
+    def of(self, account_id: UUID) -> list[RestPeriod]:
+        return sorted(
+            (p for (a, _), p in self.rows.items() if a == account_id), key=lambda p: p.start
+        )
+
+    def covering(self, account_id: UUID, day: date) -> RestPeriod | None:
+        return next((p for p in self.of(account_id) if p.start <= day <= p.end), None)
+
+    async def place(self, account_id: UUID, period: RestPeriod) -> Placed:
+        self._check()
+        self._place(account_id, period)
+        return Placed(period, self.practice_on(account_id))
+
+    async def restore(self, account_id: UUID, period: RestPeriod, today: date) -> RestPeriod | None:
+        self._check()
+        if not self.practiced(account_id, period.start, min(period.end, today)):
+            return None  # no cut happened: never a backfill
+        self._place(account_id, period)
+        return period
+
+    def _place(self, account_id: UUID, period: RestPeriod) -> None:
+        placement = place(period, self.of(account_id))
+        for start in placement.removed:
+            self.rows.pop((account_id, start), None)
+        for start, end in placement.ended.items():
+            self.rows[(account_id, start)] = replace(self.rows[(account_id, start)], end=end)
+        self.rows[(account_id, period.start)] = period
+
+    async def end(self, account_id: UUID, start: date, today: date) -> Ended:
+        self._check()
+        current = self.rows.get((account_id, start))
+        if current is None:
+            return Ended(None)
+        ended = end_from(current, today)
+        if ended is None:
+            del self.rows[(account_id, start)]
+        else:
+            self.rows[(account_id, start)] = ended
+        return Ended(ended, current.kind)
+
+    def apply_log(self, account_id: UUID, day: date, status: DayStatus | None) -> RestPeriod | None:
+        """The cut rule of a log or a clear on `day`; returns the period as it was when a
+        🧘 Practiced cut it."""
+        current = self.covering(account_id, day)
+        if current is None:
+            return None
+        result = cut_by_log(current, day, status)
+        if result is UNCHANGED:
+            return None
+        if result is None:
+            del self.rows[(account_id, current.start)]
+        else:
+            self.rows[(account_id, current.start)] = result  # type: ignore[assignment]
+        return current if status is DayStatus.PRACTICED else None
+
+    def _check(self) -> None:
+        if self.down:
+            raise StorageUnavailable
+
+
+@dataclass
 class InMemoryDays:
     rows: dict[tuple[UUID, date], tuple[DayLog, str | None]] = field(
         default_factory=dict[tuple[UUID, date], tuple[DayLog, str | None]]
@@ -166,25 +245,58 @@ class InMemoryDays:
     )
     down: bool = False
     moon: "InMemoryMoon | None" = None  # for `range_with_moon`
+    periods: InMemoryRestPeriods = field(default_factory=InMemoryRestPeriods)
+    # Whether practice reminders are on (the DB reads it in the same statement).
+    practice_on: Callable[[UUID], bool] = lambda _: False
 
-    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> DayLog:
+    def __post_init__(self) -> None:
+        def practiced(account_id: UUID, start: date, end: date) -> bool:
+            return any(
+                a == account_id and start <= when <= end and day.status is DayStatus.PRACTICED
+                for (a, when), (day, _) in self.rows.items()
+            )
+
+        self.periods.practiced = practiced
+
+    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> Upserted:
         self._check()
-        self.rows[(account_id, day.local_date)] = (day, timezone)
+        when = day.local_date
+        prev = self.rows.get((account_id, when - timedelta(days=1)))
+        snapshot = tuple(
+            p
+            for p in self.periods.of(account_id)
+            if p.start <= when and p.end >= when - timedelta(1)
+        )
+        cut = self.periods.apply_log(account_id, when, day.status)
+        self.rows[(account_id, when)] = (day, timezone)
         if day.status is not DayStatus.PRACTICED:
-            self.practice_rows.pop((account_id, day.local_date), None)
-        return day
+            self.practice_rows.pop((account_id, when), None)
+        return Upserted(
+            day,
+            prev=prev[0].status if prev else None,
+            periods=snapshot,
+            practice_on=self.practice_on(account_id),
+            cut=cut,
+        )
 
-    async def insert_if_absent(self, account_id: UUID, day: DayLog, timezone: str | None) -> bool:
+    async def insert_if_absent(
+        self, account_id: UUID, day: DayLog, timezone: str | None
+    ) -> Inserted:
         self._check()
         if (account_id, day.local_date) in self.rows:
-            return False
+            return Inserted(False)
+        cut = self.periods.apply_log(account_id, day.local_date, day.status)
         self.rows[(account_id, day.local_date)] = (day, timezone)
-        return True
+        return Inserted(True, cut)
 
     async def delete(self, account_id: UUID, local_date: date) -> None:
         self._check()
+        self.periods.apply_log(account_id, local_date, None)
         self.rows.pop((account_id, local_date), None)
         self.practice_rows.pop((account_id, local_date), None)
+
+    def _overlapping(self, account_id: UUID, start: date, end: date) -> tuple[RestPeriod, ...]:
+        return tuple(p for p in self.periods.of(account_id) if p.start <= end and p.end >= start)
 
     async def list_range(self, account_id: UUID, start: date, end: date) -> list[DayLog]:
         self._check()
@@ -200,12 +312,17 @@ class InMemoryDays:
     ) -> RangeView:
         days = await self.list_range(account_id, start, end)
         moon = await self.moon.days(location, start, end) if self.moon else []
-        return RangeView(days, frozenset(d.date for d in moon))
+        return RangeView(
+            days,
+            frozenset(d.date for d in moon),
+            self._overlapping(account_id, start, end),
+            self.practice_on(account_id),
+        )
 
     async def history(self, account_id: UUID, start: date, end: date) -> History:
         days = await self.list_range(account_id, start, end)
         mine = [when for (a, when) in self.rows if a == account_id]
-        return History(days, min(mine) if mine else None)
+        return History(days, min(mine) if mine else None, self._overlapping(account_id, start, end))
 
     def _practices_of(self, account_id: UUID, when: date, day: DayLog) -> tuple[Practice, ...]:
         practice = self.practice_rows.get((account_id, when))
@@ -347,6 +464,14 @@ class InMemoryNotifications:
         self.stored[account_id] = settings
         return settings
 
+    async def settings_with_pause(
+        self, account_id: UUID, defaults: NotificationSettings, today: date
+    ) -> tuple[NotificationSettings, PracticePause | None]:
+        """WH-01: plus the rest period covering `today` (dates only)."""
+        settings = await self.settings(account_id, defaults)
+        covering = self.days.periods.covering(account_id, today) if self.days else None
+        return settings, PracticePause(covering.start, covering.end) if covering else None
+
     async def stored_row(self, account_id: UUID) -> StoredSettings:
         s = self.stored.get(account_id)
         if s is None:
@@ -367,6 +492,16 @@ class InMemoryNotifications:
         row = replace(await self.stored_row(account_id), **columns)  # type: ignore[arg-type]
         self.stored[account_id] = effective(row, defaults)
         return await self.settings(account_id, defaults)
+
+    async def patch_with_pause(
+        self,
+        account_id: UUID,
+        columns: dict[str, object],
+        defaults: NotificationSettings,
+        today: date,
+    ) -> tuple[NotificationSettings, PracticePause | None]:
+        await self.patch(account_id, columns, defaults)
+        return await self.settings_with_pause(account_id, defaults, today)
 
     async def mark_intro_sent(self, account_id: UUID, at: datetime) -> None:
         self.intro_sent.add(account_id)
@@ -404,6 +539,12 @@ class InMemoryNotifications:
                 for (a, when) in (self.days.rows if self.days else {})
                 if a == account_id and when >= logged_from and settings.practice.enabled
             )
+            paused = frozenset(
+                p.start + timedelta(days=i)
+                for p in (self.days.periods.of(account_id) if self.days else [])
+                for i in range((p.end - p.start).days + 1)
+                if settings.practice.enabled and p.start + timedelta(days=i) >= logged_from
+            )
             out.append(
                 ReminderCandidate(
                     account_id,
@@ -415,6 +556,7 @@ class InMemoryNotifications:
                     tuple(mine),
                     had,
                     logged,
+                    paused - logged,
                 )
             )
         return out
@@ -488,6 +630,14 @@ class InMemoryStorage:
             self.notification_repo = InMemoryNotifications(self.repo, days=self.day_repo)
         if self.day_repo.moon is None:
             self.day_repo.moon = self.moon_repo
+        notifications = self.notification_repo
+
+        def practice_on(account_id: UUID) -> bool:
+            stored = notifications.stored.get(account_id)
+            return stored is not None and stored.practice.on is True
+
+        self.day_repo.practice_on = practice_on
+        self.day_repo.periods.practice_on = practice_on
 
     started: bool = False
 
@@ -521,6 +671,10 @@ class InMemoryStorage:
     def notifications(self) -> InMemoryNotifications:
         assert self.notification_repo is not None
         return self.notification_repo
+
+    @property
+    def rest_periods(self) -> InMemoryRestPeriods:
+        return self.day_repo.periods
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:
@@ -589,8 +743,8 @@ def remind_use_cases(
 
     storage, clock = storage or InMemoryStorage(), clock or FixedClock()
     return RemindUseCases(
-        settings=NotificationSettingsUseCase(storage.notifications),
-        update=UpdatePracticeReminder(storage.notifications),
+        settings=NotificationSettingsUseCase(storage.notifications, clock),
+        update=UpdatePracticeReminder(storage.notifications, clock),
         offer=AnswerPracticeOffer(storage.notifications, clock),
         quick_log=QuickLogSameAsLast(storage.days, storage.practices, clock),
         day_off=SetDayOff(storage.accounts, clock),
@@ -605,7 +759,7 @@ def settings_use_cases(storage: "InMemoryStorage | None" = None) -> SettingsUseC
     storage = storage or InMemoryStorage()
     return SettingsUseCases(
         profile=UpdateProfile(storage.accounts),
-        settings=NotificationSettingsUseCase(storage.notifications),
+        settings=NotificationSettingsUseCase(storage.notifications, FixedClock()),
         cities=moon_use_cases(storage).cities,
         today=day_use_cases(storage.days).get.today,
         day_off=SetDayOff(storage.accounts, FixedClock()),

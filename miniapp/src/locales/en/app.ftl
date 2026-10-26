@@ -139,7 +139,7 @@ moon-save-failed = Couldn't save. Try again in a moment.
 ## Practice reminder (PR-10). { $d } is an ISO weekday (1 = Monday).
 remind-card-title = 🧘 Practice reminder
 remind-switch = 🔔 Ask me once a day
-remind-explain-app = Once a day I'll ask in the bot how it went, with one-tap buttons. Not on moon days or days you've already logged.
+remind-explain-app = Once a day I'll ask in the bot how it went, with one-tap buttons. Not on moon days, days you've already logged, or while a pause is on.
 remind-time-label = Time · { $zone }
 remind-weekday = { $d ->
         [1] Mon
@@ -302,3 +302,45 @@ stats-cell-auto = { $date }: { $kind ->
        *[no] {""}
     }, not logged
 stats-day-off-link = 😌 Set your weekly day off
+
+## WH-01 part 2: multi-day 🌸 / sick / travel with a reminder pause (spec §7 draft copy)
+pause-ask = { $reminders ->
+        [on] { $rel ->
+            [yesterday] ⏸ Pause practice reminders for how many days, including yesterday? Those days show as { $label } unless you log something else.
+           *[today] ⏸ Pause practice reminders for how many days, including today? Those days show as { $label } unless you log something else.
+        }
+       *[off] { $rel ->
+            [yesterday] How many days should show as { $label }, including yesterday?
+           *[today] How many days should show as { $label }, including today?
+        }
+    }
+pause-days = { $n ->
+        [one] { $n } day
+       *[other] { $n } days
+    }
+pause-other = Other…
+pause-back = ‹ Back
+pause-set = { $reminders ->
+        [on] ⏸ Practice reminders are paused through { $until }. Those days show as { $label }; you can log any day differently.
+       *[off] ⏸ Set through { $until }. Those days show as { $label }; you can log any day differently.
+    }
+today-period = { $label } through { $until }. If the day went differently, log it below.
+pause-end = { $reminders ->
+        [on] ⏹ End the pause
+       *[off] ⏹ End early
+    }
+pause-ended = { $reminders ->
+        [on] ▶️ Practice reminders are back from today.
+       *[off] ⏹ Done: from today on, days no longer show as { $label }.
+    }
+pause-cut = { $rel ->
+        [yesterday] ⏸ Practice logged for yesterday, so the following days, through { $until }, no longer show as { $label }. Keep them as they were?
+        [other] ⏸ Practice logged for that day, so the following days, through { $until }, no longer show as { $label }. Keep them as they were?
+       *[today] ⏸ Practice logged for today, so the following days, through { $until }, no longer show as { $label }. Keep them as they were?
+    }
+pause-keep = ⏸ Keep the pause
+pause-kept = ⏸ Pause kept: { $label } through { $until }.
+remind-paused-until = ⏸ Paused through { $until }
+remind-resume = ▶️ Resume now
+settings-ladies-button = Show the 🌸 Ladies' holiday button
+settings-ladies-button-hint = In the bot and here. Days you already logged stay as they are.

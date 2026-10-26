@@ -8,6 +8,8 @@
     r1:y:20261019        the offer under "practice saved": yes (date = the day shown)
     r1:n:20261019        the offer: no, thanks
     r1:s:20261019        from a reminder: practiced, same as last time
+    r1:p:20261019        from a reminder: 🧘 practiced, insert-if-absent (Q26, WH-01)
+    r1:r:20261019        from a reminder: 😌 rest, insert-if-absent (Q26, WH-01)
     r1:q:20261019:0      from a reminder: turn off (1 = turn back on)
     r1:d:6 / r1:d:67     the days off (ISO digits, at most two; 0 = none; PR-09) → /remind
     r1:dp                the day off picker, opened from /remind
@@ -30,6 +32,8 @@ type Action = Literal[
     "yes",
     "no",
     "same",
+    "log_practiced",
+    "log_rest",
     "quick",
     "day_off",
     "day_off_pick",
@@ -37,7 +41,13 @@ type Action = Literal[
     "day_off_later",
 ]
 
-_DATED: dict[str, Action] = {"y": "yes", "n": "no", "s": "same"}
+_DATED: dict[str, Action] = {
+    "y": "yes",
+    "n": "no",
+    "s": "same",
+    "p": "log_practiced",
+    "r": "log_rest",
+}
 _DATED_CODES = {v: k for k, v in _DATED.items()}
 
 
@@ -115,7 +125,7 @@ def decode(data: str | None) -> RemindCallback | None:
                 return None
         case ["w", _]:  # an old keyboard: reminder days aren't chosen any more
             return RemindCallback("view")
-        case ["y" | "n" | "s" as kind, ymd] if (day := _date(ymd)) is not None:
+        case ["y" | "n" | "s" | "p" | "r" as kind, ymd] if (day := _date(ymd)) is not None:
             return RemindCallback(_DATED[kind], day=day)
         case ["q", ymd, "0" | "1" as flag] if (day := _date(ymd)) is not None:
             return RemindCallback("quick", on=flag == "1", day=day)

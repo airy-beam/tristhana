@@ -113,6 +113,11 @@ class SettingsScreens:
                 except InvalidDayOff:  # forged
                     return self.day_off(principal)
                 return self.day_off(Principal(saved.account))  # pick a second one, or go back
+            case "hide_ladies":  # WH-01: one account setting for the bot and the app
+                account = await self._s.profile.execute(
+                    principal, ProfilePatch(hide_ladies=cb.hide), client
+                )
+                return await self.view(Principal(account))
 
     def day_off(self, principal: Principal) -> Screen:
         locale = principal.account.locale
@@ -143,6 +148,7 @@ class SettingsScreens:
             else self._t.t(locale, "settings-zone-unset-line"),
             self._t.t(locale, "settings-moon-line", city=city.name(locale)),
             day_off_line(self._t, locale, account.day_off.days),
+            self._t.t(locale, "settings-ladies-line", shown="no" if account.hide_ladies else "yes"),
             moon_status(self._t, locale, settings, zone, today),
             practice_status(self._t, locale, settings, zone, today),
             self._t.t(locale, "settings-quiet-off-line", n=settings.daily_cap)
@@ -177,6 +183,14 @@ class SettingsScreens:
             [
                 button(
                     self._t, locale, "remind-practice-link", rcb.encode(rcb.RemindCallback("view"))
+                )
+            ],
+            [
+                button(
+                    self._t,
+                    locale,
+                    "settings-ladies-show" if account.hide_ladies else "settings-ladies-hide",
+                    _data(action="hide_ladies", hide=not account.hide_ladies),
                 )
             ],
         ]

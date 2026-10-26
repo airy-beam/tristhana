@@ -372,7 +372,7 @@ async def test_notifier_renders_the_practice_reminder(monkeypatch: pytest.Monkey
     rows = [[b.callback_data for b in row] for row in markup.inline_keyboard]  # type: ignore[union-attr]
     assert rows == [
         ["r1:s:20261019"],
-        ["d1:s:20261019:p", "d1:s:20261019:r"],
+        ["r1:p:20261019", "r1:r:20261019"],  # insert-if-absent (Q26, WH-01 part 2)
         ["d1:o:20261019", "r1:q:20261019:0"],
     ]
     # No 🌸 on the reminder itself: it stays in chat history.

@@ -1,11 +1,13 @@
 import { Localized, useLocalization } from "@fluent/react";
 
 import {
+  useEndRestPeriod,
   useNotificationSettings,
   usePatchNotificationSettings,
   type NotificationSettings,
 } from "../api/client";
 import { haptics } from "../telegram";
+import { useDateLabel } from "./PauseOffer";
 import { zoneLabel } from "./practiceText";
 
 const TIMES = ["09:00", "10:00", "12:00", "18:00", "20:00", "21:00"] as const;
@@ -26,11 +28,16 @@ export function inQuiet(quiet: NotificationSettings["quiet"], at: string): boole
 export function PracticeReminderCard({ zone }: { zone: string | null }) {
   const query = useNotificationSettings();
   const save = usePatchNotificationSettings();
+  const resume = useEndRestPeriod();
   const { l10n } = useLocalization();
+  const dateLabel = useDateLabel();
   const settings = query.data;
   if (!settings) return null;
   const practice = settings.practice;
   const on = practice.on === true;
+  // A rest period covers today (WH-01): reminders skip its days.
+  const pausedStart = on ? practice.paused_start : null;
+  const pausedUntil = on ? practice.paused_until : null;
 
   const daysText = (days: readonly number[]) =>
     days.length === 7
@@ -66,6 +73,26 @@ export function PracticeReminderCard({ zone }: { zone: string | null }) {
           />
         </Localized>
       </div>
+      {pausedStart && pausedUntil && (
+        <>
+          <Localized id="remind-paused-until" vars={{ until: dateLabel(pausedUntil) }}>
+            <p className="hint" />
+          </Localized>
+          <Localized id="remind-resume">
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                haptics.impact("light");
+                // "Today" = the day after the pause's first day at least; the server
+                // decides the real end (its own today).
+                const today = new Date().toISOString().slice(0, 10);
+                resume.mutate({ start: pausedStart, today });
+              }}
+            />
+          </Localized>
+        </>
+      )}
       <Localized id="remind-explain-app">
         <p className="hint small" />
       </Localized>

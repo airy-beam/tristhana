@@ -85,12 +85,14 @@ def auto_days(
     logged: Set[date],
     off: DayOff,
     moon: Set[date],
+    covered: Set[date] = frozenset(),
 ) -> dict[date, AutoDay]:
-    """Auto-rest for the unlogged dates of [start, end] between `joined` and `today`."""
+    """Auto-rest for the unlogged dates of [start, end] between `joined` and `today`.
+    Dates `covered` by a rest period are never auto days (WH-01: period > moon > day off)."""
     found: dict[date, AutoDay] = {}
     day, last = max(start, joined), min(end, today)
     while day <= last:
-        if day not in logged:
+        if day not in logged and day not in covered:
             is_day_off = day.isoweekday() in day_off_on(off, day)
             if day in moon:
                 found[day] = AutoDay(AutoKind.MOON, also_day_off=is_day_off)

@@ -110,15 +110,27 @@ function withAuto<T extends { auto: unknown[] }>(data: T): T {
   return { ...data, auto: Array.isArray(data.auto) ? data.auto : [] };
 }
 
+/** Nor rest periods (WH-01): covered days then show as unmarked until it updates. */
+function withDays(data: Days): Days {
+  const sent: Partial<Days> = data;
+  return {
+    ...withAuto(data),
+    periods: Array.isArray(sent.periods) ? sent.periods : [],
+    practice_on: sent.practice_on === true,
+  };
+}
+
 /** Day-scope mutations run one at a time, but each `onMutate` (optimistic update) runs at
  * tap time; so after the last queued one settles (or the server refused with a conflict),
  * refetch, and the cache matches the server whatever the order of failures was. */
 function settleDays(client: ReturnType<typeof useQueryClient>, error: unknown): void {
   const queued = client.isMutating({ predicate: (m) => m.options.scope?.id === "day" });
   if (queued <= 1 || (error instanceof ApiError && error.status === 409)) {
-    // Every day query (recent, ranges for the day editor) and the stats built on them.
+    // Every day query (recent, ranges for the day editor), the stats built on them, and
+    // the reminder card: a 🧘 save may have cut a pause ("Paused through", WH-01).
     void client.invalidateQueries({ queryKey: ["days"] });
     void client.invalidateQueries({ queryKey: STATS_KEY });
+    void client.invalidateQueries({ queryKey: SETTINGS_KEY });
   }
 }
 
@@ -156,7 +168,7 @@ export function useDaysRange(from: string, to: string) {
         params: { query: { from, to } },
       });
       if (!data) fail(response, error);
-      return withAuto(data);
+      return withDays(data);
     },
     staleTime: 60_000,
   });
@@ -169,7 +181,7 @@ export function useDays() {
     queryFn: async (): Promise<Days> => {
       const { data, error, response } = await api.GET("/api/v1/me/days");
       if (!data) fail(response, error);
-      return withAuto(data);
+      return withDays(data);
     },
     staleTime: 60_000,
   });
@@ -219,18 +231,167 @@ export function useSetDay() {
     onSettled: (_data, error) => {
       settleDays(client, error);
     },
-    mutationFn: async ({ date, status }: { date: string; status: DayStatus | null }) => {
+    mutationFn: async ({
+      date,
+      status,
+    }: {
+      date: string;
+      status: DayStatus | null;
+    }): Promise<DaySaved | null> => {
       const params = { path: { date } };
-      const { error, response } = status
-        ? await api.PUT("/api/v1/me/days/{date}", { params, body: { status } })
-        : await api.DELETE("/api/v1/me/days/{date}", { params });
-      if (!response.ok) fail(response, error);
+      if (!status) {
+        const { error, response } = await api.DELETE("/api/v1/me/days/{date}", { params });
+        if (!response.ok) fail(response, error);
+        return null;
+      }
+      const { data, error, response } = await api.PUT("/api/v1/me/days/{date}", {
+        params,
+        body: { status },
+      });
+      if (!data) fail(response, error);
+      return data;
     },
     onMutate: async ({ date, status }) => ({
       before: await patchDays(client, date, (days) => withDay(days, date, status)),
     }),
     onError: (_error, _vars, context) => {
       restore(client, context?.before);
+    },
+  });
+}
+
+export type DaySaved = components["schemas"]["DaySaved"];
+export type RestPeriod = components["schemas"]["RestPeriodOut"];
+export type PauseOffer = components["schemas"]["PauseOfferOut"];
+/** The kinds a period can be started or kept with (`rest` = a seal that can't be read). */
+export type PausableKind = PauseOffer["kind"];
+export type PausablePeriod = RestPeriod & { kind: PausableKind };
+
+export function isPausable(period: RestPeriod): period is PausablePeriod {
+  return period.kind !== "rest";
+}
+
+const DAY_MS = 86_400_000;
+const addDays = (date: string, n: number) =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+
+/** The rest period covering `date`, if any (WH-01; coverage never overlaps). */
+export function periodOn(days: Days | undefined, date: string): RestPeriod | undefined {
+  return (days?.periods ?? []).find((p) => p.start <= date && date <= p.end);
+}
+
+/** Every cached day query with `change` applied to its periods (optimistic; the refetch
+ * after it settles brings the server's overlap rule). */
+async function patchPeriods(
+  client: ReturnType<typeof useQueryClient>,
+  change: (periods: RestPeriod[]) => RestPeriod[],
+): Promise<Snapshot> {
+  await client.cancelQueries({ queryKey: ["days"] });
+  const before = client.getQueriesData<Days>({ queryKey: ["days"] });
+  for (const [key, days] of before) {
+    if (days) client.setQueryData(key, { ...days, periods: change(days.periods) });
+  }
+  return before;
+}
+
+/** A period changes the days, the stats and the reminder card ("paused through"). */
+function settlePeriods(client: ReturnType<typeof useQueryClient>): void {
+  for (const key of [["days"], STATS_KEY, SETTINGS_KEY]) {
+    void client.invalidateQueries({ queryKey: key });
+  }
+}
+
+const replacing = (periods: RestPeriod[], period: RestPeriod) =>
+  [...periods.filter((p) => p.start !== period.start), period].sort((a, b) =>
+    a.start.localeCompare(b.start),
+  );
+
+/** "For how many days?" answered (WH-01): the days show as that kind, reminders pause. */
+export function useStartRestPeriod() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "day" },
+    mutationFn: async (body: {
+      start: string;
+      days: number;
+      kind: PausableKind;
+    }): Promise<RestPeriod> => {
+      const { data, error, response } = await api.POST("/api/v1/me/rest-periods", { body });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onMutate: async ({ start, days, kind }) => ({
+      before: await patchPeriods(client, (periods) =>
+        replacing(periods, { start, end: addDays(start, days - 1), kind }),
+      ),
+    }),
+    onError: (_error, _vars, context) => {
+      restore(client, context?.before);
+    },
+    onSettled: () => {
+      settlePeriods(client);
+    },
+  });
+}
+
+/** "Keep the pause": puts back a period a 🧘 save cut, exactly as it was. */
+export function useKeepRestPeriod() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "day" },
+    mutationFn: async (period: PausablePeriod): Promise<RestPeriod | null> => {
+      const { data, error, response } = await api.PUT("/api/v1/me/rest-periods/{start}", {
+        params: { path: { start: period.start } },
+        body: { end: period.end, kind: period.kind },
+      });
+      if (!data) fail(response, error);
+      return data.period;
+    },
+    onMutate: async (period) => ({
+      before: await patchPeriods(client, (periods) => replacing(periods, period)),
+    }),
+    onError: (_error, _vars, context) => {
+      restore(client, context?.before);
+    },
+    onSettled: () => {
+      settlePeriods(client);
+    },
+  });
+}
+
+/** End early / Resume now: the period stops covering today (past days stay). */
+export function useEndRestPeriod() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "day" },
+    mutationFn: async ({ start }: { start: string; today: string }): Promise<RestPeriod | null> => {
+      const { data, error, response } = await api.POST("/api/v1/me/rest-periods/{start}/end", {
+        params: { path: { start } },
+      });
+      if (!data) fail(response, error);
+      return data.period;
+    },
+    onMutate: async ({ start, today }) => {
+      const end = addDays(today, -1);
+      const before = await patchPeriods(client, (periods) =>
+        periods.flatMap((p) => {
+          if (p.start !== start || p.end < today) return [p];
+          return end > p.start ? [{ ...p, end }] : [];
+        }),
+      );
+      const settings = client.getQueryData<NotificationSettings>(SETTINGS_KEY);
+      if (settings) {
+        const practice = { ...settings.practice, paused_start: null, paused_until: null };
+        client.setQueryData(SETTINGS_KEY, { ...settings, practice });
+      }
+      return { before, settings };
+    },
+    onError: (_error, _vars, context) => {
+      restore(client, context?.before);
+      if (context?.settings) client.setQueryData(SETTINGS_KEY, context.settings);
+    },
+    onSettled: () => {
+      settlePeriods(client);
     },
   });
 }
@@ -408,6 +569,7 @@ function merged(settings: NotificationSettings, patch: SettingsPatch): Notificat
     daily_cap: daily_cap ?? settings.daily_cap,
     practice: practice
       ? {
+          ...settings.practice, // incl. the pause (WH-01), which only GET reads
           on: practice.on !== undefined ? practice.on : settings.practice.on,
           at: practice.at ?? settings.practice.at,
           days: settings.practice.days, // the practice days: set under Day off (PR-09)
@@ -437,7 +599,7 @@ export function usePatchNotificationSettings() {
     onSuccess: (saved) => {
       // A later tap may still be queued: its optimistic state wins until it settles.
       const queued = client.isMutating({ predicate: (m) => m.options.scope?.id === "settings" });
-      if (queued <= 1) client.setQueryData(SETTINGS_KEY, saved);
+      if (queued <= 1) client.setQueryData(SETTINGS_KEY, saved); // incl. the pause (WH-01)
     },
     onError: (_error, _vars, context) => {
       if (context?.before) client.setQueryData(SETTINGS_KEY, context.before);
@@ -457,6 +619,17 @@ export function usePatchMe() {
       const { data, error, response } = await api.PATCH("/api/v1/me", { body });
       if (!data) fail(response, error);
       return data;
+    },
+    onMutate: async (body) => {
+      if (body.hide_ladies === undefined) return { before: undefined };
+      // "Hide the 🌸 button" (WH-01) applies to the chips at once.
+      await client.cancelQueries({ queryKey: ["me"] });
+      const before = client.getQueryData<Me>(["me"]);
+      if (before) client.setQueryData<Me>(["me"], { ...before, hide_ladies: !!body.hide_ladies });
+      return { before };
+    },
+    onError: (_error, _body, context) => {
+      if (context?.before) client.setQueryData(["me"], context.before);
     },
     onSuccess: (me, body) => {
       client.setQueryData(["me"], me);

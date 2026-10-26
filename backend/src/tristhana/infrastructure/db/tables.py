@@ -57,6 +57,8 @@ account = Table(
     Column("day_off_since", Date()),
     Column("day_off_before", SmallInteger()),
     Column("day_off_dismissed_at", DateTime(timezone=True)),  # "Not now" on the question
+    # WH-01: leave the 🌸 button out of the status grids (bot and Mini App).
+    Column("hide_ladies", Boolean(), nullable=False, server_default=text("false")),
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),
@@ -106,6 +108,26 @@ day_log = Table(
     # key id (1) + nonce (24) + 1-byte payload + tag (16): every seal has the same length.
     CheckConstraint("octet_length(sealed_status) = 42", name="sealed_length"),
     CheckConstraint("local_date >= '2000-01-01'", name="local_date_min"),
+)
+
+# WH-01 part 2 (ADR-0023): a 🌸 / sick / travel statement over [start_date, end_date]
+# (inclusive). The kind is sealed on every row (one byte, as `day_log.sealed_status`), so a
+# 🌸 period is indistinguishable from sick/travel. The 14-day cap keeps the overlap read a
+# PK range (`start_date BETWEEN from - 13 AND to`); the 🌸 limit of 7 is a domain rule.
+rest_period = Table(
+    "rest_period",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("start_date", Date(), nullable=False),
+    Column("end_date", Date(), nullable=False),
+    Column("sealed_kind", LargeBinary(), nullable=False),
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    PrimaryKeyConstraint("account_id", "start_date"),
+    CheckConstraint("end_date > start_date", name="period_order"),
+    CheckConstraint("end_date - start_date <= 13", name="period_length"),
+    CheckConstraint("octet_length(sealed_kind) = 42", name="sealed_length"),
+    CheckConstraint("start_date >= '2000-01-01'", name="start_date_min"),
 )
 
 # PR-02/03/05. One practice per practiced day for now (slot 1). Lengths reference the catalog

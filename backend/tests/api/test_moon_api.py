@@ -105,6 +105,7 @@ def test_notification_settings_round_trip(api: TestClient) -> None:
     assert defaults["moon"] == {"offsets": [1, 7], "at": "19:00:00"}
     assert defaults["timezone"] is None
     practice = {"on": None, "at": "10:00:00", "days": [1, 2, 3, 4, 5, 7]}
+    practice |= {"paused_start": None, "paused_until": None}  # WH-01 part 2
     assert defaults["practice"] == practice
     question = {"weekday": 6, "reminders_on": False}  # PR-09: the day off is not chosen yet
     assert saved.json() == body | {
@@ -187,10 +188,11 @@ def test_practice_reminder_settings_round_trip(api: TestClient) -> None:
         headers=_auth(),
     )
 
-    assert saved.json()["practice"] == on["practice"]
+    paused = {"paused_start": None, "paused_until": None}  # WH-01 part 2
+    assert saved.json()["practice"] == on["practice"] | paused
     assert no_days.status_code == 422
     assert (in_quiet.status_code, in_quiet.json()) == (422, {"code": "invalid_settings"})
-    assert moon_only.json()["practice"] == on["practice"]  # omitted: unchanged
+    assert moon_only.json()["practice"] == on["practice"] | paused  # omitted: unchanged
 
 
 def test_stats_for_the_owner(api: TestClient, storage: InMemoryStorage) -> None:

@@ -130,12 +130,18 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Put Day */
+        /**
+         * Put Day
+         * @description Overwrites any earlier status. Inside a rest period (WH-01): 🧘 Practiced ends it the
+         *     day before (on its start day, removes it) and returns it as `cut`; other statuses
+         *     change only that day. After 🌸/🤒/✈️ on today or yesterday, `pause_offer` may ask for
+         *     how many days (POST /me/rest-periods).
+         */
         put: operations["put_day_api_v1_me_days__date__put"];
         post?: never;
         /**
          * Delete Day
-         * @description Idempotent: 204 even if nothing was logged.
+         * @description Idempotent: 204 even if nothing was logged. Removes a rest period starting that day.
          */
         delete: operations["delete_day_api_v1_me_days__date__delete"];
         options?: never;
@@ -261,6 +267,70 @@ export interface paths {
          * @description Only the sent fields change; the merged result is validated.
          */
         patch: operations["patch_notification_settings_api_v1_me_notification_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/me/rest-periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Rest Period
+         * @description Starts a period on `start` (logged already). It replaces what it overlaps: an earlier
+         *     period ends the day before, periods starting inside it are removed.
+         */
+        post: operations["post_rest_period_api_v1_me_rest_periods_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/rest-periods/{start}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Rest Period
+         * @description "Keep the pause": restores a period cut by 🧘 Practiced exactly as it was (same
+         *     overlap rule as a new one). `period: null` once it is over (nothing left to keep), or
+         *     when no 🧘 Practiced day inside it shows it was cut (never a backfill).
+         */
+        put: operations["put_rest_period_api_v1_me_rest_periods__start__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/rest-periods/{start}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End Rest Period Early
+         * @description End early: the period stops covering today (removed when ≤ 1 day is left; past days
+         *     stay). Idempotent.
+         */
+        post: operations["end_rest_period_early_api_v1_me_rest_periods__start__end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/me/stats": {
@@ -407,6 +477,27 @@ export interface components {
              */
             weekday: number;
         };
+        /** DaySaved */
+        DaySaved: {
+            /** @description A period 🧘 Practiced just cut, as it was (for 'keep the pause') */
+            cut?: components["schemas"]["RestPeriodOut"] | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** @description Ask: for how many days? (after 🌸/🤒/✈️ today or yesterday) */
+            pause_offer?: components["schemas"]["PauseOfferOut"] | null;
+            /** @description The period covering it */
+            period?: components["schemas"]["RestPeriodOut"] | null;
+            /**
+             * Practices
+             * @description Only on a practiced day
+             * @default []
+             */
+            practices: components["schemas"]["PracticeOut"][];
+            status: components["schemas"]["DayStatus"];
+        };
         /**
          * DayStatus
          * @enum {string}
@@ -434,6 +525,18 @@ export interface components {
              * @description The city auto moon days follow
              */
             moon_location: string;
+            /**
+             * Periods
+             * @description Rest periods overlapping the window, unclipped (WH-01): their unlogged days up to today show as their kind; `auto` never includes them
+             * @default []
+             */
+            periods: components["schemas"]["RestPeriodOut"][];
+            /**
+             * Practice On
+             * @description Practice reminders on (labels)
+             * @default false
+             */
+            practice_on: boolean;
             /**
              * Timezone Known
              * @description False: today comes from a provisional zone
@@ -469,7 +572,7 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -486,6 +589,20 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /** KeepBody */
+        KeepBody: {
+            /**
+             * End
+             * Format: date
+             * @description Inclusive, as the period was before it was cut
+             */
+            end: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "ladies" | "sick" | "travel";
         };
         /** Length */
         Length: {
@@ -532,6 +649,12 @@ export interface components {
             /** Display Name */
             display_name: string | null;
             /**
+             * Hide Ladies
+             * @description Leave the 🌸 button out of the status chips (WH-01)
+             * @default false
+             */
+            hide_ladies: boolean;
+            /**
              * Id
              * Format: uuid
              */
@@ -560,6 +683,11 @@ export interface components {
         MePatch: {
             /** Display Name */
             display_name?: string | null;
+            /**
+             * Hide Ladies
+             * @description null = the default (shown)
+             */
+            hide_ladies?: boolean | null;
             locale?: components["schemas"]["Locale"] | null;
             /**
              * Timezone
@@ -654,7 +782,7 @@ export interface components {
             /** @description Ask once: is that weekday the day off? (PR-09) */
             day_off_question?: components["schemas"]["DayOffQuestionOut"] | null;
             moon: components["schemas"]["MoonSettings"];
-            practice: components["schemas"]["PracticeSettings"];
+            practice: components["schemas"]["PracticeSettingsOut"];
             quiet: components["schemas"]["Quiet"];
             /**
              * Timezone
@@ -672,6 +800,42 @@ export interface components {
             moon?: components["schemas"]["MoonPatchBody"] | null;
             practice?: components["schemas"]["PracticePatchBody"] | null;
             quiet?: components["schemas"]["Quiet"] | null;
+        };
+        /**
+         * PauseOfferOut
+         * @description "For how many days?" after 🌸 / 🤒 / ✈️ on today or yesterday (WH-01).
+         */
+        PauseOfferOut: {
+            /**
+             * Choices
+             * @description Day counts for the first screen
+             */
+            choices: number[];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "ladies" | "sick" | "travel";
+            /**
+             * More
+             * @description Day counts behind Other…
+             */
+            more: number[];
+            /**
+             * Reminders On
+             * @description Practice reminders on: the pause wording
+             */
+            reminders_on: boolean;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** PeriodResult */
+        PeriodResult: {
+            /** @description null: nothing is left (or none) */
+            period: components["schemas"]["RestPeriodOut"] | null;
         };
         /** PracticeBody */
         PracticeBody: {
@@ -758,6 +922,35 @@ export interface components {
              */
             on: boolean | null;
         };
+        /** PracticeSettingsOut */
+        PracticeSettingsOut: {
+            /**
+             * At
+             * Format: time
+             * @description Local wall clock, 15-minute grid
+             */
+            at: string;
+            /**
+             * Days
+             * @description ISO weekdays (1 = Monday)
+             */
+            days: number[];
+            /**
+             * On
+             * @description null = never chosen (off; the bot may offer it once)
+             */
+            on: boolean | null;
+            /**
+             * Paused Start
+             * @description The rest period covering today starts then (WH-01)
+             */
+            paused_start?: string | null;
+            /**
+             * Paused Until
+             * @description Practice reminders skip days through this date (inclusive); null when no period covers today (the deprecated PUT never reads it)
+             */
+            paused_until?: string | null;
+        };
         /** Preset */
         Preset: {
             /**
@@ -792,6 +985,26 @@ export interface components {
             sick: number;
             /** Travel */
             travel: number;
+        };
+        /** RestPeriodOut */
+        RestPeriodOut: {
+            /**
+             * End
+             * Format: date
+             * @description Inclusive
+             */
+            end: string;
+            /**
+             * Kind
+             * @description `rest`: the kind can't be read any more (a lost key): plain rest
+             * @enum {string}
+             */
+            kind: "ladies" | "sick" | "travel" | "rest";
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
         };
         /** Runs */
         Runs: {
@@ -833,6 +1046,25 @@ export interface components {
             slug: string;
             /** Stops */
             stops: components["schemas"]["StopOut"][];
+        };
+        /** StartBody */
+        StartBody: {
+            /**
+             * Days
+             * @description Including `start`; one of the offer's choices or more
+             */
+            days: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "ladies" | "sick" | "travel";
+            /**
+             * Start
+             * Format: date
+             * @description Today or yesterday (the day just logged)
+             */
+            start: string;
         };
         /** StatsOut */
         StatsOut: {
@@ -1235,7 +1467,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Day"];
+                    "application/json": components["schemas"]["DaySaved"];
                 };
             };
             /** @description Unauthorized */
@@ -1755,6 +1987,159 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_rest_period_api_v1_me_rest_periods_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestPeriodOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_rest_period_api_v1_me_rest_periods__start__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                start: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodResult"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    end_rest_period_early_api_v1_me_rest_periods__start__end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                start: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodResult"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

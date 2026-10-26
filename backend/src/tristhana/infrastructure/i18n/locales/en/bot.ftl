@@ -243,7 +243,7 @@ remind-copied-from = Copied from { $date }.
 remind-offer = 🔔 Want me to ask once a day, so logging takes one tap?
 remind-offer-yes = 🔔 Yes, remind me
 remind-offer-no = No, thanks
-remind-explain = Once a day I'll ask how it went, with one-tap buttons. Not on moon days or days you've already logged.
+remind-explain = Once a day I'll ask how it went, with one-tap buttons. Not on moon days, days you've already logged, or while a pause is on.
 remind-status-on = 🔔 Practice reminder: { $days } at { $time }
 remind-status-off = 🔕 Practice reminder is off
 remind-local-time = { $time } your time
@@ -350,3 +350,50 @@ day-off-ask-instead = { $d ->
     }
 day-off-ask-other = Other…
 day-off-ask-later = Not now
+
+## WH-01 part 2: multi-day 🌸 / sick / travel with a reminder pause (spec §7 draft copy)
+# $label = the status-* label, $until = a date, $rel = today | yesterday, $reminders = on | off
+pause-ask = { $reminders ->
+        [on] ⏸ Pause practice reminders for how many days, including { $rel ->
+            [yesterday] yesterday
+           *[today] today
+        }? Those days show as { $label } unless you log something else.
+       *[off] How many days should show as { $label }, including { $rel ->
+            [yesterday] yesterday
+           *[today] today
+        }?
+    }
+pause-days = { $n ->
+        [one] { $n } day
+       *[other] { $n } days
+    }
+pause-other = Other…
+pause-back = ‹ Back
+pause-set = ⏸ { $reminders ->
+        [on] Practice reminders are paused through { $until }.
+       *[off] Set through { $until }.
+    } Those days show as { $label }; you can log any day differently.
+log-auto-period = { $label } through { $until }. If the day went differently, log it below.
+pause-end = { $reminders ->
+        [on] ⏹ End the pause
+       *[off] ⏹ End early
+    }
+pause-ended = { $reminders ->
+        [on] ▶️ Practice reminders are back from today.
+       *[off] ⏹ Done: from today on, days no longer show as { $label }.
+    }
+pause-cut = ⏸ Practice logged for { $rel ->
+        [yesterday] yesterday
+        [other] that day
+       *[today] today
+    }, so the following days, through { $until }, no longer show as { $label }. Keep them as they were?
+pause-keep = ⏸ Keep the pause
+pause-kept = ⏸ Pause kept: { $label } through { $until }.
+remind-paused-until = ⏸ Paused through { $until }
+remind-resume = ▶️ Resume now
+settings-ladies-line = 🌸 Ladies' holiday button: { $shown ->
+        [yes] shown
+       *[no] hidden
+    }
+settings-ladies-hide = 🌸 Hide the button
+settings-ladies-show = 🌸 Show the button

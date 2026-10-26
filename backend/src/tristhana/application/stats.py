@@ -10,10 +10,11 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.storage import Clock
-from tristhana.domain.days import MIN_LOG_DATE, local_today, provisional_zone
+from tristhana.domain.days import MIN_LOG_DATE, DayLog, local_today, provisional_zone
 from tristhana.domain.moon import Cities, City, MoonDay
 from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.rest_days import auto_days
+from tristhana.domain.rest_periods import covered_days
 from tristhana.domain.stats import YearStats, year_stats
 
 
@@ -61,6 +62,11 @@ class GetYearStats:
         city = self._cities.get(account.moon_location) or self._cities.default
         moon_days = await self._moon.days(city.slug, date(year, 1, 1), date(year, 12, 31))
         by_date = {d.local_date: d for d in history.days}
+        # Covered days count as logged rest of their kind (ADR-0023): merged before stats.
+        covered = covered_days(
+            history.periods, date(year - 1, 1, 1), date(year + 1, 12, 31), today, by_date
+        )
+        by_date |= {when: DayLog(when, kind) for when, kind in covered.items()}
         start, end = date(year, 1, 1), date(year, 12, 31)
         moon = {d.date for d in moon_days}
         auto = auto_days(

@@ -25,6 +25,7 @@ type ErrorCode = Literal[
     "unknown_location",
     "invalid_settings",
     "invalid_day_off",
+    "invalid_rest_period",
     "unavailable",
 ]
 
