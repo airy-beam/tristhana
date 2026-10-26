@@ -34,7 +34,12 @@ from tristhana.application.remind import (
     UpdatePracticeReminder,
 )
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
-from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
+from tristhana.application.rest_periods import (
+    EndRestPeriod,
+    RestoreRestPeriod,
+    SkipRestPeriod,
+    StartRestPeriod,
+)
 from tristhana.application.settings import UpdateProfile
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
@@ -87,6 +92,7 @@ class RestUseCases:
     restore: RestoreRestPeriod
     end: EndRestPeriod
     log_from_reminder: LogFromReminder
+    skip: SkipRestPeriod
 
 
 @dataclass(frozen=True, slots=True)

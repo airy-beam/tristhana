@@ -92,11 +92,19 @@ class SqlDayLogRepository:
                 )
             )
         # Same statement: a day that is no longer practiced loses its details (PR-02), and
-        # 🧘 Practiced cuts a rest period covering the day (WH-01, ADR-0023).
+        # 🧘 Practiced cuts a rest period covering the day (WH-01, ADR-0023), unless the day
+        # was 🧘 already (a re-tap, e.g. after "keep the pause", cuts nothing).
+        was_practiced = exists().where(
+            day_log.c.account_id == account_id,
+            day_log.c.local_date == day.local_date,
+            day_log.c.status == "practiced",
+        )
         stmt = stmt.add_cte(stale.cte("gone"))
-        for cte in cut_ctes(account_id, day.local_date, day.status):
+        for cte in cut_ctes(account_id, day.local_date, day.status, only_if=~was_practiced):
             stmt = stmt.add_cte(cte)
-        stmt = stmt.returning(*_snapshot(account_id, day.local_date))
+        stmt = stmt.returning(
+            *_snapshot(account_id, day.local_date), was_practiced.label("was_practiced")
+        )
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
         prev = (
@@ -112,7 +120,7 @@ class SqlDayLogRepository:
             prev=prev,
             periods=periods,
             practice_on=bool(row.practice_on),
-            cut=_cut(periods, day),
+            cut=None if row.was_practiced else _cut(periods, day),
         )
 
     async def insert_if_absent(

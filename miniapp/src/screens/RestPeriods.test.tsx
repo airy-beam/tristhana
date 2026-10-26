@@ -60,10 +60,21 @@ interface Stub {
   /** The PUT /me/days answer (DaySaved). */
   saved?: Record<string, unknown>;
   settings?: NotificationSettings;
+  /** POST /me/rest-periods answers 503 (second review: the question comes back). */
+  startFails?: boolean;
+  /** POST …/end answers after this many ms (to see the optimistic state). */
+  endDelay?: number;
 }
 
 /** A small stateful server: writes change what GET /me/days returns afterwards. */
-function stubApi({ days: d = days(), me = ME, saved, settings }: Stub = {}): Request[] {
+function stubApi({
+  days: d = days(),
+  me = ME,
+  saved,
+  settings,
+  startFails = false,
+  endDelay = 0,
+}: Stub = {}): Request[] {
   const seen: Request[] = [];
   let served = d;
   vi.stubGlobal(
@@ -97,12 +108,16 @@ function stubApi({ days: d = days(), me = ME, saved, settings }: Stub = {}): Req
           },
         );
       }
+      if (path === "/api/v1/me/rest-periods" && method === "POST" && startFails)
+        return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
       if (path === "/api/v1/me/rest-periods" && method === "POST") {
         const body = (await request.clone().json()) as { start: string; kind: string };
         return json({ start: body.start, end: LATER, kind: body.kind });
       }
-      if (path.startsWith("/api/v1/me/rest-periods/") && path.endsWith("/end"))
+      if (path.startsWith("/api/v1/me/rest-periods/") && path.endsWith("/end")) {
+        if (endDelay) await new Promise((resolve) => setTimeout(resolve, endDelay));
         return json({ period: null });
+      }
       if (path.startsWith("/api/v1/me/rest-periods/") && method === "PUT") {
         const body = (await request.clone().json()) as { end: string; kind: string };
         const start = path.split("/").at(-1) ?? "";
@@ -605,5 +620,63 @@ describe("Review fixes", () => {
       expect(seen.some((r) => r.method === "PATCH")).toBe(true);
     });
     expect(await screen.findByText(/^⏸ Paused through/)).toBeInTheDocument();
+  });
+});
+
+describe("Second review", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the question again when starting the pause fails", async () => {
+    stubApi({ saved: OFFER, startFails: true });
+    renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
+    fireEvent.click(await button("🌸 Ladies' holiday"));
+
+    fireEvent.click(await button("5 days"));
+
+    expect(await button("5 days")).toBeInTheDocument(); // back, to try again
+    expect(
+      screen.getByText(
+        (t) => plain(t) === "How many days should show as 🌸 Ladies' holiday, including today?",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("resumes with the server's today, not the device's UTC date", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T12:00:00Z")); // the device thinks it's Oct 30
+    stubApi({
+      days: days({ periods: [{ start: YESTERDAY, end: LATER, kind: "sick" }] }),
+      settings: {
+        moon: { offsets: [1, 7], at: "19:00:00" },
+        quiet: { start: "22:00:00", end: "07:00:00" },
+        daily_cap: 3,
+        practice: {
+          on: true,
+          at: "10:00:00",
+          days: [1, 2, 3, 4, 5, 7],
+          paused_start: YESTERDAY,
+          paused_until: LATER,
+        },
+        timezone: "Asia/Almaty",
+      } as unknown as NotificationSettings,
+      endDelay: 500,
+    });
+    renderWith(
+      <>
+        <TodayCard zone="Asia/Almaty" locale="en" />
+        <PracticeReminderCard zone="Asia/Almaty" />
+      </>,
+    );
+    const line = (t: string) => /^🤒 Sick \/ injury through/.test(plain(t));
+    expect(await screen.findByText(line)).toBeInTheDocument();
+
+    fireEvent.click(await button("▶️ Resume now"));
+
+    // Server today = Oct 26: the pause (from Oct 25) ends Oct 25 and no longer covers today.
+    await vi.waitFor(() => {
+      expect(screen.queryByText(line)).not.toBeInTheDocument();
+    });
   });
 });

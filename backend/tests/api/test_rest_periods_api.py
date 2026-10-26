@@ -333,3 +333,37 @@ def test_a_period_whose_kind_cant_be_read_is_sent_as_rest(
     storage.rest_periods.rows[(me.id, start)] = RestPeriod(start, end, DayStatus.REST)
 
     assert _days(api)["periods"] == [{"start": _d(-1), "end": _d(1), "kind": "rest"}]
+
+
+def test_a_stale_keep_never_deletes_a_newer_pause(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    """Owner (second review): Keep after a newer pause began is `period: null`."""
+    from tristhana.domain.days import DayStatus
+    from tristhana.domain.rest_periods import RestPeriod
+
+    [me] = storage.repo.accounts.values()
+    first = _today() - timedelta(days=4)
+    storage.rest_periods.rows[(me.id, first)] = RestPeriod(
+        first, _today() + timedelta(days=2), DayStatus.LADIES
+    )
+    assert _put_day(api, -2, "practiced")["cut"] is not None  # cuts it to [-4, -3]
+    _put_day(api, -1, "sick")
+    _start(api, -1, 5, "sick")
+
+    kept = api.put(f"{PERIODS}/{_d(-4)}", json={"end": _d(2), "kind": "ladies"}, headers=_auth())
+
+    assert (kept.status_code, kept.json()) == (200, {"period": None})
+    assert _days(api)["periods"] == [
+        {"start": _d(-4), "end": _d(-3), "kind": "ladies"},
+        {"start": _d(-1), "end": _d(3), "kind": "sick"},
+    ]
+
+
+def test_a_day_count_for_a_day_logged_otherwise_is_refused(api: TestClient) -> None:
+    _put_day(api, 0, "practiced")
+
+    response = _start(api, 0, 3, "sick")
+
+    assert (response.status_code, response.json()) == (422, {"code": "invalid_rest_period"})
+    assert _days(api)["periods"] == []

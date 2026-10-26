@@ -138,3 +138,11 @@ def covered_days(periods, start, end, today, logged) -> dict[date, DayStatus]  #
 - **Unreadable seal:** a period whose kind can't be decrypted is sent as `kind: "rest"` (output enum only) and covers its days as plain rest; Keep isn't offered for it.
 - **Accepted deviations:** `pause-cut` has a third `$rel` variant (`other`, "that day") for a 🧘 logged further back; the Mini App's `.ftl` spells out each `pause-*` variant in full (Fluent isolation would otherwise wrap the nested variant words).
 - **Mini App:** a day save also refreshes the notification settings (a 🧘 may have cut the pause); with "Show 🌸 days" off, a cut 🌸 pause is named as rest in the day editor.
+
+## 13. Second review fixes (2026-10-27)
+- **Keep never undoes a newer pause** (owner): the restore also needs no period starting in (start, end] (one started after the cut); otherwise `period: null` and nothing changes. Keep is never offered for a period whose kind can't be read (plain rest).
+- **"Just today / yesterday" (`a1:o`)** acts only when its day is today or yesterday in the caller's zone, and only drops a period that *starts* on that day; an old button tapped later, or one under a pause that began earlier, changes nothing.
+- **Re-saving 🧘 on a 🧘 day** cuts nothing (after a Keep, a re-tap leaves the kept pause).
+- **A stale day count** (`a1:p`, `POST /me/rest-periods`) starts nothing once its start day is logged with another status: the start day must be unlogged or show the period's kind (its public status: 🌸 is stored as a sealed `rest`, so a 😌 day can't be told from 🌸 in SQL; accepted). The bot then shows the day as it is; the API answers 422 `invalid_rest_period`.
+- **Mini App:** ending a pause uses each cached payload's server `today`, never the device's date; the pause question (or Keep) comes back when its request fails, so it can be retried.
+- **Migration `0011`:** an index on `rest_period(end_date)` for the tick's paused-days read (the primary key can't serve `end_date >= :from` across accounts).

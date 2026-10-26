@@ -6,11 +6,10 @@ from tristhana.infrastructure.db import tables
 from tristhana.infrastructure.db.migrate import alembic_config
 
 
-def test_0010_rest_period_is_the_head_after_0009() -> None:
+def test_0010_rest_period_follows_0009() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0010")
 
-    assert script.get_current_head() == "0010"
     assert revision is not None
     assert revision.down_revision == "0009"
 

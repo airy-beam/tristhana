@@ -42,7 +42,7 @@ from tristhana.domain.practice import (
     PracticeContext,
     PracticeLength,
 )
-from tristhana.domain.rest_periods import RestPeriod
+from tristhana.domain.rest_periods import PAUSABLE, RestPeriod
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.days import DayScreens
@@ -240,8 +240,8 @@ class PracticeScreens:
         """[⏸ Keep the pause] while the cut period still had days after `day` and isn't
         over yet; the callback carries the period itself (stateless)."""
         today, _ = self._days.get.today(principal)
-        if cut is None or cut.end <= day or cut.end < today:
-            return None
+        if cut is None or cut.kind not in PAUSABLE or cut.end <= day or cut.end < today:
+            return None  # also an unreadable seal (plain rest): nothing to keep
         data = acb.encode(acb.RestCallback("keep", cut.start, cut.kind, end=cut.end, practiced=day))
         return [self._button(principal.account.locale, "pause-keep", data)]
 

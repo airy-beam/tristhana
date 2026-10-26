@@ -87,6 +87,13 @@ def _today_bounds(now: datetime, zone: str | None) -> tuple[date, date]:
     return now.astimezone(ZoneInfo(_EARLIEST_ZONE)).date(), latest_loggable(now, None)
 
 
+def is_recent(day: date, now: datetime, zone: str | None) -> bool:
+    """Today or yesterday (local; with a provisional zone, anywhere on Earth): the only
+    days a pause can be started from, or dropped with "Just that day"."""
+    earliest, latest = _today_bounds(now, zone)
+    return earliest - _DAY <= day <= latest
+
+
 def offer_today(day: date, now: datetime, zone: str | None) -> date:
     """ "Today" for `pause_offer`: the local date, or with a provisional zone the date
     closest to `day` that is today somewhere on Earth (as for logging)."""

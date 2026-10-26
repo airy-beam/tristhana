@@ -40,7 +40,12 @@ from tristhana.application.remind import (
     UpdatePracticeReminder,
 )
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
-from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
+from tristhana.application.rest_periods import (
+    EndRestPeriod,
+    RestoreRestPeriod,
+    SkipRestPeriod,
+    StartRestPeriod,
+)
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
 from tristhana.application.stats import GetYearStats
 from tristhana.application.tick import RunTick
@@ -225,6 +230,7 @@ class _Services:
             restore=RestoreRestPeriod(self._storage.rest_periods, clock),
             end=EndRestPeriod(self._storage.rest_periods, clock),
             log_from_reminder=LogFromReminder(self._storage.days, clock),
+            skip=SkipRestPeriod(self._storage.rest_periods, clock),
         )
         app.state.rest = rest
         app.state.run_tick = RunTick(

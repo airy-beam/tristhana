@@ -281,15 +281,16 @@ export function periodOn(days: Days | undefined, date: string): RestPeriod | und
 }
 
 /** Every cached day query with `change` applied to its periods (optimistic; the refetch
- * after it settles brings the server's overlap rule). */
+ * after it settles brings the server's overlap rule). `today` is that payload's, from the
+ * server: never the device's date. */
 async function patchPeriods(
   client: ReturnType<typeof useQueryClient>,
-  change: (periods: RestPeriod[]) => RestPeriod[],
+  change: (periods: RestPeriod[], today: string) => RestPeriod[],
 ): Promise<Snapshot> {
   await client.cancelQueries({ queryKey: ["days"] });
   const before = client.getQueriesData<Days>({ queryKey: ["days"] });
   for (const [key, days] of before) {
-    if (days) client.setQueryData(key, { ...days, periods: change(days.periods) });
+    if (days) client.setQueryData(key, { ...days, periods: change(days.periods, days.today) });
   }
   return before;
 }
@@ -364,18 +365,18 @@ export function useEndRestPeriod() {
   const client = useQueryClient();
   return useMutation({
     scope: { id: "day" },
-    mutationFn: async ({ start }: { start: string; today: string }): Promise<RestPeriod | null> => {
+    mutationFn: async ({ start }: { start: string }): Promise<RestPeriod | null> => {
       const { data, error, response } = await api.POST("/api/v1/me/rest-periods/{start}/end", {
         params: { path: { start } },
       });
       if (!data) fail(response, error);
       return data.period;
     },
-    onMutate: async ({ start, today }) => {
-      const end = addDays(today, -1);
-      const before = await patchPeriods(client, (periods) =>
+    onMutate: async ({ start }) => {
+      const before = await patchPeriods(client, (periods, today) =>
         periods.flatMap((p) => {
           if (p.start !== start || p.end < today) return [p];
+          const end = addDays(today, -1);
           return end > p.start ? [{ ...p, end }] : [];
         }),
       );

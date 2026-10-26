@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.sql.elements import Label
 
 from tristhana.application.ports.rest_periods import Ended, Placed
-from tristhana.domain.days import DayStatus
+from tristhana.domain.days import DayStatus, public_status
 from tristhana.domain.rest_periods import MAX_PERIOD_DAYS, RestPeriod
 from tristhana.infrastructure.crypto import UnreadableSeal
 from tristhana.infrastructure.db.engine import connection
@@ -161,19 +161,40 @@ class SqlRestPeriodRepository:
         self._cipher = cipher
 
     async def place(self, account_id: UUID, period: RestPeriod) -> Placed:
-        stmt = self._placing(account_id, period, gate=None).returning(
+        # The start day, if logged, shows the kind (its public status: 🌸 is stored as a
+        # sealed `rest`); a stale day count after a re-log elsewhere starts nothing.
+        other = exists().where(
+            day_log.c.account_id == account_id,
+            day_log.c.local_date == period.start,
+            day_log.c.status != public_status(period.kind).value,
+        )
+        stmt = self._placing(account_id, period, gate=~other).returning(
             practice_on_column(account_id)
         )
         row = await self._locked(account_id, stmt)
-        return Placed(period, bool(row is not None and row.practice_on))
+        if row is None:
+            return Placed(None)
+        return Placed(period, bool(row.practice_on))
 
     async def restore(self, account_id: UUID, period: RestPeriod, today: date) -> RestPeriod | None:
         # A cut happened: a 🧘 day inside what is kept (else a forged keep could backfill).
-        gate = exists().where(
+        cut = exists().where(
             day_log.c.account_id == account_id,
             day_log.c.local_date.between(period.start, min(period.end, today)),
             day_log.c.status == DayStatus.PRACTICED.value,
         )
+        # A newer pause began after the cut (it starts in (start, end]): never undo it.
+        # (An alias, so it never correlates with the rest_period rows the CTEs change.)
+        later = _R.alias("newer")
+        newer = (
+            select(later.c.start_date)
+            .where(
+                later.c.account_id == account_id,
+                later.c.start_date.between(period.start + _DAY, period.end),
+            )
+            .exists()
+        )
+        gate = and_(cut, ~newer)
         stmt = self._placing(account_id, period, gate).returning(_R.c.start_date)
         row = await self._locked(account_id, stmt)
         return period if row is not None else None

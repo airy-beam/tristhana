@@ -47,7 +47,7 @@ from tristhana.domain.accounts import (
     ProfileChange,
     ProfileUpdate,
 )
-from tristhana.domain.days import DayLog, DayStatus
+from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.domain.moon import Cities, MoonDay, MoonDayKind, MoonLocation
 from tristhana.domain.notifications import (
     NotificationSettings,
@@ -174,6 +174,7 @@ class InMemoryRestPeriods:
     # Wired by `InMemoryDays` / `InMemoryStorage` (the DB reads both in the same statement).
     practiced: Callable[[UUID, date, date], bool] = lambda _a, _s, _e: False
     practice_on: Callable[[UUID], bool] = lambda _: False
+    logged: Callable[[UUID, date], DayStatus | None] = lambda _a, _d: None
 
     def of(self, account_id: UUID) -> list[RestPeriod]:
         return sorted(
@@ -185,6 +186,10 @@ class InMemoryRestPeriods:
 
     async def place(self, account_id: UUID, period: RestPeriod) -> Placed:
         self._check()
+        # As the SQL: the start day, if logged, must show the kind (public: 🌸 is `rest`).
+        logged = self.logged(account_id, period.start)
+        if logged is not None and public_status(logged) is not public_status(period.kind):
+            return Placed(None, self.practice_on(account_id))
         self._place(account_id, period)
         return Placed(period, self.practice_on(account_id))
 
@@ -192,6 +197,8 @@ class InMemoryRestPeriods:
         self._check()
         if not self.practiced(account_id, period.start, min(period.end, today)):
             return None  # no cut happened: never a backfill
+        if any(period.start < p.start <= period.end for p in self.of(account_id)):
+            return None  # a newer pause began since the cut: never undo it
         self._place(account_id, period)
         return period
 
@@ -258,6 +265,12 @@ class InMemoryDays:
 
         self.periods.practiced = practiced
 
+        def logged(account_id: UUID, day: date) -> DayStatus | None:
+            row = self.rows.get((account_id, day))
+            return row[0].status if row else None
+
+        self.periods.logged = logged
+
     async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> Upserted:
         self._check()
         when = day.local_date
@@ -267,7 +280,12 @@ class InMemoryDays:
             for p in self.periods.of(account_id)
             if p.start <= when and p.end >= when - timedelta(1)
         )
-        cut = self.periods.apply_log(account_id, when, day.status)
+        same = self.rows.get((account_id, when))
+        again = same is not None and same[0].status is DayStatus.PRACTICED
+        # As the SQL: re-saving 🧘 on a 🧘 day cuts nothing (e.g. after "keep the pause").
+        cut = None
+        if not (again and day.status is DayStatus.PRACTICED):
+            cut = self.periods.apply_log(account_id, when, day.status)
         self.rows[(account_id, when)] = (day, timezone)
         if day.status is not DayStatus.PRACTICED:
             self.practice_rows.pop((account_id, when), None)
