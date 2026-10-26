@@ -216,6 +216,33 @@ describe("TodayCard: the pause offer", () => {
     expect(await screen.findByText(/Pause practice reminders for how many days/)).toBeVisible();
   });
 
+  it("offers Just today, which closes the question without a pause", async () => {
+    const seen = stubApi({ saved: OFFER });
+    renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
+    fireEvent.click(await button("🌸 Ladies' holiday"));
+
+    fireEvent.click(await button("Just today"));
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/How many days/)).not.toBeInTheDocument();
+    });
+    expect(posted(seen, "/api/v1/me/rest-periods")).toBe(false);
+    expect(seen.some((r) => new URL(r.url).pathname.endsWith("/end"))).toBe(false);
+  });
+
+  it("Just today on a re-asked first day ends that pause", async () => {
+    const period = { start: TODAY, end: LATER, kind: "ladies" };
+    const seen = stubApi({ saved: { ...OFFER, period } });
+    renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
+    fireEvent.click(await button("🌸 Ladies' holiday"));
+
+    fireEvent.click(await button("Just today"));
+
+    await vi.waitFor(() => {
+      expect(posted(seen, `/api/v1/me/rest-periods/${TODAY}/end`)).toBe(true);
+    });
+  });
+
   it("asks nothing when the server sends no offer", async () => {
     stubApi();
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);

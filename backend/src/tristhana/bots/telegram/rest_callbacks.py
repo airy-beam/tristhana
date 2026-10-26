@@ -4,6 +4,7 @@ absolute values, at most 34 bytes. Kind codes are PR-01's (`l` 🌸, `k` 🤒, `
     a1:p:20261026:l:5            start a period on that day for 5 days (in the kind's set)
     a1:m:20261026:l:1            the "Other…" day counts (last digit: reminders on); no DB
     a1:b:20261026:l:1            back to the first day counts; no DB
+    a1:o:20261026:l              just that day: no pause (removes one starting that day)
     a1:k:20261024:20261028:l:20261026
                                  keep the pause: restore that period exactly (the last
                                  date: the 🧘 day that cut it, whose details come back)
@@ -20,7 +21,7 @@ from tristhana.domain.days import MIN_LOG_DATE, DayStatus
 from tristhana.domain.rest_periods import PAUSABLE, allowed_days, max_days
 
 PREFIX = "a1"
-type Action = Literal["start", "more", "back", "keep", "end", "end_remind"]
+type Action = Literal["start", "more", "back", "only", "keep", "end", "end_remind"]
 
 _CODES = {s: c for s, c in STATUS_CODES.items() if s in PAUSABLE}
 _KINDS = {c: s for s, c in _CODES.items()}
@@ -28,6 +29,7 @@ _LETTERS: dict[Action, str] = {
     "start": "p",
     "more": "m",
     "back": "b",
+    "only": "o",
     "keep": "k",
     "end": "e",
     "end_remind": "er",
@@ -39,7 +41,7 @@ _LATEST = date(9000, 1, 1)
 class RestCallback:
     action: Action
     day: date  # the period's start (the origin day for start / more / back)
-    kind: DayStatus | None = None  # start, more, back, keep
+    kind: DayStatus | None = None  # start, more, back, only, keep
     days: int = 0  # start
     end: date | None = None  # keep
     reminders_on: bool = False  # more, back, end
@@ -59,6 +61,9 @@ def encode(cb: RestCallback) -> str:
         case "more" | "back":
             assert cb.kind is not None  # noqa: S101
             return f"{head}:{_CODES[cb.kind]}:{int(cb.reminders_on)}"
+        case "only":
+            assert cb.kind is not None  # noqa: S101
+            return f"{head}:{_CODES[cb.kind]}"
         case "keep":
             assert cb.kind is not None  # noqa: S101
             assert cb.end is not None  # noqa: S101
@@ -95,6 +100,8 @@ def decode(data: str | None) -> RestCallback | None:
         case "m" | "b" as letter, [code, "0" | "1" as flag] if code in _KINDS:
             action: Action = "more" if letter == "m" else "back"
             return RestCallback(action, day, _KINDS[code], reminders_on=flag == "1")
+        case "o", [code] if code in _KINDS:
+            return RestCallback("only", day, _KINDS[code])
         case "k", [ymd, code, d] if (
             code in _KINDS and (end := _date(ymd)) is not None and (on := _date(d)) is not None
         ):

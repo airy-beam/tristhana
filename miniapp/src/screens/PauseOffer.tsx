@@ -28,7 +28,7 @@ const onOff = (flag: boolean) => (flag ? "on" : "off");
 
 /** After a save (WH-01, ADR-0023): "for how many days?" with the server's day counts, or,
  * when a 🧘 save cut a pause that still had days ahead, a gentle "Keep the pause". Ignoring
- * it is fine: no pause. `onDone` hides it once answered. */
+ * it (or "Just today") is fine: no pause. `onDone` hides it once answered. */
 export function PauseOffer({
   saved,
   today,
@@ -44,6 +44,7 @@ export function PauseOffer({
   const [more, setMore] = useState(false);
   const start = useStartRestPeriod();
   const keep = useKeepRestPeriod();
+  const end = useEndRestPeriod();
   const { l10n } = useLocalization();
   const dateLabel = useDateLabel();
   const offer = saved.pause_offer;
@@ -89,6 +90,20 @@ export function PauseOffer({
             />
           </Localized>
         </div>
+        <Localized id="pause-only" vars={{ rel }}>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              haptics.impact("light");
+              onDone(); // the day is saved: just no pause
+              // A re-asked first day of a pause: "just that day" means no pause.
+              if (saved.period?.start === offer.start) {
+                end.mutate({ start: offer.start, today });
+              }
+            }}
+          />
+        </Localized>
       </div>
     );
   }
