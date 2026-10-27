@@ -18,6 +18,14 @@ from tristhana.application.moon import (
 from tristhana.application.policies import Principal
 from tristhana.application.ports.storage import Storage
 from tristhana.application.practice import ClearPractice, GetPracticePresets, SavePractice
+from tristhana.application.progression import (
+    DismissNewAsanaHint,
+    GetProgression,
+    MarkItem,
+    MarkNewAsana,
+    SetPractice,
+    UndoProgression,
+)
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
@@ -25,6 +33,7 @@ from tristhana.application.stats import GetYearStats
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
+from tristhana.domain.progression import Track
 from tristhana.settings import Settings
 
 # Declared as an API key scheme so OpenAPI (and the generated client) documents the header.
@@ -103,6 +112,34 @@ def save_diary_note(request: Request) -> SaveDiaryNote:
 
 def clear_diary_note(request: Request) -> ClearDiaryNote:
     return cast(ClearDiaryNote, request.app.state.diary.clear)
+
+
+def get_progression(request: Request) -> GetProgression:
+    return cast(GetProgression, request.app.state.progression.get)
+
+
+def set_position(request: Request) -> SetPractice:
+    return cast(SetPractice, request.app.state.progression.set)
+
+
+def mark_new_asana(request: Request) -> MarkNewAsana:
+    return cast(MarkNewAsana, request.app.state.progression.give)
+
+
+def mark_item(request: Request) -> MarkItem:
+    return cast(MarkItem, request.app.state.progression.item)
+
+
+def undo_progression(request: Request) -> UndoProgression:
+    return cast(UndoProgression, request.app.state.progression.undo)
+
+
+def dismiss_new_asana_hint(request: Request) -> DismissNewAsanaHint:
+    return cast(DismissNewAsanaHint, request.app.state.progression.dismiss)
+
+
+def progression_track(request: Request) -> Track:
+    return cast(Track, request.app.state.progression.track)
 
 
 def practice_presets(request: Request) -> GetPracticePresets:

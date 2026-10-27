@@ -6,12 +6,16 @@ from uuid import UUID
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.check_in import CheckIn
 from tristhana.domain.practice import Practice
+from tristhana.domain.progression import Position, Progression
 
 
 @dataclass(frozen=True, slots=True)
 class SavedPractice:
     practice: Practice
     check_in: CheckIn | None = None  # the day's check-in, read in the same statement (PR-06)
+    progression: Progression | None = None  # read in the same statement too (PR-08)
+    length_changed: bool = False  # this write changed the stored length
+    new_asana_hint: Position | None = None  # "New asana? 🎉" (set by `SavePractice`)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,4 +52,10 @@ class PracticeRepository(Protocol):
 
     async def recent(self, account_id: UUID, before: date, limit: int) -> list[Practice]:
         """Practices on days before `before`, newest first."""
+        ...
+
+    async def recent_with_progression(
+        self, account_id: UUID, before: date, limit: int
+    ) -> tuple[list[Practice], Progression | None]:
+        """`recent` plus the progression state (PR-08 presets), still one statement."""
         ...

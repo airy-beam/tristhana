@@ -99,8 +99,8 @@ def test_advanced_b_every_variant_is_a_stop() -> None:
     assert {"samanasana", "sama-konasana", "marichyasana-e", "marichyasana-h"} <= keys
 
 
-@pytest.mark.parametrize("key", ["drop-backs", "standing-up"])
-def test_drop_backs_and_standing_up_are_optional_milestones(key: str) -> None:
+@pytest.mark.parametrize("key", ["drop-backs", "standing-up", "viparita-chakrasana"])
+def test_backbending_milestones_are_optional(key: str) -> None:
     item = _item("backbending", key)
 
     assert item.optional

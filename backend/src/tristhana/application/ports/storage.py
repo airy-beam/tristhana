@@ -8,6 +8,7 @@ from tristhana.application.ports.diary import DiaryRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import NotificationRepository
 from tristhana.application.ports.practice import PracticeRepository
+from tristhana.application.ports.progression import ProgressionRepository
 from tristhana.application.ports.rest_periods import RestPeriodRepository
 
 
@@ -53,6 +54,9 @@ class Storage(Protocol):
 
     @property
     def diary(self) -> DiaryRepository: ...
+
+    @property
+    def progression(self) -> ProgressionRepository: ...
 
 
 class Clock(Protocol):

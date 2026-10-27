@@ -384,3 +384,47 @@ body {
 .day.skipped {
   color: #1f2328;
 }
+
+/* PR-08: the celebration card (tap to dismiss) and the short history. */
+.celebration {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  color: var(--c-text);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  animation: celebrate 240ms ease-out;
+}
+@keyframes celebrate {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebration {
+    animation: none;
+  }
+}
+.progression .row-button,
+.new-asana .chip {
+  margin-top: 12px;
+  background: var(--c-bg);
+}
+.progression select,
+.progression input[type="date"] {
+  display: block;
+  margin-top: 6px;
+  font: inherit;
+}
+.history ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.history li {
+  margin: 6px 0;
+}

@@ -17,6 +17,7 @@ const TODAY = "2026-10-19";
 const CATALOG: Catalog = {
   version: "v1",
   check_in_tags: [],
+  milestone_items: [],
   series: [
     {
       slug: "primary",

@@ -410,3 +410,60 @@ diary-clear = Удалить заметку
 diary-clear-confirm = Удалить заметку?
 diary-clear-yes = Удалить
 diary-removed = Заметка удалена из дневника.
+
+## Прогресс (PR-08) и праздники (GM-01). Как в боте; названия асан, элементов и серий —
+## из каталога. $series — `series-name`, $traditional — традиционное
+## название или "none".
+progression-open = 🧘 Мои асаны
+progression-title = Мои асаны
+progression-unset = Где сейчас заканчивается твоя практика? Укажи это один раз, а новые асаны потом отмечай здесь.
+progression-suggest = По журналу: { $length }
+progression-standing-only = Сурья Намаскар и стоячие
+progression-current = Твоя практика: { $length }
+progression-items = Прогибы: { $items }
+progression-new = 🎉 Новая асана: { $asana }
+progression-item-new = 🎉 { $item }
+progression-new-other = 🎉 Другая новая асана…
+progression-change = ✏️ Изменить
+progression-change-explain = Выбери, где сейчас заканчивается практика. История сохранится.
+progression-pick-series = Серия
+progression-pick-asana = Последняя асана
+progression-save = Сохранить
+progression-cancel = Отмена
+progression-date = Дата
+progression-history = История
+progression-undo = ↩︎ Отменить
+progression-back = { $asana } — в твоей практике.
+progression-changed = Это изменилось на другом устройстве. Вот свежая версия.
+progression-save-failed = Не получилось сохранить. Попробуй ещё раз.
+progression-event =
+    { $kind ->
+        [start] Отмечено впервые: { $asana }
+        [given] 🎉 { $asana }
+        [changed] Изменено: { $asana }
+        [item_given] 🎉 { $item }
+       *[item_removed] { $item }: убрано
+    }
+progression-ask-new = { $asana } — дальше твоей последней асаны. Новая асана? 🎉
+progression-ask-yes = 🎉 Да, новая
+progression-ask-no = Не новая
+celebrate-new-asana = 🎉 Новая асана: { $asana }. Приятного знакомства!
+celebrate-new-asanas = 🎉 Новые асаны: { $from } → { $asana }
+celebrate-series-complete =
+    { $traditional ->
+        [none] 🎉 { $series } серия целиком.
+       *[other] 🎉 { $series } серия целиком: { $traditional }.
+    }
+celebrate-series-begins =
+    { $traditional ->
+        [none] 🎉 { $series } серия начинается.
+       *[other] 🎉 { $series } серия начинается: { $traditional }.
+    }
+celebrate-item = 🎉 { $item }: прекрасный шаг.
+preset-mine = 🧘 Моя практика: { $length }
+# Названия элементов-этапов: из каталога, плюс бытовое название, где оно в ходу.
+milestone-label =
+    { $slug ->
+        [viparita-chakrasana] { $name } (тик-токи)
+       *[other] { $name }
+    }

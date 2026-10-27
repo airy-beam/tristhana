@@ -399,3 +399,60 @@ diary-clear = Remove note
 diary-clear-confirm = Remove this note?
 diary-clear-yes = Remove
 diary-removed = Removed from your diary.
+
+## Progression (PR-08) and its celebrations (GM-01). Same wording as the bot; asana, item
+## and series names come from the catalog. $series is a `series-name`, $traditional a
+## traditional name or "none".
+progression-open = 🧘 My asanas
+progression-title = My asanas
+progression-unset = Where does your practice end now? Set it once, then mark it here when you get a new asana.
+progression-suggest = From your log: { $length }
+progression-standing-only = Sun salutations and standing
+progression-current = Your practice: { $length }
+progression-items = Backbends: { $items }
+progression-new = 🎉 New asana: { $asana }
+progression-item-new = 🎉 { $item }
+progression-new-other = 🎉 Another new asana…
+progression-change = ✏️ Change
+progression-change-explain = Pick where your practice ends now. Your history stays.
+progression-pick-series = Series
+progression-pick-asana = Last asana
+progression-save = Save
+progression-cancel = Cancel
+progression-date = Date
+progression-history = History
+progression-undo = ↩︎ Undo
+progression-back = { $asana } is in your practice.
+progression-changed = This changed on another device. Here's the latest.
+progression-save-failed = Couldn't save. Please try once more.
+progression-event =
+    { $kind ->
+        [start] Started at { $asana }
+        [given] 🎉 { $asana }
+        [changed] Changed to { $asana }
+        [item_given] 🎉 { $item }
+       *[item_removed] { $item }: removed
+    }
+progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
+progression-ask-yes = 🎉 Yes, new
+progression-ask-no = Not new
+celebrate-new-asana = 🎉 New asana: { $asana }. Enjoy it!
+celebrate-new-asanas = 🎉 New asanas: { $from } → { $asana }
+celebrate-series-complete =
+    { $traditional ->
+        [none] 🎉 Full { $series }.
+       *[other] 🎉 Full { $series }: { $traditional }.
+    }
+celebrate-series-begins =
+    { $traditional ->
+        [none] 🎉 { $series } begins.
+       *[other] 🎉 { $series } begins: { $traditional }.
+    }
+celebrate-item = 🎉 { $item }: a lovely step.
+preset-mine = 🧘 My practice: { $length }
+# Milestone item names: the catalog name, plus the everyday name where people use one.
+milestone-label =
+    { $slug ->
+        [viparita-chakrasana] { $name } (tic-tacs)
+       *[other] { $name }
+    }

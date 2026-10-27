@@ -655,3 +655,32 @@ def test_russian_diary_copy_has_no_gendered_past_tense_for_the_reader() -> None:
     for key, source in _diary_sources("ru").items():
         assert "(а)" not in source, key  # noqa: RUF001
         assert not re.search(r"\bты\s+\w+л[аи]?\b", source, re.IGNORECASE), key
+
+
+# PR-08: progression and celebration copy stays gentle and non-competitive (spec §7).
+_AVOID = {
+    "en": (
+        "unlock", "level", "achieve", "earn", "finally", "behind", "lost", "regress",
+        "back to", "demote", "only", "again", "streak", "rank", "goal", "should", "faster",
+    ),
+    "ru": (
+        "уровень", "достижен", "разблок", "наконец", "откат", "потер", "отстал", "только",
+        "опять", "цель", "надо", "должен",
+    ),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_progression_copy_avoids_competitive_or_guilty_words(locale: str) -> None:
+    text = (files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl").read_text(
+        encoding="utf-8"
+    )
+    section = text.split("(PR-08)", 1)[1]  # the progression section closes the file
+    lines = [
+        line.split("=", 1)[-1].lower()
+        for line in section.splitlines()[1:]
+        if line.strip() and not line.startswith("#") and not line.startswith("command-")
+    ]
+    assert len(lines) > 30
+    for word in _AVOID[locale]:
+        assert not [line for line in lines if word in line], word

@@ -23,6 +23,7 @@ from tristhana.application.ports.notifications import (
     ReminderPatch,
 )
 from tristhana.application.ports.practice import CopiedPractice, SavedPractice
+from tristhana.application.ports.progression import ProgressionView
 from tristhana.application.ports.rest_periods import Ended, Placed
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice import (
@@ -56,6 +57,15 @@ from tristhana.domain.notifications import (
     effective,
 )
 from tristhana.domain.practice import Practice, PracticeContext
+from tristhana.domain.progression import (
+    HISTORY_LIMIT,
+    Change,
+    Earlier,
+    EventKind,
+    Position,
+    Progression,
+    ProgressionEvent,
+)
 from tristhana.domain.rest_days import DayOff
 from tristhana.domain.rest_periods import UNCHANGED, RestPeriod, cut_by_log, end_from, place
 
@@ -260,6 +270,11 @@ class InMemoryDays:
     # PR-07: one note per local day (`DiaryNote`; `DiaryNote(None)` = an unreadable seal),
     # independent of the status: status changes and clearing the day never touch it.
     diary_rows: dict[tuple[UUID, date], Any] = field(default_factory=dict[tuple[UUID, date], Any])
+    # PR-08: the progression state per account and the event history (oldest first).
+    progression_rows: dict[UUID, Progression] = field(default_factory=dict[UUID, Progression])
+    progression_events: list[tuple[UUID, ProgressionEvent]] = field(
+        default_factory=list[tuple[UUID, ProgressionEvent]]
+    )
     down: bool = False
     moon: "InMemoryMoon | None" = None  # for `range_with_moon`
     periods: InMemoryRestPeriods = field(default_factory=InMemoryRestPeriods)
@@ -388,10 +403,19 @@ class InMemoryPractices:
         row = self.days.rows.get((account_id, local_date))
         return row is not None and row[0].status is DayStatus.PRACTICED
 
-    def _saved(self, account_id: UUID, local_date: date, practice: Practice) -> SavedPractice:
-        """With the day's check-in, as the SQL's join (empty rows read as none)."""
+    def _saved(
+        self, account_id: UUID, local_date: date, practice: Practice, before: Practice | None
+    ) -> SavedPractice:
+        """With the day's check-in and the progression, as the SQL's joins (empty check-in
+        rows read as none)."""
         found = self.days.check_in_rows.get((account_id, local_date))
-        return SavedPractice(practice, None if found is None or found.is_empty() else found)
+        changed = practice.length != (before.length if before else None)
+        return SavedPractice(
+            practice,
+            None if found is None or found.is_empty() else found,
+            self.days.progression_rows.get(account_id),
+            changed,
+        )
 
     async def save(
         self, account_id: UUID, local_date: date, patch: PracticePatch
@@ -399,15 +423,15 @@ class InMemoryPractices:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         if not self._practiced(account_id, local_date):
             return None
-        current = self.days.practice_rows.get((account_id, local_date), Practice())
+        before = self.days.practice_rows.get((account_id, local_date))
         changes = {
             f.name: getattr(patch.values, f.name)
             for f in fields(Practice)
             if f.name in patch.fields
         }
-        saved = replace(current, **changes)
+        saved = replace(before or Practice(), **changes)
         self.days.practice_rows[(account_id, local_date)] = saved
-        return self._saved(account_id, local_date, saved)
+        return self._saved(account_id, local_date, saved, before)
 
     async def copy_latest(
         self, account_id: UUID, local_date: date, timezone: str | None
@@ -419,8 +443,9 @@ class InMemoryPractices:
         if not previous:
             return None
         copied = replace(previous[0], start_time=None, timezone=timezone)
+        before = self.days.practice_rows.get((account_id, local_date))
         self.days.practice_rows[(account_id, local_date)] = copied
-        return self._saved(account_id, local_date, copied)
+        return self._saved(account_id, local_date, copied, before)
 
     async def copy_usual(
         self, account_id: UUID, local_date: date, timezone: str | None
@@ -460,6 +485,93 @@ class InMemoryPractices:
             reverse=True,
         )
         return [p for _, p in rows[:limit]]
+
+    async def recent_with_progression(
+        self, account_id: UUID, before: date, limit: int
+    ) -> tuple[list[Practice], Progression | None]:
+        recent = await self.recent(account_id, before, limit)
+        return recent, self.days.progression_rows.get(account_id)
+
+
+@dataclass
+class InMemoryProgression:
+    """PR-08 `ProgressionRepository` over `InMemoryDays.progression_*`, with the SQL's
+    compare-and-set and latest-only undo. `calls` counts statements."""
+
+    days: InMemoryDays
+    calls: list[str] = field(default_factory=list[str])
+
+    def _events(self, account_id: UUID) -> list[ProgressionEvent]:
+        return [e for a, e in self.days.progression_events if a == account_id]
+
+    async def get(self, account_id: UUID) -> ProgressionView:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.calls.append("get")
+        events = self._events(account_id)
+        targets = frozenset(e.after for e in events if e.after is not None)
+        items = frozenset(e.item for e in events if e.kind is EventKind.ITEM_GIVEN and e.item)
+        newest = tuple(reversed(events))[:HISTORY_LIMIT]
+        return ProgressionView(
+            self.days.progression_rows.get(account_id), Earlier(targets, items), newest
+        )
+
+    async def apply(
+        self, account_id: UUID, change: Change, expected_event_id: int | None, marked_by: UUID
+    ) -> ProgressionEvent | None:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.calls.append("apply")
+        current = self.days.progression_rows.get(account_id)
+        if (current.last_event_id if current else None) != expected_event_id:
+            return None
+        event_id = 1 + max((e.id for _, e in self.days.progression_events), default=0)
+        event = ProgressionEvent(
+            event_id,
+            change.kind,
+            change.occurred_on,
+            change.before,
+            change.after,
+            change.item,
+            marked_by == account_id,
+        )
+        self.days.progression_events.append((account_id, event))
+        hint = (current.hint, current.hint_event_id) if current else (None, None)
+        self.days.progression_rows[account_id] = Progression(
+            change.state.position, change.state.items, event_id, *hint
+        )
+        return event
+
+    async def undo(self, account_id: UUID, event_id: int) -> bool:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.calls.append("undo")
+        current = self.days.progression_rows.get(account_id)
+        if current is None or current.last_event_id != event_id:
+            return False
+        event = next(e for e in self._events(account_id) if e.id == event_id)
+        self.days.progression_events.remove((account_id, event))
+        if event.kind is EventKind.START:
+            del self.days.progression_rows[account_id]
+            return True
+        previous = max((e.id for e in self._events(account_id)), default=None)
+        position, items = current.position, current.items
+        if event.kind is EventKind.ITEM_GIVEN and event.item:
+            items = items - {event.item}
+        elif event.kind is EventKind.ITEM_REMOVED and event.item:
+            items = items | {event.item}
+        elif event.before is not None:
+            position = event.before
+        self.days.progression_rows[account_id] = replace(
+            current, position=position, items=items, last_event_id=previous
+        )
+        return True
+
+    async def dismiss_hint(self, account_id: UUID, target: Position) -> None:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.calls.append("dismiss_hint")
+        current = self.days.progression_rows.get(account_id)
+        if current is not None:
+            self.days.progression_rows[account_id] = replace(
+                current, hint=target, hint_event_id=current.last_event_id
+            )
 
 
 @dataclass
@@ -799,6 +911,10 @@ class InMemoryStorage:
     @property
     def diary(self) -> InMemoryDiary:  # PR-07
         return InMemoryDiary(self.day_repo)
+
+    @property
+    def progression(self) -> InMemoryProgression:  # PR-08
+        return InMemoryProgression(self.day_repo)
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

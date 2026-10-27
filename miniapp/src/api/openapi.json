@@ -45,6 +45,15 @@
             "title": "Check In Tags",
             "type": "array"
           },
+          "milestone_items": {
+            "default": [],
+            "description": "Optional milestone items: drop-backs, standing up… (PR-08)",
+            "items": {
+              "$ref": "#/components/schemas/StopOut"
+            },
+            "title": "Milestone Items",
+            "type": "array"
+          },
           "series": {
             "description": "Confirmed series only, in practice order",
             "items": {
@@ -65,6 +74,65 @@
         "title": "CatalogOut",
         "type": "object"
       },
+      "CelebrationKind": {
+        "enum": [
+          "new_asana",
+          "series_complete",
+          "series_begins",
+          "item"
+        ],
+        "title": "CelebrationKind",
+        "type": "string"
+      },
+      "CelebrationOut": {
+        "properties": {
+          "first": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A jump over several stops: the first new one (maybe in the series before)"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The new stop, or the item",
+            "title": "Key"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CelebrationKind"
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series"
+          }
+        },
+        "required": [
+          "kind",
+          "series",
+          "key",
+          "first"
+        ],
+        "title": "CelebrationOut",
+        "type": "object"
+      },
       "CellOut": {
         "anyOf": [
           {
@@ -75,6 +143,39 @@
             "type": "string"
           }
         ]
+      },
+      "ChangeOut": {
+        "properties": {
+          "celebrations": {
+            "description": "Empty for a give: it was held before (show the quiet line)",
+            "items": {
+              "$ref": "#/components/schemas/CelebrationOut"
+            },
+            "title": "Celebrations",
+            "type": "array"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = nothing changed"
+          },
+          "progression": {
+            "$ref": "#/components/schemas/ProgressionOut"
+          }
+        },
+        "required": [
+          "progression",
+          "event",
+          "celebrations"
+        ],
+        "title": "ChangeOut",
+        "type": "object"
       },
       "CheckInBody": {
         "properties": {
@@ -667,9 +768,165 @@
           "invalid_settings",
           "invalid_day_off",
           "invalid_rest_period",
+          "invalid_progression",
+          "progression_changed",
+          "not_latest",
           "unavailable"
         ],
         "type": "string"
+      },
+      "EventBody": {
+        "properties": {
+          "expected_event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`last_event_id` as last seen",
+            "title": "Expected Event Id"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "kind": {
+            "enum": [
+              "set",
+              "given",
+              "item_given",
+              "item_removed"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last"
+          },
+          "occurred_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default: local today",
+            "title": "Occurred On"
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "set/given: null with last = standing",
+            "title": "Series"
+          }
+        },
+        "required": [
+          "kind",
+          "expected_event_id"
+        ],
+        "title": "EventBody",
+        "type": "object"
+      },
+      "EventKind": {
+        "enum": [
+          "start",
+          "given",
+          "changed",
+          "item_given",
+          "item_removed"
+        ],
+        "title": "EventKind",
+        "type": "string"
+      },
+      "EventOut": {
+        "properties": {
+          "from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EventKind"
+          },
+          "marked_by_self": {
+            "title": "Marked By Self",
+            "type": "boolean"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "occurred_on",
+          "from",
+          "to",
+          "item",
+          "marked_by_self"
+        ],
+        "title": "EventOut",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -706,6 +963,44 @@
           "commit"
         ],
         "title": "Health",
+        "type": "object"
+      },
+      "HintBody": {
+        "properties": {
+          "last": {
+            "maxLength": 64,
+            "title": "Last",
+            "type": "string"
+          },
+          "series": {
+            "maxLength": 64,
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "last"
+        ],
+        "title": "HintBody",
+        "type": "object"
+      },
+      "HintOut": {
+        "properties": {
+          "last": {
+            "title": "Last",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "last"
+        ],
+        "title": "HintOut",
         "type": "object"
       },
       "KeepBody": {
@@ -1349,6 +1644,40 @@
         "title": "PeriodResult",
         "type": "object"
       },
+      "PositionOut": {
+        "properties": {
+          "last": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last given stop point (natural key)",
+            "title": "Last"
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Series slug; null with `last` null = standing only",
+            "title": "Series"
+          }
+        },
+        "required": [
+          "series",
+          "last"
+        ],
+        "title": "PositionOut",
+        "type": "object"
+      },
       "PracticeBody": {
         "properties": {
           "context": {
@@ -1450,6 +1779,17 @@
                 "type": "null"
               }
             ]
+          },
+          "new_asana_hint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HintOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PR-08: ask \"New asana?\" about this stop (only when the length changed)"
           },
           "online": {
             "default": false,
@@ -1682,6 +2022,7 @@
               "short",
               "half_primary",
               "full_primary",
+              "mine",
               "recent"
             ],
             "title": "Kind",
@@ -1696,6 +2037,140 @@
           "length"
         ],
         "title": "Preset",
+        "type": "object"
+      },
+      "ProgressionOut": {
+        "properties": {
+          "by_series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesLastOut"
+            },
+            "title": "By Series",
+            "type": "array"
+          },
+          "events": {
+            "description": "Newest first, at most 20",
+            "items": {
+              "$ref": "#/components/schemas/EventOut"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "items": {
+            "description": "Milestone items given (catalog `milestone_items`)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "last_event_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Send back as `expected_event_id`",
+            "title": "Last Event Id"
+          },
+          "later": {
+            "description": "\"Another new asana…\": later stops",
+            "items": {
+              "$ref": "#/components/schemas/PositionOut"
+            },
+            "title": "Later",
+            "type": "array"
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The position as a practice (the series below + this one); null = standing only, unset or stale"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The next stop; null at the end or when stale"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = not set yet"
+          },
+          "set": {
+            "title": "Set",
+            "type": "boolean"
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unset only: from the logged practices"
+          },
+          "suggested_length": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`suggested` as a practice"
+          },
+          "today": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The caller's local date",
+            "title": "Today"
+          }
+        },
+        "required": [
+          "set",
+          "position",
+          "length",
+          "by_series",
+          "items",
+          "next",
+          "later",
+          "suggested",
+          "suggested_length",
+          "events",
+          "last_event_id"
+        ],
+        "title": "ProgressionOut",
         "type": "object"
       },
       "Quiet": {
@@ -1830,6 +2305,32 @@
         "title": "SeriesCount",
         "type": "object"
       },
+      "SeriesLastOut": {
+        "properties": {
+          "last": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Earlier series: their last stop; later ones: null",
+            "title": "Last"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "last"
+        ],
+        "title": "SeriesLastOut",
+        "type": "object"
+      },
       "SeriesOut": {
         "properties": {
           "halves_split": {
@@ -1866,6 +2367,17 @@
             },
             "title": "Stops",
             "type": "array"
+          },
+          "traditional": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StopOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Shown name (\"Yoga Chikitsa\"; key = slug): Primary and Intermediate only"
           }
         },
         "required": [
@@ -3620,6 +4132,268 @@
         "summary": "Put Notification Settings",
         "tags": [
           "moon"
+        ]
+      }
+    },
+    "/api/v1/me/progression": {
+      "get": {
+        "operationId": "get_mine_api_v1_me_progression_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Mine",
+        "tags": [
+          "progression"
+        ]
+      }
+    },
+    "/api/v1/me/progression/events": {
+      "post": {
+        "description": "Set (first time or a correction, never celebrates), a new asana (forward only), or a\nmilestone item. 409 `progression_changed`: refetch and show the fresh state.",
+        "operationId": "post_event_api_v1_me_progression_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Event",
+        "tags": [
+          "progression"
+        ]
+      }
+    },
+    "/api/v1/me/progression/events/{event_id}": {
+      "delete": {
+        "description": "Undo: only the latest event (409 `not_latest`).",
+        "operationId": "delete_event_api_v1_me_progression_events__event_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Event Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Event",
+        "tags": [
+          "progression"
+        ]
+      }
+    },
+    "/api/v1/me/progression/hint-dismissals": {
+      "post": {
+        "description": "\"Not new\": the question isn't asked again for this stop until the position changes.",
+        "operationId": "post_hint_dismissal_api_v1_me_progression_hint_dismissals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HintBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Hint Dismissal",
+        "tags": [
+          "progression"
         ]
       }
     },

@@ -24,3 +24,9 @@ def can_view_diary(viewer: Account, student: Account) -> bool:
     """Diary notes are the student's own (ADR-0025): no one else reads them or learns that
     one exists. ST-06 may add per-entry sharing here, off by default."""
     return viewer.id == student.id
+
+
+def can_view_progression(viewer: Account, student: Account) -> bool:
+    """Progression is the student's own for now (ADR-0026). ST-06 adds linked teachers here:
+    the position and the given asanas, never a change back or an undo."""
+    return viewer.id == student.id

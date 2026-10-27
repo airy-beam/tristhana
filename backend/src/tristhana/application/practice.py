@@ -15,6 +15,7 @@ from tristhana.domain.practice import (
     check_practice,
     derive_presets,
 )
+from tristhana.domain.progression import Track, my_presets, past_last
 
 
 class DayNotPracticed(Exception):
@@ -26,9 +27,12 @@ class NoPreviousPractice(Exception):
 
 
 class SavePractice:
-    def __init__(self, practices: PracticeRepository, catalog: PracticeCatalog) -> None:
+    def __init__(
+        self, practices: PracticeRepository, catalog: PracticeCatalog, track: Track | None = None
+    ) -> None:
         self._practices = practices
         self._catalog = catalog
+        self._track = track or Track(catalog)
 
     async def execute(
         self, principal: Principal, local_date: date, patch: PracticePatch
@@ -48,7 +52,11 @@ class SavePractice:
         )
         if saved is None:
             raise DayNotPracticed(local_date.isoformat())
-        return saved
+        if not saved.length_changed:
+            return saved  # "New asana?" only answers a length tap (PR-08)
+        p = saved.practice
+        hint = past_last(self._track, saved.progression, p.length, p.context)
+        return replace(saved, new_asana_hint=hint)
 
 
 class CopyLastPractice:
@@ -75,10 +83,17 @@ class ClearPractice:
 
 
 class GetPracticePresets:
-    def __init__(self, practices: PracticeRepository, catalog: PracticeCatalog) -> None:
+    def __init__(
+        self, practices: PracticeRepository, catalog: PracticeCatalog, track: Track | None = None
+    ) -> None:
         self._practices = practices
         self._catalog = catalog
+        self._track = track or Track(catalog)
 
     async def execute(self, principal: Principal, local_date: date) -> Presets:
-        recent = await self._practices.recent(principal.account.id, local_date, RECENT_LIMIT)
-        return derive_presets(self._catalog, recent)
+        """One statement: the recent practices with the progression ("🧘 My practice")."""
+        recent, progression = await self._practices.recent_with_progression(
+            principal.account.id, local_date, RECENT_LIMIT
+        )
+        mine = my_presets(self._track, progression, recent)
+        return derive_presets(self._catalog, recent, mine)

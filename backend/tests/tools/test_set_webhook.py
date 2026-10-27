@@ -67,6 +67,7 @@ def test_command_menu_is_localized_from_the_bot_ftl() -> None:
 
     assert [c["command"] for c in default["commands"]] == [
         "log",
+        "asanas",
         "remind",
         "moon",
         "settings",

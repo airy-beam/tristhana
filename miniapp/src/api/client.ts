@@ -420,7 +420,8 @@ export function useCatalog() {
     queryFn: async (): Promise<Catalog> => {
       const { data, error, response } = await api.GET("/api/v1/catalog");
       if (!data) fail(response, error);
-      return data;
+      const sent: Partial<Catalog> = data; // PR-08: older APIs send no milestone items
+      return { ...data, milestone_items: sent.milestone_items ?? [] };
     },
     staleTime: Infinity,
   });
@@ -817,6 +818,89 @@ export function useDismissDayOffQuestion() {
     },
     onError: (_error, _vars, context) => {
       if (context?.settings) client.setQueryData(SETTINGS_KEY, context.settings);
+    },
+  });
+}
+
+export type Progression = components["schemas"]["ProgressionOut"];
+export type ProgressionChange = components["schemas"]["ChangeOut"];
+export type ProgressionEventBody = components["schemas"]["EventBody"];
+export type Celebration = components["schemas"]["CelebrationOut"];
+export type ProgressionPosition = components["schemas"]["PositionOut"];
+
+const PROGRESSION_KEY = ["progression"] as const;
+
+/** "🧘 My asanas" (PR-08): where the practice ends now, items, the newest events. */
+export function useProgression(enabled = true) {
+  return useQuery({
+    queryKey: PROGRESSION_KEY,
+    enabled,
+    queryFn: async (): Promise<Progression> => {
+      const { data, error, response } = await api.GET("/api/v1/me/progression");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+/** Not optimistic: a celebration must reflect what the server stored. A 409 (another tap
+ * or device changed it first) refetches, so the screen shows the fresh state. */
+export function useProgressionEvent() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "progression" },
+    mutationFn: async (body: ProgressionEventBody): Promise<ProgressionChange> => {
+      const { data, error, response } = await api.POST("/api/v1/me/progression/events", {
+        body,
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (change) => {
+      client.setQueryData(PROGRESSION_KEY, change.progression);
+      void client.invalidateQueries({ queryKey: ["practice-presets"] }); // "🧘 My practice"
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        void client.invalidateQueries({ queryKey: PROGRESSION_KEY });
+      }
+    },
+  });
+}
+
+/** Undo the latest event only (409 `not_latest` refetches). */
+export function useUndoProgression() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "progression" },
+    mutationFn: async (eventId: number): Promise<Progression> => {
+      const { data, error, response } = await api.DELETE(
+        "/api/v1/me/progression/events/{event_id}",
+        { params: { path: { event_id: eventId } } },
+      );
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (progression) => {
+      client.setQueryData(PROGRESSION_KEY, progression);
+      void client.invalidateQueries({ queryKey: ["practice-presets"] });
+    },
+    onError: () => {
+      void client.invalidateQueries({ queryKey: PROGRESSION_KEY });
+    },
+  });
+}
+
+/** "Not new": the question isn't asked again for this stop until the position changes. */
+export function useDismissNewAsanaHint() {
+  return useMutation({
+    scope: { id: "progression" },
+    mutationFn: async (target: { series: string; last: string }) => {
+      const { error, response } = await api.POST("/api/v1/me/progression/hint-dismissals", {
+        body: target,
+      });
+      if (!response.ok) fail(response, error);
     },
   });
 }

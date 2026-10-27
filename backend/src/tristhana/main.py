@@ -36,6 +36,14 @@ from tristhana.application.practice import (
     GetPracticePresets,
     SavePractice,
 )
+from tristhana.application.progression import (
+    DismissNewAsanaHint,
+    GetProgression,
+    MarkItem,
+    MarkNewAsana,
+    SetPractice,
+    UndoProgression,
+)
 from tristhana.application.remind import (
     AnswerPracticeOffer,
     LogFromReminder,
@@ -60,12 +68,14 @@ from tristhana.bots.telegram.runtime import (
     DiaryUseCases,
     MoonUseCases,
     PracticeUseCases,
+    ProgressionUseCases,
     RemindUseCases,
     RestUseCases,
     SettingsUseCases,
     build_runtime,
 )
 from tristhana.bots.telegram.webhook import make_webhook_router
+from tristhana.domain.progression import Track
 from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
@@ -195,11 +205,12 @@ class _Services:
         app.state.record_device_timezone = RecordDeviceTimezone(self._storage.accounts)
         app.state.get_days, app.state.set_day_status = days.get, days.set
         app.state.clear_day_status = days.clear
+        track = Track(loaded.catalog)
         practices = PracticeUseCases(
-            save=SavePractice(self._storage.practices, loaded.catalog),
+            save=SavePractice(self._storage.practices, loaded.catalog, track),
             copy_last=CopyLastPractice(self._storage.practices),
             clear=ClearPractice(self._storage.practices),
-            presets=GetPracticePresets(self._storage.practices, loaded.catalog),
+            presets=GetPracticePresets(self._storage.practices, loaded.catalog, track),
             catalog=loaded.catalog,
         )
         app.state.save_practice, app.state.clear_practice = practices.save, practices.clear
@@ -216,6 +227,17 @@ class _Services:
             clear=ClearDiaryNote(self._storage.diary),
         )
         app.state.diary = diary
+        repo = self._storage.progression
+        progression = ProgressionUseCases(
+            get=GetProgression(repo, self._storage.practices, track, clock),
+            set=SetPractice(repo, track, clock),
+            give=MarkNewAsana(repo, track, clock),
+            item=MarkItem(repo, track, clock),
+            undo=UndoProgression(repo),
+            dismiss=DismissNewAsanaHint(repo),
+            track=track,
+        )
+        app.state.progression = progression
         app.state.practice_catalog, app.state.catalog_version = loaded.catalog, loaded.version
         moon = MoonUseCases(
             cities=cities,
@@ -267,6 +289,7 @@ class _Services:
         self._bot.rest = rest
         self._bot.check_ins = check_ins
         self._bot.diary = diary
+        self._bot.progression = progression
         self._bot.settings = SettingsUseCases(
             profile=app.state.update_profile,
             settings=notification_settings,
@@ -297,6 +320,7 @@ class _LazyBot:
         self.rest: RestUseCases | None = None
         self.check_ins: CheckInUseCases | None = None
         self.diary: DiaryUseCases | None = None
+        self.progression: ProgressionUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -325,6 +349,7 @@ class _LazyBot:
                 self.rest,
                 self.check_ins,
                 self.diary,
+                self.progression,
             )
         return self._runtime
 
