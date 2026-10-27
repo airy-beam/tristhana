@@ -5,7 +5,7 @@
 --
 -- tristhana_app: what the API service logs in as. DML only, no DDL: migration 0001 grants
 -- SELECT/INSERT/UPDATE/DELETE on schema `tristhana` tables (and default privileges for
--- tables created later by the migration role).
+-- tables created later by the migration role); 0015 adds USAGE/SELECT on sequences.
 -- Migrations log in as `postgres` via the `database-url-migrate` secret.
 
 CREATE ROLE tristhana_app LOGIN PASSWORD '<generate-a-password>'
@@ -24,5 +24,9 @@ DO $$ BEGIN
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA tristhana TO tristhana_app;
     ALTER DEFAULT PRIVILEGES IN SCHEMA tristhana
       GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tristhana_app;
+    -- Identity columns (progression_event, 0014) need their sequences too (0015).
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA tristhana TO tristhana_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA tristhana
+      GRANT USAGE, SELECT ON SEQUENCES TO tristhana_app;
   END IF;
 END $$;
