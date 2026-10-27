@@ -314,12 +314,8 @@ describe("PR-07 diary copy", () => {
     expect(format(ru, "diary-clear-confirm")).toBe("Удалить заметку?");
     expect(format(en, "diary-clear-yes")).toBe("Remove");
     expect(format(ru, "diary-clear-yes")).toBe("Удалить");
-    expect(format(en, "diary-removed")).toBe(
-      "Removed from your diary.",
-    );
-    expect(format(ru, "diary-removed")).toBe(
-      "Заметка удалена из дневника.",
-    );
+    expect(format(en, "diary-removed")).toBe("Removed from your diary.");
+    expect(format(ru, "diary-removed")).toBe("Заметка удалена из дневника.");
     expect(format(en, "diary-unreadable")).toBe(
       "This note can't be read right now. You can write a new one or remove it.",
     );

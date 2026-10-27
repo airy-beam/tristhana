@@ -27,8 +27,7 @@ const EARLIER = "2026-10-20";
 const DEVICE_NOW = new Date("2026-10-29T12:00:00Z"); // never used: the server's today wins
 const NOTE = "Felt light today. Teacher said: soft gaze in Marichyasana C.";
 const UNREADABLE = "This note can't be read right now. You can write a new one or remove it.";
-const REMOVED =
-  "Removed from your diary.";
+const REMOVED = "Removed from your diary.";
 
 const ME = {
   id: "00000000-0000-0000-0000-000000000001",
