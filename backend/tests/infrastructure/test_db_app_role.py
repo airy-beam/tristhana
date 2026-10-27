@@ -121,3 +121,24 @@ async def test_progression_writes_work_as_the_app_role(app_engine: AsyncEngine) 
     assert saved.progression is not None
     _, found = await practices.recent_with_progression(me, date(2026, 10, 28), 60)
     assert found is not None
+
+
+async def test_export_and_delete_work_as_the_app_role(app_engine: AsyncEngine) -> None:
+    """ST-09: the claim, the read-only snapshot transaction and the account delete."""
+    from datetime import UTC, datetime, timedelta
+
+    from tristhana.domain.notifications import DEFAULTS
+    from tristhana.infrastructure.db.export import SqlExportRepository
+
+    me = await _account(app_engine)
+    days = SqlDayLogRepository(app_engine, FieldCipher(KEYS))
+    await days.upsert(me, DayLog(ON, DayStatus.LADIES), "Asia/Almaty")
+    export = SqlExportRepository(app_engine, FieldCipher(KEYS))
+    now = datetime(2026, 10, 27, 12, tzinfo=UTC)
+
+    assert await export.claim(me, now, now - timedelta(minutes=10)) is None
+    owned = await export.snapshot(me, DEFAULTS, ON)
+    assert owned is not None
+    assert owned.days[0].status is DayStatus.LADIES
+    await export.release(me)
+    assert await SqlAccountRepository(app_engine).delete(me)

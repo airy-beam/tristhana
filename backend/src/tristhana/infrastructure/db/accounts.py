@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Row, Text, case, func, insert, literal, or_, select, update
+from sqlalchemy import Row, Text, case, delete, func, insert, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -180,6 +180,12 @@ class SqlAccountRepository:
         async with connection(self._engine) as conn:
             await conn.execute(stmt)
 
+    async def delete(self, account_id: UUID) -> bool:
+        """ST-09: every per-account FK cascades; others' `progression_event.marked_by` → NULL."""
+        stmt = delete(account).where(account.c.id == account_id).returning(literal(1))
+        async with connection(self._engine) as conn:
+            return (await conn.execute(stmt)).one_or_none() is not None
+
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> Account:
         stmt = (
             update(account)
@@ -213,3 +219,7 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         hide_ladies=row.hide_ladies,
         offer_check_in=row.offer_check_in,
     )
+
+
+ACCOUNT_COLUMNS = _COLUMNS
+to_account = _account

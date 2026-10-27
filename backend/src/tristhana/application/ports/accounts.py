@@ -48,3 +48,7 @@ class AccountRepository(Protocol):
     async def dismiss_day_off_question(self, account_id: UUID) -> None:
         """Idempotent: the first "Not now" is kept."""
         ...
+
+    async def delete(self, account_id: UUID) -> bool:
+        """One statement; every per-account row cascades (ST-09). False = already gone."""
+        ...

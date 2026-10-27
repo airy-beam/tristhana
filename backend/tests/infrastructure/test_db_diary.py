@@ -487,7 +487,9 @@ async def test_checks_allow_the_bounds(engine: AsyncEngine, length: int) -> None
 
 
 async def test_a_note_needs_an_account(engine: AsyncEngine) -> None:
-    with pytest.raises(IntegrityError):
+    from tristhana.application.ports.export import AccountGone
+
+    with pytest.raises(AccountGone):  # ST-09: a write racing the account's deletion
         await _repo(engine).save(uuid4(), MON, ASCII)
 
 

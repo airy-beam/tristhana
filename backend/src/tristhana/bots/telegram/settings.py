@@ -17,6 +17,7 @@ from aiogram.types import (
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import TimeArg, Translator
+from tristhana.bots.telegram import data_callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import remind_callbacks as rcb
 from tristhana.bots.telegram.day_off import day_off_line, day_off_picker
@@ -56,9 +57,13 @@ def client_profile(user: User) -> ExternalProfile:
 
 
 def register_settings(
-    router: Router, settings: SettingsUseCases, translator: Translator, miniapp_url: str = ""
+    router: Router,
+    settings: SettingsUseCases,
+    translator: Translator,
+    miniapp_url: str = "",
+    my_data: bool = False,
 ) -> None:
-    screens = SettingsScreens(settings, translator, miniapp_url)
+    screens = SettingsScreens(settings, translator, miniapp_url, my_data)
 
     @router.message(Command("settings"))
     async def on_settings(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
@@ -74,10 +79,13 @@ def register_settings(
 
 
 class SettingsScreens:
-    def __init__(self, s: SettingsUseCases, translator: Translator, miniapp_url: str) -> None:
+    def __init__(
+        self, s: SettingsUseCases, translator: Translator, miniapp_url: str, my_data: bool = False
+    ) -> None:
         self._s = s
         self._t = translator
         self._app = miniapp_url
+        self._my_data = my_data  # ST-09: the "📦 My data" row
 
     async def handle(
         self, principal: Principal, cb: SettingsCallback | None, client: ExternalProfile
@@ -210,6 +218,17 @@ class SettingsScreens:
                 )
             ],
         ]
+        if self._my_data:
+            rows.append(
+                [
+                    button(
+                        self._t,
+                        locale,
+                        "settings-data-button",
+                        dcb.encode(dcb.DataCallback("open")),
+                    )
+                ]
+            )
         if self._app:
             rows.append(
                 [

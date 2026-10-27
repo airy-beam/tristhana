@@ -514,3 +514,79 @@ milestone-label =
         [viparita-chakrasana] { $name } (tic-tacs)
        *[other] { $name }
     }
+
+## My data: export and account deletion (ST-09). "📦 My data" under /settings.
+
+settings-data-button = 📦 My data
+data-title = 📦 My data
+data-intro = Download everything you've logged here, or delete your account.
+export-button = ⬇️ Download my data
+export-preparing = Preparing your file…
+# $date = the local date, pre-formatted
+export-caption = Your Tristhana data as of { $date }: data.json for apps, CSV files for spreadsheets.
+export-sent = 📦 Sent below. The file includes your private entries (diary notes, all day statuses): once it's saved, you can delete it from this chat.
+# $minutes = whole minutes until the next export (1–10)
+export-too-soon = A file was sent a moment ago. Again in { $minutes } min.
+export-unreachable = Couldn't send the file to your chat. Open the bot, tap Start, then try again.
+export-too-large = This file is too big for Telegram, so it couldn't be sent. Your data is safe here, nothing has changed.
+delete-button = Delete my account…
+delete-export-first = ⬇️ Download my data first
+delete-confirm = Delete everything
+delete-explain =
+    This deletes your account and everything in it, right away: days and rest pauses, practices, check-ins, diary notes, your asana progress and settings. It can't be undone.
+    • Messages in this chat stay; you can clear the chat in Telegram.
+    • Copies in our backups disappear within 30 days.
+    • If you write to the bot again, it starts fresh.
+delete-expired = This button is out of date. Here it is again.
+delete-done = Your account and data are deleted. Wishing you good practice 🙏 Send /start any time to begin fresh.
+
+## Export file labels and README (ST-09): in the account's language.
+
+export-rest-unreadable = Rest (details couldn't be read)
+export-kind-start = Starting point
+export-kind-given = New asana
+export-kind-changed = Correction
+# $item = the milestone name (drop-backs, standing up, tic-tacs)
+export-kind-item-given = Marked: { $item }
+export-kind-item-removed = Unmarked: { $item }
+export-readme-title = Your Tristhana data
+export-readme-files =
+    data.json: everything, for apps (format "tristhana.export/1").
+    days.csv: one row per day you logged, with the practice, check-in and diary note.
+    rest_periods.csv: pauses (🌸, sick, travel), end date included.
+    progression.csv: your asana history.
+    CSV files open in any spreadsheet (UTF-8).
+# $city = the moon-day city
+export-readme-days = Only days you logged are listed. Your day off, moon days (by your city 📍 { $city }) and pause days are filled in by the app, so they aren't in the day list; pauses are in rest_periods.csv. Rest days are part of the practice.
+export-readme-moon-logged = "moon" in days.csv means you logged that day as a moon day.
+export-readme-moon-city = Moon days follow your city's calendar (📍 { $city }); ask your teacher if your shala uses different dates.
+export-readme-ladies = 🌸 days are listed here as they are, even where the app shows them as rest.
+# $statuses = one "code: label" line per status
+export-readme-statuses =
+    Day statuses:
+    { $statuses }
+export-readme-length = An empty "series" means a short practice: sun salutations, standing, backbends if you like, finishing.
+export-readme-halves = first_part: "first_half" = Primary, 1st half (up to Navasana); "second_half" = Primary, 2nd half (Bhujapidasana to the end), only together with Intermediate. Half Primary on its own is stored as series "primary", end "navasana".
+# $contexts = one "code: label" line per practice context
+export-readme-contexts =
+    Practice context:
+    { $contexts }
+# $series = one "slug: name" line per series
+# $series = one "code: name" line per series, each from export-readme-series-name
+export-readme-series =
+    Series (code: name):
+    { $series }
+export-readme-series-name =
+    { $n ->
+        [1] Primary (1st)
+        [2] Intermediate (2nd)
+        [3] Advanced A (3rd)
+        [4] Advanced B (4th)
+        [5] Advanced C (5th)
+       *[6] Advanced D (6th)
+    }
+export-readme-day-off = day_off.days: 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday, 7 = Sunday.
+export-readme-hide-ladies = hide_ladies: hide the 🌸 button (your 🌸 days are still in this file).
+export-readme-standing = In progression.csv, "standing" means sun salutations and standing only.
+export-readme-marked-by = marked_by: "self" = you, "teacher" = a teacher, "unknown" = an account that no longer exists.
+export-readme-unreadable = unreadable = yes: this entry was saved, but a private part couldn't be read. An unreadable day status is shown as rest (never 🌸); an unreadable diary note is left empty.

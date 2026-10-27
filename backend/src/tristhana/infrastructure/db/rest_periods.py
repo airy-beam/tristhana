@@ -70,6 +70,15 @@ def open_period(
     return RestPeriod(start, end, kind)
 
 
+def open_kind(cipher: Cipher, account_id: UUID, start: date, sealed: bytes) -> DayStatus | None:
+    """The period's kind for its owner; None = unreadable (ST-09 export: never guessed)."""
+    try:
+        return _UNSEALED.get(cipher.open(bytes(sealed), _aad(account_id, start)))
+    except UnreadableSeal:
+        log.warning("unreadable rest_period seal for account %s", account_id)
+        return None
+
+
 def open_periods(
     cipher: Cipher,
     account_id: UUID,

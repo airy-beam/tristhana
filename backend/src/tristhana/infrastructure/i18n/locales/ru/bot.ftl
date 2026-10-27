@@ -524,3 +524,79 @@ milestone-label =
         [viparita-chakrasana] { $name } (тик-токи)
        *[other] { $name }
     }
+
+## My data: export and account deletion (ST-09). "📦 My data" under /settings.
+
+settings-data-button = 📦 Мои данные
+data-title = 📦 Мои данные
+data-intro = Здесь можно скачать все свои записи или удалить аккаунт.
+export-button = ⬇️ Скачать мои данные
+export-preparing = Готовлю файл…
+# $date = the local date, pre-formatted
+export-caption = Твои данные из Tristhana на { $date }: data.json для программ, CSV для таблиц.
+export-sent = 📦 Файл ниже. В нём есть личные записи (заметки, все отметки дней): когда сохранишь его, файл можно удалить из чата.
+# $minutes = whole minutes until the next export (1–10)
+export-too-soon = Файл только что отправлен. Ещё раз — через { $minutes } мин.
+export-unreachable = Не получилось отправить файл в чат. Открой бота, нажми «Старт» и попробуй снова.
+export-too-large = Файл слишком большой для Telegram, отправить его не получилось. Твои данные на месте, ничего не изменилось.
+delete-button = Удалить аккаунт…
+delete-export-first = ⬇️ Сначала скачать данные
+delete-confirm = Удалить всё
+delete-explain =
+    Аккаунт и всё, что в нём, удалятся сразу: дни и паузы, практики, самочувствие, заметки, прогресс в асанах и настройки. Отменить это нельзя.
+    • Сообщения в этом чате останутся, их можно удалить в Telegram.
+    • Из резервных копий данные исчезнут в течение 30 дней.
+    • Если снова написать боту, всё начнётся с чистого листа.
+delete-expired = Кнопка устарела. Вот она снова.
+delete-done = Аккаунт и данные удалены. Хорошей практики 🙏 /start — и всё начнётся заново.
+
+## Export file labels and README (ST-09): in the account's language.
+
+export-rest-unreadable = Отдых (подробности не удалось прочитать)
+export-kind-start = Начальная точка
+export-kind-given = Новая асана
+export-kind-changed = Исправление
+# $item = the milestone name (drop-backs, standing up, tic-tacs)
+export-kind-item-given = Отмечено: { $item }
+export-kind-item-removed = Отметка снята: { $item }
+export-readme-title = Твои данные из Tristhana
+export-readme-files =
+    data.json: всё целиком, для программ (формат «tristhana.export/1»).
+    days.csv: по строке на каждый отмеченный день, с практикой, самочувствием и заметкой.
+    rest_periods.csv: паузы (🌸, болезнь, дорога), дата окончания включительно.
+    progression.csv: история асан.
+    CSV открываются в любой таблице (UTF-8).
+# $city = the moon-day city
+export-readme-days = Здесь только дни с записями. Выходной, лунные дни (по городу 📍 { $city }) и дни паузы приложение заполняет само, поэтому их нет в списке дней; паузы — в rest_periods.csv. Дни отдыха — часть практики.
+export-readme-moon-logged = «moon» в days.csv значит, что этот день отмечен как лунный.
+export-readme-moon-city = Лунные дни — по календарю города (📍 { $city }); если в твоей шале другие даты, спроси учителя.
+export-readme-ladies = Дни 🌸 здесь указаны как есть, даже там, где приложение показывает их как отдых.
+# $statuses = one "code: label" line per status
+export-readme-statuses =
+    Отметки дней:
+    { $statuses }
+export-readme-length = Пустое поле «series» — короткая практика: Сурья Намаскар, стоячие, прогибы по желанию, завершающие.
+export-readme-halves = first_part: «first_half» — 1-я половина первой (до Навасаны); «second_half» — 2-я половина первой (от Бхуджапидасаны до конца), только вместе со второй серией. Половина первой без второй серии записана как series «primary», end «navasana».
+# $contexts = one "code: label" line per practice context
+export-readme-contexts =
+    Формат практики:
+    { $contexts }
+# $series = one "slug: name" line per series
+# $series = one "code: name" line per series, each from export-readme-series-name
+export-readme-series =
+    Серии (код: название):
+    { $series }
+export-readme-series-name =
+    { $n ->
+        [1] Первая серия (Primary)
+        [2] Вторая серия (Intermediate)
+        [3] Третья серия (Advanced A)
+        [4] Четвёртая серия (Advanced B)
+        [5] Пятая серия (Advanced C)
+       *[6] Шестая серия (Advanced D)
+    }
+export-readme-day-off = day_off.days: 1 — понедельник, 2 — вторник, 3 — среда, 4 — четверг, 5 — пятница, 6 — суббота, 7 — воскресенье.
+export-readme-hide-ladies = hide_ladies: скрыть кнопку 🌸 (сами 🌸 дни всё равно есть в этом файле).
+export-readme-standing = В progression.csv «standing» значит: только Сурья Намаскар и стоячие.
+export-readme-marked-by = marked_by: «self» — ты, «teacher» — учитель, «unknown» — аккаунт, которого больше нет.
+export-readme-unreadable = unreadable = yes: запись сохранена, но личную часть не удалось прочитать. Такая отметка дня показана как отдых (никогда не 🌸), а такая заметка оставлена пустой.

@@ -1,5 +1,6 @@
 """In-memory adapters for tests above the infrastructure layer."""
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, date, datetime, timedelta
@@ -10,10 +11,12 @@ from uuid import UUID, uuid4
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.ports.accounts import IdentityTaken
 from tristhana.application.ports.days import History, Inserted, RangeView, Upserted
+from tristhana.application.ports.export import Owned
 from tristhana.application.ports.notifications import (
     Delivery,
     DeliveryResult,
     DeliveryStatus,
+    ExportFile,
     MoonReminder,
     Notification,
     PracticePause,
@@ -49,6 +52,7 @@ from tristhana.domain.accounts import (
     ProfileUpdate,
 )
 from tristhana.domain.days import DayLog, DayStatus, public_status
+from tristhana.domain.export import ExportIdentity
 from tristhana.domain.moon import Cities, MoonDay, MoonDayKind, MoonLocation
 from tristhana.domain.notifications import (
     NotificationSettings,
@@ -89,6 +93,7 @@ class InMemoryAccounts:
     writes: int = 0
     # Simulates a concurrent first contact: the next create finds the identity taken.
     steal_next_create: bool = False
+    deleted: list[UUID] = field(default_factory=list[UUID])
 
     async def find_by_identity(self, key: IdentityKey) -> Account | None:
         self._check()
@@ -151,6 +156,13 @@ class InMemoryAccounts:
     async def dismiss_day_off_question(self, account_id: UUID) -> None:
         self._check()
         self._save(replace(self.accounts[account_id], day_off_dismissed=True))
+
+    async def delete(self, account_id: UUID) -> bool:  # ST-09
+        self._check()
+        self.deleted.append(account_id)
+        for key in [k for k, v in self.identities.items() if v == account_id]:
+            del self.identities[key]
+        return self.accounts.pop(account_id, None) is not None
 
     def _insert(self, key: IdentityKey, new: NewAccount) -> Account:
         account = Account(
@@ -819,6 +831,10 @@ class FakeNotifier:
     delivered: list[tuple[Recipient, Notification]] = field(
         default_factory=list[tuple[Recipient, Notification]]
     )
+    exports: list[tuple[Recipient, ExportFile]] = field(
+        default_factory=list[tuple[Recipient, ExportFile]]
+    )
+    export_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
 
     @property
     def moon(self) -> list[tuple[Recipient, MoonReminder]]:
@@ -831,6 +847,69 @@ class FakeNotifier:
     async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult:
         self.delivered.append((recipient, notification))
         return self.outcomes.pop(0) if self.outcomes else DeliveryResult(DeliveryStatus.SENT)
+
+    async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:
+        self.exports.append((recipient, file))
+        if self.export_outcomes:
+            return self.export_outcomes.pop(0)
+        return DeliveryResult(DeliveryStatus.SENT)
+
+
+@dataclass
+class InMemoryExport:
+    """ST-09: the claim slot as the SQL does it; `snapshot` = the account and its Telegram id
+    (plus `owned`, when a test sets the rows). Row coverage is a DB test."""
+
+    accounts: InMemoryAccounts
+    claimed: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
+    released: list[UUID] = field(default_factory=list[UUID])
+    owned: Owned | None = None
+
+    async def snapshot(
+        self, account_id: UUID, defaults: NotificationSettings, reminders_from: date
+    ) -> Owned | None:
+        self.accounts._check()  # pyright: ignore[reportPrivateUsage]
+        account = self.accounts.accounts.get(account_id)
+        if account is None:
+            return None
+        if self.owned is not None:
+            return replace(self.owned, account=account)
+        identities = tuple(
+            ExportIdentity(k.provider.value, k.provider_user_id, NOW)
+            for k, v in self.accounts.identities.items()
+            if v == account_id
+        )
+        return Owned(account, identities, defaults, (), (), (), (), (), None, (), ())
+
+    async def claim(self, account_id: UUID, now: datetime, before: datetime) -> datetime | None:
+        self.accounts._check()  # pyright: ignore[reportPrivateUsage]
+        last = self.claimed.get(account_id)
+        if last is not None and last > before:
+            return last
+        self.claimed[account_id] = now
+        return None
+
+    async def release(self, account_id: UUID) -> None:
+        self.released.append(account_id)
+        self.claimed.pop(account_id, None)
+
+
+@dataclass
+class FakePacker:
+    """Packs as JSON so tests can look inside; the ZIP itself is the adapter's test."""
+
+    packed: list[tuple[dict[str, object], dict[str, list[list[str]]], str]] = field(
+        default_factory=list[tuple[dict[str, object], dict[str, list[list[str]]], str]]
+    )
+    size: int | None = None  # force a size (the too-large path)
+
+    async def pack(
+        self, data: dict[str, object], tables: dict[str, list[list[str]]], readme: str
+    ) -> bytes:
+        self.packed.append((data, tables, readme))
+        if self.size is not None:
+            return b"x" * self.size
+        return json.dumps({"data": data, "tables": tables, "readme": readme}).encode()
 
 
 @dataclass
@@ -852,6 +931,7 @@ class InMemoryStorage:
     day_repo: InMemoryDays = field(default_factory=InMemoryDays)
     moon_repo: InMemoryMoon = field(default_factory=InMemoryMoon)
     notification_repo: InMemoryNotifications | None = None
+    export_repo: InMemoryExport | None = None
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
@@ -915,6 +995,12 @@ class InMemoryStorage:
     @property
     def progression(self) -> InMemoryProgression:  # PR-08
         return InMemoryProgression(self.day_repo)
+
+    @property
+    def export(self) -> InMemoryExport:  # ST-09
+        if self.export_repo is None:
+            self.export_repo = InMemoryExport(self.repo)
+        return self.export_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

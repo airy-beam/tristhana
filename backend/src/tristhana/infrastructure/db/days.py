@@ -48,6 +48,17 @@ def _aad(account_id: UUID, local_date: date) -> bytes:
 _practice_on = practice_on_column
 
 
+def open_day_status(
+    cipher: Cipher, account_id: UUID, local_date: date, sealed: bytes
+) -> DayStatus | None:
+    """A rest row's true value (rest or 🌸) for its owner; None = unreadable (ST-09)."""
+    try:
+        return _UNSEALED.get(cipher.open(bytes(sealed), _aad(account_id, local_date)))
+    except UnreadableSeal:
+        log.warning("unreadable day_log seal for account %s", account_id)
+        return None
+
+
 def _snapshot(account_id: UUID, when: date) -> tuple[Label[Any], ...]:
     """RETURNING columns read from the pre-statement snapshot (WH-01): the day before's
     status, the periods covering the day before or the day, practice reminders on."""

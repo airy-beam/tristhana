@@ -356,14 +356,13 @@ async def test_0014_adds_the_tables_and_downgrade_drops_them(
     assert await SqlProgressionRepository(engine).apply(me, _start(NAVASANA), None, me)
 
 
-def test_0015_follows_0014_and_is_the_head() -> None:
+def test_0015_follows_0014() -> None:
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(migrate.alembic_config("postgresql://unused"))
     revision = script.get_revision("0015")
     assert revision is not None
-    assert revision.down_revision == "0014"
-    assert script.get_current_head() == "0015"
+    assert revision.down_revision == "0014"  # the head is checked by the newest migration
 
 
 def test_0014_tables_match_the_metadata(migrated_url: str) -> None:

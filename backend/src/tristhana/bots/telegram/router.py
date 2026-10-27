@@ -17,6 +17,7 @@ from aiogram.types import (
 from tristhana.application.accounts import EnsureAccount
 from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram import days as day_screens
+from tristhana.bots.telegram.data import register_data
 from tristhana.bots.telegram.diary import register_diary_reply
 from tristhana.bots.telegram.middleware import AccountMiddleware
 from tristhana.bots.telegram.moon import register_moon
@@ -24,6 +25,7 @@ from tristhana.bots.telegram.remind import register_remind
 from tristhana.bots.telegram.rest import register_rest
 from tristhana.bots.telegram.runtime import (
     CheckInUseCases,
+    DataUseCases,
     DayUseCases,
     DiaryUseCases,
     MoonUseCases,
@@ -51,6 +53,7 @@ def build_router(
     check_ins: CheckInUseCases | None = None,
     diary: DiaryUseCases | None = None,
     progression: ProgressionUseCases | None = None,
+    data: DataUseCases | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -71,7 +74,9 @@ def build_router(
     remind_screens = register_remind(router, remind, screens, translator, rest)
     if rest is not None:  # WH-01 rest periods (always wired by the app)
         register_rest(router, rest, remind, screens, remind_screens, translator)
-    register_settings(router, settings, translator, miniapp_url)
+    register_settings(router, settings, translator, miniapp_url, data is not None)
+    if data is not None:  # ST-09: My data (export, delete)
+        register_data(router, data, translator)
     if screens.diary is not None:  # after every command handler (PR-07 review)
         register_diary_reply(router, screens.diary)
 

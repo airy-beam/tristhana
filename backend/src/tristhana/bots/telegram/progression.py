@@ -353,16 +353,12 @@ class ProgressionScreens:
         return self.stop_label(locale, p)  # stale: still readable
 
     def item_label(self, locale: Locale, key: str) -> str:
-        """The catalog name (+ "(tic-tacs)" where people use one, from Fluent)."""
-        item = next((i for i in self._track.items if i.key == key), None)
-        name = item.label(locale) if item else key
-        return self.t.t(locale, "milestone-label", slug=key, name=name)
+        return self._practice.labels.item(locale, key)
 
     def stop_label(self, locale: Locale, p: Position | None) -> str:
         if p is None:
             return ""
-        stop = self._track.stop(p)
-        return stop.label(locale) if stop else (p.key or "")
+        return self._practice.labels.stop(locale, p.series or "", p.key or "")
 
     def _saved_line(self, locale: Locale, target: Position) -> str:
         if target == STANDING_ONLY:

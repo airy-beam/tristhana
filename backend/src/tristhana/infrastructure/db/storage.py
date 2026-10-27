@@ -16,6 +16,7 @@ from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
+from tristhana.application.ports.export import ExportRepository, Owned
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import (
     NotificationRepository,
@@ -72,6 +73,7 @@ class PostgresStorage:
         self._check_ins: CheckInRepository | None = None
         self._diary: DiaryRepository | None = None
         self._progression: ProgressionRepository | None = None
+        self._export: ExportRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -79,6 +81,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.diary import SqlDiaryRepository
         from tristhana.infrastructure.db.engine import build_engine
+        from tristhana.infrastructure.db.export import SqlExportRepository
         from tristhana.infrastructure.db.moon import SqlMoonCalendarRepository
         from tristhana.infrastructure.db.notifications import SqlNotificationRepository
         from tristhana.infrastructure.db.practice import SqlPracticeRepository
@@ -100,6 +103,7 @@ class PostgresStorage:
         self._check_ins = SqlCheckInRepository(self._engine)
         self._diary = SqlDiaryRepository(self._engine, self._cipher)
         self._progression = SqlProgressionRepository(self._engine)
+        self._export = SqlExportRepository(self._engine, self._cipher)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -176,6 +180,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._progression
 
+    @property
+    def export(self) -> ExportRepository:
+        if self._export is None:
+            raise RuntimeError("storage not started")
+        return self._export
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -230,6 +240,23 @@ class UnconfiguredStorage:
     @property
     def progression(self) -> ProgressionRepository:
         return _UnavailableProgression()
+
+    @property
+    def export(self) -> ExportRepository:
+        return _UnavailableExport()
+
+
+class _UnavailableExport:
+    async def snapshot(
+        self, account_id: UUID, defaults: NotificationSettings, reminders_from: date
+    ) -> Owned | None:
+        raise StorageUnavailable("not configured")
+
+    async def claim(self, account_id: UUID, now: datetime, before: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def release(self, account_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
 
 
 class _UnavailableProgression:
@@ -308,6 +335,9 @@ class _UnavailableAccounts:
         raise StorageUnavailable("not configured")
 
     async def dismiss_day_off_question(self, account_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, account_id: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 

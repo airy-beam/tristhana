@@ -700,6 +700,24 @@
         "title": "Days",
         "type": "object"
       },
+      "DeleteBody": {
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "const": "delete-everything",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          }
+        },
+        "title": "DeleteBody",
+        "type": "object"
+      },
       "DeviceTimezone": {
         "properties": {
           "timezone": {
@@ -738,6 +756,18 @@
         "properties": {
           "code": {
             "$ref": "#/components/schemas/ErrorCode"
+          },
+          "retry_after_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "export_too_soon: seconds until the next export",
+            "title": "Retry After S"
           }
         },
         "required": [
@@ -771,6 +801,11 @@
           "invalid_progression",
           "progression_changed",
           "not_latest",
+          "export_too_soon",
+          "bot_unreachable",
+          "export_too_large",
+          "confirmation_required",
+          "account_deleted",
           "unavailable"
         ],
         "type": "string"
@@ -926,6 +961,30 @@
           "marked_by_self"
         ],
         "title": "EventOut",
+        "type": "object"
+      },
+      "ExportSentOut": {
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_name",
+          "bytes",
+          "sent_at"
+        ],
+        "title": "ExportSentOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2720,6 +2779,71 @@
       }
     },
     "/api/v1/me": {
+      "delete": {
+        "description": "Deletes the account and everything in it, at once (no undo). The body must say\n`{\"confirm\": \"delete-everything\"}`, so a stray DELETE can't do it.",
+        "operationId": "delete_me_api_v1_me_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeleteBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Me",
+        "tags": [
+          "me"
+        ]
+      },
       "get": {
         "operationId": "get_me_api_v1_me_get",
         "responses": {
@@ -3795,6 +3919,83 @@
           }
         ],
         "summary": "Post Device Timezone",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/exports": {
+      "post": {
+        "description": "Sends the ZIP to the caller's chat with the bot. 429 `export_too_soon` (+ `Retry-After`)\nwithin 10 minutes of the last one; 409 `bot_unreachable` when the bot can't write to them\n(blocked or never started); 413 `export_too_large`.",
+        "operationId": "post_export_api_v1_me_exports_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportSentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Export",
         "tags": [
           "me"
         ]

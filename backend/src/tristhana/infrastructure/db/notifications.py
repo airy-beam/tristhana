@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import INTERVAL, insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.sql.elements import Label
 
+from tristhana.application.ports.export import AccountGone
 from tristhana.application.ports.notifications import (
     Delivery,
     PracticePause,
@@ -71,6 +72,8 @@ def _settings(row: Any, defaults: NotificationSettings) -> NotificationSettings:
     """A stored row (or None) over the defaults: NULL columns mean "the default"."""
     return effective(_stored(row), defaults)
 
+
+settings_over = _settings  # the export reads the row in its own transaction (ST-09)
 
 _SORTED = {"moon_offsets"}
 
@@ -337,8 +340,11 @@ class SqlNotificationRepository:
                 and_(d.c.status == "claimed", d.c.updated_at < func.now() - STALE_CLAIM),
             ),
         ).returning(literal(1))
-        async with connection(self._engine) as conn:
-            return (await conn.execute(stmt)).one_or_none() is not None
+        try:
+            async with connection(self._engine) as conn:
+                return (await conn.execute(stmt)).one_or_none() is not None
+        except AccountGone:  # deleted since the candidates were read (ST-09): never send
+            return False
 
     async def finish(self, account_id: UUID, key: str, status: str) -> None:
         d = notification_delivery
@@ -355,8 +361,11 @@ class SqlNotificationRepository:
         stmt = stmt.on_conflict_do_update(
             index_elements=[_S.c.account_id], set_={"unreachable_at": at, "updated_at": func.now()}
         )
-        async with connection(self._engine) as conn:
-            await conn.execute(stmt)
+        try:
+            async with connection(self._engine) as conn:
+                await conn.execute(stmt)
+        except AccountGone:  # nothing to pause any more
+            return
 
     async def prune(self, before: datetime) -> int:
         stmt = delete(notification_delivery).where(notification_delivery.c.created_at < before)

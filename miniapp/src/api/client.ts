@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import createClient from "openapi-fetch";
 
-import { rawInitData } from "../telegram";
+import { allowBotMessages, rawInitData } from "../telegram";
 import type { components, paths } from "./schema";
 
 // Typed client generated from the backend contract (ADR-0013); never hand-write API types.
@@ -12,9 +12,37 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 });
 
+// After "Delete my account" (ST-09) no request may go out: any call would create a new,
+// empty account (initData auth runs EnsureAccount on the server). While the DELETE is in
+// flight only it may go out, so nothing lands just after it.
+let accountDeleted = false;
+let deleting = false;
+const DELETE_ME = "/api/v1/me";
+const deletedListeners = new Set<() => void>();
+
+export function isAccountDeleted(): boolean {
+  return accountDeleted;
+}
+
+export function onAccountDeleted(listener: () => void): () => void {
+  deletedListeners.add(listener);
+  return () => deletedListeners.delete(listener);
+}
+
+function markAccountDeleted(): void {
+  if (accountDeleted) return;
+  accountDeleted = true;
+  deletedListeners.forEach((l) => {
+    l();
+  });
+}
+
 // Every request carries the signed Telegram initData; the API verifies it (ADR-0015).
 api.use({
   onRequest({ request }) {
+    if (accountDeleted) throw new Error("account deleted: no more requests");
+    const isDelete = request.method === "DELETE" && new URL(request.url).pathname === DELETE_ME;
+    if (deleting && !isDelete) throw new Error("account being deleted: no other requests");
     const raw = rawInitData();
     if (raw) request.headers.set("Authorization", `tma ${raw}`);
     return request;
@@ -30,17 +58,20 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: ErrorCode | null,
+    /** `export_too_soon` (ST-09): seconds until the next export. */
+    readonly retryAfterS: number | null = null,
   ) {
     super(`API ${String(status)}${code ? ` ${code}` : ""}`);
   }
 }
 
 function fail(response: Response, error: unknown): never {
-  const code =
-    error !== null && typeof error === "object" && "code" in error
-      ? (error.code as ErrorCode)
-      : null;
-  throw new ApiError(response.status, code);
+  const body = error !== null && typeof error === "object" ? error : {};
+  const code = "code" in body ? (body.code as ErrorCode) : null;
+  if (code === "account_deleted") markAccountDeleted(); // deleted elsewhere (the bot)
+  const wait =
+    "retry_after_s" in body && typeof body.retry_after_s === "number" ? body.retry_after_s : null;
+  throw new ApiError(response.status, code, wait);
 }
 
 export function useHealth() {
@@ -901,6 +932,61 @@ export function useDismissNewAsanaHint() {
         body: target,
       });
       if (!response.ok) fail(response, error);
+    },
+  });
+}
+
+export type ExportSent = components["schemas"]["ExportSentOut"];
+
+/** Sends the export ZIP to the person's chat with the bot (ST-09); the file never comes back
+ * over HTTP. Errors: 429 `export_too_soon`, 409 `bot_unreachable`, 413 `export_too_large`. */
+export function useSendExport() {
+  return useMutation({
+    mutationFn: async (): Promise<ExportSent> => {
+      try {
+        return await postExport();
+      } catch (e) {
+        // Opened by link, never started the bot: ask Telegram to let the bot write (its
+        // native prompt), then send once more.
+        if (e instanceof ApiError && e.code === "bot_unreachable" && (await allowBotMessages()))
+          return postExport();
+        throw e;
+      }
+    },
+  });
+}
+
+async function postExport(): Promise<ExportSent> {
+  const { data, error, response } = await api.POST("/api/v1/me/exports");
+  if (!data) fail(response, error);
+  return data;
+}
+
+/** Deletes the account and everything in it (ST-09). On 204: no further request goes out,
+ * the cache and this app's local storage are cleared, and the app shows the Done screen. */
+export function useDeleteAccount() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      deleting = true;
+      await client.cancelQueries();
+      try {
+        const { error, response } = await api.DELETE("/api/v1/me", {
+          body: { confirm: "delete-everything" },
+        });
+        if (!response.ok) fail(response, error);
+      } finally {
+        deleting = false;
+      }
+    },
+    onSuccess: () => {
+      markAccountDeleted();
+      client.clear();
+      try {
+        localStorage.clear();
+      } catch {
+        // storage unavailable (private mode): nothing kept anyway
+      }
     },
   });
 }
