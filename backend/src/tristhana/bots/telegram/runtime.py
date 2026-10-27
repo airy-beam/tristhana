@@ -7,13 +7,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from tristhana.application.accounts import EnsureAccount
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
+from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -108,6 +109,15 @@ class ProgressionUseCases:
 
 
 @dataclass(frozen=True, slots=True)
+class DataUseCases:
+    """ST-09: export my data and delete my account (shared by the bot and the API)."""
+
+    export: SendMyExport
+    delete: DeleteMyAccount
+    now: Callable[[], datetime]  # the delete button's 10-minute window
+
+
+@dataclass(frozen=True, slots=True)
 class MoonUseCases:
     cities: Cities
     view: GetMoonView
@@ -166,6 +176,7 @@ def build_runtime(
     check_ins: CheckInUseCases | None = None,
     diary: DiaryUseCases | None = None,
     progression: ProgressionUseCases | None = None,
+    data: DataUseCases | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -187,6 +198,7 @@ def build_runtime(
             check_ins,
             diary,
             progression,
+            data,
         )
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)

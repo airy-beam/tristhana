@@ -181,7 +181,8 @@ else
 fi
 
 step "Weekly database backup (Cloud Run Job ${BACKUP_JOB} → gs://${BACKUP_BUCKET}; infra/backup/README.md)"
-# Private bucket in the same region; dumps expire after 90 days.
+# Private bucket in the same region; dumps expire after 30 days (ST-09: a deleted account is
+# gone from every dump within 30 days, the same window as the logs that list deletions).
 if ! exists gcloud storage buckets describe "gs://${BACKUP_BUCKET}" --project "$PROJECT_ID"; then
   run gcloud storage buckets create "gs://${BACKUP_BUCKET}" --project "$PROJECT_ID" \
     --location "$REGION" --default-storage-class STANDARD \
@@ -189,7 +190,7 @@ if ! exists gcloud storage buckets describe "gs://${BACKUP_BUCKET}" --project "$
 fi
 lifecycle="$(mktemp)"
 trap 'rm -f "$policy" "$lifecycle"' EXIT
-echo '{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 90}}]}' >"$lifecycle"
+echo '{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 30}}]}' >"$lifecycle"
 run gcloud storage buckets update "gs://${BACKUP_BUCKET}" --project "$PROJECT_ID" \
   --lifecycle-file "$lifecycle"
 if ! exists "${gc[@]}" iam service-accounts describe "$BACKUP_SA_EMAIL"; then

@@ -467,3 +467,28 @@ milestone-label =
         [viparita-chakrasana] { $name } (тик-токи)
        *[other] { $name }
     }
+
+## My data: export and account deletion (ST-09). The file is sent by the bot to the chat.
+
+data-title = 📦 Мои данные
+data-intro = Здесь можно скачать все свои записи или удалить аккаунт.
+export-button = ⬇️ Скачать мои данные
+export-sending = Отправляю…
+export-sent-app = Отправлено в чат с ботом. В файле есть личные записи: когда сохранишь его, файл можно удалить из чата.
+# $minutes = whole minutes until the next export (1–10)
+export-too-soon = Файл только что отправлен. Ещё раз — через { $minutes } мин.
+export-unreachable = Не получилось отправить файл в чат. Открой бота, нажми «Старт» и попробуй снова.
+export-too-large = Файл слишком большой для Telegram, отправить его не получилось. Твои данные на месте, ничего не изменилось.
+export-failed = Не получилось отправить файл. Попробуй чуть позже.
+delete-button = Удалить аккаунт…
+delete-explain = Аккаунт и всё, что в нём, удалятся сразу: дни и паузы, практики, самочувствие, заметки, прогресс в асанах и настройки. Отменить это нельзя.
+delete-explain-chat = Сообщения в чате с ботом останутся, их можно удалить в Telegram.
+delete-explain-backups = Из резервных копий данные исчезнут в течение 30 дней.
+delete-explain-fresh = Если снова написать боту, всё начнётся с чистого листа.
+delete-export-first = ⬇️ Сначала скачать данные
+delete-confirm = Удалить всё
+delete-confirm-popup = Удалить аккаунт и все данные? Отменить нельзя.
+delete-cancel = Отмена
+delete-failed = Не получилось удалить. Попробуй чуть позже.
+delete-done-app = Аккаунт и данные удалены. Хорошей практики 🙏 Открой бота, когда захочешь начать заново.
+delete-close = Закрыть

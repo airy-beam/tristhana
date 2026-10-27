@@ -10,6 +10,7 @@ from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, SaveDiaryNote
+from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -212,3 +213,11 @@ def patch_notification_settings(request: Request) -> "PatchNotificationSettings"
 
 
 CurrentPrincipal = Annotated[Principal, Depends(principal)]
+
+
+def send_my_export(request: Request) -> "SendMyExport":
+    return cast("SendMyExport", request.app.state.account_data.export)
+
+
+def delete_my_account(request: Request) -> "DeleteMyAccount":
+    return cast("DeleteMyAccount", request.app.state.account_data.delete)

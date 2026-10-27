@@ -21,6 +21,8 @@ from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
+from tristhana.application.export import DeleteMyAccount, SendMyExport
+from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -64,6 +66,7 @@ from tristhana.bots.telegram.notifier import TelegramNotifier
 from tristhana.bots.telegram.runtime import (
     BotRuntime,
     CheckInUseCases,
+    DataUseCases,
     DayUseCases,
     DiaryUseCases,
     MoonUseCases,
@@ -78,6 +81,7 @@ from tristhana.bots.telegram.webhook import make_webhook_router
 from tristhana.domain.progression import Track
 from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
+from tristhana.infrastructure.export_zip import ZipExportPacker
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
 from tristhana.infrastructure.seed.cities_yaml import load_cities
@@ -194,6 +198,7 @@ class _Services:
             asyncio.to_thread(load_cities, seed / "cities.yaml"),
         )
         clock = SystemClock()
+        translator = FluentTranslator()
         ensure = EnsureAccount(self._storage.accounts, clock)
         days = DayUseCases(
             get=GetDays(self._storage.days, cities, clock),
@@ -238,6 +243,21 @@ class _Services:
             track=track,
         )
         app.state.progression = progression
+        account_data = DataUseCases(
+            export=SendMyExport(
+                self._storage.export,
+                ZipExportPacker(),
+                self._notifier,
+                translator,
+                PracticeLabels(translator, loaded.catalog, track),
+                cities,
+                loaded.version,
+                clock,
+            ),
+            delete=DeleteMyAccount(self._storage.accounts),
+            now=clock.now,
+        )
+        app.state.account_data = account_data
         app.state.practice_catalog, app.state.catalog_version = loaded.catalog, loaded.version
         moon = MoonUseCases(
             cities=cities,
@@ -290,6 +310,7 @@ class _Services:
         self._bot.check_ins = check_ins
         self._bot.diary = diary
         self._bot.progression = progression
+        self._bot.data = account_data
         self._bot.settings = SettingsUseCases(
             profile=app.state.update_profile,
             settings=notification_settings,
@@ -321,6 +342,7 @@ class _LazyBot:
         self.check_ins: CheckInUseCases | None = None
         self.diary: DiaryUseCases | None = None
         self.progression: ProgressionUseCases | None = None
+        self.data: DataUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -350,6 +372,7 @@ class _LazyBot:
                 self.check_ins,
                 self.diary,
                 self.progression,
+                self.data,
             )
         return self._runtime
 

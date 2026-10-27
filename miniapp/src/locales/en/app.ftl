@@ -456,3 +456,28 @@ milestone-label =
         [viparita-chakrasana] { $name } (tic-tacs)
        *[other] { $name }
     }
+
+## My data: export and account deletion (ST-09). The file is sent by the bot to the chat.
+
+data-title = 📦 My data
+data-intro = Download everything you've logged here, or delete your account.
+export-button = ⬇️ Download my data
+export-sending = Sending…
+export-sent-app = Sent to your chat with the bot. The file includes your private entries: once it's saved, you can delete it from the chat.
+# $minutes = whole minutes until the next export (1–10)
+export-too-soon = A file was sent a moment ago. Again in { $minutes } min.
+export-unreachable = Couldn't send the file to your chat. Open the bot, tap Start, then try again.
+export-too-large = This file is too big for Telegram, so it couldn't be sent. Your data is safe here, nothing has changed.
+export-failed = Couldn't send the file. Try again in a moment.
+delete-button = Delete my account…
+delete-explain = This deletes your account and everything in it, right away: days and rest pauses, practices, check-ins, diary notes, your asana progress and settings. It can't be undone.
+delete-explain-chat = Messages in the bot's chat stay; you can clear the chat in Telegram.
+delete-explain-backups = Copies in our backups disappear within 30 days.
+delete-explain-fresh = If you write to the bot again, it starts fresh.
+delete-export-first = ⬇️ Download my data first
+delete-confirm = Delete everything
+delete-confirm-popup = Delete your account and all data? This can't be undone.
+delete-cancel = Cancel
+delete-failed = Couldn't delete. Try again in a moment.
+delete-done-app = Your account and data are deleted. Wishing you good practice 🙏 Open the bot any time to start fresh.
+delete-close = Close

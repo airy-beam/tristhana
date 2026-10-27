@@ -9,6 +9,8 @@ import {
   isTMA,
   mainButton,
   miniApp,
+  popup,
+  requestWriteAccess,
   retrieveLaunchParams,
   retrieveRawInitData,
   themeParams,
@@ -143,4 +145,38 @@ export function useMainButton(
   useEffect(() => {
     mainButton.setParams.ifAvailable({ isLoaderVisible: loading, isEnabled: !loading });
   }, [loading]);
+}
+
+/** Telegram's native confirm popup with a destructive button (ST-09 delete); resolves true
+ * only for that button. Outside Telegram (dev), the browser's confirm. */
+export async function confirmDestructive(
+  message: string,
+  confirm: string,
+  cancel: string,
+): Promise<boolean> {
+  if (!popup.show.isAvailable()) return window.confirm(message);
+  const id = await popup.show({
+    message,
+    buttons: [
+      { id: "confirm", type: "destructive", text: confirm },
+      { id: "cancel", type: "default", text: cancel },
+    ],
+  });
+  return id === "confirm";
+}
+
+/** Asks Telegram to let the bot write to this person (ST-09: the export is a bot message;
+ * someone who opened the app by link may never have started the bot). True = allowed. */
+export async function allowBotMessages(): Promise<boolean> {
+  if (!requestWriteAccess.isAvailable()) return false;
+  try {
+    return (await requestWriteAccess()) === "allowed";
+  } catch {
+    return false;
+  }
+}
+
+/** Closes the Mini App (after the account was deleted); a no-op where unsupported. */
+export function closeApp(): void {
+  miniApp.close.ifAvailable();
 }

@@ -10,6 +10,7 @@ from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+from tristhana.application.ports.export import AccountGone
 from tristhana.application.ports.storage import StorageUnavailable
 
 # Fail fast: a tap should get a gentle "try again" rather than hang until Telegram gives up.
@@ -84,11 +85,23 @@ async def connection(engine: AsyncEngine) -> AsyncGenerator[AsyncConnection]:
     except DBAPIError as e:
         if e.connection_invalidated or is_unavailable(sqlstate(e)):
             raise StorageUnavailable(type(e).__name__) from e
+        if is_account_gone(e):
+            raise AccountGone from e
         raise
 
 
 def sqlstate(error: DBAPIError) -> str:
     return str(getattr(error.orig, "sqlstate", "") or "")
+
+
+def is_account_gone(error: DBAPIError) -> bool:
+    """A write hit the missing parent row of a just-deleted account (ST-09): 23503 on an
+    `<table>_account_id_fkey` constraint."""
+    if sqlstate(error) != "23503":
+        return False
+    cause = getattr(error.orig, "__cause__", None)
+    name = str(getattr(cause, "constraint_name", "") or getattr(error.orig, "constraint_name", ""))
+    return name.endswith("_account_id_fkey")
 
 
 def is_unavailable(state: str) -> bool:

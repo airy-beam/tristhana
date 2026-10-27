@@ -18,6 +18,7 @@ import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
 import { cityName } from "../MoonCard";
 import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
+import { MyData } from "./MyData";
 import { deviceZone, labelOf, zoneCity } from "./zones";
 
 const OFFSETS = [7, 3, 1] as const;
@@ -56,6 +57,7 @@ export default function Settings({ me, onBack, focus }: Props) {
       <PracticeReminderCard zone={me.timezone} />
       <Quiet zone={me.timezone} />
       <Privacy me={me} />
+      <MyData />
     </main>
   );
 }

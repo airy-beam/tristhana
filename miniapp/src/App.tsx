@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Localized } from "@fluent/react";
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
+import { isAccountDeleted, onAccountDeleted } from "./api/client";
 import { L10nProvider } from "./i18n/L10nProvider";
 import type { Locale } from "./i18n/negotiate";
+import { AccountDeleted } from "./screens/AccountDeleted";
 import { Home } from "./screens/Home";
 import { NotInTelegram } from "./screens/NotInTelegram";
 import { MoonCard } from "./screens/MoonCard";
@@ -46,10 +48,19 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
   }, []);
   // Telegram's ⋯ menu "Settings" item (ID-06).
   useSettingsButton(settings);
+  // ST-09: after deleting the account only the Done screen renders (no more requests).
+  const deleted = useSyncExternalStore(onAccountDeleted, isAccountDeleted);
   useEffect(() => {
     // After the first commit, so Telegram drops its placeholder once something is painted.
     if (inTelegram) markReady();
   }, [inTelegram]);
+  if (deleted) {
+    return (
+      <L10nProvider locale={locale}>
+        <AccountDeleted />
+      </L10nProvider>
+    );
+  }
   if (!inTelegram) {
     return (
       <L10nProvider locale={locale}>

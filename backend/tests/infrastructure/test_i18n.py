@@ -675,7 +675,7 @@ def test_progression_copy_avoids_competitive_or_guilty_words(locale: str) -> Non
     text = (files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl").read_text(
         encoding="utf-8"
     )
-    section = text.split("(PR-08)", 1)[1]  # the progression section closes the file
+    section = text.split("(PR-08)", 1)[1].split("(ST-09)", 1)[0]  # the progression section
     lines = [
         line.split("=", 1)[-1].lower()
         for line in section.splitlines()[1:]
@@ -684,3 +684,57 @@ def test_progression_copy_avoids_competitive_or_guilty_words(locale: str) -> Non
     assert len(lines) > 30
     for word in _AVOID[locale]:
         assert not [line for line in lines if word in line], word
+
+
+# ST-09 (spec §9): no sadness, retention nudges, "are you sure?", banned progression words, or
+# "skipped" anywhere in the export/delete copy and the README.
+_DATA_AVOID = {
+    "en": ("sad", "miss you", "sure?", "unlocked", "level up", "skipped"),
+    "ru": ("жаль", "уверен", "открыта серия", "пропуск", "скучать"),
+}
+
+
+def _data_section(locale: str) -> dict[str, str]:
+    text = (files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl").read_text(
+        encoding="utf-8"
+    )
+    section = text.split("(ST-09)", 1)[1]
+    messages: dict[str, str] = {}
+    key = ""
+    for line in section.splitlines()[1:]:
+        if not line.strip() or line.startswith("#"):
+            continue
+        if not line.startswith(" ") and "=" in line:
+            key, value = line.split("=", 1)
+            key = key.strip()
+            messages[key] = value.strip()
+        elif key:
+            messages[key] += "\n" + line.strip()
+    return messages
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_my_data_copy_avoids_guilt_nudges_and_banned_words(locale: str) -> None:
+    messages = _data_section(locale)
+    assert len(messages) > 30
+    for word in _DATA_AVOID[locale]:
+        assert not [k for k, v in messages.items() if word in v.lower()], word
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_export_sent_never_names_ladies_holiday_in_the_chat(locale: str) -> None:
+    sent = _data_section(locale)["export-sent"]
+
+    assert "🌸" not in sent
+    assert "ladies" not in sent.lower()
+    assert "женск" not in sent.lower()
+
+
+def test_ru_my_data_copy_is_gender_neutral() -> None:
+    """No past-tense verbs with a gender ending addressed to the person («удалил(а)»)."""  # noqa: RUF002
+    for key, value in _data_section("ru").items():
+        for word in value.replace("\n", " ").split():
+            stripped = word.strip(".,:;!?«»()").lower()
+            assert not stripped.endswith("(а)"), (key, word)  # noqa: RUF001
+        assert "ты удалил" not in value, key
+        assert "ты скачал" not in value, key

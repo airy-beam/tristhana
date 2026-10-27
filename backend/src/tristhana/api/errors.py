@@ -5,8 +5,9 @@ from typing import Literal
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from tristhana.application.ports.export import AccountGone
 from tristhana.application.ports.storage import StorageUnavailable
 
 type ErrorCode = Literal[
@@ -33,12 +34,20 @@ type ErrorCode = Literal[
     "invalid_progression",
     "progression_changed",
     "not_latest",
+    "export_too_soon",
+    "bot_unreachable",
+    "export_too_large",
+    "confirmation_required",
+    "account_deleted",
     "unavailable",
 ]
 
 
 class Error(BaseModel):
     code: ErrorCode
+    retry_after_s: int | None = Field(
+        default=None, description="export_too_soon: seconds until the next export"
+    )
 
 
 class ApiError(Exception):
@@ -70,4 +79,10 @@ def install_error_handlers(app: FastAPI) -> None:
 
     app.add_exception_handler(ApiError, api_error)
     app.add_exception_handler(RequestValidationError, invalid)
+
+    async def gone(_: Request, _exc: Exception) -> JSONResponse:
+        # A write raced the caller's own account deletion (ST-09).
+        return JSONResponse({"code": "account_deleted"}, status_code=410)
+
     app.add_exception_handler(StorageUnavailable, unavailable)
+    app.add_exception_handler(AccountGone, gone)

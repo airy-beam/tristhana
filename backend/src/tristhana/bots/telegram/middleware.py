@@ -5,12 +5,14 @@ unhandled updates cost no DB round trip.
 """
 
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from typing import Any, override
 
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from tristhana.application.accounts import EnsureAccount
+from tristhana.application.ports.export import AccountGone
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
@@ -43,4 +45,10 @@ class AccountMiddleware(BaseMiddleware):
             text = self._translator.t(negotiate_locale(user.language_code), "error-temporary")
             # A message gets a reply; a callback query gets its answer (a toast), as it must.
             return event.answer(text)
-        return await handler(event, data)
+        try:
+            return await handler(event, data)
+        except AccountGone:  # the account was deleted mid-tap (ST-09): stay silent
+            if isinstance(event, CallbackQuery):
+                with suppress(Exception):  # the tap may already have its answer
+                    await event.answer()
+            return None

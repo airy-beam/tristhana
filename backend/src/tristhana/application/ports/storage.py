@@ -5,6 +5,7 @@ from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
+from tristhana.application.ports.export import ExportRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import NotificationRepository
 from tristhana.application.ports.practice import PracticeRepository
@@ -57,6 +58,9 @@ class Storage(Protocol):
 
     @property
     def progression(self) -> ProgressionRepository: ...
+
+    @property
+    def export(self) -> ExportRepository: ...
 
 
 class Clock(Protocol):

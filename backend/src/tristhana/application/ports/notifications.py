@@ -169,5 +169,16 @@ class PracticeReminder:
 type Notification = MoonReminder | PracticeReminder
 
 
+@dataclass(frozen=True, slots=True)
+class ExportFile:
+    """The ST-09 export, sent to the person's own chat as a document."""
+
+    name: str
+    content: bytes
+    local_date: date  # named in the caption
+
+
 class Notifier(Protocol):
     async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult: ...
+
+    async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult: ...

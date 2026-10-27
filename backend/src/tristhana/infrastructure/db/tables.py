@@ -64,6 +64,8 @@ account = Table(
     Column("hide_ladies", Boolean(), nullable=False, server_default=text("false")),
     # PR-06: offer the one-tap check-in mood row after logging a practice.
     Column("offer_check_in", Boolean(), nullable=False, server_default=text("true")),
+    # ST-09: the export rate-limit slot (one per 10 min), released when sending fails.
+    Column("export_claimed_at", DateTime(timezone=True)),
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
+from tristhana.application.labels import PracticeLabels
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.practice import SavedPractice
@@ -45,7 +46,7 @@ from tristhana.domain.practice import (
     PracticeContext,
     PracticeLength,
 )
-from tristhana.domain.progression import Position
+from tristhana.domain.progression import Position, Track
 from tristhana.domain.rest_periods import PAUSABLE, RestPeriod
 
 if TYPE_CHECKING:
@@ -101,6 +102,7 @@ class PracticeScreens:
         self._t = translator
         self._day_screens = day_screens
         self._remind = remind
+        self.labels = PracticeLabels(translator, practices.catalog, Track(practices.catalog))
         self.progression: ProgressionScreens | None = None  # PR-08, set by `register`
 
     async def handle(self, principal: Principal, cb: PracticeCallback | None) -> Screen | None:
@@ -537,35 +539,13 @@ class PracticeScreens:
         return " · ".join(parts)
 
     def length_text(self, locale: Locale, length: PracticeLength) -> str:
-        if not length.series:
-            return self._t.t(locale, "length-summary", kind="short")
-        rng = Range.of(self._p.catalog, length)
-        if rng is None:
-            return " + ".join(length.series)  # stale catalog keys: still readable
-        range_text = self._range_text(locale, rng)
-        if length.end is None:
-            kind = "full-one" if len(length.series) == 1 and not length.first_part else "full"
-            return self._t.t(locale, "length-summary", kind=kind, range=range_text)
-        stop = self._p.catalog.stop(length.series[-1], length.end)
-        asana = stop.label(locale) if stop else length.end
-        return self._t.t(locale, "length-summary", kind="to", range=range_text, asana=asana)
+        return self.labels.length(locale, length)
 
     def _range_text(self, locale: Locale, rng: Range, only: bool = False) -> str:
-        names: list[str] = []
-        for n in range(rng.first, rng.last + 1):
-            if n == rng.first and rng.first_part is not None:
-                key = "half-first" if rng.first_part == "first_half" else "half-second"
-                names.append(self._t.t(locale, key, series=self._t.t(locale, "series-half", n=n)))
-            else:
-                names.append(self._series(locale, n, lower=bool(names)))
-        if only and rng.first == rng.last and rng.first_part is None:
-            return self._t.t(
-                locale, "length-only", series=self._series(locale, rng.last, lower=True)
-            )
-        return " + ".join(names)
+        return self.labels.range_text(locale, rng.first, rng.last, rng.first_part, only)
 
     def _series(self, locale: Locale, n: int, lower: bool = False) -> str:
-        return self._t.t(locale, "series-lower" if lower else "series-name", n=n)
+        return self.labels.series(locale, n, lower)
 
     def _button(
         self, locale: Locale, key: str, data: str, mark: bool = False

@@ -7,7 +7,7 @@ own GCP project (decided with ID-01, before the private beta).
 |---|---|
 | Job | Cloud Run Job `tristhana-backup` (europe-west3), image `postgres:17-alpine` pinned by digest, runs `infra/backup/backup.sh` |
 | Schedule | Cloud Scheduler `tristhana-backup-weekly`, Sundays 03:00 UTC |
-| Output | `gs://braided-trees-444417-u6-tristhana-backups/tristhana-<UTC timestamp>.dump` (pg_dump custom format, schema `tristhana` only), deleted after 90 days |
+| Output | `gs://braided-trees-444417-u6-tristhana-backups/tristhana-<UTC timestamp>.dump` (pg_dump custom format, schema `tristhana` only), deleted after 30 days (ST-09; was 90) |
 | DB login | role `tristhana_backup`: read-only (`infra/supabase/backup_role.sql`), secret `database-url-backup` |
 | TLS | verify-full against `supabase-ca` (the CA from `infra/supabase/certs/`, as a secret file) |
 | Account | SA `tristhana-backup`: create + read objects in the bucket, never delete or overwrite |
@@ -38,6 +38,17 @@ Run once by hand: `gcloud run jobs execute tristhana-backup --region europe-west
    URL from the `database-url-migrate` secret), then re-run the grants of
    `infra/supabase/roles.sql` and `infra/supabase/backup_role.sql` (the dump carries no
    privileges), and deploy as usual (migrations continue from the restored version).
+4. **Re-delete deleted accounts (ST-09, ADR-0027).** A dump may still hold accounts that were
+   deleted after it was taken. Every deletion logs one line `account deleted <uuid>` (Cloud
+   Logging keeps 30 days, the same as the dumps), so list them and delete them again before
+   opening the restored database to traffic. Restore only a dump **younger than 29 days**
+   (the bucket lifecycle can lag by a day, and older deletion lines may be gone):
+   ```sh
+   gcloud logging read 'resource.type="cloud_run_revision" AND jsonPayload.message:"account deleted"' \
+     --project braided-trees-444417-u6 --freshness 31d --format 'value(jsonPayload.message)' \
+     | awk '{print $3}' | sort -u > deleted.txt
+   # for each id: DELETE FROM tristhana.account WHERE id = '<uuid>';  (everything cascades)
+   ```
 
 Tested 2026-10-18 on a local Postgres 17: dump → restore into an empty database gave the
 same rows, the same sealed bytes and the same `alembic_version`.

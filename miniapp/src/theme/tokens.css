@@ -8,6 +8,7 @@
   --c-accent: var(--tg-theme-button-color, #3390ec);
   --c-accent-text: var(--tg-theme-button-text-color, #ffffff);
   --c-surface: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  --c-destructive: var(--tg-theme-destructive-text-color, #e53935);
   --space: 16px;
   color-scheme: light dark;
 }
@@ -427,4 +428,14 @@ body {
 }
 .history li {
   margin: 6px 0;
+}
+
+/* ST-09: delete my account */
+.danger {
+  color: var(--c-destructive);
+}
+
+.delete-explain ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
 }

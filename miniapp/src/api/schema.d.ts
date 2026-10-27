@@ -55,7 +55,12 @@ export interface paths {
         get: operations["get_me_api_v1_me_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Me
+         * @description Deletes the account and everything in it, at once (no undo). The body must say
+         *     `{"confirm": "delete-everything"}`, so a stray DELETE can't do it.
+         */
+        delete: operations["delete_me_api_v1_me_delete"];
         options?: never;
         head?: never;
         /** Patch Me */
@@ -247,6 +252,28 @@ export interface paths {
          * @description Stores the device zone only if none is set yet; returns the account either way.
          */
         post: operations["post_device_timezone_api_v1_me_device_timezone_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Export
+         * @description Sends the ZIP to the caller's chat with the bot. 429 `export_too_soon` (+ `Retry-After`)
+         *     within 10 minutes of the last one; 409 `bot_unreachable` when the bot can't write to them
+         *     (blocked or never started); 413 `export_too_large`.
+         */
+        post: operations["post_export_api_v1_me_exports_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -827,6 +854,11 @@ export interface components {
              */
             today: string;
         };
+        /** DeleteBody */
+        DeleteBody: {
+            /** Confirm */
+            confirm?: "delete-everything" | null;
+        };
         /** DeviceTimezone */
         DeviceTimezone: {
             /**
@@ -848,9 +880,14 @@ export interface components {
         /** Error */
         Error: {
             code: components["schemas"]["ErrorCode"];
+            /**
+             * Retry After S
+             * @description export_too_soon: seconds until the next export
+             */
+            retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -899,6 +936,18 @@ export interface components {
              */
             occurred_on: string;
             to: components["schemas"]["PositionOut"] | null;
+        };
+        /** ExportSentOut */
+        ExportSentOut: {
+            /** Bytes */
+            bytes: number;
+            /** File Name */
+            file_name: string;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1679,6 +1728,55 @@ export interface operations {
             };
         };
     };
+    delete_me_api_v1_me_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeleteBody"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     patch_me_api_v1_me_patch: {
         parameters: {
             query?: never;
@@ -2384,6 +2482,71 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_export_api_v1_me_exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportSentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
