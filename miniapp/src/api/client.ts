@@ -116,6 +116,7 @@ function withDays(data: Days): Days {
   return {
     ...withAuto(data),
     periods: Array.isArray(sent.periods) ? sent.periods : [],
+    notes: Array.isArray(sent.notes) ? sent.notes : [], // PR-07: older APIs send none
     practice_on: sent.practice_on === true,
   };
 }
@@ -557,6 +558,42 @@ export function useSaveCheckIn() {
     },
     onSettled: (_data, error) => {
       settleDays(client, error);
+    },
+  });
+}
+
+export type DayNote = components["schemas"]["DayNoteOut"];
+
+function withNote(days: Days, note: DayNote): Days {
+  const others = days.notes.filter((n) => n.date !== note.date);
+  const notes = note.text === null && !note.unreadable ? others : [...others, note];
+  return { ...days, notes: notes.sort((a, b) => a.date.localeCompare(b.date)) };
+}
+
+/** Saves (text) or removes (null) the day's diary note (PR-07). Not optimistic: a failed
+ * save keeps the editor open with the text; the server's value then goes into the cache. */
+export function useSaveDiaryNote() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "note" }, // independent of status taps
+    mutationFn: async ({ date, text }: { date: string; text: string | null }): Promise<DayNote> => {
+      const params = { path: { date } };
+      if (text === null) {
+        const { error, response } = await api.DELETE("/api/v1/me/days/{date}/note", { params });
+        if (!response.ok) fail(response, error);
+        return { date, text: null, unreadable: false };
+      }
+      const { data, error, response } = await api.PUT("/api/v1/me/days/{date}/note", {
+        params,
+        body: { text },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (saved) => {
+      client.setQueriesData<Days>({ queryKey: ["days"] }, (days) =>
+        days ? withNote(days, saved) : days,
+      );
     },
   });
 }

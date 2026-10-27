@@ -327,6 +327,53 @@
         "title": "Day",
         "type": "object"
       },
+      "DayNoteBody": {
+        "properties": {
+          "text": {
+            "description": "Plain text, up to 2000 characters; blank removes the note",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "DayNoteBody",
+        "type": "object"
+      },
+      "DayNoteOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: removed (blank text), or unreadable",
+            "title": "Text"
+          },
+          "unreadable": {
+            "default": false,
+            "description": "Stored, but can't be read right now",
+            "title": "Unreadable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "text"
+        ],
+        "title": "DayNoteOut",
+        "type": "object"
+      },
       "DayOffBody": {
         "properties": {
           "day_off": {
@@ -507,6 +554,15 @@
             "title": "Moon Location",
             "type": "string"
           },
+          "notes": {
+            "default": [],
+            "description": "The caller's diary notes in the window (PR-07), any status or none",
+            "items": {
+              "$ref": "#/components/schemas/DayNoteOut"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
           "periods": {
             "default": [],
             "description": "Rest periods overlapping the window, unclipped (WH-01): their unlogged days up to today show as their kind; `auto` never includes them",
@@ -604,6 +660,8 @@
           "invalid_length",
           "invalid_practice",
           "invalid_check_in",
+          "note_too_long",
+          "body_too_large",
           "timezone_unknown",
           "unknown_location",
           "invalid_settings",
@@ -2769,6 +2827,155 @@
         "summary": "Put Check In",
         "tags": [
           "check-in"
+        ]
+      }
+    },
+    "/api/v1/me/days/{date}/note": {
+      "delete": {
+        "description": "Idempotent. The day's status is untouched.",
+        "operationId": "delete_note_api_v1_me_days__date__note_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Note",
+        "tags": [
+          "diary"
+        ]
+      },
+      "put": {
+        "description": "Replaces the day's note (any status, or none). Blank text removes it.",
+        "operationId": "put_note_api_v1_me_days__date__note_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DayNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DayNoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Note",
+        "tags": [
+          "diary"
         ]
       }
     },

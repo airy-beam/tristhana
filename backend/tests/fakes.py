@@ -257,6 +257,9 @@ class InMemoryDays:
     check_in_rows: dict[tuple[UUID, date], Any] = field(
         default_factory=dict[tuple[UUID, date], Any]
     )
+    # PR-07: one note per local day (`DiaryNote`; `DiaryNote(None)` = an unreadable seal),
+    # independent of the status: status changes and clearing the day never touch it.
+    diary_rows: dict[tuple[UUID, date], Any] = field(default_factory=dict[tuple[UUID, date], Any])
     down: bool = False
     moon: "InMemoryMoon | None" = None  # for `range_with_moon`
     periods: InMemoryRestPeriods = field(default_factory=InMemoryRestPeriods)
@@ -339,11 +342,19 @@ class InMemoryDays:
     ) -> RangeView:
         days = await self.list_range(account_id, start, end)
         moon = await self.moon.days(location, start, end) if self.moon else []
+        notes = {
+            when: note
+            for (a, when), note in self.diary_rows.items()
+            if a == account_id and start <= when <= end
+        }
+        # PR-07: `notes` only when there are some, so this works before RangeView has it.
+        extra: dict[str, Any] = {"notes": notes} if notes else {}
         return RangeView(
             days,
             frozenset(d.date for d in moon),
             self._overlapping(account_id, start, end),
             self.practice_on(account_id),
+            **extra,
         )
 
     async def history(self, account_id: UUID, start: date, end: date) -> History:
@@ -493,6 +504,28 @@ class InMemoryCheckIns:
     async def delete(self, account_id: UUID, local_date: date) -> None:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         self.days.check_in_rows.pop((account_id, local_date), None)
+
+
+@dataclass
+class InMemoryDiary:
+    """PR-07 `DiaryRepository`: one row per local day in `InMemoryDays.diary_rows`, any
+    status or none (no tie to the day log); `DiaryNote` is imported lazily."""
+
+    days: InMemoryDays
+
+    async def save(self, account_id: UUID, local_date: date, text: str) -> None:
+        from tristhana.domain.diary import DiaryNote
+
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.days.diary_rows[(account_id, local_date)] = DiaryNote(text)
+
+    async def get(self, account_id: UUID, local_date: date) -> Any:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        return self.days.diary_rows.get((account_id, local_date))
+
+    async def delete(self, account_id: UUID, local_date: date) -> None:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.days.diary_rows.pop((account_id, local_date), None)
 
 
 @dataclass
@@ -762,6 +795,10 @@ class InMemoryStorage:
     @property
     def check_ins(self) -> InMemoryCheckIns:  # PR-06
         return InMemoryCheckIns(self.day_repo)
+
+    @property
+    def diary(self) -> InMemoryDiary:  # PR-07
+        return InMemoryDiary(self.day_repo)
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

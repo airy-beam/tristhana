@@ -16,6 +16,7 @@ import type { Locale } from "../i18n/negotiate";
 import { haptics } from "../telegram";
 import { AutoNote } from "./AutoNote";
 import { CheckIn } from "./CheckIn";
+import { DiaryNote } from "./DiaryNote";
 import { cityName } from "./MoonCard";
 import { PauseOffer, PeriodLine } from "./PauseOffer";
 import { PracticeDetails } from "./PracticeDetails";
@@ -164,6 +165,7 @@ export function TodayCard({ zone, locale }: Props) {
       {current === "practiced" && (
         <CheckIn date={today} checkIns={todayLog?.check_ins} today={today} />
       )}
+      <DiaryNote key={today} date={today} note={days.data.notes.find((n) => n.date === today)} />
       {current === "ladies" && (
         <Localized id="today-private-note">
           <p className="hint" />

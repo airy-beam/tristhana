@@ -3,6 +3,7 @@
 from typing import Literal
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -22,6 +23,8 @@ type ErrorCode = Literal[
     "invalid_length",
     "invalid_practice",
     "invalid_check_in",
+    "note_too_long",
+    "body_too_large",
     "timezone_unknown",
     "unknown_location",
     "invalid_settings",
@@ -55,5 +58,13 @@ def install_error_handlers(app: FastAPI) -> None:
     async def unavailable(_: Request, _exc: Exception) -> JSONResponse:
         return JSONResponse({"code": "unavailable"}, status_code=503)
 
+    async def invalid(_: Request, exc: Exception) -> JSONResponse:
+        # Never echo what was sent (a diary note is private, PR-07): FastAPI's default puts
+        # each error's `input` (and values in `ctx`) in the body.
+        assert isinstance(exc, RequestValidationError)  # noqa: S101 - registered for it only
+        detail = [{k: e[k] for k in ("type", "loc", "msg") if k in e} for e in exc.errors()]
+        return JSONResponse({"detail": detail}, status_code=422)
+
     app.add_exception_handler(ApiError, api_error)
+    app.add_exception_handler(RequestValidationError, invalid)
     app.add_exception_handler(StorageUnavailable, unavailable)

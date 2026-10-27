@@ -15,6 +15,7 @@ from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.days import DayLogRepository
+from tristhana.application.ports.diary import DiaryRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import (
     NotificationRepository,
@@ -67,11 +68,13 @@ class PostgresStorage:
         self._notifications: NotificationRepository | None = None
         self._rest_periods: RestPeriodRepository | None = None
         self._check_ins: CheckInRepository | None = None
+        self._diary: DiaryRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
         from tristhana.infrastructure.db.check_in import SqlCheckInRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
+        from tristhana.infrastructure.db.diary import SqlDiaryRepository
         from tristhana.infrastructure.db.engine import build_engine
         from tristhana.infrastructure.db.moon import SqlMoonCalendarRepository
         from tristhana.infrastructure.db.notifications import SqlNotificationRepository
@@ -91,6 +94,7 @@ class PostgresStorage:
         self._notifications = SqlNotificationRepository(self._engine)
         self._rest_periods = SqlRestPeriodRepository(self._engine, self._cipher)
         self._check_ins = SqlCheckInRepository(self._engine)
+        self._diary = SqlDiaryRepository(self._engine, self._cipher)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -155,6 +159,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._check_ins
 
+    @property
+    def diary(self) -> DiaryRepository:
+        if self._diary is None:
+            raise RuntimeError("storage not started")
+        return self._diary
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -201,6 +211,21 @@ class UnconfiguredStorage:
     @property
     def check_ins(self) -> CheckInRepository:
         return _UnavailableCheckIns()
+
+    @property
+    def diary(self) -> DiaryRepository:
+        return _UnavailableDiary()
+
+
+class _UnavailableDiary:
+    async def save(self, account_id: UUID, local_date: date, text: str) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def get(self, account_id: UUID, local_date: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, account_id: UUID, local_date: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
 
 
 class _UnavailableCheckIns:

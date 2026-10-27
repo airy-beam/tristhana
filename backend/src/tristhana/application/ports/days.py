@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.days import DayLog, DayStatus
+from tristhana.domain.diary import DiaryNote
 from tristhana.domain.rest_periods import RestPeriod
 
 
@@ -20,6 +21,7 @@ class RangeView:
     moon_dates: frozenset[date]  # moon days of the location in the range (auto-rest)
     periods: tuple[RestPeriod, ...] = ()  # rest periods overlapping the range, unclipped
     practice_on: bool = False  # practice reminders on (labels on covered days)
+    notes: dict[date, DiaryNote] = field(default_factory=dict[date, DiaryNote])  # PR-07
 
 
 @dataclass(frozen=True, slots=True)

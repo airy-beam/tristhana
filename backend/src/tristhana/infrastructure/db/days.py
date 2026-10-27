@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from typing import Any, Protocol
 from uuid import UUID
 
-from sqlalchemy import and_, delete, exists, func, literal, select
+from sqlalchemy import and_, case, delete, exists, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.sql.elements import Label
@@ -18,6 +18,7 @@ from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.domain.rest_periods import RestPeriod
 from tristhana.infrastructure.crypto import UnreadableSeal
 from tristhana.infrastructure.db.check_in import to_check_in
+from tristhana.infrastructure.db.diary import note_arrays, open_notes
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.practice import to_practice
 from tristhana.infrastructure.db.rest_periods import (
@@ -191,11 +192,16 @@ class SqlDayLogRepository:
             .subquery("moon")
         )
         days = self._range(account_id, start, end).subquery("days")
+        # The notes (up to 8 KB each) ride on the first row only, not on every (day, slot) row.
+        first = func.row_number().over(order_by=(days.c.local_date, days.c.slot)) == 1
+        note_dates, note_seals = note_arrays(account_id, start, end)
         # One row even when nothing is logged: the moon dates always come back (as `history`).
         stmt = (
             select(
                 moon.c.moon_dates,
                 *period_arrays(account_id, start, end),
+                case((first, note_dates), else_=None).label("note_dates"),  # PR-07
+                case((first, note_seals), else_=None).label("note_seals"),
                 _practice_on(account_id),
                 *days.c,
             )
@@ -210,6 +216,9 @@ class SqlDayLogRepository:
             moon_dates,
             self._periods(account_id, rows),
             bool(rows[0].practice_on) if rows else False,
+            open_notes(self._cipher, account_id, rows[0].note_dates, rows[0].note_seals)
+            if rows
+            else {},
         )
 
     async def history(self, account_id: UUID, start: date, end: date) -> History:

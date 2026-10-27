@@ -221,3 +221,148 @@ describe("PR-06 check-in copy", () => {
     expect(found).toEqual([]);
   });
 });
+
+// PR-07 (spec §6): the diary copy, both locales, and the words it never uses (PR-06's list
+// plus the diary's own).
+
+const PR07 = [
+  "diary-title",
+  "diary-add",
+  "diary-edit",
+  "diary-save",
+  "diary-cancel",
+  "diary-counter",
+  "diary-save-failed",
+  "diary-private-hint",
+  "diary-unreadable",
+  "diary-clear",
+  "diary-clear-confirm",
+  "diary-clear-yes",
+  "diary-removed",
+];
+
+const DIARY_AVOID = [
+  ...AVOID,
+  "journal",
+  "wrong",
+  "mistake",
+  "fail",
+  "improve",
+  "progress",
+  "goal",
+  "performance",
+  "achieve",
+  "lazy",
+  "excuse",
+  "keep up",
+  "don't forget",
+  "remember to",
+  "every day",
+  "habit",
+  "журнал",
+  "ошибк",
+  "неудач",
+  "прогресс",
+  "цель",
+  "результат",
+  "лень",
+  "оправдан",
+  "не забудь",
+  "каждый день",
+  "привычк",
+  "должен",
+  "должна",
+];
+
+/** The raw source (every variant) of each `diary-*` message. */
+function diarySources(source: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  let current: string | null = null;
+  for (const line of source.split("\n")) {
+    const start = /^([a-z][a-z0-9-]*)\s*=(.*)$/.exec(line);
+    if (start) {
+      const id = start[1] ?? "";
+      current = id.startsWith("diary-") ? id : null;
+      if (current) out[current] = start[2] ?? "";
+    } else if (current && /^\s/.test(line)) {
+      out[current] = `${out[current] ?? ""}\n${line}`;
+    } else {
+      current = null;
+    }
+  }
+  return out;
+}
+
+describe("PR-07 diary copy", () => {
+  it.each(LOCALES)("%s: has every PR-07 message", (locale) => {
+    const ids = messageIds(locale);
+    expect(PR07.filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it("reads as written", () => {
+    const en = bundleFor("en");
+    const ru = bundleFor("ru");
+    expect(format(en, "diary-title")).toBe("Diary");
+    expect(format(ru, "diary-title")).toBe("Дневник");
+    expect(format(en, "diary-add")).toBe("Add a note");
+    expect(format(ru, "diary-add")).toBe("Добавить заметку");
+    expect(format(en, "diary-private-hint")).toBe("Your diary is private: teachers don't see it.");
+    expect(format(ru, "diary-private-hint")).toBe("Дневник личный: преподаватели его не видят.");
+    expect(format(en, "diary-clear")).toBe("Remove note");
+    expect(format(ru, "diary-clear")).toBe("Удалить заметку");
+    expect(format(en, "diary-clear-confirm")).toBe("Remove this note?");
+    expect(format(ru, "diary-clear-confirm")).toBe("Удалить заметку?");
+    expect(format(en, "diary-clear-yes")).toBe("Remove");
+    expect(format(ru, "diary-clear-yes")).toBe("Удалить");
+    expect(format(en, "diary-removed")).toBe("Removed from your diary.");
+    expect(format(ru, "diary-removed")).toBe("Заметка удалена из дневника.");
+    expect(format(en, "diary-unreadable")).toBe(
+      "This note can't be read right now. You can write a new one or remove it.",
+    );
+    expect(format(ru, "diary-unreadable")).toBe(
+      "Эту заметку сейчас не получается прочитать. Можно написать новую или удалить старую.",
+    );
+    expect(format(en, "diary-save")).toMatch(/^save$/i);
+    expect(format(en, "diary-cancel")).toMatch(/^cancel$/i);
+    expect(format(en, "diary-edit")).toMatch(/edit/i);
+  });
+
+  it.each(LOCALES)("%s: the counter shows both numbers, plural-free", (locale) => {
+    const text = format(bundleFor(locale), "diary-counter", { n: 1850, max: 2000 });
+    expect(text).toMatch(/1[,.\s\u00a0\u202f]?850/);
+    expect(text).toMatch(/2[,.\s\u00a0\u202f]?000/);
+    expect(messageVariables(locale)["diary-counter"]?.sort()).toEqual(["max", "n"]);
+  });
+
+  it.each([
+    ["en", enApp],
+    ["ru", ruApp],
+  ])("%s: never uses a word to avoid", (_locale, source) => {
+    const sources = diarySources(source);
+    expect(Object.keys(sources).length).toBeGreaterThanOrEqual(PR07.length);
+    const found = Object.entries(sources).flatMap(([id, text]) =>
+      DIARY_AVOID.filter((word) => new RegExp(`(^|[^\\p{L}'])${word}`, "iu").test(text)).map(
+        (word) => `${id}: ${word}`,
+      ),
+    );
+    expect(found).toEqual([]);
+  });
+
+  it.each([
+    ["en", enApp],
+    ["ru", ruApp],
+  ])("%s: the Add link never nudges (no 'yet', no question, no count)", (_locale, source) => {
+    const add = diarySources(source)["diary-add"] ?? "";
+    expect(add).not.toMatch(/yet|пока|\?|\d/i);
+  });
+
+  it.each([
+    ["en", enApp],
+    ["ru", ruApp],
+  ])("%s: the diary icon is 📓, never a flower, a lotus or 📝", (_locale, source) => {
+    const all = Object.values(diarySources(source)).join(" ");
+    for (const icon of ["📝", "📖", "🪷", "🙏", "🌸", "🌺", "🌼", "🌷"]) {
+      expect(all).not.toContain(icon);
+    }
+  });
+});

@@ -2,6 +2,7 @@
 // no-ops when a feature isn't supported (older clients, or a browser in dev).
 import {
   backButton,
+  closingBehavior,
   settingsButton,
   hapticFeedback,
   init,
@@ -30,6 +31,7 @@ export function initTelegram(): void {
   backButton.mount.ifAvailable();
   settingsButton.mount.ifAvailable();
   mainButton.mount.ifAvailable();
+  closingBehavior.mount.ifAvailable();
   if (miniApp.mountSync.isAvailable()) {
     miniApp.mountSync(); // also mounts themeParams
   } else {
@@ -96,6 +98,15 @@ export function rawInitData(): string | undefined {
   } catch {
     return undefined; // outside Telegram
   }
+}
+
+/** Ask before the app closes (unsaved diary text, PR-07); a no-op where unsupported. */
+export function enableClosingConfirmation(): void {
+  closingBehavior.enableConfirmation.ifAvailable();
+}
+
+export function disableClosingConfirmation(): void {
+  closingBehavior.disableConfirmation.ifAvailable();
 }
 
 export const haptics = {

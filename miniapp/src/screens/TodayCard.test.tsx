@@ -23,10 +23,10 @@ function json(body: unknown, status = 200): Response {
 /** GET /me/days returns `days`; writes answer with `writeStatus` (0 = never answer).
  * Records every request. */
 /** Older fixtures predate WH-01: `periods` / `practice_on` default to none / off. */
-type DaysFixture = Omit<Days, "periods" | "practice_on"> & Partial<Days>;
+type DaysFixture = Omit<Days, "periods" | "practice_on" | "notes"> & Partial<Days>;
 
 function stubApi(fixture: DaysFixture, writeStatus = 200): Request[] {
-  const days: Days = { periods: [], practice_on: false, ...fixture };
+  const days: Days = { periods: [], practice_on: false, notes: [], ...fixture };
   const seen: Request[] = [];
   vi.stubGlobal(
     "fetch",

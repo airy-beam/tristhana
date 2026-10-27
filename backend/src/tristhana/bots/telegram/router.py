@@ -17,6 +17,7 @@ from aiogram.types import (
 from tristhana.application.accounts import EnsureAccount
 from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram import days as day_screens
+from tristhana.bots.telegram.diary import register_diary_reply
 from tristhana.bots.telegram.middleware import AccountMiddleware
 from tristhana.bots.telegram.moon import register_moon
 from tristhana.bots.telegram.remind import register_remind
@@ -24,6 +25,7 @@ from tristhana.bots.telegram.rest import register_rest
 from tristhana.bots.telegram.runtime import (
     CheckInUseCases,
     DayUseCases,
+    DiaryUseCases,
     MoonUseCases,
     PracticeUseCases,
     RemindUseCases,
@@ -46,6 +48,7 @@ def build_router(
     miniapp_url: str = "",
     rest: RestUseCases | None = None,
     check_ins: CheckInUseCases | None = None,
+    diary: DiaryUseCases | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -59,7 +62,7 @@ def build_router(
         return message.answer(translator.t(account.locale, "help-text"))
 
     screens = day_screens.register(
-        router, days, practices, translator, remind, miniapp_url, check_ins
+        router, days, practices, translator, remind, miniapp_url, check_ins, diary
     )
     register_start(router, screens, settings, translator, miniapp_url)
     register_moon(router, moon, translator)
@@ -67,6 +70,8 @@ def build_router(
     if rest is not None:  # WH-01 rest periods (always wired by the app)
         register_rest(router, rest, remind, screens, remind_screens, translator)
     register_settings(router, settings, translator, miniapp_url)
+    if screens.diary is not None:  # after every command handler (PR-07 review)
+        register_diary_reply(router, screens.diary)
 
     @router.callback_query()
     async def on_unknown_callback(callback: CallbackQuery) -> AnswerCallbackQuery:  # pyright: ignore[reportUnusedFunction]

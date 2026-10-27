@@ -4,6 +4,7 @@ from typing import Protocol
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.days import DayLogRepository
+from tristhana.application.ports.diary import DiaryRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import NotificationRepository
 from tristhana.application.ports.practice import PracticeRepository
@@ -49,6 +50,9 @@ class Storage(Protocol):
 
     @property
     def check_ins(self) -> CheckInRepository: ...
+
+    @property
+    def diary(self) -> DiaryRepository: ...
 
 
 class Clock(Protocol):

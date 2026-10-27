@@ -17,6 +17,7 @@ from tristhana.domain.days import (
     local_today,
     provisional_zone,
 )
+from tristhana.domain.diary import DiaryNote
 from tristhana.domain.moon import Cities, City
 from tristhana.domain.rest_days import AutoDay, auto_days, joined_on
 from tristhana.domain.rest_periods import (
@@ -40,6 +41,8 @@ class DaysView:
     periods: tuple[RestPeriod, ...] = ()  # overlapping the window, unclipped (WH-01)
     covered: dict[date, DayStatus] = field(default_factory=dict[date, DayStatus])
     practice_on: bool = False  # practice reminders on (labels on covered days)
+    # PR-07: the diary notes in the window, any status or none (single-day screens only).
+    notes: dict[date, DiaryNote] = field(default_factory=dict[date, DiaryNote])
 
     def period_on(self, day: date) -> RestPeriod | None:
         return next((p for p in self.periods if p.covers(day)), None)
@@ -102,7 +105,9 @@ class GetDays:
             covered=covered.keys(),
         )
         days = [_without_empty_check_ins(d) for d in view.days]
-        return DaysView(today, known, days, auto, city, view.periods, covered, view.practice_on)
+        return DaysView(
+            today, known, days, auto, city, view.periods, covered, view.practice_on, view.notes
+        )
 
 
 def _without_empty_check_ins(day: DayLog) -> DayLog:

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from tristhana.application.accounts import EnsureAccount
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
+from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -76,6 +77,15 @@ class CheckInUseCases:
 
 
 @dataclass(frozen=True, slots=True)
+class DiaryUseCases:
+    """PR-07: the diary note per day (shared by the bot and the API)."""
+
+    save: SaveDiaryNote
+    get: GetDiaryNote
+    clear: ClearDiaryNote
+
+
+@dataclass(frozen=True, slots=True)
 class MoonUseCases:
     cities: Cities
     view: GetMoonView
@@ -132,6 +142,7 @@ def build_runtime(
     miniapp_url: str = "",
     rest: RestUseCases | None = None,
     check_ins: CheckInUseCases | None = None,
+    diary: DiaryUseCases | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -151,6 +162,7 @@ def build_runtime(
             miniapp_url,
             rest,
             check_ins,
+            diary,
         )
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)

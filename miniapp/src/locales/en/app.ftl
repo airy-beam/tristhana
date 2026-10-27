@@ -382,3 +382,20 @@ checkin-clear = Remove check-in
 checkin-save-failed = Couldn't save the check-in. Try once more in a moment.
 settings-checkin = Offer a check-in after practice
 settings-checkin-hint = Mood, energy and effort right after logging today's practice. You can always add one from the day.
+
+## Diary note (PR-07). Private, per day, any status; never asked for.
+diary-title = Diary
+diary-add = Add a note
+diary-edit = Edit
+diary-save = Save
+diary-cancel = Cancel
+diary-placeholder = Your note…
+# Shown from 1800 characters; numbers only, so no plural forms.
+diary-counter = { $n } / { $max }
+diary-save-failed = Couldn't save the note. Your text is still here, so you can try once more.
+diary-private-hint = Your diary is private: teachers don't see it.
+diary-unreadable = This note can't be read right now. You can write a new one or remove it.
+diary-clear = Remove note
+diary-clear-confirm = Remove this note?
+diary-clear-yes = Remove
+diary-removed = Removed from your diary.

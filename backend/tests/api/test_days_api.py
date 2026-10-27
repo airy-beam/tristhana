@@ -54,6 +54,7 @@ def test_get_days_defaults_to_this_week(api: TestClient) -> None:
         "moon_location": "mysuru",
         "periods": [],  # WH-01 part 2
         "practice_on": False,
+        "notes": [],  # PR-07
     }
 
 

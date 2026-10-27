@@ -439,3 +439,26 @@ settings-checkin-line = ✨ Check-in after practice: { $offered ->
     }
 settings-checkin-off = ✨ Don't offer
 settings-checkin-on = ✨ Offer
+
+## Diary note (PR-07). Private, per day, any status. Never asked for; never echoed back.
+# $rel = today | yesterday | other, $date = a formatted date (as in day-label).
+diary-button = 📓 Note
+diary-preview = 📓 { $text }
+diary-empty = No note for this day. Write anything you'd like to keep: how the practice felt, what your teacher said, a new asana, or just a thought.
+diary-unreadable = This note can't be read right now. You can write a new one or remove it.
+diary-prompt = Write your note for { $rel ->
+        [today] today
+        [yesterday] yesterday
+       *[other] { $date }
+    } as a reply to this message. It's private, just for you.
+diary-prompt-replace = It will replace the current note. Copy the note above to edit it.
+diary-placeholder = Your note…
+diary-saved = 📓 Saved to your diary.
+diary-write = ✏️ Write
+diary-rewrite = ✏️ Rewrite
+diary-clear = Remove note
+diary-clear-confirm = Remove this note?
+diary-clear-yes = Remove
+diary-removed = Removed from your diary. Earlier messages in this chat stay until you delete them.
+diary-too-long = That's a bit long for one note: up to { $max } characters. Your text is still above, so you can shorten it and resend.
+diary-text-only = Notes are text for now. Type your note as a reply to the prompt above.

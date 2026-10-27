@@ -199,6 +199,22 @@ check_in = Table(
     CheckConstraint("cardinality(tags) <= 16", name="tags_max"),
 )
 
+# PR-07 (ADR-0025): one diary note per local day, sealed (ADR-0016). Tied to the account,
+# not to `day_log`: no status here, so a 🌸 day's note looks like any other day's. The
+# length CHECK: key id (1) + nonce (24) + tag (16) + 1..8000 bytes (2000 code points x 4).
+diary_note = Table(
+    "diary_note",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("local_date", Date(), nullable=False),
+    Column("sealed_text", LargeBinary(), nullable=False),
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    PrimaryKeyConstraint("account_id", "local_date"),
+    CheckConstraint("octet_length(sealed_text) BETWEEN 42 AND 8041", name="sealed_length"),
+    CheckConstraint("local_date >= '2000-01-01'", name="local_date_min"),
+)
+
 # MD-03 / ADR-0019: stored moon calendars per city (previous year … current + 2).
 moon_calendar = Table(
     "moon_calendar",

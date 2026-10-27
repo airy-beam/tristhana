@@ -171,6 +171,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/days/{date}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Note
+         * @description Replaces the day's note (any status, or none). Blank text removes it.
+         */
+        put: operations["put_note_api_v1_me_days__date__note_put"];
+        post?: never;
+        /**
+         * Delete Note
+         * @description Idempotent. The day's status is untouched.
+         */
+        delete: operations["delete_note_api_v1_me_days__date__note_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/days/{date}/practice-presets": {
         parameters: {
             query?: never;
@@ -548,6 +572,33 @@ export interface components {
             practices: components["schemas"]["PracticeOut"][];
             status: components["schemas"]["DayStatus"];
         };
+        /** DayNoteBody */
+        DayNoteBody: {
+            /**
+             * Text
+             * @description Plain text, up to 2000 characters; blank removes the note
+             */
+            text: string;
+        };
+        /** DayNoteOut */
+        DayNoteOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Text
+             * @description null: removed (blank text), or unreadable
+             */
+            text: string | null;
+            /**
+             * Unreadable
+             * @description Stored, but can't be read right now
+             * @default false
+             */
+            unreadable: boolean;
+        };
         /** DayOffBody */
         DayOffBody: {
             /**
@@ -634,6 +685,12 @@ export interface components {
              */
             moon_location: string;
             /**
+             * Notes
+             * @description The caller's diary notes in the window (PR-07), any status or none
+             * @default []
+             */
+            notes: components["schemas"]["DayNoteOut"][];
+            /**
              * Periods
              * @description Rest periods overlapping the window, unclipped (WH-01): their unlogged days up to today show as their kind; `auto` never includes them
              * @default []
@@ -680,7 +737,7 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1737,6 +1794,115 @@ export interface operations {
                 date: string;
                 /** @description One practice per day for now */
                 slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_note_api_v1_me_days__date__note_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DayNoteBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DayNoteOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_note_api_v1_me_days__date__note_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
             };
             cookie?: never;
         };
