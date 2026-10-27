@@ -9,6 +9,7 @@ from tristhana.api.errors import ApiError
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
+from tristhana.application.diary import ClearDiaryNote, SaveDiaryNote
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -94,6 +95,14 @@ def save_check_in(request: Request) -> SaveCheckIn:
 
 def clear_check_in(request: Request) -> ClearCheckIn:
     return cast(ClearCheckIn, request.app.state.check_ins.clear)
+
+
+def save_diary_note(request: Request) -> SaveDiaryNote:
+    return cast(SaveDiaryNote, request.app.state.diary.save)
+
+
+def clear_diary_note(request: Request) -> ClearDiaryNote:
+    return cast(ClearDiaryNote, request.app.state.diary.clear)
 
 
 def practice_presets(request: Request) -> GetPracticePresets:

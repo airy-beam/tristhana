@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from tristhana.api.deps import CurrentPrincipal, clear_day_status, get_days, set_day_status
 from tristhana.api.errors import ApiError, error_responses
 from tristhana.api.v1.check_in import CheckInOut
+from tristhana.api.v1.diary import NO_STORE, DayNoteOut
 from tristhana.api.v1.practice import PracticeOut
 from tristhana.api.v1.rest_periods import PauseOfferOut, RestPeriodOut
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
@@ -63,6 +64,10 @@ class Days(BaseModel):
         "days up to today show as their kind; `auto` never includes them",
     )
     practice_on: bool = Field(default=False, description="Practice reminders on (labels)")
+    notes: list[DayNoteOut] = Field(
+        default=[],
+        description="The caller's diary notes in the window (PR-07), any status or none",
+    )
 
 
 class DaySaved(Day):
@@ -84,6 +89,7 @@ class DayStatusBody(BaseModel):
 
 @router.get("", responses=error_responses(422))
 async def list_days(
+    response: Response,
     principal: CurrentPrincipal,
     use_case: Annotated[GetDays, Depends(get_days)],
     start: Annotated[dt.date | None, Query(alias="from")] = None,
@@ -94,6 +100,7 @@ async def list_days(
         view = await use_case.execute(principal, start, end)
     except InvalidRange:
         raise ApiError(422, "invalid_range") from None
+    response.headers.update(NO_STORE)  # carries private notes
     return Days(
         today=view.today,
         timezone_known=view.timezone_known,
@@ -102,6 +109,7 @@ async def list_days(
         moon_location=view.city.slug,
         periods=RestPeriodOut.all(view.periods),
         practice_on=view.practice_on,
+        notes=DayNoteOut.all(view.notes),
     )
 
 

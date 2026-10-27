@@ -18,6 +18,7 @@ from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice import DayNotPracticed
 from tristhana.bots.telegram.check_in_callbacks import PREFIX, CheckInCallback, decode, encode
+from tristhana.bots.telegram.diary import note_button
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.check_in import SCALE, CheckIn, CheckInTag
@@ -93,6 +94,7 @@ class CheckInScreens:
         self.t = translator
         self._day_screens = day_screens
         self._practice = practice
+        self.notes = False  # PR-07: K offers [📓 Note] (set by `days.register`)
 
     async def handle(self, principal: Principal, cb: CheckInCallback | None) -> Screen | None:
         if cb is None:
@@ -148,6 +150,8 @@ class CheckInScreens:
         if not c.is_empty():
             last.append(button(self.t, locale, "checkin-clear", data("clear", day)))
         rows.append(last)
+        if self.notes:
+            rows.append([note_button(self.t, locale, day, "k")])
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     # Screen T: body and mind tags, 2 per row, body first.

@@ -14,6 +14,7 @@ import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
 import { AutoNote } from "../AutoNote";
 import { CheckIn } from "../CheckIn";
+import { DiaryNote } from "../DiaryNote";
 import { PauseOffer, PeriodLine } from "../PauseOffer";
 import { PracticeDetails } from "../PracticeDetails";
 
@@ -111,6 +112,13 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
       )}
       {current === "practiced" && logged && days.data && (
         <CheckIn date={date} checkIns={logged.check_ins} today={days.data.today} />
+      )}
+      {days.data && (
+        <DiaryNote
+          key={date} // another day starts clean: no draft or confirm carried over
+          date={date}
+          note={days.data.notes.find((n) => n.date === date)}
+        />
       )}
       {current === "ladies" && showLadies && (
         <Localized id="today-private-note">

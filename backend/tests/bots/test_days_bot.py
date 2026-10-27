@@ -117,6 +117,7 @@ def test_log_shows_todays_status_picker(client: TestClient) -> None:
         "🤒 Sick / injury",
         "✈️ Travel",
         "🌱 No practice",
+        "📓 Note",  # PR-07
         "📅 Another day",
     ]
     assert all(len(b["callback_data"].encode()) <= 64 for b in _buttons(body))

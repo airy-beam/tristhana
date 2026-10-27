@@ -38,6 +38,7 @@ type Period = { start: string; end: string; kind: "ladies" | "sick" | "travel" }
 function days(over: Record<string, unknown> = {}): Days {
   return {
     today: TODAY,
+    notes: [], // PR-07
     timezone_known: true,
     auto: [],
     moon_location: "mysuru",

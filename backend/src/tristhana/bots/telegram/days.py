@@ -21,10 +21,12 @@ from tristhana.bots.telegram import practice_callbacks as pcb
 from tristhana.bots.telegram import rest_callbacks as acb
 from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encode
 from tristhana.bots.telegram.check_in import CheckInScreens, register_check_in
+from tristhana.bots.telegram.diary import DiaryScreens, note_button, preview, register_diary
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
 from tristhana.bots.telegram.runtime import (
     CheckInUseCases,
     DayUseCases,
+    DiaryUseCases,
     PracticeUseCases,
     RemindUseCases,
 )
@@ -79,12 +81,20 @@ def register(
     remind: RemindUseCases | None = None,
     miniapp_url: str = "",
     check_ins: CheckInUseCases | None = None,
+    diary: DiaryUseCases | None = None,
 ) -> DayScreens:
     screens = DayScreens(days, translator, miniapp_url)
     screens.practice = PracticeScreens(days, practices, translator, screens, remind)
     register_practice(router, screens.practice)
+    check_in_screens = None
     if check_ins is not None:  # PR-06 (always wired by the app)
-        register_check_in(router, CheckInScreens(check_ins, translator, screens, screens.practice))
+        check_in_screens = CheckInScreens(check_ins, translator, screens, screens.practice)
+        check_in_screens.notes = diary is not None
+        register_check_in(router, check_in_screens)
+    if diary is not None:  # PR-07 (always wired by the app)
+        screens.notes = True
+        screens.diary = DiaryScreens(diary, translator, screens, check_in_screens)
+        register_diary(router, screens.diary)  # callbacks; the reply handler goes last
 
     @router.message(Command("log"))
     async def on_log(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
@@ -119,6 +129,8 @@ class DayScreens:
         self._t = translator
         self.app_url = miniapp_url
         self.practice: PracticeScreens | None = None  # set by `register`
+        self.notes = False  # PR-07: the picker shows the day's note (set by `register`)
+        self.diary: DiaryScreens | None = None  # set by `register`
 
     def today(self, principal: Principal) -> tuple[date, bool]:
         return self._days.get.today(principal)
@@ -169,6 +181,9 @@ class DayScreens:
         if auto:
             lines.append(auto)
         text = "\n\n".join([*lines, self._t.t(locale, "log-prompt", day=label)])
+        note = preview(self._t, locale, view.notes.get(day)) if self.notes else None
+        if note:  # under the day itself; single-day screens only (never the week picker)
+            text += "\n\n" + note
         shown = current or view.covered.get(day)
         rows = self.status_rows(principal, day, current, shown)
         period = view.period_on(day)
@@ -179,6 +194,8 @@ class DayScreens:
             last.insert(0, self._button(locale, "practice-details", _details(day)))
         if current is not None:
             last.append(self._button(locale, "log-clear", encode(DayCallback("clear", day))))
+        if self.notes:
+            rows.append([note_button(self._t, locale, day, "d")])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=[*rows, last])), auto
 
     def status_rows(

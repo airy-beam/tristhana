@@ -391,3 +391,267 @@ def test_check_in_copy_avoids_judging_words(locale: str) -> None:
     }
 
     assert found == set()
+
+
+# PR-07 (spec §6): the diary copy exists in both locales, formats as written (the prompt in
+# RU with today / yesterday / another day), the length is a number with no plural forms, and
+# the copy avoids judging words (PR-06's list plus the diary's own).
+
+PR07_KEYS = [
+    "diary-button",
+    "diary-empty",
+    "diary-prompt",
+    "diary-prompt-replace",
+    "diary-placeholder",
+    "diary-saved",
+    "diary-write",
+    "diary-rewrite",
+    "diary-clear",
+    "diary-clear-confirm",
+    "diary-clear-yes",
+    "diary-removed",
+    "diary-too-long",
+    "diary-text-only",
+    "diary-unreadable",
+    "diary-preview",
+]
+DIARY_AVOID = [
+    *AVOID,
+    "journal",
+    "wrong",
+    "mistake",
+    "fail",
+    "improve",
+    "progress",
+    "goal",
+    "performance",
+    "achieve",
+    "lazy",
+    "excuse",
+    "keep up",
+    "don't forget",
+    "remember to",
+    "every day",
+    "habit",
+    "журнал",
+    "ошибк",
+    "неудач",
+    "прогресс",
+    "цель",
+    "результат",
+    "лень",
+    "оправдан",
+    "не забудь",
+    "каждый день",
+    "привычк",
+    "должен",
+    "должна",
+]
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_pr07_keys_exist(locale: str) -> None:
+    assert set(PR07_KEYS) - message_ids(locale) == set()  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("locale", "key", "text"),
+    [
+        ("en", "diary-button", "📓 Note"),
+        ("ru", "diary-button", "📓 Заметка"),
+        (
+            "en",
+            "diary-empty",
+            "No note for this day. Write anything you'd like to keep: how the practice felt, "
+            "what your teacher said, a new asana, or just a thought.",
+        ),
+        (
+            "ru",
+            "diary-empty",
+            "Заметки за этот день нет. Можно записать что угодно: как прошла практика, что "
+            "сказал преподаватель, новая асана или просто мысль.",
+        ),
+        (
+            "en",
+            "diary-prompt-replace",
+            "It will replace the current note. Copy the note above to edit it.",
+        ),
+        (
+            "ru",
+            "diary-prompt-replace",
+            "Она заменит текущую. Текст заметки выше можно скопировать и поправить.",
+        ),
+        ("en", "diary-placeholder", "Your note…"),
+        ("ru", "diary-placeholder", "Твоя заметка…"),
+        ("en", "diary-saved", "📓 Saved to your diary."),
+        ("ru", "diary-saved", "📓 Сохранено в дневнике."),
+        ("en", "diary-write", "✏️ Write"),
+        ("ru", "diary-write", "✏️ Написать"),
+        ("en", "diary-rewrite", "✏️ Rewrite"),
+        ("ru", "diary-rewrite", "✏️ Переписать"),
+        ("en", "diary-clear", "Remove note"),
+        ("ru", "diary-clear", "Удалить заметку"),
+        ("en", "diary-clear-confirm", "Remove this note?"),
+        ("ru", "diary-clear-confirm", "Удалить заметку?"),
+        ("en", "diary-clear-yes", "Remove"),
+        ("ru", "diary-clear-yes", "Удалить"),
+        (
+            "en",
+            "diary-removed",
+            "Removed from your diary. Earlier messages in this chat stay until you delete them.",
+        ),
+        (
+            "ru",
+            "diary-removed",
+            "Заметка удалена из дневника. Сообщения выше в чате остаются, их можно удалить "
+            "в Telegram.",
+        ),
+        (
+            "en",
+            "diary-text-only",
+            "Notes are text for now. Type your note as a reply to the prompt above.",
+        ),
+        (
+            "ru",
+            "diary-text-only",
+            "Пока заметки бывают только текстом. Напиши её ответом на сообщение выше.",
+        ),
+        (
+            "en",
+            "diary-unreadable",
+            "This note can't be read right now. You can write a new one or remove it.",
+        ),
+        (
+            "ru",
+            "diary-unreadable",
+            "Эту заметку сейчас не получается прочитать. Можно написать новую или удалить старую.",
+        ),
+    ],
+)
+def test_pr07_copy_reads_as_written(locale: str, key: str, text: str) -> None:
+    assert _flat(locale, key) == text
+
+
+def _day(iso: str) -> object:
+    from datetime import date
+
+    from tristhana.application.ports.i18n import DateArg
+
+    return DateArg(date.fromisoformat(iso))
+
+
+@pytest.mark.parametrize(
+    ("locale", "rel", "expected"),
+    [
+        (
+            "en",
+            "today",
+            "Write your note for today as a reply to this message. It's private, just for you.",
+        ),
+        (
+            "en",
+            "yesterday",
+            "Write your note for yesterday as a reply to this message. It's private, just for you.",
+        ),
+        (
+            "en",
+            "other",
+            "Write your note for Tue, Oct 27 as a reply to this message. It's private, just for "
+            "you.",
+        ),
+        (
+            "ru",
+            "today",
+            "Напиши заметку за сегодня в ответ на это сообщение. Она личная, только для тебя.",
+        ),
+        (
+            "ru",
+            "yesterday",
+            "Напиши заметку за вчера в ответ на это сообщение. Она личная, только для тебя.",
+        ),
+        (
+            "ru",
+            "other",
+            "Напиши заметку за вт, 27 окт. в ответ на это сообщение. Она личная, только для тебя.",
+        ),
+    ],
+)
+def test_the_prompt_names_the_day(locale: str, rel: str, expected: str) -> None:
+    # `rel` + `date` as in `day-label` (the spec's `$day`): RU needs «за сегодня», not
+    # «за Сегодня, вт, 27 окт.».
+    assert _flat(locale, "diary-prompt", rel=rel, date=_day("2026-10-27")) == expected
+
+
+def test_too_long_names_the_limit_as_a_number() -> None:
+    assert _flat("en", "diary-too-long", max=2000) == (
+        "That's a bit long for one note: up to 2,000 characters. Your text is still above, "
+        "so you can shorten it and resend."
+    )
+    assert _flat("ru", "diary-too-long", max=2000) == (
+        # _flat turns the NBSP group separator into a space.
+        "Для одной заметки длинновато: до 2 000 символов. Текст остался выше, можно "
+        "сократить и отправить снова."
+    )
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_the_preview_is_the_text_after_the_icon(locale: str) -> None:
+    assert _t(locale, "diary-preview", text="Felt light…") == "📓 Felt light…"
+
+
+def _diary_sources(locale: str) -> dict[str, str]:
+    """The source (every variant) of each `diary-*` message, value only."""
+    from fluent.syntax import FluentParser, FluentSerializer, ast
+
+    root = files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl"
+    parsed = FluentParser().parse(root.read_text(encoding="utf-8"))
+    return {
+        e.id.name: FluentSerializer().serialize_entry(e).split("=", 1)[1]
+        for e in parsed.body
+        if isinstance(e, ast.Message) and e.id.name.startswith("diary-")
+    }
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_diary_copy_avoids_judging_words(locale: str) -> None:
+    import re
+
+    sources = _diary_sources(locale)
+    assert set(PR07_KEYS) <= set(sources)
+    found = {
+        (key, word)
+        for key, source in sources.items()
+        for word in DIARY_AVOID
+        if re.search(rf"(?<![\w']){re.escape(word)}", source, re.IGNORECASE)
+    }
+
+    assert found == set()
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_an_absent_note_is_never_nudged(locale: str) -> None:
+    # The quiet entry points: no "yet" / «пока», no question marks, no counts.
+    sources = _diary_sources(locale)
+    for key in ("diary-button", "diary-empty", "diary-write"):
+        text = sources[key].lower()
+        assert "?" not in text, key
+        assert "yet" not in text, key
+        assert "пока" not in text, key
+        assert not any(ch.isdigit() for ch in text), key
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_the_diary_icon_is_the_notebook(locale: str) -> None:
+    sources = _diary_sources(locale)
+    joined = " ".join(sources.values())
+    assert "📓" in sources["diary-button"]
+    for icon in ("📝", "📖", "🪷", "🙏", "🌸", "🌺", "🌼", "🌷"):
+        assert icon not in joined, icon
+
+
+def test_russian_diary_copy_has_no_gendered_past_tense_for_the_reader() -> None:
+    import re
+
+    for key, source in _diary_sources("ru").items():
+        assert "(а)" not in source, key  # noqa: RUF001
+        assert not re.search(r"\bты\s+\w+л[аи]?\b", source, re.IGNORECASE), key

@@ -15,10 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from tristhana import __version__
 from tristhana.api import v1
+from tristhana.api.body_limit import NoteBodyLimit
 from tristhana.api.errors import install_error_handlers
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
+from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -55,6 +57,7 @@ from tristhana.bots.telegram.runtime import (
     BotRuntime,
     CheckInUseCases,
     DayUseCases,
+    DiaryUseCases,
     MoonUseCases,
     PracticeUseCases,
     RemindUseCases,
@@ -112,6 +115,7 @@ def create_app(
             max_age=7200,
         )
     install_error_handlers(app)
+    app.add_middleware(NoteBodyLimit)  # PR-07: before the body is read
     app.include_router(v1.router)
 
     token = settings.telegram_bot_token
@@ -206,6 +210,12 @@ class _Services:
             clear=ClearCheckIn(self._storage.check_ins),
         )
         app.state.check_ins = check_ins
+        diary = DiaryUseCases(
+            save=SaveDiaryNote(self._storage.diary, clock),
+            get=GetDiaryNote(self._storage.diary, clock),
+            clear=ClearDiaryNote(self._storage.diary),
+        )
+        app.state.diary = diary
         app.state.practice_catalog, app.state.catalog_version = loaded.catalog, loaded.version
         moon = MoonUseCases(
             cities=cities,
@@ -256,6 +266,7 @@ class _Services:
         self._bot.remind = remind
         self._bot.rest = rest
         self._bot.check_ins = check_ins
+        self._bot.diary = diary
         self._bot.settings = SettingsUseCases(
             profile=app.state.update_profile,
             settings=notification_settings,
@@ -285,6 +296,7 @@ class _LazyBot:
         self.settings: SettingsUseCases | None = None
         self.rest: RestUseCases | None = None
         self.check_ins: CheckInUseCases | None = None
+        self.diary: DiaryUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -312,6 +324,7 @@ class _LazyBot:
                 self._settings.miniapp_url,
                 self.rest,
                 self.check_ins,
+                self.diary,
             )
         return self._runtime
 
