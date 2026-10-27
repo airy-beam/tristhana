@@ -59,6 +59,7 @@ class Account:
     day_off: DayOff = NEVER_CHOSEN  # PR-09
     day_off_dismissed: bool = False  # "Not now" on the one-time day-off question
     hide_ladies: bool = False  # WH-01: leave the 🌸 button out of the status grids
+    offer_check_in: bool = True  # PR-06: the one-tap mood row after logging a practice
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +102,7 @@ class ProfilePatch:
     locale: Locale | _Keep | None = KEEP
     timezone: str | _Keep = KEEP
     hide_ladies: bool | _Keep | None = KEEP  # None = the default (shown)
+    offer_check_in: bool | _Keep | None = KEEP  # None = the default (offered)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +117,7 @@ class ProfileChange:
     timezone: str | None
     fields: frozenset[str] = frozenset({"name", "locale", "timezone"})
     hide_ladies: bool = False  # written only with "hide_ladies" in `fields`
+    offer_check_in: bool = True  # written only with "offer_check_in" in `fields`
 
 
 def resolve_profile(
@@ -153,8 +156,19 @@ def resolve_profile(
     if not isinstance(patch.hide_ladies, _Keep):
         fields.add("hide_ladies")
         hide_ladies = bool(patch.hide_ladies)
+    offer_check_in = account.offer_check_in
+    if not isinstance(patch.offer_check_in, _Keep):
+        fields.add("offer_check_in")
+        offer_check_in = patch.offer_check_in is not False
     return ProfileChange(
-        name, name_custom, locale, locale_custom, zone, frozenset(fields), hide_ladies
+        name,
+        name_custom,
+        locale,
+        locale_custom,
+        zone,
+        frozenset(fields),
+        hide_ladies,
+        offer_check_in,
     )
 
 

@@ -22,7 +22,7 @@ from tristhana.application.ports.notifications import (
     ReminderCandidate,
     ReminderPatch,
 )
-from tristhana.application.ports.practice import CopiedPractice
+from tristhana.application.ports.practice import CopiedPractice, SavedPractice
 from tristhana.application.ports.rest_periods import Ended, Placed
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice import (
@@ -119,6 +119,8 @@ class InMemoryAccounts:
             current = replace(current, timezone=change.timezone)
         if "hide_ladies" in change.fields:  # WH-01 part 2
             current = replace(current, hide_ladies=change.hide_ladies)  # type: ignore[call-arg]
+        if "offer_check_in" in change.fields:  # PR-06
+            current = replace(current, offer_check_in=change.offer_check_in)  # type: ignore[call-arg,attr-defined]
         return self._save(current)
 
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account:
@@ -250,6 +252,11 @@ class InMemoryDays:
     practice_rows: dict[tuple[UUID, date], Practice] = field(
         default_factory=dict[tuple[UUID, date], Practice]
     )
+    # PR-06: slot-1 check-ins (`CheckIn`), stored as written (an empty row stays a row; the
+    # use case reads it as none). Typed loosely so this module imports before the feature.
+    check_in_rows: dict[tuple[UUID, date], Any] = field(
+        default_factory=dict[tuple[UUID, date], Any]
+    )
     down: bool = False
     moon: "InMemoryMoon | None" = None  # for `range_with_moon`
     periods: InMemoryRestPeriods = field(default_factory=InMemoryRestPeriods)
@@ -289,6 +296,7 @@ class InMemoryDays:
         self.rows[(account_id, when)] = (day, timezone)
         if day.status is not DayStatus.PRACTICED:
             self.practice_rows.pop((account_id, when), None)
+            self.check_in_rows.pop((account_id, when), None)  # PR-06: same statement
         return Upserted(
             day,
             prev=prev[0].status if prev else None,
@@ -312,6 +320,7 @@ class InMemoryDays:
         self.periods.apply_log(account_id, local_date, None)
         self.rows.pop((account_id, local_date), None)
         self.practice_rows.pop((account_id, local_date), None)
+        self.check_in_rows.pop((account_id, local_date), None)  # FK cascade
 
     def _overlapping(self, account_id: UUID, start: date, end: date) -> tuple[RestPeriod, ...]:
         return tuple(p for p in self.periods.of(account_id) if p.start <= end and p.end >= start)
@@ -319,7 +328,7 @@ class InMemoryDays:
     async def list_range(self, account_id: UUID, start: date, end: date) -> list[DayLog]:
         self._check()
         found = [
-            replace(d, practices=self._practices_of(a, when, d))
+            self._with_check_in(a, when, replace(d, practices=self._practices_of(a, when, d)))
             for (a, when), (d, _) in self.rows.items()
             if a == account_id and start <= when <= end
         ]
@@ -342,6 +351,13 @@ class InMemoryDays:
         mine = [when for (a, when) in self.rows if a == account_id]
         return History(days, min(mine) if mine else None, self._overlapping(account_id, start, end))
 
+    def _with_check_in(self, account_id: UUID, when: date, day: DayLog) -> DayLog:
+        """PR-06: like the SQL LEFT JOIN, only on a practiced day (rows as stored)."""
+        check_in = self.check_in_rows.get((account_id, when))
+        if check_in is None or day.status is not DayStatus.PRACTICED:
+            return day  # no `check_ins` keyword: works before DayLog gains the field
+        return replace(day, check_ins=(check_in,))  # type: ignore[call-arg]
+
     def _practices_of(self, account_id: UUID, when: date, day: DayLog) -> tuple[Practice, ...]:
         practice = self.practice_rows.get((account_id, when))
         return (practice,) if practice and day.status is DayStatus.PRACTICED else ()
@@ -361,9 +377,14 @@ class InMemoryPractices:
         row = self.days.rows.get((account_id, local_date))
         return row is not None and row[0].status is DayStatus.PRACTICED
 
+    def _saved(self, account_id: UUID, local_date: date, practice: Practice) -> SavedPractice:
+        """With the day's check-in, as the SQL's join (empty rows read as none)."""
+        found = self.days.check_in_rows.get((account_id, local_date))
+        return SavedPractice(practice, None if found is None or found.is_empty() else found)
+
     async def save(
         self, account_id: UUID, local_date: date, patch: PracticePatch
-    ) -> Practice | None:
+    ) -> SavedPractice | None:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         if not self._practiced(account_id, local_date):
             return None
@@ -375,11 +396,11 @@ class InMemoryPractices:
         }
         saved = replace(current, **changes)
         self.days.practice_rows[(account_id, local_date)] = saved
-        return saved
+        return self._saved(account_id, local_date, saved)
 
     async def copy_latest(
         self, account_id: UUID, local_date: date, timezone: str | None
-    ) -> Practice | None:
+    ) -> SavedPractice | None:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         if not self._practiced(account_id, local_date):
             return None
@@ -388,7 +409,7 @@ class InMemoryPractices:
             return None
         copied = replace(previous[0], start_time=None, timezone=timezone)
         self.days.practice_rows[(account_id, local_date)] = copied
-        return copied
+        return self._saved(account_id, local_date, copied)
 
     async def copy_usual(
         self, account_id: UUID, local_date: date, timezone: str | None
@@ -428,6 +449,50 @@ class InMemoryPractices:
             reverse=True,
         )
         return [p for _, p in rows[:limit]]
+
+
+@dataclass
+class InMemoryCheckIns:
+    """PR-06 `CheckInRepository`: shares the day log's rows, so a check-in only lands on a
+    practiced day (the SQL's EXISTS guard); `CheckIn` is imported lazily."""
+
+    days: InMemoryDays
+
+    def _practiced(self, account_id: UUID, local_date: date) -> bool:
+        row = self.days.rows.get((account_id, local_date))
+        return row is not None and row[0].status is DayStatus.PRACTICED
+
+    async def save(self, account_id: UUID, local_date: date, patch: Any) -> Any:
+        from tristhana.domain.check_in import CheckIn
+
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        if not self._practiced(account_id, local_date):
+            return None
+        current = self.days.check_in_rows.get((account_id, local_date), CheckIn())
+        changes = {
+            f.name: getattr(patch.values, f.name)
+            for f in fields(CheckIn)
+            if f.name in patch.fields and f.name != "slot"
+        }
+        saved = replace(current, **changes)
+        self.days.check_in_rows[(account_id, local_date)] = saved
+        return saved
+
+    async def set_tag(self, account_id: UUID, local_date: date, tag: Any, on: bool) -> Any:
+        from tristhana.domain.check_in import CheckIn
+
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        if not self._practiced(account_id, local_date):
+            return None
+        current = self.days.check_in_rows.get((account_id, local_date), CheckIn())
+        tags = current.tags | {tag} if on else current.tags - {tag}
+        saved = replace(current, tags=frozenset(tags))
+        self.days.check_in_rows[(account_id, local_date)] = saved
+        return saved
+
+    async def delete(self, account_id: UUID, local_date: date) -> None:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.days.check_in_rows.pop((account_id, local_date), None)
 
 
 @dataclass
@@ -693,6 +758,10 @@ class InMemoryStorage:
     @property
     def rest_periods(self) -> InMemoryRestPeriods:
         return self.day_repo.periods
+
+    @property
+    def check_ins(self) -> InMemoryCheckIns:  # PR-06
+        return InMemoryCheckIns(self.day_repo)
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

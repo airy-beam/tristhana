@@ -22,6 +22,7 @@ from tristhana.bots.telegram.moon import register_moon
 from tristhana.bots.telegram.remind import register_remind
 from tristhana.bots.telegram.rest import register_rest
 from tristhana.bots.telegram.runtime import (
+    CheckInUseCases,
     DayUseCases,
     MoonUseCases,
     PracticeUseCases,
@@ -44,6 +45,7 @@ def build_router(
     translator: Translator,
     miniapp_url: str = "",
     rest: RestUseCases | None = None,
+    check_ins: CheckInUseCases | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -56,7 +58,9 @@ def build_router(
     async def on_help(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
         return message.answer(translator.t(account.locale, "help-text"))
 
-    screens = day_screens.register(router, days, practices, translator, remind, miniapp_url)
+    screens = day_screens.register(
+        router, days, practices, translator, remind, miniapp_url, check_ins
+    )
     register_start(router, screens, settings, translator, miniapp_url)
     register_moon(router, moon, translator)
     remind_screens = register_remind(router, remind, screens, translator, rest)

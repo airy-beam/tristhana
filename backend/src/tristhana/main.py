@@ -17,6 +17,7 @@ from tristhana import __version__
 from tristhana.api import v1
 from tristhana.api.errors import install_error_handlers
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.moon import (
     GetMoonView,
@@ -52,6 +53,7 @@ from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
 from tristhana.bots.telegram.runtime import (
     BotRuntime,
+    CheckInUseCases,
     DayUseCases,
     MoonUseCases,
     PracticeUseCases,
@@ -198,6 +200,12 @@ class _Services:
         )
         app.state.save_practice, app.state.clear_practice = practices.save, practices.clear
         app.state.practice_presets = practices.presets
+        check_ins = CheckInUseCases(
+            save=SaveCheckIn(self._storage.check_ins),
+            set_tag=SetCheckInTag(self._storage.check_ins),
+            clear=ClearCheckIn(self._storage.check_ins),
+        )
+        app.state.check_ins = check_ins
         app.state.practice_catalog, app.state.catalog_version = loaded.catalog, loaded.version
         moon = MoonUseCases(
             cities=cities,
@@ -247,6 +255,7 @@ class _Services:
         self._bot.moon = moon
         self._bot.remind = remind
         self._bot.rest = rest
+        self._bot.check_ins = check_ins
         self._bot.settings = SettingsUseCases(
             profile=app.state.update_profile,
             settings=notification_settings,
@@ -275,6 +284,7 @@ class _LazyBot:
         self.remind: RemindUseCases | None = None
         self.settings: SettingsUseCases | None = None
         self.rest: RestUseCases | None = None
+        self.check_ins: CheckInUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -301,6 +311,7 @@ class _LazyBot:
                 FluentTranslator(),
                 self._settings.miniapp_url,
                 self.rest,
+                self.check_ins,
             )
         return self._runtime
 

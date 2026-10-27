@@ -16,6 +16,7 @@ const TODAY = "2026-10-19";
 
 const CATALOG: Catalog = {
   version: "v1",
+  check_in_tags: [],
   series: [
     {
       slug: "primary",
@@ -111,7 +112,7 @@ const practicedToday: Days = {
   timezone_known: true,
   auto: [],
   moon_location: "mysuru",
-  days: [{ date: TODAY, status: "practiced", practices: [] }],
+  days: [{ date: TODAY, status: "practiced", practices: [], check_ins: [] }],
 };
 
 function renderCard(zone: string | null = "Asia/Almaty", locale: Locale = "en") {
@@ -141,7 +142,10 @@ afterEach(() => {
 
 describe("PracticeDetails", () => {
   it("is shown only on a practiced day", async () => {
-    stubApi({ ...practicedToday, days: [{ date: TODAY, status: "rest", practices: [] }] });
+    stubApi({
+      ...practicedToday,
+      days: [{ date: TODAY, status: "rest", practices: [], check_ins: [] }],
+    });
     renderCard();
 
     await screen.findByRole("button", { name: /Rest day/, pressed: true });
@@ -222,6 +226,7 @@ describe("PracticeDetails", () => {
           date: TODAY,
           status: "practiced",
           practices: [{ slot: 1, context: "self", online: false, timezone: null }],
+          check_ins: [],
         },
       ],
     });

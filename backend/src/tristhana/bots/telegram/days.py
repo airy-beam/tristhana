@@ -20,8 +20,14 @@ from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.bots.telegram import practice_callbacks as pcb
 from tristhana.bots.telegram import rest_callbacks as acb
 from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encode
+from tristhana.bots.telegram.check_in import CheckInScreens, register_check_in
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
-from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases, RemindUseCases
+from tristhana.bots.telegram.runtime import (
+    CheckInUseCases,
+    DayUseCases,
+    PracticeUseCases,
+    RemindUseCases,
+)
 from tristhana.bots.telegram.screens import (
     Reply,
     Screen,
@@ -72,10 +78,13 @@ def register(
     translator: Translator,
     remind: RemindUseCases | None = None,
     miniapp_url: str = "",
+    check_ins: CheckInUseCases | None = None,
 ) -> DayScreens:
     screens = DayScreens(days, translator, miniapp_url)
     screens.practice = PracticeScreens(days, practices, translator, screens, remind)
     register_practice(router, screens.practice)
+    if check_ins is not None:  # PR-06 (always wired by the app)
+        register_check_in(router, CheckInScreens(check_ins, translator, screens, screens.practice))
 
     @router.message(Command("log"))
     async def on_log(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]

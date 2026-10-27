@@ -509,6 +509,8 @@ function Privacy({ me }: { me: Me }) {
   const [showLadies, setShowLadies] = useState(loadShowLadies);
   // "Hide the 🌸 button" (WH-01): one account setting for the bot and the app.
   const [button, setButton] = useState(!me.hide_ladies);
+  // "Offer a check-in after practice" (PR-06): one account setting for the bot and the app.
+  const [offer, setOffer] = useState(me.offer_check_in);
   const patch = usePatchMe();
   return (
     <section className="card">
@@ -558,6 +560,32 @@ function Privacy({ me }: { me: Me }) {
         </Localized>
       </label>
       <Localized id="settings-ladies-button-hint">
+        <p className="hint small" />
+      </Localized>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={offer}
+          onChange={(e) => {
+            const offered = e.target.checked;
+            haptics.impact("light");
+            setOffer(offered); // optimistic
+            patch.mutate(
+              { offer_check_in: offered },
+              {
+                onError: () => {
+                  setOffer(!offered);
+                  haptics.notify("error");
+                },
+              },
+            );
+          }}
+        />
+        <Localized id="settings-checkin">
+          <span />
+        </Localized>
+      </label>
+      <Localized id="settings-checkin-hint">
         <p className="hint small" />
       </Localized>
     </section>

@@ -1,7 +1,7 @@
 """Day status use cases (PR-01, PR-04). The bot and the API share them; every call acts on
 the caller's own days (`Principal`). "Today" is always computed here, never by a client."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 
 from tristhana.application.policies import Principal
@@ -101,9 +101,15 @@ class GetDays:
             view.moon_dates,
             covered=covered.keys(),
         )
-        return DaysView(
-            today, known, view.days, auto, city, view.periods, covered, view.practice_on
-        )
+        days = [_without_empty_check_ins(d) for d in view.days]
+        return DaysView(today, known, days, auto, city, view.periods, covered, view.practice_on)
+
+
+def _without_empty_check_ins(day: DayLog) -> DayLog:
+    """An empty check-in row reads as none (PR-06)."""
+    if not any(c.is_empty() for c in day.check_ins):
+        return day
+    return replace(day, check_ins=tuple(c for c in day.check_ins if not c.is_empty()))
 
 
 class SetDayStatus:

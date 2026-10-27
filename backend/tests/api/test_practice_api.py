@@ -58,7 +58,7 @@ def test_catalog_is_public_cacheable_and_confirmed_only(api: TestClient) -> None
     assert {"key": "janu-sirsasana-c", "latin": "Janu Sirsasana C", "ru": "Джану Ширшасана C"} in (
         primary["stops"]
     )
-    assert first.headers["etag"] == f'"{body["version"]}"'
+    assert body["version"] in first.headers["etag"]  # + the check-in tags (PR-06)
     for header in (first.headers["etag"], f'"x", W/{first.headers["etag"]}'):
         assert api.get("/api/v1/catalog", headers={"If-None-Match": header}).status_code == 304
 

@@ -5,11 +5,10 @@ from dataclasses import replace
 from datetime import date
 
 from tristhana.application.policies import Principal
-from tristhana.application.ports.practice import PracticeRepository
+from tristhana.application.ports.practice import PracticeRepository, SavedPractice
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.practice import (
     RECENT_LIMIT,
-    Practice,
     PracticeCatalog,
     PracticeContext,
     Presets,
@@ -33,7 +32,7 @@ class SavePractice:
 
     async def execute(
         self, principal: Principal, local_date: date, patch: PracticePatch
-    ) -> Practice:
+    ) -> SavedPractice:
         """Raises `DayNotPracticed`, `InvalidLength`, `InvalidPractice`, `TimezoneUnknown`."""
         account = principal.account
         values, names = patch.values, set(patch.fields)
@@ -56,7 +55,7 @@ class CopyLastPractice:
     def __init__(self, practices: PracticeRepository) -> None:
         self._practices = practices
 
-    async def execute(self, principal: Principal, local_date: date) -> Practice:
+    async def execute(self, principal: Principal, local_date: date) -> SavedPractice:
         """Raises `DayNotPracticed` or `NoPreviousPractice`."""
         account = principal.account
         copied = await self._practices.copy_latest(account.id, local_date, account.timezone)

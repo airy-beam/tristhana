@@ -226,3 +226,168 @@ def test_period_line_paused_line_and_settings_line() -> None:
         "🌸 Hide the button",
         "🌸 Show the button",
     )
+
+
+# PR-06 (spec §6): the check-in copy exists in both locales, formats as written, every tag
+# has a label, and the copy avoids judging words.
+
+PR06_KEYS = [
+    "checkin-prompt",
+    "checkin-explain",
+    "checkin-mood-chip",
+    "checkin-energy-chip",
+    "checkin-effort-chip",
+    "checkin-summary-energy",
+    "checkin-summary-effort",
+    "checkin-edit",
+    "checkin-tags-open",
+    "checkin-tags-pick",
+    "checkin-clear",
+    "checkin-tag",
+    "settings-checkin-line",
+    "settings-checkin-off",
+    "settings-checkin-on",
+]
+TAG_LABELS = {
+    "stiff": ("Stiff", "Скованность"),
+    "open": ("Open", "Раскрытость"),
+    "strong": ("Strong", "Сила"),
+    "light": ("Light", "Лёгкость"),
+    "heavy": ("Heavy", "Тяжесть"),
+    "sore": ("Sore muscles", "Ноющие мышцы"),
+    "focused": ("Focused", "Собранность"),
+    "calm": ("Calm", "Спокойствие"),
+    "scattered": ("Scattered", "Рассеянность"),
+    "steady_breath": ("Steady breath", "Ровное дыхание"),
+}
+AVOID = [
+    "missed",
+    "forgot",
+    "bad",
+    "pain",
+    "push",
+    "should",
+    "only",
+    "again",
+    "streak",
+    "recovery",
+    "training load",
+    "плохо",
+    "пропустил",
+    "боль",
+    "надо",
+    "всего лишь",
+    "опять",
+]
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_pr06_keys_exist(locale: str) -> None:
+    assert set(PR06_KEYS) - message_ids(locale) == set()  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("locale", "key", "text"),
+    [
+        ("en", "checkin-prompt", "How do you feel after practice? Optional."),
+        ("ru", "checkin-prompt", "Как ты после практики? По желанию."),
+        (
+            "en",
+            "checkin-explain",
+            "⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional.",
+        ),
+        (
+            "ru",
+            "checkin-explain",
+            "⚡ Энергия: 1 мало → 5 много · 🔥 Усилие: 1 легко → 5 тяжело. "
+            "Отметь, что подходит, всё по желанию.",
+        ),
+        ("en", "checkin-edit", "✨ Check-in"),
+        ("ru", "checkin-edit", "✨ Самочувствие"),
+        ("en", "checkin-tags-open", "🏷 Body and mind…"),
+        ("ru", "checkin-tags-open", "🏷 Тело и ум…"),
+        ("en", "checkin-tags-pick", "How did body and mind feel? Pick any."),
+        ("ru", "checkin-tags-pick", "Как тело и ум? Отметь, что подходит."),
+        ("en", "checkin-clear", "Remove check-in"),
+        ("ru", "checkin-clear", "Убрать самочувствие"),
+        ("en", "settings-checkin-off", "✨ Don't offer"),
+        ("ru", "settings-checkin-off", "✨ Не предлагать"),  # noqa: RUF001
+        ("en", "settings-checkin-on", "✨ Offer"),
+        ("ru", "settings-checkin-on", "✨ Предлагать"),
+    ],
+)
+def test_pr06_copy_reads_as_written(locale: str, key: str, text: str) -> None:
+    assert _flat(locale, key) == text
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_mood_energy_and_effort_chips(locale: str) -> None:
+    assert [_t(locale, "checkin-mood-chip", n=n) for n in range(1, 6)] == [
+        "😔",
+        "😕",
+        "😐",
+        "🙂",
+        "😊",
+    ]
+    assert _t(locale, "checkin-energy-chip", n=4) == "⚡4"
+    assert _t(locale, "checkin-effort-chip", n=2) == "🔥2"
+
+
+def test_summary_parts_are_plural_free() -> None:
+    assert _t("en", "checkin-summary-energy", n=4) == "⚡ energy 4/5"
+    assert _t("ru", "checkin-summary-energy", n=1) == "⚡ энергия 1/5"
+    assert _t("en", "checkin-summary-effort", n=3) == "🔥 effort 3/5"
+    assert _t("ru", "checkin-summary-effort", n=5) == "🔥 усилие 5/5"
+
+
+def test_settings_line_says_offered_or_not() -> None:
+    assert _t("en", "settings-checkin-line", offered="yes") == "✨ Check-in after practice: offered"
+    assert _t("en", "settings-checkin-line", offered="no") == (
+        "✨ Check-in after practice: not offered"
+    )
+    assert _t("ru", "settings-checkin-line", offered="yes") == (
+        "✨ Самочувствие после практики: предлагаю"
+    )
+    assert _t("ru", "settings-checkin-line", offered="no") == (
+        "✨ Самочувствие после практики: не предлагаю"
+    )
+
+
+def test_every_tag_has_a_label_in_both_locales() -> None:
+    from tristhana.domain.check_in import CheckInTag
+
+    assert [t.value for t in CheckInTag] == list(TAG_LABELS)
+    for tag in CheckInTag:
+        en, ru = TAG_LABELS[tag.value]
+        assert _t("en", "checkin-tag", tag=tag.value) == en
+        assert _t("ru", "checkin-tag", tag=tag.value) == ru
+
+
+def _check_in_sources(locale: str) -> dict[str, str]:
+    """The source of every `checkin-*` / `settings-checkin*` message (all variants)."""
+    from fluent.syntax import FluentParser, FluentSerializer, ast
+
+    root = files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl"
+    parsed = FluentParser().parse(root.read_text(encoding="utf-8"))
+    return {
+        e.id.name: FluentSerializer().serialize_entry(e)
+        for e in parsed.body
+        if isinstance(e, ast.Message)
+        and (e.id.name.startswith("checkin-") or e.id.name.startswith("settings-checkin"))
+    }
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_check_in_copy_avoids_judging_words(locale: str) -> None:
+    import re
+
+    sources = _check_in_sources(locale)
+    assert set(PR06_KEYS) <= set(sources)
+    found = {
+        (key, word)
+        for key, source in sources.items()
+        for word in AVOID
+        if re.search(rf"\b{re.escape(word)}", source.split("=", 1)[1], re.IGNORECASE)
+    }
+
+    assert found == set()

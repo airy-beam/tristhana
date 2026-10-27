@@ -401,3 +401,41 @@ settings-ladies-line = 🌸 Ladies' holiday button: { $shown ->
     }
 settings-ladies-hide = 🌸 Hide the button
 settings-ladies-show = 🌸 Show the button
+
+## After-practice check-in (PR-06). Always optional: never "you haven't checked in".
+# Mood is stored as 1–5; the emoji are presentation only. Tags are domain keys.
+checkin-prompt = How do you feel after practice? Optional.
+checkin-explain = ⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional.
+checkin-mood-chip = { $n ->
+        [1] 😔
+        [2] 😕
+        [3] 😐
+        [4] 🙂
+       *[5] 😊
+    }
+checkin-energy-chip = ⚡{ $n }
+checkin-effort-chip = 🔥{ $n }
+checkin-summary-energy = ⚡ energy { $n }/5
+checkin-summary-effort = 🔥 effort { $n }/5
+checkin-edit = ✨ Check-in
+checkin-tags-open = 🏷 Body and mind…
+checkin-tags-pick = How did body and mind feel? Pick any.
+checkin-clear = Remove check-in
+checkin-tag = { $tag ->
+        [stiff] Stiff
+        [open] Open
+        [strong] Strong
+        [light] Light
+        [heavy] Heavy
+        [sore] Sore muscles
+        [focused] Focused
+        [calm] Calm
+        [scattered] Scattered
+       *[steady_breath] Steady breath
+    }
+settings-checkin-line = ✨ Check-in after practice: { $offered ->
+        [yes] offered
+       *[no] not offered
+    }
+settings-checkin-off = ✨ Don't offer
+settings-checkin-on = ✨ Offer

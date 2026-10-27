@@ -49,7 +49,8 @@ async def test_patches_upsert_only_their_fields(engine: AsyncEngine) -> None:
     )
     saved = await repo.save(me, MON, PracticePatch.of(length=HALF_PLUS, duration_min=120))
 
-    assert saved == Practice(
+    assert saved is not None
+    assert saved.practice == Practice(
         PracticeContext.MYSORE, length=HALF_PLUS, duration_min=120, timezone="Asia/Almaty"
     )
 
@@ -62,9 +63,9 @@ async def test_short_practice_and_no_length_are_different(engine: AsyncEngine) -
     cleared = await repo.save(me, MON, PracticePatch.of(length=None))
 
     assert short is not None
-    assert short.length == SHORT
+    assert short.practice.length == SHORT
     assert cleared is not None
-    assert cleared.length is None
+    assert cleared.practice.length is None
 
 
 async def test_no_details_on_a_day_that_is_not_practiced(engine: AsyncEngine) -> None:
@@ -119,7 +120,8 @@ async def test_copy_latest_in_one_statement_keeps_the_start_time(engine: AsyncEn
 
     copied = await repo.copy_latest(me, MON, "Asia/Almaty")
 
-    assert copied == Practice(
+    assert copied is not None
+    assert copied.practice == Practice(
         PracticeContext.LED,
         length=FULL_PRIMARY,
         duration_min=90,
@@ -182,9 +184,9 @@ async def test_zone_travels_only_with_the_start_time(engine: AsyncEngine) -> Non
     moved = await repo.save(me, MON, PracticePatch.of(start_time=time(7), timezone="Asia/Almaty"))
 
     assert same is not None
-    assert (same.start_time, same.timezone) == (time(4, 30), "Asia/Kolkata")
+    assert (same.practice.start_time, same.practice.timezone) == (time(4, 30), "Asia/Kolkata")
     assert moved is not None
-    assert (moved.start_time, moved.timezone) == (time(7), "Asia/Almaty")
+    assert (moved.practice.start_time, moved.practice.timezone) == (time(7), "Asia/Almaty")
 
 
 async def test_empty_rows_never_count_as_last_time(engine: AsyncEngine) -> None:
@@ -196,7 +198,7 @@ async def test_empty_rows_never_count_as_last_time(engine: AsyncEngine) -> None:
     copied = await repo.copy_latest(me, MON, None)
 
     assert copied is not None
-    assert copied.duration_min == 60
+    assert copied.practice.duration_min == 60
     assert [p.duration_min for p in await repo.recent(me, MON, 5)] == [60]
 
 

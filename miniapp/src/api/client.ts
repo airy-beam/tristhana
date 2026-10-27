@@ -120,6 +120,11 @@ function withDays(data: Days): Days {
   };
 }
 
+/** Another day-scope tap is queued behind this one (each `onMutate` already ran). */
+function laterDayTaps(client: ReturnType<typeof useQueryClient>): boolean {
+  return client.isMutating({ predicate: (m) => m.options.scope?.id === "day" }) > 1;
+}
+
 /** Day-scope mutations run one at a time, but each `onMutate` (optimistic update) runs at
  * tap time; so after the last queued one settles (or the server refused with a conflict),
  * refetch, and the cache matches the server whatever the order of failures was. */
@@ -190,9 +195,12 @@ export function useDays() {
 function withDay(days: Days, date: string, status: DayStatus | null): Days {
   const before = days.days.find((d) => d.date === date);
   const others = days.days.filter((d) => d.date !== date);
-  // Details live only on a practiced day (the server drops them on any other status).
-  const practices = status === "practiced" ? (before?.practices ?? []) : [];
-  const next = status ? [...others, { date, status, practices }] : others;
+  // Details and the check-in live only on a practiced day (the server drops them on any
+  // other status).
+  const practiced = status === "practiced";
+  const practices = practiced ? (before?.practices ?? []) : [];
+  const check_ins = practiced ? (before?.check_ins ?? []) : [];
+  const next = status ? [...others, { date, status, practices, check_ins }] : others;
   // A log always wins over auto-rest (PR-09); a cleared day gets it back on the refetch.
   const auto = status ? days.auto.filter((a) => a.date !== date) : days.auto;
   return { ...days, days: next.sort((a, b) => a.date.localeCompare(b.date)), auto };
@@ -476,9 +484,72 @@ export function useSavePractice() {
       };
     },
     onSuccess: (saved, { date }) => {
-      // The server's normalised practice (e.g. a full series, the stored zone) wins.
+      // The server's normalised practice (e.g. a full series, the stored zone) wins, unless
+      // a later tap is still queued: its optimistic value must stay on screen.
+      if (laterDayTaps(client)) return;
       client.setQueriesData<Days>({ queryKey: ["days"] }, (days) =>
         days ? withPractice(days, date, saved) : days,
+      );
+    },
+    onError: (_error, _vars, context) => {
+      restore(client, context?.before);
+    },
+    onSettled: (_data, error) => {
+      settleDays(client, error);
+    },
+  });
+}
+
+export type CheckIn = components["schemas"]["CheckInOut"];
+export type CheckInBody = components["schemas"]["CheckInBody"];
+export type CheckInTag = components["schemas"]["CheckInTag"];
+
+function withCheckIn(days: Days, date: string, checkIn: CheckIn | null): Days {
+  return {
+    ...days,
+    days: days.days.map((d) =>
+      d.date === date ? { ...d, check_ins: checkIn ? [checkIn] : [] } : d,
+    ),
+  };
+}
+
+/** Replaces (body) or removes (null) the day's check-in (PR-06), optimistically. */
+export function useSaveCheckIn() {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: "day" }, // in tap order with status changes
+    mutationFn: async ({
+      date,
+      body,
+    }: {
+      date: string;
+      body: CheckInBody | null;
+    }): Promise<CheckIn | null> => {
+      const params = { path: { date, slot: 1 } };
+      if (!body) {
+        const { error, response } = await api.DELETE("/api/v1/me/days/{date}/check-ins/{slot}", {
+          params,
+        });
+        if (!response.ok) fail(response, error);
+        return null;
+      }
+      const { data, error, response } = await api.PUT("/api/v1/me/days/{date}/check-ins/{slot}", {
+        params,
+        body,
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onMutate: async ({ date, body }) => {
+      const checkIn = body ? { slot: 1, ...body } : null;
+      return {
+        before: await patchDays(client, date, (days) => withCheckIn(days, date, checkIn)),
+      };
+    },
+    onSuccess: (saved, { date }) => {
+      if (laterDayTaps(client)) return; // each PUT is whole: the last one wins on the server
+      client.setQueriesData<Days>({ queryKey: ["days"] }, (days) =>
+        days ? withCheckIn(days, date, saved) : days,
       );
     },
     onError: (_error, _vars, context) => {
@@ -622,11 +693,18 @@ export function usePatchMe() {
       return data;
     },
     onMutate: async (body) => {
-      if (body.hide_ladies === undefined) return { before: undefined };
-      // "Hide the 🌸 button" (WH-01) applies to the chips at once.
+      if (body.hide_ladies === undefined && body.offer_check_in === undefined) {
+        return { before: undefined };
+      }
+      // "Hide the 🌸 button" (WH-01) and "Offer a check-in" (PR-06) apply at once.
       await client.cancelQueries({ queryKey: ["me"] });
       const before = client.getQueryData<Me>(["me"]);
-      if (before) client.setQueryData<Me>(["me"], { ...before, hide_ladies: !!body.hide_ladies });
+      if (before) {
+        const next = { ...before };
+        if (body.hide_ladies !== undefined) next.hide_ladies = !!body.hide_ladies;
+        if (body.offer_check_in !== undefined) next.offer_check_in = body.offer_check_in !== false;
+        client.setQueryData<Me>(["me"], next);
+      }
       return { before };
     },
     onError: (_error, _body, context) => {

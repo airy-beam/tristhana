@@ -1,3 +1,5 @@
+import enApp from "../locales/en/app.ftl?raw";
+import ruApp from "../locales/ru/app.ftl?raw";
 import { LOCALES } from "./negotiate";
 import { bundleFor, definedIdCount, format, messageIds, messageVariables } from "./bundles";
 
@@ -91,5 +93,131 @@ describe("Fluent bundles", () => {
 
   it("formats the greeting with the user's name", () => {
     expect(format(bundleFor("ru"), "home-greeting", { name: "Аня" })).toContain("Намасте, Аня");
+  });
+});
+
+// PR-06 (spec §6): the check-in copy, both locales, and the words it never uses.
+
+const PR06 = [
+  "checkin-title",
+  "checkin-mood",
+  "checkin-energy",
+  "checkin-effort",
+  "checkin-body",
+  "checkin-mind",
+  "checkin-mood-label",
+  "checkin-mood-chip",
+  "checkin-tag",
+  "checkin-edit",
+  "checkin-clear",
+  "checkin-save-failed",
+  "settings-checkin",
+  "settings-checkin-hint",
+];
+
+const TAG_LABELS: [string, string, string][] = [
+  ["stiff", "Stiff", "Скованность"],
+  ["open", "Open", "Раскрытость"],
+  ["strong", "Strong", "Сила"],
+  ["light", "Light", "Лёгкость"],
+  ["heavy", "Heavy", "Тяжесть"],
+  ["sore", "Sore muscles", "Ноющие мышцы"],
+  ["focused", "Focused", "Собранность"],
+  ["calm", "Calm", "Спокойствие"],
+  ["scattered", "Scattered", "Рассеянность"],
+  ["steady_breath", "Steady breath", "Ровное дыхание"],
+];
+
+const AVOID = [
+  "missed",
+  "forgot",
+  "bad",
+  "pain",
+  "push",
+  "should",
+  "only",
+  "again",
+  "streak",
+  "recovery",
+  "training load",
+  "плохо",
+  "пропустил",
+  "боль",
+  "надо",
+  "всего лишь",
+  "опять",
+];
+
+/** The raw source (every variant) of each `checkin-*` / `settings-checkin*` message. */
+function checkInSources(source: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  let current: string | null = null;
+  for (const line of source.split("\n")) {
+    const start = /^([a-z][a-z0-9-]*)\s*=(.*)$/.exec(line);
+    if (start) {
+      const id = start[1] ?? "";
+      current = id.startsWith("checkin-") || id.startsWith("settings-checkin") ? id : null;
+      if (current) out[current] = start[2] ?? "";
+    } else if (current && /^\s/.test(line)) {
+      out[current] = `${out[current] ?? ""}\n${line}`;
+    } else {
+      current = null;
+    }
+  }
+  return out;
+}
+
+describe("PR-06 check-in copy", () => {
+  it.each(LOCALES)("%s: has every PR-06 message", (locale) => {
+    const ids = messageIds(locale);
+    expect(PR06.filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it("reads as written", () => {
+    expect(format(bundleFor("en"), "checkin-title")).toBe("How do you feel?");
+    expect(format(bundleFor("ru"), "checkin-title")).toBe("Самочувствие");
+    expect(format(bundleFor("en"), "checkin-edit")).toBe("✨ Check-in");
+    expect(format(bundleFor("ru"), "checkin-edit")).toBe("✨ Самочувствие");
+    expect(format(bundleFor("en"), "checkin-clear")).toBe("Remove check-in");
+    expect(format(bundleFor("ru"), "checkin-clear")).toBe("Убрать самочувствие");
+    expect(format(bundleFor("en"), "settings-checkin")).toBe("Offer a check-in after practice");
+    expect(format(bundleFor("ru"), "settings-checkin")).toBe(
+      "Предлагать отметить самочувствие после практики",
+    );
+    expect(format(bundleFor("en"), "settings-checkin-hint")).toBe(
+      "Mood, energy and effort right after logging today's practice. You can always add one from the day.",
+    );
+    expect(format(bundleFor("ru"), "settings-checkin-hint")).toBe(
+      "Настроение, энергия и усилие сразу после отметки практики. Добавить можно и позже, в любой день практики.",
+    );
+  });
+
+  it.each([1, 2, 3, 4, 5])("mood %i: an emoji and an aria label", (n) => {
+    expect(format(bundleFor("en"), "checkin-mood-chip", { n })).toBe(
+      ["😔", "😕", "😐", "🙂", "😊"][n - 1],
+    );
+    expect(format(bundleFor("en"), "checkin-mood-label", { n })).toBe(`Mood ${String(n)} of 5`);
+    expect(format(bundleFor("ru"), "checkin-mood-label", { n })).toBe(
+      `Настроение ${String(n)} из 5`,
+    );
+  });
+
+  it.each(TAG_LABELS)("tag %s has a label in both locales", (tag, en, ru) => {
+    expect(format(bundleFor("en"), "checkin-tag", { tag })).toBe(en);
+    expect(format(bundleFor("ru"), "checkin-tag", { tag })).toBe(ru);
+  });
+
+  it.each([
+    ["en", enApp],
+    ["ru", ruApp],
+  ])("%s: never uses a word to avoid", (_locale, source) => {
+    const sources = checkInSources(source);
+    expect(Object.keys(sources).length).toBeGreaterThanOrEqual(PR06.length);
+    const found = Object.entries(sources).flatMap(([id, text]) =>
+      AVOID.filter((word) => new RegExp(`(^|[^\\p{L}])${word}`, "iu").test(text)).map(
+        (word) => `${id}: ${word}`,
+      ),
+    );
+    expect(found).toEqual([]);
   });
 });

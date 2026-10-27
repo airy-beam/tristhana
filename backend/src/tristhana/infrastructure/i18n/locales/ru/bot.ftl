@@ -411,3 +411,41 @@ settings-ladies-line = 🌸 Кнопка „Женские дни“: { $shown -
     }
 settings-ladies-hide = 🌸 Скрыть кнопку
 settings-ladies-show = 🌸 Показать кнопку
+
+## После практики: самочувствие (PR-06). Всегда по желанию, без упрёков.
+# Настроение хранится как 1–5; эмодзи только для показа. Метки: ключи домена.
+checkin-prompt = Как ты после практики? По желанию.
+checkin-explain = ⚡ Энергия: 1 мало → 5 много · 🔥 Усилие: 1 легко → 5 тяжело. Отметь, что подходит, всё по желанию.
+checkin-mood-chip = { $n ->
+        [1] 😔
+        [2] 😕
+        [3] 😐
+        [4] 🙂
+       *[5] 😊
+    }
+checkin-energy-chip = ⚡{ $n }
+checkin-effort-chip = 🔥{ $n }
+checkin-summary-energy = ⚡ энергия { $n }/5
+checkin-summary-effort = 🔥 усилие { $n }/5
+checkin-edit = ✨ Самочувствие
+checkin-tags-open = 🏷 Тело и ум…
+checkin-tags-pick = Как тело и ум? Отметь, что подходит.
+checkin-clear = Убрать самочувствие
+checkin-tag = { $tag ->
+        [stiff] Скованность
+        [open] Раскрытость
+        [strong] Сила
+        [light] Лёгкость
+        [heavy] Тяжесть
+        [sore] Ноющие мышцы
+        [focused] Собранность
+        [calm] Спокойствие
+        [scattered] Рассеянность
+       *[steady_breath] Ровное дыхание
+    }
+settings-checkin-line = ✨ Самочувствие после практики: { $offered ->
+        [yes] предлагаю
+       *[no] не предлагаю
+    }
+settings-checkin-off = ✨ Не предлагать
+settings-checkin-on = ✨ Предлагать

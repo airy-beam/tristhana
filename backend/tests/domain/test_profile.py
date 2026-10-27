@@ -91,3 +91,29 @@ def test_other_settings_keep_the_ladies_button_as_it_is() -> None:
 
     assert change.hide_ladies is True
     assert "hide_ladies" not in change.fields
+
+
+# PR-06: "Offer a check-in after practice" is one account setting (bot and Mini App).
+
+
+def test_the_check_in_is_offered_by_default() -> None:
+    assert ME.offer_check_in is True  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(("sent", "offered"), [(True, True), (False, False), (None, True)])
+def test_offer_check_in_is_its_own_field_group(sent: bool | None, offered: bool) -> None:
+    me = replace(ME, offer_check_in=not offered)  # type: ignore[call-arg]
+
+    change = resolve_profile(me, ProfilePatch(offer_check_in=sent), TG)  # type: ignore[call-arg]
+
+    assert change.offer_check_in is offered  # type: ignore[attr-defined]  # None = default (on)
+    assert change.fields == {"offer_check_in"}
+
+
+def test_other_settings_keep_the_check_in_setting_as_it_is() -> None:
+    me = replace(ME, offer_check_in=False)  # type: ignore[call-arg]
+
+    change = resolve_profile(me, ProfilePatch(locale="ru"), TG)
+
+    assert change.offer_check_in is False  # type: ignore[attr-defined]
+    assert "offer_check_in" not in change.fields

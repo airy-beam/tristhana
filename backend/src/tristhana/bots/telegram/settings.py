@@ -118,6 +118,11 @@ class SettingsScreens:
                     principal, ProfilePatch(hide_ladies=cb.hide), client
                 )
                 return await self.view(Principal(account))
+            case "offer_check_in":  # PR-06: one account setting for the bot and the app
+                account = await self._s.profile.execute(
+                    principal, ProfilePatch(offer_check_in=cb.offer), client
+                )
+                return await self.view(Principal(account))
 
     def day_off(self, principal: Principal) -> Screen:
         locale = principal.account.locale
@@ -149,6 +154,9 @@ class SettingsScreens:
             self._t.t(locale, "settings-moon-line", city=city.name(locale)),
             day_off_line(self._t, locale, account.day_off.days),
             self._t.t(locale, "settings-ladies-line", shown="no" if account.hide_ladies else "yes"),
+            self._t.t(
+                locale, "settings-checkin-line", offered="yes" if account.offer_check_in else "no"
+            ),
             moon_status(self._t, locale, settings, zone, today),
             practice_status(self._t, locale, settings, zone, today),
             self._t.t(locale, "settings-quiet-off-line", n=settings.daily_cap)
@@ -191,6 +199,14 @@ class SettingsScreens:
                     locale,
                     "settings-ladies-show" if account.hide_ladies else "settings-ladies-hide",
                     _data(action="hide_ladies", hide=not account.hide_ladies),
+                )
+            ],
+            [
+                button(
+                    self._t,
+                    locale,
+                    "settings-checkin-off" if account.offer_check_in else "settings-checkin-on",
+                    _data(action="offer_check_in", offer=not account.offer_check_in),
                 )
             ],
         ]

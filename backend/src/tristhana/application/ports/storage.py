@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Protocol
 
 from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import NotificationRepository
@@ -45,6 +46,9 @@ class Storage(Protocol):
 
     @property
     def rest_periods(self) -> RestPeriodRepository: ...
+
+    @property
+    def check_ins(self) -> CheckInRepository: ...
 
 
 class Clock(Protocol):

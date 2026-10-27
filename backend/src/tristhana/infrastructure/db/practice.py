@@ -10,11 +10,11 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tristhana.application.ports.practice import CopiedPractice
+from tristhana.application.ports.practice import CopiedPractice, SavedPractice
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.practice import InvalidPractice, Practice, PracticeContext, PracticeLength
 from tristhana.infrastructure.db.engine import connection, sqlstate
-from tristhana.infrastructure.db.tables import day_log, practice
+from tristhana.infrastructure.db.tables import check_in, day_log, practice
 
 SLOT = 1
 _COLUMNS = (
@@ -29,7 +29,7 @@ _COLUMNS = (
 )
 
 
-def _practiced(account_id: UUID, local_date: date) -> Any:
+def practiced(account_id: UUID, local_date: date) -> Any:
     # FOR SHARE: a status change committed after this statement's snapshot is re-checked
     # on the locked row, so details never land on a day that just became a rest day.
     return exists(
@@ -85,13 +85,13 @@ class SqlPracticeRepository:
 
     async def save(
         self, account_id: UUID, local_date: date, patch: PracticePatch
-    ) -> Practice | None:
+    ) -> SavedPractice | None:
         values = _columns(patch)
         keys = {"account_id": account_id, "local_date": local_date, "slot": SLOT}
         row_values = keys | values
         source = select(
             *(literal(v, practice.c[k].type).label(k) for k, v in row_values.items())
-        ).where(_practiced(account_id, local_date))
+        ).where(practiced(account_id, local_date))
         stmt = insert(practice).from_select(list(row_values), source)
         updates: dict[str, Any] = {k: stmt.excluded[k] for k in values}
         if "timezone" in updates:
@@ -107,11 +107,11 @@ class SqlPracticeRepository:
             index_elements=[practice.c.account_id, practice.c.local_date, practice.c.slot],
             set_={**updates, "updated_at": func.now()},
         ).returning(*_COLUMNS)
-        return await self._one(stmt)
+        return await self._with_check_in(stmt, account_id, local_date)
 
     async def copy_latest(
         self, account_id: UUID, local_date: date, timezone: str | None
-    ) -> Practice | None:
+    ) -> SavedPractice | None:
         prev = practice.alias("prev")
         copied = ("context", "online", "series", "end_item", "first_part", "duration_min")
         source = (
@@ -127,7 +127,7 @@ class SqlPracticeRepository:
                 prev.c.local_date < local_date,
                 has_details(prev),
                 _previous_practiced(prev),
-                _practiced(account_id, local_date),
+                practiced(account_id, local_date),
             )
             .order_by(prev.c.local_date.desc(), prev.c.slot.desc())
             .limit(1)
@@ -140,7 +140,7 @@ class SqlPracticeRepository:
             index_elements=[practice.c.account_id, practice.c.local_date, practice.c.slot],
             set_={**{c: stmt.excluded[c] for c in copied}, "updated_at": func.now()},
         ).returning(*_COLUMNS)
-        return await self._one(stmt)
+        return await self._with_check_in(stmt, account_id, local_date)
 
     async def copy_usual(
         self, account_id: UUID, local_date: date, timezone: str | None
@@ -154,7 +154,7 @@ class SqlPracticeRepository:
                 prev.c.local_date < local_date,
                 has_details(prev),
                 _previous_practiced(prev),
-                _practiced(account_id, local_date),
+                practiced(account_id, local_date),
             )
             # Non-Led first (NULL context counts as non-Led), then the newest.
             .order_by(
@@ -225,7 +225,29 @@ class SqlPracticeRepository:
             rows = (await conn.execute(stmt)).all()
         return [to_practice(r) for r in rows]
 
-    async def _one(self, stmt: Any) -> Practice | None:
+    async def _with_check_in(
+        self, upsert: Any, account_id: UUID, local_date: date
+    ) -> SavedPractice | None:
+        """The upsert plus the day's check-in (PR-06), still one statement: the practice
+        screen shows it without a second read. The row is the guarded upsert's, so a day
+        that isn't Practiced returns nothing."""
+        # Imported here: check_in.py imports this module's `practiced` guard.
+        from tristhana.infrastructure.db.check_in import to_check_in
+
+        saved = upsert.cte("saved")
+        stmt = select(
+            saved,
+            check_in.c.slot.label("check_in_slot"),
+            check_in.c.mood,
+            check_in.c.energy,
+            check_in.c.effort,
+            check_in.c.tags,
+        ).select_from(
+            saved.outerjoin(
+                check_in,
+                and_(check_in.c.account_id == account_id, check_in.c.local_date == local_date),
+            )
+        )
         try:
             async with connection(self._engine) as conn:
                 row = (await conn.execute(stmt)).one_or_none()
@@ -233,7 +255,10 @@ class SqlPracticeRepository:
             if sqlstate(e) == "23514":  # check_violation, e.g. online self-practice
                 raise InvalidPractice("rejected by the database") from e
             raise
-        return to_practice(row) if row else None
+        if row is None:
+            return None
+        found = to_check_in(row) if row.check_in_slot is not None else None
+        return SavedPractice(to_practice(row), None if found is None or found.is_empty() else found)
 
 
 def to_practice(row: Row[*tuple[Any, ...]]) -> Practice:

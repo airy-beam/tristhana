@@ -13,6 +13,7 @@ import {
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
 import { AutoNote } from "../AutoNote";
+import { CheckIn } from "../CheckIn";
 import { PauseOffer, PeriodLine } from "../PauseOffer";
 import { PracticeDetails } from "../PracticeDetails";
 
@@ -107,6 +108,9 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
           zone={zone}
           locale={locale}
         />
+      )}
+      {current === "practiced" && logged && days.data && (
+        <CheckIn date={date} checkIns={logged.check_ins} today={days.data.today} />
       )}
       {current === "ladies" && showLadies && (
         <Localized id="today-private-note">

@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from enum import StrEnum
 from zoneinfo import ZoneInfo
 
+from tristhana.domain.check_in import CheckIn
 from tristhana.domain.locale import Locale
 from tristhana.domain.practice import Practice
 
@@ -42,6 +43,7 @@ class DayLog:
     local_date: date
     status: DayStatus
     practices: tuple[Practice, ...] = ()  # only on a practiced day
+    check_ins: tuple[CheckIn, ...] = ()  # PR-06: only on a practiced day, never empty ones
 
 
 class DateInFuture(ValueError):

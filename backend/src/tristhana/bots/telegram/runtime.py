@@ -11,6 +11,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from tristhana.application.accounts import EnsureAccount
+from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.moon import (
     GetMoonView,
@@ -63,6 +64,15 @@ class PracticeUseCases:
     clear: ClearPractice
     presets: GetPracticePresets
     catalog: PracticeCatalog
+
+
+@dataclass(frozen=True, slots=True)
+class CheckInUseCases:
+    """PR-06: the after-practice check-in (shared by the bot and the API)."""
+
+    save: SaveCheckIn
+    set_tag: SetCheckInTag
+    clear: ClearCheckIn
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +131,7 @@ def build_runtime(
     translator: Translator,
     miniapp_url: str = "",
     rest: RestUseCases | None = None,
+    check_ins: CheckInUseCases | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -129,7 +140,18 @@ def build_runtime(
 
     dispatcher = Dispatcher()
     dispatcher.include_router(
-        build_router(ensure, days, practices, moon, remind, settings, translator, miniapp_url, rest)
+        build_router(
+            ensure,
+            days,
+            practices,
+            moon,
+            remind,
+            settings,
+            translator,
+            miniapp_url,
+            rest,
+            check_ins,
+        )
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
 

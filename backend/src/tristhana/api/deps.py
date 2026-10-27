@@ -7,6 +7,7 @@ from fastapi.security import APIKeyHeader
 from tristhana.api import initdata
 from tristhana.api.errors import ApiError
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.check_in import ClearCheckIn, SaveCheckIn
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.moon import (
     GetMoonView,
@@ -85,6 +86,14 @@ def save_practice(request: Request) -> SavePractice:
 
 def clear_practice(request: Request) -> ClearPractice:
     return cast(ClearPractice, request.app.state.clear_practice)
+
+
+def save_check_in(request: Request) -> SaveCheckIn:
+    return cast(SaveCheckIn, request.app.state.check_ins.save)
+
+
+def clear_check_in(request: Request) -> ClearCheckIn:
+    return cast(ClearCheckIn, request.app.state.check_ins.clear)
 
 
 def practice_presets(request: Request) -> GetPracticePresets:

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from tristhana.api.deps import CurrentPrincipal, clear_day_status, get_days, set_day_status
 from tristhana.api.errors import ApiError, error_responses
+from tristhana.api.v1.check_in import CheckInOut
 from tristhana.api.v1.practice import PracticeOut
 from tristhana.api.v1.rest_periods import PauseOfferOut, RestPeriodOut
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
@@ -22,6 +23,9 @@ class Day(BaseModel):
     date: dt.date
     status: DayStatus
     practices: list[PracticeOut] = Field(default=[], description="Only on a practiced day")
+    check_ins: list[CheckInOut] = Field(
+        default=[], description="The owner's own check-in (PR-06), only on a practiced day"
+    )
 
     @classmethod
     def of(cls, day: DayLog) -> "Day":
@@ -29,6 +33,7 @@ class Day(BaseModel):
             date=day.local_date,
             status=day.status,
             practices=[PracticeOut.of(p) for p in day.practices],
+            check_ins=[CheckInOut.of(c) for c in day.check_ins],
         )
 
 
@@ -61,6 +66,8 @@ class Days(BaseModel):
 
 
 class DaySaved(Day):
+    """`practices` and `check_ins` are not included here: read them from GET /me/days."""
+
     pause_offer: PauseOfferOut | None = Field(
         default=None, description="Ask: for how many days? (after 🌸/🤒/✈️ today or yesterday)"
     )

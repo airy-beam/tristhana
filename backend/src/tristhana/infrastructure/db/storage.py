@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 from uuid import UUID
 
+from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import (
@@ -24,6 +26,7 @@ from tristhana.application.ports.rest_periods import RestPeriodRepository
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileChange, ProfileUpdate
+from tristhana.domain.check_in import CheckInTag
 from tristhana.domain.days import DayLog
 from tristhana.domain.moon import MoonDay
 from tristhana.domain.notifications import NotificationSettings, StoredSettings
@@ -63,9 +66,11 @@ class PostgresStorage:
         self._moon: MoonCalendarRepository | None = None
         self._notifications: NotificationRepository | None = None
         self._rest_periods: RestPeriodRepository | None = None
+        self._check_ins: CheckInRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
+        from tristhana.infrastructure.db.check_in import SqlCheckInRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.engine import build_engine
         from tristhana.infrastructure.db.moon import SqlMoonCalendarRepository
@@ -85,6 +90,7 @@ class PostgresStorage:
         self._moon = SqlMoonCalendarRepository(self._engine)
         self._notifications = SqlNotificationRepository(self._engine)
         self._rest_periods = SqlRestPeriodRepository(self._engine, self._cipher)
+        self._check_ins = SqlCheckInRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -143,6 +149,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._rest_periods
 
+    @property
+    def check_ins(self) -> CheckInRepository:
+        if self._check_ins is None:
+            raise RuntimeError("storage not started")
+        return self._check_ins
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -185,6 +197,23 @@ class UnconfiguredStorage:
     @property
     def rest_periods(self) -> RestPeriodRepository:
         return _UnavailableRestPeriods()
+
+    @property
+    def check_ins(self) -> CheckInRepository:
+        return _UnavailableCheckIns()
+
+
+class _UnavailableCheckIns:
+    async def save(self, account_id: UUID, local_date: date, patch: CheckInPatch) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def set_tag(
+        self, account_id: UUID, local_date: date, tag: CheckInTag, on: bool
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, account_id: UUID, local_date: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
 
 
 class _UnavailableRestPeriods:

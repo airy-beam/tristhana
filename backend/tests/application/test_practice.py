@@ -64,13 +64,13 @@ async def test_each_tap_patches_one_field(days: InMemoryDays) -> None:
     await save.execute(me, MON, PracticePatch.of(context=PracticeContext.MYSORE))
     saved = await save.execute(me, MON, PracticePatch.of(duration_min=90))
 
-    assert (saved.context, saved.duration_min, saved.timezone) == (
+    assert (saved.practice.context, saved.practice.duration_min, saved.practice.timezone) == (
         PracticeContext.MYSORE,
         90,
         None,  # the zone is stamped only together with a start time
     )
     timed = await save.execute(me, MON, PracticePatch.of(start_time=time(6, 30)))
-    assert timed.timezone == "Asia/Almaty"
+    assert timed.practice.timezone == "Asia/Almaty"
 
 
 async def test_choosing_self_practice_turns_online_off(days: InMemoryDays) -> None:
@@ -81,7 +81,7 @@ async def test_choosing_self_practice_turns_online_off(days: InMemoryDays) -> No
 
     saved = await save.execute(me, MON, PracticePatch.of(context=PracticeContext.SELF))
 
-    assert saved.online is False
+    assert saved.practice.online is False
 
 
 async def test_details_need_a_practiced_day(days: InMemoryDays) -> None:
@@ -103,7 +103,7 @@ async def test_lengths_are_validated_and_normalised(days: InMemoryDays) -> None:
         me, MON, PracticePatch.of(length=PracticeLength(("primary",), "setu-bandhasana"))
     )
 
-    assert saved.length == FULL_PRIMARY
+    assert saved.practice.length == FULL_PRIMARY
     with pytest.raises(InvalidLength):
         await save.execute(me, MON, PracticePatch.of(length=PracticeLength(("advanced-c",))))
 
@@ -144,7 +144,7 @@ async def test_copy_last_uses_the_newest_earlier_practice_without_start_time(
         ),
     )
 
-    copied = await CopyLastPractice(practices).execute(me, MON)
+    copied = (await CopyLastPractice(practices).execute(me, MON)).practice
 
     assert (copied.context, copied.length, copied.duration_min, copied.start_time) == (
         PracticeContext.LED,

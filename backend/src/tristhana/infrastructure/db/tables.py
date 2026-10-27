@@ -59,6 +59,8 @@ account = Table(
     Column("day_off_dismissed_at", DateTime(timezone=True)),  # "Not now" on the question
     # WH-01: leave the 🌸 button out of the status grids (bot and Mini App).
     Column("hide_ladies", Boolean(), nullable=False, server_default=text("false")),
+    # PR-06: offer the one-tap check-in mood row after logging a practice.
+    Column("offer_check_in", Boolean(), nullable=False, server_default=text("true")),
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),
@@ -166,6 +168,35 @@ practice = Table(
     CheckConstraint("cardinality(series) <= 6", name="series_max"),
     CheckConstraint("duration_min BETWEEN 1 AND 600", name="duration"),
     CheckConstraint("start_time IS NULL OR timezone IS NOT NULL", name="start_time_zone"),
+)
+
+# PR-06 (ADR-0024): an after-practice check-in per practice slot, plain and owner-only.
+# Like `practice`, it exists only on a practiced day (the day upsert deletes it otherwise).
+# Tag keys are validated in the domain (no value CHECK), so the vocabulary can grow.
+check_in = Table(
+    "check_in",
+    metadata,
+    Column("account_id", Uuid(), nullable=False),
+    Column("local_date", Date(), nullable=False),
+    Column("slot", SmallInteger(), nullable=False, server_default=text("1")),
+    Column("mood", SmallInteger()),
+    Column("energy", SmallInteger()),
+    Column("effort", SmallInteger()),
+    Column("tags", ARRAY(Text()), nullable=False, server_default=text("'{}'")),
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    PrimaryKeyConstraint("account_id", "local_date", "slot"),
+    ForeignKeyConstraint(
+        ["account_id", "local_date"],
+        [day_log.c.account_id, day_log.c.local_date],
+        ondelete="CASCADE",
+        name="check_in_day_log_fkey",
+    ),
+    CheckConstraint("slot = 1", name="slot"),
+    CheckConstraint("mood BETWEEN 1 AND 5", name="mood"),
+    CheckConstraint("energy BETWEEN 1 AND 5", name="energy"),
+    CheckConstraint("effort BETWEEN 1 AND 5", name="effort"),
+    CheckConstraint("cardinality(tags) <= 16", name="tags_max"),
 )
 
 # MD-03 / ADR-0019: stored moon calendars per city (previous year … current + 2).
