@@ -222,6 +222,7 @@ async def test_labels_and_readme_in_the_accounts_language() -> None:
     assert ev["from_name"] == "Навасана"
     assert tables["days"][1][2] == "🌱 Без практики"
     assert "Дни отдыха — часть практики." in readme
+    assert "Помни об этом, если будешь делиться файлом." in readme  # noqa: RUF001 - Q56
     assert "📍 Майсур" in readme
     assert "no_practice: 🌱 Без практики" in readme
     assert "primary: Первая серия (Primary)" in readme
@@ -237,6 +238,7 @@ async def test_readme_in_english_names_the_moon_city() -> None:
 
     assert "📍 Mysuru" in readme
     assert "Rest days are part of the practice." in readme
+    assert "Keep this in mind before sharing the file." in readme  # Q56
     assert data["account"]["moon_city"] == {"slug": "mysuru", "default": True}  # type: ignore[index]
     assert data["catalog_version"] == "cat-v1"
 

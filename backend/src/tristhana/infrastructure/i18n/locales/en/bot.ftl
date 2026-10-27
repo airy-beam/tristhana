@@ -560,7 +560,7 @@ export-readme-files =
 export-readme-days = Only days you logged are listed. Your day off, moon days (by your city 📍 { $city }) and pause days are filled in by the app, so they aren't in the day list; pauses are in rest_periods.csv. Rest days are part of the practice.
 export-readme-moon-logged = "moon" in days.csv means you logged that day as a moon day.
 export-readme-moon-city = Moon days follow your city's calendar (📍 { $city }); ask your teacher if your shala uses different dates.
-export-readme-ladies = 🌸 days are listed here as they are, even where the app shows them as rest.
+export-readme-ladies = 🌸 days are listed here as they are (teachers see them as rest). Keep this in mind before sharing the file.
 # $statuses = one "code: label" line per status
 export-readme-statuses =
     Day statuses:
