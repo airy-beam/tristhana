@@ -3,7 +3,10 @@ import { useState } from "react";
 
 import {
   useCatalog,
+  useDismissNewAsanaHint,
   usePracticePresets,
+  useProgression,
+  useProgressionEvent,
   useSavePractice,
   type Catalog,
   type Length,
@@ -22,6 +25,8 @@ import {
   zoneLabel,
   type Range,
 } from "./practiceText";
+import { CelebrationCard } from "./progression/CelebrationCard";
+import { celebrationLines, get, stopLabel } from "./progression/progressionText";
 
 const CONTEXTS: readonly PracticeContext[] = ["mysore", "led", "private", "self"];
 const DURATIONS = [30, 45, 60, 75, 90, 120, 150, 180];
@@ -46,6 +51,8 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
   const presets = usePracticePresets(date, true).data;
   const save = useSavePractice();
   const [custom, setCustom] = useState(false);
+  // PR-08: "New asana? 🎉" after a length change past the last asana (the PUT's answer).
+  const [hint, setHint] = useState<{ series: string; last: string } | null>(null);
 
   const current: PracticeBody = {
     context: practice?.context ?? null,
@@ -61,6 +68,10 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
     save.mutate(
       { date, body },
       {
+        onSuccess: (saved) => {
+          if (saved?.new_asana_hint) setHint(saved.new_asana_hint);
+          else if ("length" in change) setHint(null);
+        },
         onError: () => {
           haptics.notify("error");
         },
@@ -124,12 +135,13 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
       </Localized>
       <div className="chips" role="group">
         {presets?.presets.map((p) => {
+          const text = catalog ? lengthText(l10n, catalog, p.length, locale) : "";
           const label =
             STATIC_LABELS[p.kind] !== undefined
-              ? l10n.getString(STATIC_LABELS[p.kind] ?? "")
-              : catalog
-                ? lengthText(l10n, catalog, p.length, locale)
-                : "";
+              ? get(l10n, STATIC_LABELS[p.kind] ?? "")
+              : p.kind === "mine"
+                ? get(l10n, "preset-mine", { length: text })
+                : text;
           return (
             <button
               key={`${p.kind}:${p.length.series.join()}:${p.length.end ?? ""}:${p.length.first_part ?? ""}`}
@@ -170,6 +182,17 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
         !presets?.presets.some((p) => sameLength(p.length, current.length)) && (
           <p className="hint">{lengthText(l10n, catalog, current.length, locale)}</p>
         )}
+      {hint && catalog && (
+        <NewAsanaQuestion
+          date={date}
+          target={hint}
+          catalog={catalog}
+          locale={locale}
+          onDone={() => {
+            setHint(null);
+          }}
+        />
+      )}
 
       <Localized id="practice-duration">
         <p className="label" />
@@ -213,6 +236,79 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
           />
         </Localized>
       )}
+    </div>
+  );
+}
+
+/** One tap: "Yes, new" gives the stop on that day (a celebration replaces the question);
+ * "Not new" is remembered until the position changes. Never automatic. */
+function NewAsanaQuestion({
+  date,
+  target,
+  catalog,
+  locale,
+  onDone,
+}: {
+  date: string;
+  target: { series: string; last: string };
+  catalog: Catalog;
+  locale: Locale;
+  onDone: () => void;
+}) {
+  const { l10n } = useLocalization();
+  const progression = useProgression();
+  const give = useProgressionEvent();
+  const dismiss = useDismissNewAsanaHint();
+  const [lines, setLines] = useState<string[] | null>(null);
+  const asana = stopLabel(catalog, target, locale);
+  if (lines) {
+    return <CelebrationCard lines={lines} onDismiss={onDone} />;
+  }
+  return (
+    <div className="new-asana" role="group">
+      <p>{get(l10n, "progression-ask-new", { asana })}</p>
+      <div className="chips">
+        <Localized id="progression-ask-yes">
+          <button
+            type="button"
+            className="chip"
+            disabled={!progression.data || give.isPending}
+            onClick={() => {
+              haptics.impact("light");
+              give.mutate(
+                {
+                  kind: "given",
+                  ...target,
+                  occurred_on: date,
+                  expected_event_id: progression.data?.last_event_id ?? null,
+                },
+                {
+                  onSuccess: (done) => {
+                    const found = celebrationLines(l10n, catalog, done.celebrations, locale);
+                    if (found.length) haptics.notify("success");
+                    setLines(found.length ? found : [get(l10n, "progression-back", { asana })]);
+                  },
+                  onError: () => {
+                    haptics.notify("error");
+                    onDone(); // stale (changed elsewhere): the question no longer applies
+                  },
+                },
+              );
+            }}
+          />
+        </Localized>
+        <Localized id="progression-ask-no">
+          <button
+            type="button"
+            className="chip"
+            onClick={() => {
+              haptics.impact("light");
+              dismiss.mutate(target);
+              onDone();
+            }}
+          />
+        </Localized>
+      </div>
     </div>
   );
 }

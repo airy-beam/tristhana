@@ -223,7 +223,7 @@ sequences:
       - {asana: drop-backs, optional: true, milestone: true}
       - {asana: standing-up, optional: true, milestone: true}
       - {asana: vrksasana, optional: true}
-      - {asana: viparita-chakrasana, optional: true}
+      - {asana: viparita-chakrasana, optional: true, milestone: true}
       - {asana: paschimottanasana}
   - slug: finishing
     kind: block

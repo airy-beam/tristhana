@@ -23,6 +23,7 @@ from tristhana.application.ports.notifications import (
     ReminderPatch,
 )
 from tristhana.application.ports.practice import PracticeRepository
+from tristhana.application.ports.progression import ProgressionRepository
 from tristhana.application.ports.rest_periods import RestPeriodRepository
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice_patch import PracticePatch
@@ -32,6 +33,7 @@ from tristhana.domain.days import DayLog
 from tristhana.domain.moon import MoonDay
 from tristhana.domain.notifications import NotificationSettings, StoredSettings
 from tristhana.domain.practice import Practice
+from tristhana.domain.progression import Change, Position
 from tristhana.domain.rest_days import DayOff
 from tristhana.domain.rest_periods import RestPeriod
 
@@ -69,6 +71,7 @@ class PostgresStorage:
         self._rest_periods: RestPeriodRepository | None = None
         self._check_ins: CheckInRepository | None = None
         self._diary: DiaryRepository | None = None
+        self._progression: ProgressionRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -79,6 +82,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.moon import SqlMoonCalendarRepository
         from tristhana.infrastructure.db.notifications import SqlNotificationRepository
         from tristhana.infrastructure.db.practice import SqlPracticeRepository
+        from tristhana.infrastructure.db.progression import SqlProgressionRepository
         from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
 
         self._engine = build_engine(
@@ -95,6 +99,7 @@ class PostgresStorage:
         self._rest_periods = SqlRestPeriodRepository(self._engine, self._cipher)
         self._check_ins = SqlCheckInRepository(self._engine)
         self._diary = SqlDiaryRepository(self._engine, self._cipher)
+        self._progression = SqlProgressionRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -165,6 +170,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._diary
 
+    @property
+    def progression(self) -> ProgressionRepository:
+        if self._progression is None:
+            raise RuntimeError("storage not started")
+        return self._progression
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -215,6 +226,26 @@ class UnconfiguredStorage:
     @property
     def diary(self) -> DiaryRepository:
         return _UnavailableDiary()
+
+    @property
+    def progression(self) -> ProgressionRepository:
+        return _UnavailableProgression()
+
+
+class _UnavailableProgression:
+    async def get(self, account_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def apply(
+        self, account_id: UUID, change: Change, expected_event_id: int | None, marked_by: UUID
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def undo(self, account_id: UUID, event_id: int) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def dismiss_hint(self, account_id: UUID, target: Position) -> NoReturn:
+        raise StorageUnavailable("not configured")
 
 
 class _UnavailableDiary:
@@ -322,6 +353,9 @@ class _UnavailablePractices:
         raise StorageUnavailable("not configured")
 
     async def recent(self, account_id: UUID, before: date, limit: int) -> list[Practice]:
+        raise StorageUnavailable("not configured")
+
+    async def recent_with_progression(self, account_id: UUID, before: date, limit: int) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 

@@ -35,6 +35,7 @@ from tristhana.domain.practice import (
     PracticeLength,
     TimezoneUnknown,
 )
+from tristhana.domain.progression import Position, shows_traditional
 
 router = APIRouter(tags=["practice"])
 
@@ -62,13 +63,25 @@ class PracticeBody(BaseModel):
     start_time: dt.time | None = Field(default=None, description="Local wall clock, HH:MM")
 
 
+class HintOut(BaseModel):
+    series: str
+    last: str
+
+
 class PracticeOut(PracticeBody):
     slot: int
     timezone: str | None = Field(description="IANA zone of start_time")
+    new_asana_hint: HintOut | None = Field(
+        default=None,
+        description='PR-08: ask "New asana?" about this stop (only when the length changed)',
+    )
 
     @classmethod
-    def of(cls, p: Practice) -> "PracticeOut":
+    def of(cls, p: Practice, hint: Position | None = None) -> "PracticeOut":
         return cls(
+            new_asana_hint=HintOut(series=hint.series, last=hint.key)
+            if hint and hint.series and hint.key
+            else None,
             slot=p.slot,
             context=p.context,
             online=p.online,
@@ -80,7 +93,7 @@ class PracticeOut(PracticeBody):
 
 
 class Preset(BaseModel):
-    kind: Literal["short", "half_primary", "full_primary", "recent"]
+    kind: Literal["short", "half_primary", "full_primary", "mine", "recent"]
     length: Length
 
 
@@ -102,6 +115,10 @@ class SeriesOut(BaseModel):
     name_ru: str
     halves_split: str | None = Field(description="First half ends here (Primary: navasana)")
     stops: list[StopOut]
+    traditional: StopOut | None = Field(
+        default=None,
+        description='Shown name ("Yoga Chikitsa"; key = slug): Primary and Intermediate only',
+    )
 
 
 class CheckInTagOut(BaseModel):
@@ -114,6 +131,9 @@ class CatalogOut(BaseModel):
     series: list[SeriesOut] = Field(description="Confirmed series only, in practice order")
     check_in_tags: list[CheckInTagOut] = Field(
         default=[], description="Check-in tags in display order (PR-06)"
+    )
+    milestone_items: list[StopOut] = Field(
+        default=[], description="Optional milestone items: drop-backs, standing up… (PR-08)"
     )
 
 
@@ -132,6 +152,9 @@ def _catalog_out(catalog: PracticeCatalog, version: str) -> CatalogOut:
     return CatalogOut(
         version=version,
         check_in_tags=[CheckInTagOut(key=t, group=TAG_GROUPS[t]) for t in CheckInTag],
+        milestone_items=[
+            StopOut(key=m.key, latin=m.label("en"), ru=m.label("ru")) for m in catalog.milestones
+        ],
         series=[
             SeriesOut(
                 slug=s.slug,
@@ -140,6 +163,9 @@ def _catalog_out(catalog: PracticeCatalog, version: str) -> CatalogOut:
                 name_ru=s.name_ru,
                 halves_split=SERIES_HALVES.get(s.slug),
                 stops=[StopOut(key=p.key, latin=p.label("en"), ru=p.label("ru")) for p in s.stops],
+                traditional=StopOut(key=s.slug, latin=s.traditional.latin, ru=s.traditional.ru)
+                if shows_traditional(s) and s.traditional
+                else None,
             )
             for s in catalog.series
         ],
@@ -204,7 +230,7 @@ async def put_practice(
         raise ApiError(422, "invalid_practice") from None
     except TimezoneUnknown:
         raise ApiError(422, "timezone_unknown") from None
-    return PracticeOut.of(saved.practice)
+    return PracticeOut.of(saved.practice, saved.new_asana_hint)
 
 
 @router.delete(

@@ -13,8 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from tristhana.application.ports.practice import CopiedPractice, SavedPractice
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.practice import InvalidPractice, Practice, PracticeContext, PracticeLength
+from tristhana.domain.progression import Progression
 from tristhana.infrastructure.db.engine import connection, sqlstate
-from tristhana.infrastructure.db.tables import check_in, day_log, practice
+from tristhana.infrastructure.db.progression import state_columns, to_progression
+from tristhana.infrastructure.db.tables import check_in, day_log, practice, progression
 
 SLOT = 1
 _COLUMNS = (
@@ -203,38 +205,54 @@ class SqlPracticeRepository:
             await conn.execute(stmt)
 
     async def recent(self, account_id: UUID, before: date, limit: int) -> list[Practice]:
+        async with connection(self._engine) as conn:
+            rows = (await conn.execute(_recent(account_id, before, limit))).all()
+        return [to_practice(r) for r in rows]
+
+    async def recent_with_progression(
+        self, account_id: UUID, before: date, limit: int
+    ) -> tuple[list[Practice], Progression | None]:
+        recent = _recent(account_id, before, limit).lateral("recent")
+        one = select(literal(1).label("one")).subquery("one")
+        joined = one.outerjoin(progression, progression.c.account_id == account_id).outerjoin(
+            recent, literal(True)
+        )
         stmt = (
-            select(*_COLUMNS)
-            .join(
-                day_log,
-                and_(
-                    day_log.c.account_id == practice.c.account_id,
-                    day_log.c.local_date == practice.c.local_date,
-                    day_log.c.status == "practiced",
-                ),
-            )
-            .where(
-                practice.c.account_id == account_id,
-                practice.c.local_date < before,
-                has_details(practice),
-            )
-            .order_by(practice.c.local_date.desc(), practice.c.slot.desc())
-            .limit(limit)
+            select(*state_columns(), *recent.c)
+            .select_from(joined)
+            .order_by(recent.c.local_date.desc(), recent.c.slot.desc())
         )
         async with connection(self._engine) as conn:
             rows = (await conn.execute(stmt)).all()
-        return [to_practice(r) for r in rows]
+        found = [to_practice(r) for r in rows if r.local_date is not None]
+        return found, to_progression(rows[0])
 
     async def _with_check_in(
         self, upsert: Any, account_id: UUID, local_date: date
     ) -> SavedPractice | None:
-        """The upsert plus the day's check-in (PR-06), still one statement: the practice
-        screen shows it without a second read. The row is the guarded upsert's, so a day
-        that isn't Practiced returns nothing."""
+        """The upsert plus the day's check-in (PR-06), the progression and whether the length
+        changed (PR-08), still one statement: the practice screen shows them without a second
+        read. The row is the guarded upsert's, so a day that isn't Practiced returns nothing.
+        Every CTE sees the snapshot before the upsert, so `before` is the old row."""
         # Imported here: check_in.py imports this module's `practiced` guard.
         from tristhana.infrastructure.db.check_in import to_check_in
 
+        before = (
+            select(practice.c.series, practice.c.end_item, practice.c.first_part)
+            .where(
+                practice.c.account_id == account_id,
+                practice.c.local_date == local_date,
+                practice.c.slot == SLOT,
+            )
+            .cte("before")
+        )
         saved = upsert.cte("saved")
+        changed = or_(
+            *(
+                saved.c[c].is_distinct_from(before.c[c])
+                for c in ("series", "end_item", "first_part")
+            )
+        )
         stmt = select(
             saved,
             check_in.c.slot.label("check_in_slot"),
@@ -242,11 +260,15 @@ class SqlPracticeRepository:
             check_in.c.energy,
             check_in.c.effort,
             check_in.c.tags,
+            *state_columns(),
+            changed.label("length_changed"),
         ).select_from(
             saved.outerjoin(
                 check_in,
                 and_(check_in.c.account_id == account_id, check_in.c.local_date == local_date),
             )
+            .outerjoin(before, literal(True))
+            .outerjoin(progression, progression.c.account_id == account_id)
         )
         try:
             async with connection(self._engine) as conn:
@@ -258,7 +280,34 @@ class SqlPracticeRepository:
         if row is None:
             return None
         found = to_check_in(row) if row.check_in_slot is not None else None
-        return SavedPractice(to_practice(row), None if found is None or found.is_empty() else found)
+        return SavedPractice(
+            to_practice(row),
+            None if found is None or found.is_empty() else found,
+            to_progression(row),
+            bool(row.length_changed),
+        )
+
+
+def _recent(account_id: UUID, before: date, limit: int) -> Any:
+    """Practices with details on Practiced days before `before`, newest first."""
+    return (
+        select(*_COLUMNS, practice.c.local_date, practice.c.slot)
+        .join(
+            day_log,
+            and_(
+                day_log.c.account_id == practice.c.account_id,
+                day_log.c.local_date == practice.c.local_date,
+                day_log.c.status == "practiced",
+            ),
+        )
+        .where(
+            practice.c.account_id == account_id,
+            practice.c.local_date < before,
+            has_details(practice),
+        )
+        .order_by(practice.c.local_date.desc(), practice.c.slot.desc())
+        .limit(limit)
+    )
 
 
 def to_practice(row: Row[*tuple[Any, ...]]) -> Practice:

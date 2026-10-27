@@ -15,6 +15,7 @@ import { markReady, useSettingsButton } from "./telegram";
 // The stats screen (ST-01..03) is its own chunk: Home's first load doesn't pay for it.
 const Stats = lazy(() => import("./screens/stats/Stats"));
 const Settings = lazy(() => import("./screens/settings/Settings"));
+const Progression = lazy(() => import("./screens/progression/Progression"));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -28,7 +29,9 @@ interface AppProps {
 
 export function App({ locale, firstName, inTelegram }: AppProps) {
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
-  const [view, setView] = useState<"home" | "stats" | "settings" | "day-off">("home");
+  const [view, setView] = useState<"home" | "stats" | "settings" | "day-off" | "progression">(
+    "home",
+  );
   const home = useCallback(() => {
     setView("home");
   }, []);
@@ -62,6 +65,10 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Stats locale={me.locale} zone={me.timezone} onBack={home} onDayOff={dayOff} />
             </Suspense>
+          ) : me && view === "progression" ? (
+            <Suspense fallback={<main className="screen" aria-busy="true" />}>
+              <Progression locale={me.locale} onBack={home} />
+            </Suspense>
           ) : me && (view === "settings" || view === "day-off") ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Settings
@@ -87,6 +94,17 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
                     className="row-button"
                     onClick={() => {
                       setView("stats");
+                    }}
+                  />
+                </Localized>
+              )}
+              {me && (
+                <Localized id="progression-open">
+                  <button
+                    type="button"
+                    className="row-button"
+                    onClick={() => {
+                      setView("progression");
                     }}
                   />
                 </Localized>

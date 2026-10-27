@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -10,6 +11,8 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Identity,
+    Index,
     LargeBinary,
     MetaData,
     PrimaryKeyConstraint,
@@ -213,6 +216,63 @@ diary_note = Table(
     PrimaryKeyConstraint("account_id", "local_date"),
     CheckConstraint("octet_length(sealed_text) BETWEEN 42 AND 8041", name="sealed_length"),
     CheckConstraint("local_date >= '2000-01-01'", name="local_date_min"),
+)
+
+# PR-08 (ADR-0026): where the practice ends now (series + last given stop; earlier series
+# are full; NULL/NULL = standing only) and the milestone items given. Plain and owner-only.
+# Keys are natural keys without FKs (ADR-0017). `last_event_id` is the compare-and-set
+# guard; the "Not new" answer (`hint_*`) counts only while `hint_event_id = last_event_id`.
+progression = Table(
+    "progression",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), primary_key=True),
+    Column("series", Text()),
+    Column("last_key", Text()),
+    Column("items", ARRAY(Text()), nullable=False, server_default=text("'{}'")),
+    Column("last_event_id", BigInteger()),
+    Column("hint_series", Text()),
+    Column("hint_key", Text()),
+    Column("hint_event_id", BigInteger()),
+    _timestamp("updated_at"),
+    CheckConstraint("(series IS NULL) = (last_key IS NULL)", name="position"),
+    CheckConstraint("cardinality(items) <= 8", name="items_max"),
+    CheckConstraint(
+        "(hint_series IS NULL) = (hint_key IS NULL)"
+        " AND (hint_series IS NULL) = (hint_event_id IS NULL)",
+        name="hint_set",
+    ),
+)
+
+# PR-08: the append-only history (undo deletes the latest). `marked_by` = who marked it
+# (the student now; a linked teacher in Phase 3). `occurred_on` is a local date.
+progression_event = Table(
+    "progression_event",
+    metadata,
+    Column("id", BigInteger(), Identity(always=False), primary_key=True),
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("kind", Text(), nullable=False),
+    Column("from_series", Text()),
+    Column("from_key", Text()),
+    Column("to_series", Text()),
+    Column("to_key", Text()),
+    Column("item", Text()),
+    Column("occurred_on", Date(), nullable=False),
+    Column("marked_by", Uuid(), ForeignKey(account.c.id, ondelete="SET NULL")),
+    _timestamp("created_at"),
+    CheckConstraint(
+        "kind IN ('start', 'given', 'changed', 'item_given', 'item_removed')", name="kind"
+    ),
+    CheckConstraint(
+        "CASE WHEN kind IN ('item_given', 'item_removed')"
+        " THEN item IS NOT NULL AND from_key IS NULL AND to_key IS NULL"
+        " AND from_series IS NULL AND to_series IS NULL"
+        " ELSE item IS NULL END",
+        name="item_kind",
+    ),
+    CheckConstraint("(from_series IS NULL) = (from_key IS NULL)", name="from_position"),
+    CheckConstraint("(to_series IS NULL) = (to_key IS NULL)", name="to_position"),
+    CheckConstraint("occurred_on >= '2000-01-01'", name="occurred_on_min"),
+    Index("progression_event_account_id_idx", "account_id", "id"),
 )
 
 # MD-03 / ADR-0019: stored moon calendars per city (previous year … current + 2).

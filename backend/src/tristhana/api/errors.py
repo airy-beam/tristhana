@@ -30,6 +30,9 @@ type ErrorCode = Literal[
     "invalid_settings",
     "invalid_day_off",
     "invalid_rest_period",
+    "invalid_progression",
+    "progression_changed",
+    "not_latest",
     "unavailable",
 ]
 

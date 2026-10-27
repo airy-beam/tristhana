@@ -315,6 +315,84 @@ export interface paths {
         patch: operations["patch_notification_settings_api_v1_me_notification_settings_patch"];
         trace?: never;
     };
+    "/api/v1/me/progression": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mine */
+        get: operations["get_mine_api_v1_me_progression_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/progression/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Event
+         * @description Set (first time or a correction, never celebrates), a new asana (forward only), or a
+         *     milestone item. 409 `progression_changed`: refetch and show the fresh state.
+         */
+        post: operations["post_event_api_v1_me_progression_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/progression/events/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Event
+         * @description Undo: only the latest event (409 `not_latest`).
+         */
+        delete: operations["delete_event_api_v1_me_progression_events__event_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/progression/hint-dismissals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Hint Dismissal
+         * @description "Not new": the question isn't asked again for this stop until the position changes.
+         */
+        post: operations["post_hint_dismissal_api_v1_me_progression_hint_dismissals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/rest-periods": {
         parameters: {
             query?: never;
@@ -458,6 +536,12 @@ export interface components {
              */
             check_in_tags: components["schemas"]["CheckInTagOut"][];
             /**
+             * Milestone Items
+             * @description Optional milestone items: drop-backs, standing up… (PR-08)
+             * @default []
+             */
+            milestone_items: components["schemas"]["StopOut"][];
+            /**
              * Series
              * @description Confirmed series only, in practice order
              */
@@ -465,7 +549,36 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * CelebrationKind
+         * @enum {string}
+         */
+        CelebrationKind: "new_asana" | "series_complete" | "series_begins" | "item";
+        /** CelebrationOut */
+        CelebrationOut: {
+            /** @description A jump over several stops: the first new one (maybe in the series before) */
+            first: components["schemas"]["PositionOut"] | null;
+            /**
+             * Key
+             * @description The new stop, or the item
+             */
+            key: string | null;
+            kind: components["schemas"]["CelebrationKind"];
+            /** Series */
+            series: string | null;
+        };
         CellOut: components["schemas"]["DayStatus"] | "none";
+        /** ChangeOut */
+        ChangeOut: {
+            /**
+             * Celebrations
+             * @description Empty for a give: it was held before (show the quiet line)
+             */
+            celebrations: components["schemas"]["CelebrationOut"][];
+            /** @description null = nothing changed */
+            event: components["schemas"]["EventOut"] | null;
+            progression: components["schemas"]["ProgressionOut"];
+        };
         /** CheckInBody */
         CheckInBody: {
             /**
@@ -737,7 +850,56 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "unavailable";
+        /** EventBody */
+        EventBody: {
+            /**
+             * Expected Event Id
+             * @description `last_event_id` as last seen
+             */
+            expected_event_id: number | null;
+            /** Item */
+            item?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "set" | "given" | "item_given" | "item_removed";
+            /** Last */
+            last?: string | null;
+            /**
+             * Occurred On
+             * @description Default: local today
+             */
+            occurred_on?: string | null;
+            /**
+             * Series
+             * @description set/given: null with last = standing
+             */
+            series?: string | null;
+        };
+        /**
+         * EventKind
+         * @enum {string}
+         */
+        EventKind: "start" | "given" | "changed" | "item_given" | "item_removed";
+        /** EventOut */
+        EventOut: {
+            from: components["schemas"]["PositionOut"] | null;
+            /** Id */
+            id: number;
+            /** Item */
+            item: string | null;
+            kind: components["schemas"]["EventKind"];
+            /** Marked By Self */
+            marked_by_self: boolean;
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            to: components["schemas"]["PositionOut"] | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -754,6 +916,20 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /** HintBody */
+        HintBody: {
+            /** Last */
+            last: string;
+            /** Series */
+            series: string;
+        };
+        /** HintOut */
+        HintOut: {
+            /** Last */
+            last: string;
+            /** Series */
+            series: string;
         };
         /** KeepBody */
         KeepBody: {
@@ -1013,6 +1189,19 @@ export interface components {
             /** @description null: nothing is left (or none) */
             period: components["schemas"]["RestPeriodOut"] | null;
         };
+        /** PositionOut */
+        PositionOut: {
+            /**
+             * Last
+             * @description The last given stop point (natural key)
+             */
+            last: string | null;
+            /**
+             * Series
+             * @description Series slug; null with `last` null = standing only
+             */
+            series: string | null;
+        };
         /** PracticeBody */
         PracticeBody: {
             context?: components["schemas"]["PracticeContext"] | null;
@@ -1041,6 +1230,8 @@ export interface components {
             /** Duration Min */
             duration_min?: number | null;
             length?: components["schemas"]["Length"] | null;
+            /** @description PR-08: ask "New asana?" about this stop (only when the length changed) */
+            new_asana_hint?: components["schemas"]["HintOut"] | null;
             /**
              * Online
              * @default false
@@ -1133,8 +1324,50 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "short" | "half_primary" | "full_primary" | "recent";
+            kind: "short" | "half_primary" | "full_primary" | "mine" | "recent";
             length: components["schemas"]["Length"];
+        };
+        /** ProgressionOut */
+        ProgressionOut: {
+            /** By Series */
+            by_series: components["schemas"]["SeriesLastOut"][];
+            /**
+             * Events
+             * @description Newest first, at most 20
+             */
+            events: components["schemas"]["EventOut"][];
+            /**
+             * Items
+             * @description Milestone items given (catalog `milestone_items`)
+             */
+            items: string[];
+            /**
+             * Last Event Id
+             * @description Send back as `expected_event_id`
+             */
+            last_event_id: number | null;
+            /**
+             * Later
+             * @description "Another new asana…": later stops
+             */
+            later: components["schemas"]["PositionOut"][];
+            /** @description The position as a practice (the series below + this one); null = standing only, unset or stale */
+            length: components["schemas"]["Length"] | null;
+            /** @description The next stop; null at the end or when stale */
+            next: components["schemas"]["PositionOut"] | null;
+            /** @description null = not set yet */
+            position: components["schemas"]["PositionOut"] | null;
+            /** Set */
+            set: boolean;
+            /** @description Unset only: from the logged practices */
+            suggested: components["schemas"]["PositionOut"] | null;
+            /** @description `suggested` as a practice */
+            suggested_length: components["schemas"]["Length"] | null;
+            /**
+             * Today
+             * @description The caller's local date
+             */
+            today?: string | null;
         };
         /** Quiet */
         Quiet: {
@@ -1205,6 +1438,16 @@ export interface components {
             /** Practices */
             practices: number;
         };
+        /** SeriesLastOut */
+        SeriesLastOut: {
+            /**
+             * Last
+             * @description Earlier series: their last stop; later ones: null
+             */
+            last: string | null;
+            /** Slug */
+            slug: string;
+        };
         /** SeriesOut */
         SeriesOut: {
             /**
@@ -1222,6 +1465,8 @@ export interface components {
             slug: string;
             /** Stops */
             stops: components["schemas"]["StopOut"][];
+            /** @description Shown name ("Yoga Chikitsa"; key = slug): Primary and Intermediate only */
+            traditional?: components["schemas"]["StopOut"] | null;
         };
         /** StartBody */
         StartBody: {
@@ -2385,6 +2630,211 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_mine_api_v1_me_progression_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_event_api_v1_me_progression_events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_event_api_v1_me_progression_events__event_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_hint_dismissal_api_v1_me_progression_hint_dismissals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HintBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

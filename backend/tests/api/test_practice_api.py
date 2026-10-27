@@ -82,7 +82,7 @@ def test_put_round_trip_and_days_include_it(api: TestClient) -> None:
     days = api.get("/api/v1/me/days", headers=_auth()).json()["days"]
 
     assert saved.status_code == 200
-    assert saved.json() == body | {"slot": 1, "timezone": None}
+    assert saved.json() == body | {"slot": 1, "timezone": None, "new_asana_hint": None}
     assert days[-1]["practices"] == [saved.json()]
 
 

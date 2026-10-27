@@ -16,6 +16,7 @@ help-text =
     I'm Tristhana, a companion for your Ashtanga practice.
     📝 /log: today or an earlier day
     🔔 /remind: daily practice reminder
+    🧘 /asanas: my asanas, mark a new one
     🌙 /moon: upcoming moon days and reminders
     ⚙️ /settings: language, time zone, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
@@ -462,3 +463,54 @@ diary-clear-yes = Remove
 diary-removed = Removed from your diary. Earlier messages in this chat stay until you delete them.
 diary-too-long = That's a bit long for one note: up to { $max } characters. Your text is still above, so you can shorten it and resend.
 diary-text-only = Notes are text for now. Type your note as a reply to the prompt above.
+
+## Progression (PR-08) and its celebrations (GM-01). Asana, item and series names come from
+## the catalog; $series is a `series-name`, $traditional a traditional name or "none".
+
+command-asanas = My asanas: where my practice ends
+progression-title = 🧘 My asanas
+progression-unset = Where does your practice end now? Set it once, then mark it here when you get a new asana.
+progression-suggest = From your log: { $length }
+progression-choose = Choose…
+progression-standing-only = Sun salutations and standing
+progression-current = Your practice: { $length }
+progression-items = Backbends: { $items }
+progression-new = 🎉 New asana: { $asana }
+progression-new-other = 🎉 Another new asana…
+progression-item-new = 🎉 { $item }
+progression-change = ✏️ Change
+progression-change-explain = Pick where your practice ends now. Your history stays.
+progression-pick-series = Which series does your practice end with?
+progression-pick-asana = Your last asana in { $series }:
+progression-series-button = { $series }
+progression-pick-new = Which new asana?
+progression-saved = Saved: your practice ends at { $asana }.
+progression-saved-standing = Saved: sun salutations and standing.
+progression-back = { $asana } is in your practice.
+progression-already = That's already in your practice.
+progression-undo = ↩︎ Undo
+progression-undone = Undone.
+progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
+progression-ask-yes = 🎉 Yes, new
+progression-ask-no = Not new
+progression-open = 🧘 My asanas
+celebrate-new-asana = 🎉 New asana: { $asana }. Enjoy it!
+celebrate-new-asanas = 🎉 New asanas: { $from } → { $asana }
+celebrate-series-complete =
+    { $traditional ->
+        [none] 🎉 Full { $series }.
+       *[other] 🎉 Full { $series }: { $traditional }.
+    }
+celebrate-series-begins =
+    { $traditional ->
+        [none] 🎉 { $series } begins.
+       *[other] 🎉 { $series } begins: { $traditional }.
+    }
+celebrate-item = 🎉 { $item }: a lovely step.
+preset-mine = 🧘 My practice: { $length }
+# Milestone item names: the catalog name, plus the everyday name where people use one.
+milestone-label =
+    { $slug ->
+        [viparita-chakrasana] { $name } (tic-tacs)
+       *[other] { $name }
+    }

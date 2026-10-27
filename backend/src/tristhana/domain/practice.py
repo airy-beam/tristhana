@@ -87,16 +87,24 @@ class Series:
     name_ru: str
     items: tuple[str, ...]  # every item key, in order
     stops: tuple[StopPoint, ...]  # where a practice may end, in order
+    traditional: AsanaNames | None = None  # "Yoga Chikitsa"
 
 
 class PracticeCatalog:
-    """The confirmed series of the catalog, indexed for lengths and pickers."""
+    """The confirmed series of the catalog, indexed for lengths and pickers, plus the
+    optional milestone items of the blocks (drop-backs, standing up: PR-08)."""
 
     def __init__(self, catalog: Catalog) -> None:
         names = {a.slug: a.names for a in catalog.asanas}
         series: list[Series] = []
+        milestones: list[StopPoint] = []
         for seq in catalog.sequences:
-            if seq.kind is not SequenceKind.SERIES or seq.status is not SequenceStatus.CONFIRMED:
+            if seq.status is not SequenceStatus.CONFIRMED:
+                continue
+            if seq.kind is SequenceKind.BLOCK:
+                milestones += (
+                    StopPoint(i.key, names[i.asana], i.variant) for i in seq.items if i.milestone
+                )
                 continue
             assert seq.number is not None  # noqa: S101 - validated by the catalog loader
             stops = tuple(StopPoint(i.key, names[i.asana], i.variant) for i in seq.items if i.stop)
@@ -108,9 +116,11 @@ class PracticeCatalog:
                     seq.names.ru,
                     tuple(i.key for i in seq.items),
                     stops,
+                    seq.traditional_name,
                 )
             )
         self.series = tuple(sorted(series, key=lambda s: s.number))
+        self.milestones = tuple(milestones)
         self._by_slug = {s.slug: s for s in self.series}
         self._by_number = {s.number: s for s in self.series}
 
@@ -191,10 +201,15 @@ class Presets:
     presets: tuple[tuple[str, PracticeLength], ...]  # (kind, length): static, then recent
 
 
-def derive_presets(catalog: PracticeCatalog, recent: list[Practice]) -> Presets:
+def derive_presets(
+    catalog: PracticeCatalog,
+    recent: list[Practice],
+    mine: tuple[PracticeLength, ...] = (),
+) -> Presets:
     """`recent` newest first. Recent lengths are ranked by use (ties: newest), so a weekly
-    Friday Primary doesn't push out the usual length; statics and stale keys are skipped."""
-    static = {length for _, length in STATIC_PRESETS}
+    Friday Primary doesn't push out the usual length; statics and stale keys are skipped.
+    `mine` ("🧘 My practice", PR-08) come first and take recent slots."""
+    static = {length for _, length in STATIC_PRESETS} | set(mine)
     counts: Counter[PracticeLength] = Counter()
     first_seen: dict[PracticeLength, int] = {}
     for i, practice in enumerate(recent):
@@ -209,5 +224,6 @@ def derive_presets(catalog: PracticeCatalog, recent: list[Practice]) -> Presets:
         counts[length] += 1
         first_seen.setdefault(length, i)
     ranked = sorted(counts, key=lambda length: (-counts[length], first_seen[length]))
-    recents = tuple(("recent", length) for length in ranked[:RECENT_PRESETS])
-    return Presets(last=recent[0] if recent else None, presets=STATIC_PRESETS + recents)
+    recents = tuple(("recent", length) for length in ranked[: max(0, RECENT_PRESETS - len(mine))])
+    mines = tuple(("mine", length) for length in mine)
+    return Presets(last=recent[0] if recent else None, presets=STATIC_PRESETS + mines + recents)

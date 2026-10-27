@@ -45,10 +45,12 @@ from tristhana.domain.practice import (
     PracticeContext,
     PracticeLength,
 )
+from tristhana.domain.progression import Position
 from tristhana.domain.rest_periods import PAUSABLE, RestPeriod
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.days import DayScreens
+    from tristhana.bots.telegram.progression import ProgressionScreens
 
 DURATIONS = ((30, 45, 60, 75), (90, 120, 150, 180))
 GRID_PAGE = 16  # 2 columns x 8 rows
@@ -99,6 +101,7 @@ class PracticeScreens:
         self._t = translator
         self._day_screens = day_screens
         self._remind = remind
+        self.progression: ProgressionScreens | None = None  # PR-08, set by `register`
 
     async def handle(self, principal: Principal, cb: PracticeCallback | None) -> Screen | None:
         if cb is None:
@@ -154,7 +157,13 @@ class PracticeScreens:
 
     async def _save(self, principal: Principal, day: date, patch: PracticePatch) -> Screen:
         saved = await self._p.save.execute(principal, day, patch)
-        return await self.details(principal, day, practice=saved.practice, check_ins=_found(saved))
+        return await self.details(
+            principal,
+            day,
+            practice=saved.practice,
+            check_ins=_found(saved),
+            hint=saved.new_asana_hint,
+        )
 
     async def _set_length(self, principal: Principal, cb: PracticeCallback) -> Screen:
         assert cb.range is not None  # noqa: S101 - decoded with a range
@@ -212,11 +221,14 @@ class PracticeScreens:
         kept: RestPeriod | None = None,
         known: bool = False,
         check_ins: tuple[CheckIn, ...] | None = None,
+        hint: Position | None = None,
+        lead: list[str] | None = None,
     ) -> Screen:
         """`cut`: a rest period this 🧘 just cut (WH-01): a gentle line and "Keep the
         pause"; `kept`: it was just restored. `known`: `practice` is the stored value even
         when None, on a day just logged (no read, no check-in yet). `check_ins` None = not
-        read yet."""
+        read yet. `hint`: ask "New asana? 🎉" about this stop (PR-08, only on the reply to a
+        length tap); `lead`: lines on top (a celebration after "Yes, new")."""
         if known:
             check_ins = check_ins or ()
         elif practice is None:
@@ -227,6 +239,7 @@ class PracticeScreens:
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
         if note:
             lines.insert(0, self._t.t(locale, note))
+        lines[:0] = lead or []
         rows: list[list[InlineKeyboardButton]] = []
         keep = self.keep_row(principal, day, cut)
         if keep:
@@ -239,6 +252,12 @@ class PracticeScreens:
             lines.append(self.summary_text(locale, day, practice))
         else:
             lines.append(self._t.t(locale, "practice-details-prompt"))
+        asking = False
+        if hint is not None and self.progression is not None:
+            asking = True
+            question, answers = self.progression.ask_new(locale, day, hint)
+            lines.append(question)
+            rows.append(answers)
         if not has_details(practice):  # only then is "same as last time" offered
             last = (await self._p.presets.execute(principal, day)).last
             if last is not None and has_details(last):
@@ -272,7 +291,10 @@ class PracticeScreens:
         extras.append(self._button(locale, "practice-duration", _data("durations", day)))
         rows.append(extras)
         rows.append([self._button(locale, "practice-length", _data("lengths", day))])
-        check_in_lines, check_in_rows = await self._check_in_part(principal, day, check_ins)
+        # One question at a time: with "New asana?", the check-in is just ✨.
+        check_in_lines, check_in_rows = await self._check_in_part(
+            principal, day, check_ins, not asking
+        )
         lines += check_in_lines
         rows += check_in_rows
         last_row = [self._button(locale, "practice-done", _data("done", day))]
@@ -362,18 +384,24 @@ class PracticeScreens:
                 self._length_button(locale, day, FULL_PRIMARY),
             ],
         ]
+        mine = [length for kind, length in presets.presets if kind == "mine"]
+        rows[:0] = [[self._length_button(locale, day, length, mine=True)] for length in mine]
         for kind, length in presets.presets:
             if kind == "recent":
                 rows.append([self._length_button(locale, day, length)])
         rows.append([self._button(locale, "preset-other", _data("series", day))])
+        if self.progression is not None:
+            rows.append([self._button(locale, "progression-open", self.progression.open_data)])
         rows.append([self._button(locale, "log-back", _data("open", day))])
         return Screen(self._t.t(locale, "length-pick"), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _length_button(
-        self, locale: Locale, day: date, length: PracticeLength
+        self, locale: Locale, day: date, length: PracticeLength, mine: bool = False
     ) -> InlineKeyboardButton:
         key = _STATIC_KEYS.get(length)
         text = self._t.t(locale, key) if key else self.length_text(locale, length)
+        if mine:
+            text = self._t.t(locale, "preset-mine", length=text)
         rng = Range.of(self._p.catalog, length)
         assert rng is not None  # noqa: S101 - presets are validated lengths
         return InlineKeyboardButton(

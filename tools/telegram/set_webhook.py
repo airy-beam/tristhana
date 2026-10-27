@@ -31,7 +31,7 @@ MENU_BUTTON_TEXT = "Tristhana"
 LOCALES_DIR = (
     Path(__file__).resolve().parents[2] / "backend/src/tristhana/infrastructure/i18n/locales"
 )
-COMMANDS = ("log", "remind", "moon", "settings", "help", "start")
+COMMANDS = ("log", "asanas", "remind", "moon", "settings", "help", "start")
 
 
 def gcloud(*args: str) -> str:

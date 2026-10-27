@@ -29,6 +29,14 @@ from tristhana.application.practice import (
     GetPracticePresets,
     SavePractice,
 )
+from tristhana.application.progression import (
+    DismissNewAsanaHint,
+    GetProgression,
+    MarkItem,
+    MarkNewAsana,
+    SetPractice,
+    UndoProgression,
+)
 from tristhana.application.remind import (
     AnswerPracticeOffer,
     LogFromReminder,
@@ -45,6 +53,7 @@ from tristhana.application.rest_periods import (
 from tristhana.application.settings import UpdateProfile
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
+from tristhana.domain.progression import Track
 
 if TYPE_CHECKING:
     from aiogram import Bot, Dispatcher
@@ -83,6 +92,19 @@ class DiaryUseCases:
     save: SaveDiaryNote
     get: GetDiaryNote
     clear: ClearDiaryNote
+
+
+@dataclass(frozen=True, slots=True)
+class ProgressionUseCases:
+    """PR-08: progression and its celebrations (shared by the bot and the API)."""
+
+    get: GetProgression
+    set: SetPractice
+    give: MarkNewAsana
+    item: MarkItem
+    undo: UndoProgression
+    dismiss: DismissNewAsanaHint
+    track: Track
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +165,7 @@ def build_runtime(
     rest: RestUseCases | None = None,
     check_ins: CheckInUseCases | None = None,
     diary: DiaryUseCases | None = None,
+    progression: ProgressionUseCases | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -163,6 +186,7 @@ def build_runtime(
             rest,
             check_ins,
             diary,
+            progression,
         )
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)

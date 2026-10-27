@@ -16,6 +16,7 @@ help-text =
     Я Тристхана, спутник твоей практики аштанги.
     📝 /log: сегодня или прошедший день
     🔔 /remind: ежедневное напоминание о практике
+    🧘 /asanas: мои асаны, отметить новую
     🌙 /moon: ближайшие лунные дни и напоминания
     ⚙️ /settings: язык, часовой пояс, напоминания
     📊 Журнал практики и статистика — в приложении (кнопка рядом с полем ввода).
@@ -472,3 +473,54 @@ diary-clear-yes = Удалить
 diary-removed = Заметка удалена из дневника. Сообщения выше в чате остаются, их можно удалить в Telegram.
 diary-too-long = Для одной заметки длинновато: до { $max } символов. Текст остался выше, можно сократить и отправить снова.
 diary-text-only = Пока заметки бывают только текстом. Напиши её ответом на сообщение выше.
+
+## Прогресс (PR-08) и праздники (GM-01). Названия асан, элементов и серий — из каталога;
+## $series — это `series-name`, $traditional — традиционное название или "none".
+
+command-asanas = Мои асаны: где заканчивается практика
+progression-title = 🧘 Мои асаны
+progression-unset = Где сейчас заканчивается твоя практика? Укажи это один раз, а новые асаны потом отмечай здесь.
+progression-suggest = По журналу: { $length }
+progression-choose = Выбрать…
+progression-standing-only = Сурья Намаскар и стоячие
+progression-current = Твоя практика: { $length }
+progression-items = Прогибы: { $items }
+progression-new = 🎉 Новая асана: { $asana }
+progression-new-other = 🎉 Другая новая асана…
+progression-item-new = 🎉 { $item }
+progression-change = ✏️ Изменить
+progression-change-explain = Выбери, где сейчас заканчивается практика. История сохранится.
+progression-pick-series = Какой серией заканчивается практика?
+progression-pick-asana = Последняя асана, { $series } серия:
+progression-series-button = { $series } серия
+progression-pick-new = Какая новая асана?
+progression-saved = Сохранено. Последняя асана: { $asana }.
+progression-saved-standing = Сохранено: Сурья Намаскар и стоячие асаны.
+progression-back = { $asana } — в твоей практике.
+progression-already = Это уже есть в твоей практике.
+progression-undo = ↩︎ Отменить
+progression-undone = Отменено.
+progression-ask-new = { $asana } — дальше твоей последней асаны. Новая асана? 🎉
+progression-ask-yes = 🎉 Да, новая
+progression-ask-no = Не новая
+progression-open = 🧘 Мои асаны
+celebrate-new-asana = 🎉 Новая асана: { $asana }. Приятного знакомства!
+celebrate-new-asanas = 🎉 Новые асаны: { $from } → { $asana }
+celebrate-series-complete =
+    { $traditional ->
+        [none] 🎉 { $series } серия целиком.
+       *[other] 🎉 { $series } серия целиком: { $traditional }.
+    }
+celebrate-series-begins =
+    { $traditional ->
+        [none] 🎉 { $series } серия начинается.
+       *[other] 🎉 { $series } серия начинается: { $traditional }.
+    }
+celebrate-item = 🎉 { $item }: прекрасный шаг.
+preset-mine = 🧘 Моя практика: { $length }
+# Названия элементов-этапов: из каталога, плюс бытовое название, где оно в ходу.
+milestone-label =
+    { $slug ->
+        [viparita-chakrasana] { $name } (тик-токи)
+       *[other] { $name }
+    }

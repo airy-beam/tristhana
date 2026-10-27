@@ -28,6 +28,7 @@ from tristhana.bots.telegram.runtime import (
     DiaryUseCases,
     MoonUseCases,
     PracticeUseCases,
+    ProgressionUseCases,
     RemindUseCases,
     RestUseCases,
     SettingsUseCases,
@@ -49,6 +50,7 @@ def build_router(
     rest: RestUseCases | None = None,
     check_ins: CheckInUseCases | None = None,
     diary: DiaryUseCases | None = None,
+    progression: ProgressionUseCases | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -62,7 +64,7 @@ def build_router(
         return message.answer(translator.t(account.locale, "help-text"))
 
     screens = day_screens.register(
-        router, days, practices, translator, remind, miniapp_url, check_ins, diary
+        router, days, practices, translator, remind, miniapp_url, check_ins, diary, progression
     )
     register_start(router, screens, settings, translator, miniapp_url)
     register_moon(router, moon, translator)

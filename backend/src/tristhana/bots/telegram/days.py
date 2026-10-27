@@ -23,11 +23,13 @@ from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encod
 from tristhana.bots.telegram.check_in import CheckInScreens, register_check_in
 from tristhana.bots.telegram.diary import DiaryScreens, note_button, preview, register_diary
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
+from tristhana.bots.telegram.progression import ProgressionScreens, register_progression
 from tristhana.bots.telegram.runtime import (
     CheckInUseCases,
     DayUseCases,
     DiaryUseCases,
     PracticeUseCases,
+    ProgressionUseCases,
     RemindUseCases,
 )
 from tristhana.bots.telegram.screens import (
@@ -82,10 +84,16 @@ def register(
     miniapp_url: str = "",
     check_ins: CheckInUseCases | None = None,
     diary: DiaryUseCases | None = None,
+    progression: ProgressionUseCases | None = None,
 ) -> DayScreens:
     screens = DayScreens(days, translator, miniapp_url)
     screens.practice = PracticeScreens(days, practices, translator, screens, remind)
     register_practice(router, screens.practice)
+    if progression is not None:  # PR-08 (always wired by the app)
+        screens.practice.progression = ProgressionScreens(
+            progression, translator, screens, screens.practice
+        )
+        register_progression(router, screens.practice.progression)
     check_in_screens = None
     if check_ins is not None:  # PR-06 (always wired by the app)
         check_in_screens = CheckInScreens(check_ins, translator, screens, screens.practice)

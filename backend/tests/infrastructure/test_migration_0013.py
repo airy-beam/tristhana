@@ -12,12 +12,11 @@ from tristhana.infrastructure.db import tables
 from tristhana.infrastructure.db.migrate import alembic_config
 
 
-def test_0013_is_the_head_after_0012() -> None:
+def test_0013_follows_0012() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0013")
 
-    assert script.get_current_head() == "0013"
-    assert revision is not None
+    assert revision is not None  # the head is checked by the newest migration's test
     assert revision.down_revision == "0012"
 
 
