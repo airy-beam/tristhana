@@ -36,6 +36,7 @@ _COLUMNS = (
     account.c.day_off_before,
     account.c.day_off_dismissed_at,
     account.c.hide_ladies,
+    account.c.offer_check_in,
 )
 
 
@@ -136,6 +137,8 @@ class SqlAccountRepository:
             values["timezone"] = change.timezone
         if "hide_ladies" in change.fields:
             values["hide_ladies"] = change.hide_ladies
+        if "offer_check_in" in change.fields:
+            values["offer_check_in"] = change.offer_check_in
         stmt = update(account).where(account.c.id == account_id).values(values).returning(*_COLUMNS)
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
@@ -208,4 +211,5 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         day_off=DayOff(from_mask(row.day_off), row.day_off_since, from_mask(row.day_off_before)),
         day_off_dismissed=row.day_off_dismissed_at is not None,
         hide_ladies=row.hide_ladies,
+        offer_check_in=row.offer_check_in,
     )

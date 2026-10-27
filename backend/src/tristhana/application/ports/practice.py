@@ -4,7 +4,14 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.application.practice_patch import PracticePatch
+from tristhana.domain.check_in import CheckIn
 from tristhana.domain.practice import Practice
+
+
+@dataclass(frozen=True, slots=True)
+class SavedPractice:
+    practice: Practice
+    check_in: CheckIn | None = None  # the day's check-in, read in the same statement (PR-06)
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,13 +25,14 @@ class PracticeRepository(Protocol):
 
     async def save(
         self, account_id: UUID, local_date: date, patch: PracticePatch
-    ) -> Practice | None:
-        """Upsert the patched fields of slot 1; None when the day isn't Practiced."""
+    ) -> SavedPractice | None:
+        """Upsert the patched fields of slot 1, with the day's check-in; None when the day
+        isn't Practiced."""
         ...
 
     async def copy_latest(
         self, account_id: UUID, local_date: date, timezone: str | None
-    ) -> Practice | None:
+    ) -> SavedPractice | None:
         """Copy context, online, length and duration (not the start time) of the newest
         practice before `local_date`; None when the day isn't Practiced or there is none."""
         ...

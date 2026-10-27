@@ -14,9 +14,11 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
+from tristhana.application.ports.practice import SavedPractice
 from tristhana.application.practice import DayNotPracticed, NoPreviousPractice
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.bots.telegram import callbacks as dcb
+from tristhana.bots.telegram import check_in as ck
 from tristhana.bots.telegram import rest_callbacks as acb
 from tristhana.bots.telegram.practice_callbacks import (
     PREFIX,
@@ -29,7 +31,8 @@ from tristhana.bots.telegram.remind import offer_row
 from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases, RemindUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.domain.accounts import Account
-from tristhana.domain.days import DayStatus
+from tristhana.domain.check_in import CheckIn, offer_mood_row
+from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.locale import Locale
 from tristhana.domain.practice import (
     FULL_PRIMARY,
@@ -70,6 +73,10 @@ def register_practice(router: Router, screens: PracticeScreens) -> None:
 
 def _data(action: str, day: date, **kw: object) -> str:
     return encode(PracticeCallback(action, day, **kw))  # type: ignore[arg-type]
+
+
+def _found(saved: SavedPractice) -> tuple[CheckIn, ...]:
+    return (saved.check_in,) if saved.check_in is not None else ()
 
 
 def has_details(p: Practice | None) -> bool:
@@ -123,7 +130,9 @@ class PracticeScreens:
                     return await self._set_length(principal, cb)
                 case "same":
                     copied = await self._p.copy_last.execute(principal, day)
-                    return await self.details(principal, day, practice=copied)
+                    return await self.details(
+                        principal, day, practice=copied.practice, check_ins=_found(copied)
+                    )
                 case "clear":
                     await self._p.clear.execute(principal, day)
                     return await self.details(principal, day)  # re-read: still practiced?
@@ -145,7 +154,7 @@ class PracticeScreens:
 
     async def _save(self, principal: Principal, day: date, patch: PracticePatch) -> Screen:
         saved = await self._p.save.execute(principal, day, patch)
-        return await self.details(principal, day, practice=saved)
+        return await self.details(principal, day, practice=saved.practice, check_ins=_found(saved))
 
     async def _set_length(self, principal: Principal, cb: PracticeCallback) -> Screen:
         assert cb.range is not None  # noqa: S101 - decoded with a range
@@ -154,13 +163,43 @@ class PracticeScreens:
             raise InvalidLength("unknown series")
         return await self._save(principal, cb.day, PracticePatch.of(length=length))
 
-    async def _current(self, principal: Principal, day: date) -> Practice | None:
-        """The day's practice; raises `DayNotPracticed` when the day isn't Practiced."""
+    async def _current_day(self, principal: Principal, day: date) -> DayLog:
+        """The day with its practice and check-in; raises `DayNotPracticed` when the day
+        isn't Practiced. One statement."""
         view = await self._days.get.execute(principal, day, day)
         if not view.days or view.days[0].status is not DayStatus.PRACTICED:
             raise DayNotPracticed(day.isoformat())
-        practices = view.days[0].practices
+        return view.days[0]
+
+    async def _current(self, principal: Principal, day: date) -> Practice | None:
+        practices = (await self._current_day(principal, day)).practices
         return practices[0] if practices else None
+
+    async def current_check_in(self, principal: Principal, day: date) -> CheckIn | None:
+        check_ins = (await self._current_day(principal, day)).check_ins
+        return check_ins[0] if check_ins else None
+
+    async def _check_in_part(
+        self,
+        principal: Principal,
+        day: date,
+        check_ins: tuple[CheckIn, ...] | None,
+        mood_row: bool = True,
+    ) -> tuple[list[str], list[list[InlineKeyboardButton]]]:
+        """PR-06: the one-tap mood row (today or yesterday, setting on, no check-in yet),
+        otherwise [✨ Check-in] plus the summary of one. `check_ins` None = not read (every
+        caller passes it; the read is a fallback). `mood_row` False: never ask here (another
+        question is on the screen, or the check-in was just removed)."""
+        account = principal.account
+        locale = account.locale
+        if check_ins is None:
+            check_ins = (await self._current_day(principal, day)).check_ins
+        existing = check_ins[0] if check_ins else None
+        today, _ = self._days.get.today(principal)
+        if mood_row and offer_mood_row(day, today, existing, account.offer_check_in):
+            return [self._t.t(locale, "checkin-prompt")], [ck.mood_row(self._t, locale, day)]
+        lines = [ck.summary_text(self._t, locale, existing)] if existing else []
+        return lines, [[self._button(locale, "checkin-edit", ck.data("open", day))]]
 
     # Screen P: what was saved + one-tap details.
     async def details(
@@ -172,12 +211,18 @@ class PracticeScreens:
         cut: RestPeriod | None = None,
         kept: RestPeriod | None = None,
         known: bool = False,
+        check_ins: tuple[CheckIn, ...] | None = None,
     ) -> Screen:
         """`cut`: a rest period this 🧘 just cut (WH-01): a gentle line and "Keep the
         pause"; `kept`: it was just restored. `known`: `practice` is the stored value even
-        when None (no read)."""
-        if practice is None and not known:
-            practice = await self._current(principal, day)
+        when None, on a day just logged (no read, no check-in yet). `check_ins` None = not
+        read yet."""
+        if known:
+            check_ins = check_ins or ()
+        elif practice is None:
+            logged = await self._current_day(principal, day)
+            practice = logged.practices[0] if logged.practices else None
+            check_ins = logged.check_ins
         locale = principal.account.locale
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
         if note:
@@ -227,6 +272,9 @@ class PracticeScreens:
         extras.append(self._button(locale, "practice-duration", _data("durations", day)))
         rows.append(extras)
         rows.append([self._button(locale, "practice-length", _data("lengths", day))])
+        check_in_lines, check_in_rows = await self._check_in_part(principal, day, check_ins)
+        lines += check_in_lines
+        rows += check_in_rows
         last_row = [self._button(locale, "practice-done", _data("done", day))]
         if has_details(practice):
             last_row.append(self._button(locale, "practice-clear", _data("clear", day)))
@@ -261,9 +309,14 @@ class PracticeScreens:
         extra: str | None = None,
         offer: bool = True,
         cut: RestPeriod | None = None,
+        check_ins: tuple[CheckIn, ...] | None = None,
+        mood_row: bool = True,
     ) -> Screen:
+        """`check_ins` None = not read yet. `mood_row` False: [✨ Check-in] only."""
         if practice is None:
-            practice = await self._current(principal, day)
+            logged = await self._current_day(principal, day)
+            practice = logged.practices[0] if logged.practices else None
+            check_ins = logged.check_ins
         locale = principal.account.locale
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
         keep = self.keep_row(principal, day, cut)
@@ -283,11 +336,19 @@ class PracticeScreens:
         ]
         if keep:
             rows.insert(0, keep)
+        reminder_offer = False
         if offer and day == today and self._remind is not None:
             settings = await self._remind.settings.get(principal)
-            if settings.practice.on is None:  # never chosen: offered once, until answered
-                lines.append(self._t.t(locale, "remind-offer"))
-                rows.append(offer_row(self._t, locale, day))
+            reminder_offer = settings.practice.on is None  # never chosen: offered once
+        # One question at a time: with the reminder offer, the check-in is just ✨.
+        check_in_lines, check_in_rows = await self._check_in_part(
+            principal, day, check_ins, mood_row and not reminder_offer
+        )
+        lines += check_in_lines
+        rows += check_in_rows
+        if reminder_offer:
+            lines.append(self._t.t(locale, "remind-offer"))
+            rows.append(offer_row(self._t, locale, day))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     # Screen L: presets, recent lengths, "Other…".

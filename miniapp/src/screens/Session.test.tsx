@@ -14,7 +14,8 @@ const ME: Me = {
   timezone: null,
   name_from_telegram: true,
   locale_from_telegram: true,
-  hide_ladies: false, // WH-01 part 2
+  hide_ladies: false,
+  offer_check_in: true, // WH-01 part 2
 };
 
 type Route = (request: Request) => Response;

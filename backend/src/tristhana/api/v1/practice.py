@@ -2,6 +2,8 @@
 length picker needs (ADR-0017)."""
 
 import datetime as dt
+import hashlib
+from collections.abc import Iterable
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Path, Response
@@ -22,6 +24,7 @@ from tristhana.application.practice import (
     SavePractice,
 )
 from tristhana.application.practice_patch import PracticePatch
+from tristhana.domain.check_in import TAG_GROUPS, CheckInTag
 from tristhana.domain.practice import (
     SERIES_HALVES,
     InvalidLength,
@@ -101,14 +104,34 @@ class SeriesOut(BaseModel):
     stops: list[StopOut]
 
 
+class CheckInTagOut(BaseModel):
+    key: CheckInTag
+    group: Literal["body", "mind"]
+
+
 class CatalogOut(BaseModel):
     version: str
     series: list[SeriesOut] = Field(description="Confirmed series only, in practice order")
+    check_in_tags: list[CheckInTagOut] = Field(
+        default=[], description="Check-in tags in display order (PR-06)"
+    )
+
+
+def catalog_etag(version: str, tag_keys: Iterable[str]) -> str:
+    """The catalog's quoted ETag: the seed version plus the check-in tags with their
+    groups (moving a tag between body and mind changes it too)."""
+    tagged = ",".join(f"{k}:{_GROUPS.get(k, '')}" for k in tag_keys)
+    return f'"{version}-{hashlib.sha256(tagged.encode()).hexdigest()[:8]}"'
+
+
+_GROUPS: dict[str, str] = {t.value: g for t, g in TAG_GROUPS.items()}
+_ETAG_TAGS = tuple(t.value for t in CheckInTag)
 
 
 def _catalog_out(catalog: PracticeCatalog, version: str) -> CatalogOut:
     return CatalogOut(
         version=version,
+        check_in_tags=[CheckInTagOut(key=t, group=TAG_GROUPS[t]) for t in CheckInTag],
         series=[
             SeriesOut(
                 slug=s.slug,
@@ -131,7 +154,8 @@ async def get_catalog(
 ) -> CatalogOut | Response:
     """Public and cacheable: the series and their stop points for the length picker."""
     catalog, version = loaded
-    headers = {"ETag": f'"{version}"', "Cache-Control": "public, max-age=3600"}
+    etag = catalog_etag(version, _ETAG_TAGS)
+    headers = {"ETag": etag, "Cache-Control": "public, max-age=3600"}
     if headers["ETag"] in {t.strip().removeprefix("W/") for t in (if_none_match or "").split(",")}:
         return Response(status_code=304, headers=headers)
     response.headers.update(headers)
@@ -180,7 +204,7 @@ async def put_practice(
         raise ApiError(422, "invalid_practice") from None
     except TimezoneUnknown:
         raise ApiError(422, "timezone_unknown") from None
-    return PracticeOut.of(saved)
+    return PracticeOut.of(saved.practice)
 
 
 @router.delete(

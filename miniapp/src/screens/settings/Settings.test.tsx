@@ -21,7 +21,8 @@ const ME: Me = {
   timezone: "Asia/Almaty",
   name_from_telegram: true,
   locale_from_telegram: true,
-  hide_ladies: false, // WH-01 part 2
+  hide_ladies: false,
+  offer_check_in: true, // WH-01 part 2
 };
 const CITIES: City[] = [
   { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
@@ -378,5 +379,66 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
     expect(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" })).not.toBeChecked();
     expect(localStorage.getItem("stats.showLadies")).not.toBe("1");
+  });
+});
+
+describe("Offer a check-in after practice (PR-06)", () => {
+  afterEach(() => {
+    meFails = false;
+  });
+
+  const offered = { ...ME, offer_check_in: true } as Me;
+  const toggle = () => screen.findByRole("checkbox", { name: "Offer a check-in after practice" });
+
+  it("is on by default, explains itself, and saves at once", async () => {
+    const seen = stubApi();
+    renderWith(<Settings me={offered} onBack={vi.fn()} />);
+
+    const box = await toggle();
+    expect(box).toBeChecked();
+    expect(
+      screen.getByText(
+        "Mood, energy and effort right after logging today's practice. You can always add one from the day.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(box);
+
+    expect(box).not.toBeChecked(); // optimistic
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ offer_check_in: false }]);
+  });
+
+  it("reads the stored choice and turns it back on", async () => {
+    const seen = stubApi();
+    renderWith(<Settings me={{ ...offered, offer_check_in: false }} onBack={vi.fn()} />);
+
+    const box = await toggle();
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ offer_check_in: true }]);
+  });
+
+  it("rolls back when the save fails", async () => {
+    meFails = true;
+    stubApi();
+    renderWith(<Settings me={offered} onBack={vi.fn()} />);
+    const box = await toggle();
+
+    fireEvent.click(box);
+
+    await vi.waitFor(() => {
+      expect(box).toBeChecked();
+    });
+  });
+
+  it("is in Russian too", async () => {
+    stubApi();
+    renderWith(<Settings me={offered} onBack={vi.fn()} />, "ru");
+
+    expect(
+      await screen.findByRole("checkbox", {
+        name: "Предлагать отметить самочувствие после практики",
+      }),
+    ).toBeChecked();
   });
 });

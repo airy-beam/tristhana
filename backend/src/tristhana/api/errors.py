@@ -21,6 +21,7 @@ type ErrorCode = Literal[
     "day_not_practiced",
     "invalid_length",
     "invalid_practice",
+    "invalid_check_in",
     "timezone_unknown",
     "unknown_location",
     "invalid_settings",

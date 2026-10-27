@@ -47,6 +47,7 @@ def test_me_creates_the_account_on_first_open(api: TestClient, storage: InMemory
         "locale_from_telegram": True,
         "day_off": None,
         "hide_ladies": False,  # WH-01 part 2
+        "offer_check_in": True,  # PR-06
     }
     assert len(storage.repo.accounts) == 1
 

@@ -236,7 +236,9 @@ class RemindScreens:
         if logged.already:
             if logged.day.status is DayStatus.PRACTICED:
                 stored = logged.day.practices[0] if logged.day.practices else None
-                return await practice.summary(principal, day, practice=stored, offer=False)
+                return await practice.summary(
+                    principal, day, practice=stored, offer=False, check_ins=logged.day.check_ins
+                )
             return self._days.saved_screen(principal, day, logged.day.status)
         if status is DayStatus.PRACTICED:
             return await practice.details(principal, day, cut=logged.cut, known=True)
@@ -257,7 +259,9 @@ class RemindScreens:
         if logged.already:
             if logged.day.status is DayStatus.PRACTICED:
                 stored = logged.day.practices[0] if logged.day.practices else None
-                return await practice.summary(principal, day, practice=stored, offer=False)
+                return await practice.summary(
+                    principal, day, practice=stored, offer=False, check_ins=logged.day.check_ins
+                )
             return self._days.saved_screen(principal, day, logged.day.status)
         if not logged.day.practices:  # nothing to copy yet: the details screen
             return await practice.details(principal, day, cut=logged.cut, known=True)
@@ -277,6 +281,7 @@ class RemindScreens:
             extra=note,
             offer=False,
             cut=logged.cut,
+            check_ins=(),  # the day was empty until this tap
         )
 
     async def settings(self, principal: Principal) -> Screen:

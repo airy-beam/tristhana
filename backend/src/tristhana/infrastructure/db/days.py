@@ -3,6 +3,7 @@ status on every rest row (ADR-0016); this adapter is the only place that knows."
 
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date, timedelta
 from typing import Any, Protocol
 from uuid import UUID
@@ -16,6 +17,7 @@ from tristhana.application.ports.days import History, Inserted, RangeView, Upser
 from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.domain.rest_periods import RestPeriod
 from tristhana.infrastructure.crypto import UnreadableSeal
+from tristhana.infrastructure.db.check_in import to_check_in
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.practice import to_practice
 from tristhana.infrastructure.db.rest_periods import (
@@ -24,7 +26,7 @@ from tristhana.infrastructure.db.rest_periods import (
     period_arrays,
     practice_on_column,
 )
-from tristhana.infrastructure.db.tables import day_log, moon_day, practice
+from tristhana.infrastructure.db.tables import check_in, day_log, moon_day, practice
 
 log = logging.getLogger(__name__)
 
@@ -81,17 +83,20 @@ class SqlDayLogRepository:
         stale = delete(practice).where(
             practice.c.account_id == account_id, practice.c.local_date == day.local_date
         )
+        stale_check_in = delete(check_in).where(
+            check_in.c.account_id == account_id, check_in.c.local_date == day.local_date
+        )
         if day.status is DayStatus.PRACTICED:
             # Details left over from a status change racing a save (or an old revision) go
             # when the day becomes practiced again; this snapshot still sees the old status.
-            stale = stale.where(
-                exists().where(
-                    day_log.c.account_id == account_id,
-                    day_log.c.local_date == day.local_date,
-                    day_log.c.status != "practiced",
-                )
+            was_other = exists().where(
+                day_log.c.account_id == account_id,
+                day_log.c.local_date == day.local_date,
+                day_log.c.status != "practiced",
             )
-        # Same statement: a day that is no longer practiced loses its details (PR-02), and
+            stale, stale_check_in = stale.where(was_other), stale_check_in.where(was_other)
+        # Same statement: a day that is no longer practiced loses its details (PR-02) and
+        # its check-in (PR-06), and
         # 🧘 Practiced cuts a rest period covering the day (WH-01, ADR-0023), unless the day
         # was 🧘 already (a re-tap, e.g. after "keep the pause", cuts nothing).
         was_practiced = exists().where(
@@ -99,7 +104,7 @@ class SqlDayLogRepository:
             day_log.c.local_date == day.local_date,
             day_log.c.status == "practiced",
         )
-        stmt = stmt.add_cte(stale.cte("gone"))
+        stmt = stmt.add_cte(stale.cte("gone")).add_cte(stale_check_in.cte("gone_check_in"))
         for cte in cut_ctes(account_id, day.local_date, day.status, only_if=~was_practiced):
             stmt = stmt.add_cte(cte)
         stmt = stmt.returning(
@@ -252,6 +257,11 @@ class SqlDayLogRepository:
                 practice.c.duration_min,
                 practice.c.start_time,
                 practice.c.timezone,
+                check_in.c.slot.label("check_in_slot"),
+                check_in.c.mood,
+                check_in.c.energy,
+                check_in.c.effort,
+                check_in.c.tags,
             )
             .select_from(
                 day_log.outerjoin(
@@ -260,6 +270,13 @@ class SqlDayLogRepository:
                         practice.c.account_id == day_log.c.account_id,
                         practice.c.local_date == day_log.c.local_date,
                         # Also hides a row left by a rare status/details race.
+                        day_log.c.status == "practiced",
+                    ),
+                ).outerjoin(
+                    check_in,
+                    and_(
+                        check_in.c.account_id == day_log.c.account_id,
+                        check_in.c.local_date == day_log.c.local_date,
                         day_log.c.status == "practiced",
                     ),
                 )
@@ -279,7 +296,11 @@ class SqlDayLogRepository:
                 self._status(account_id, row.local_date, row.status, row.sealed_status),
             )
             if row.slot is not None:
-                day = DayLog(day.local_date, day.status, (*day.practices, to_practice(row)))
+                day = replace(day, practices=(*day.practices, to_practice(row)))
+            if row.check_in_slot is not None and not day.check_ins:
+                found = to_check_in(row)
+                if not found.is_empty():  # an empty row reads as no check-in
+                    day = replace(day, check_ins=(found,))
             days[row.local_date] = day
         return list(days.values())
 

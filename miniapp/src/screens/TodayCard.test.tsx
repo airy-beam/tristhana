@@ -48,7 +48,7 @@ function stubApi(fixture: DaysFixture, writeStatus = 200): Request[] {
       return Promise.resolve(
         request.method === "DELETE"
           ? json(null, 204)
-          : json({ date: TODAY, status: "rest", practices: [] }),
+          : json({ date: TODAY, status: "rest", practices: [], check_ins: [] }),
       );
     }),
   );
@@ -81,8 +81,8 @@ describe("TodayCard", () => {
       auto: [],
       moon_location: "mysuru",
       days: [
-        { date: "2026-10-17", status: "rest", practices: [] },
-        { date: TODAY, status: "moon", practices: [] },
+        { date: "2026-10-17", status: "rest", practices: [], check_ins: [] },
+        { date: TODAY, status: "moon", practices: [], check_ins: [] },
       ],
     });
 
@@ -136,7 +136,7 @@ describe("TodayCard", () => {
       timezone_known: true,
       auto: [],
       moon_location: "mysuru",
-      days: [{ date: TODAY, status: "ladies", practices: [] }],
+      days: [{ date: TODAY, status: "ladies", practices: [], check_ins: [] }],
     });
     renderCard();
 
@@ -204,7 +204,7 @@ describe("TodayCard", () => {
         timezone_known: true,
         auto: [],
         moon_location: "mysuru",
-        days: [{ date: "2026-10-17", status: "practiced", practices: [] }], // yesterday
+        days: [{ date: "2026-10-17", status: "practiced", practices: [], check_ins: [] }], // yesterday
       });
       renderCard();
 

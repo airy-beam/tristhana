@@ -62,7 +62,12 @@ def test_put_get_delete_round_trip_including_ladies(api: TestClient) -> None:
     put = api.put(f"/api/v1/me/days/{today}", json={"status": "ladies"}, headers=_auth())
 
     assert put.status_code == 200
-    day: dict[str, Any] = {"date": today.isoformat(), "status": "ladies", "practices": []}
+    day: dict[str, Any] = {
+        "date": today.isoformat(),
+        "status": "ladies",
+        "practices": [],
+        "check_ins": [],  # PR-06: only ever filled on a practiced day
+    }
     assert put.json().items() >= day.items()  # + the pause offer (WH-01 part 2)
     assert api.get("/api/v1/me/days", headers=_auth()).json()["days"] == [day]
 

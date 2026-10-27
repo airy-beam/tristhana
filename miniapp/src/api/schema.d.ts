@@ -149,6 +149,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/days/{date}/check-ins/{slot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Check In
+         * @description Replaces the check-in (all fields). The day must be Practiced. All empty reads back
+         *     as no check-in (send DELETE instead).
+         */
+        put: operations["put_check_in_api_v1_me_days__date__check_ins__slot__put"];
+        post?: never;
+        /** Delete Check In */
+        delete: operations["delete_check_in_api_v1_me_days__date__check_ins__slot__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/days/{date}/practice-presets": {
         parameters: {
             query?: never;
@@ -406,6 +428,12 @@ export interface components {
         /** CatalogOut */
         CatalogOut: {
             /**
+             * Check In Tags
+             * @description Check-in tags in display order (PR-06)
+             * @default []
+             */
+            check_in_tags: components["schemas"]["CheckInTagOut"][];
+            /**
              * Series
              * @description Confirmed series only, in practice order
              */
@@ -414,6 +442,69 @@ export interface components {
             version: string;
         };
         CellOut: components["schemas"]["DayStatus"] | "none";
+        /** CheckInBody */
+        CheckInBody: {
+            /**
+             * Effort
+             * @description 1 easy … 5 hard
+             */
+            effort?: number | null;
+            /**
+             * Energy
+             * @description 1 low … 5 high
+             */
+            energy?: number | null;
+            /**
+             * Mood
+             * @description 1 😔 … 5 😊
+             */
+            mood?: number | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: components["schemas"]["CheckInTag"][];
+        };
+        /** CheckInOut */
+        CheckInOut: {
+            /**
+             * Effort
+             * @description 1 easy … 5 hard
+             */
+            effort?: number | null;
+            /**
+             * Energy
+             * @description 1 low … 5 high
+             */
+            energy?: number | null;
+            /**
+             * Mood
+             * @description 1 😔 … 5 😊
+             */
+            mood?: number | null;
+            /** Slot */
+            slot: number;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: components["schemas"]["CheckInTag"][];
+        };
+        /**
+         * CheckInTag
+         * @description Display order = definition order: body first, then mind (ashtanga-expert).
+         * @enum {string}
+         */
+        CheckInTag: "stiff" | "open" | "strong" | "light" | "heavy" | "sore" | "focused" | "calm" | "scattered" | "steady_breath";
+        /** CheckInTagOut */
+        CheckInTagOut: {
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "body" | "mind";
+            key: components["schemas"]["CheckInTag"];
+        };
         /** CityOut */
         CityOut: {
             /** Name En */
@@ -438,6 +529,12 @@ export interface components {
         };
         /** Day */
         Day: {
+            /**
+             * Check Ins
+             * @description The owner's own check-in (PR-06), only on a practiced day
+             * @default []
+             */
+            check_ins: components["schemas"]["CheckInOut"][];
             /**
              * Date
              * Format: date
@@ -479,8 +576,17 @@ export interface components {
              */
             weekday: number;
         };
-        /** DaySaved */
+        /**
+         * DaySaved
+         * @description `practices` and `check_ins` are not included here: read them from GET /me/days.
+         */
         DaySaved: {
+            /**
+             * Check Ins
+             * @description The owner's own check-in (PR-06), only on a practiced day
+             * @default []
+             */
+            check_ins: components["schemas"]["CheckInOut"][];
             /** @description A period 🧘 Practiced just cut, as it was (for 'keep the pause') */
             cut?: components["schemas"]["RestPeriodOut"] | null;
             /**
@@ -574,7 +680,7 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -673,6 +779,12 @@ export interface components {
              */
             name_from_telegram: boolean;
             /**
+             * Offer Check In
+             * @description Offer the check-in right after logging a practice (PR-06)
+             * @default true
+             */
+            offer_check_in: boolean;
+            /**
              * Timezone
              * @description IANA zone, e.g. Asia/Almaty; null until set
              */
@@ -691,6 +803,11 @@ export interface components {
              */
             hide_ladies?: boolean | null;
             locale?: components["schemas"]["Locale"] | null;
+            /**
+             * Offer Check In
+             * @description null = the default (on)
+             */
+            offer_check_in?: boolean | null;
             /**
              * Timezone
              * @description IANA zone or UTC
@@ -1507,6 +1624,119 @@ export interface operations {
             header?: never;
             path: {
                 date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_check_in_api_v1_me_days__date__check_ins__slot__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+                /** @description One practice per day for now */
+                slot: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckInBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckInOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_check_in_api_v1_me_days__date__check_ins__slot__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+                /** @description One practice per day for now */
+                slot: number;
             };
             cookie?: never;
         };

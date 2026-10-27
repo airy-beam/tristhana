@@ -36,6 +36,15 @@
       },
       "CatalogOut": {
         "properties": {
+          "check_in_tags": {
+            "default": [],
+            "description": "Check-in tags in display order (PR-06)",
+            "items": {
+              "$ref": "#/components/schemas/CheckInTagOut"
+            },
+            "title": "Check In Tags",
+            "type": "array"
+          },
           "series": {
             "description": "Confirmed series only, in practice order",
             "items": {
@@ -66,6 +75,165 @@
             "type": "string"
           }
         ]
+      },
+      "CheckInBody": {
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 easy … 5 hard",
+            "title": "Effort"
+          },
+          "energy": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 low … 5 high",
+            "title": "Energy"
+          },
+          "mood": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 😔 … 5 😊",
+            "title": "Mood"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckInTag"
+            },
+            "maxItems": 10,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "CheckInBody",
+        "type": "object"
+      },
+      "CheckInOut": {
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 easy … 5 hard",
+            "title": "Effort"
+          },
+          "energy": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 low … 5 high",
+            "title": "Energy"
+          },
+          "mood": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 😔 … 5 😊",
+            "title": "Mood"
+          },
+          "slot": {
+            "title": "Slot",
+            "type": "integer"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckInTag"
+            },
+            "maxItems": 10,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slot"
+        ],
+        "title": "CheckInOut",
+        "type": "object"
+      },
+      "CheckInTag": {
+        "description": "Display order = definition order: body first, then mind (ashtanga-expert).",
+        "enum": [
+          "stiff",
+          "open",
+          "strong",
+          "light",
+          "heavy",
+          "sore",
+          "focused",
+          "calm",
+          "scattered",
+          "steady_breath"
+        ],
+        "title": "CheckInTag",
+        "type": "string"
+      },
+      "CheckInTagOut": {
+        "properties": {
+          "group": {
+            "enum": [
+              "body",
+              "mind"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
+          "key": {
+            "$ref": "#/components/schemas/CheckInTag"
+          }
+        },
+        "required": [
+          "key",
+          "group"
+        ],
+        "title": "CheckInTagOut",
+        "type": "object"
       },
       "CityOut": {
         "properties": {
@@ -125,6 +293,15 @@
       },
       "Day": {
         "properties": {
+          "check_ins": {
+            "default": [],
+            "description": "The owner's own check-in (PR-06), only on a practiced day",
+            "items": {
+              "$ref": "#/components/schemas/CheckInOut"
+            },
+            "title": "Check Ins",
+            "type": "array"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -212,7 +389,17 @@
         "type": "object"
       },
       "DaySaved": {
+        "description": "`practices` and `check_ins` are not included here: read them from GET /me/days.",
         "properties": {
+          "check_ins": {
+            "default": [],
+            "description": "The owner's own check-in (PR-06), only on a practiced day",
+            "items": {
+              "$ref": "#/components/schemas/CheckInOut"
+            },
+            "title": "Check Ins",
+            "type": "array"
+          },
           "cut": {
             "anyOf": [
               {
@@ -416,6 +603,7 @@
           "day_not_practiced",
           "invalid_length",
           "invalid_practice",
+          "invalid_check_in",
           "timezone_unknown",
           "unknown_location",
           "invalid_settings",
@@ -630,6 +818,12 @@
             "title": "Name From Telegram",
             "type": "boolean"
           },
+          "offer_check_in": {
+            "default": true,
+            "description": "Offer the check-in right after logging a practice (PR-06)",
+            "title": "Offer Check In",
+            "type": "boolean"
+          },
           "timezone": {
             "anyOf": [
               {
@@ -690,6 +884,18 @@
                 "type": "null"
               }
             ]
+          },
+          "offer_check_in": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = the default (on)",
+            "title": "Offer Check In"
           },
           "timezone": {
             "anyOf": [
@@ -2389,6 +2595,180 @@
         "summary": "Put Day",
         "tags": [
           "days"
+        ]
+      }
+    },
+    "/api/v1/me/days/{date}/check-ins/{slot}": {
+      "delete": {
+        "operationId": "delete_check_in_api_v1_me_days__date__check_ins__slot__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "One practice per day for now",
+            "in": "path",
+            "name": "slot",
+            "required": true,
+            "schema": {
+              "description": "One practice per day for now",
+              "maximum": 1,
+              "minimum": 1,
+              "title": "Slot",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Check In",
+        "tags": [
+          "check-in"
+        ]
+      },
+      "put": {
+        "description": "Replaces the check-in (all fields). The day must be Practiced. All empty reads back\nas no check-in (send DELETE instead).",
+        "operationId": "put_check_in_api_v1_me_days__date__check_ins__slot__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "One practice per day for now",
+            "in": "path",
+            "name": "slot",
+            "required": true,
+            "schema": {
+              "description": "One practice per day for now",
+              "maximum": 1,
+              "minimum": 1,
+              "title": "Slot",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Check In",
+        "tags": [
+          "check-in"
         ]
       }
     },

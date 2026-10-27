@@ -85,6 +85,20 @@ def _texts(body: Any) -> list[str]:
     return [b["text"] for b in _buttons(body)]
 
 
+_CHECK_IN_PROMPTS = (
+    "How do you feel after practice? Optional.",
+    "Как ты после практики? По желанию.",
+)
+
+
+def _main(body: Any) -> str:
+    """The screen text without the trailing PR-06 check-in prompt (tested in its own file)."""
+    text: str = body["text"]
+    for prompt in _CHECK_IN_PROMPTS:
+        text = text.removesuffix(f"\n\n{prompt}")
+    return text
+
+
 def _data(body: Any, text: str) -> str:
     return next(b["callback_data"] for b in _buttons(body) if b["text"].endswith(text))
 
@@ -116,7 +130,7 @@ def test_context_online_and_duration_taps(client: TestClient, storage: InMemoryS
     durations = _tap(client, f"p1:d:{d}")
     body = _tap(client, _data(durations, "90 min"))
 
-    assert body["text"].endswith("Mysore · online · 90 min")
+    assert _main(body).endswith("Mysore · online · 90 min")
     practice = _practice(storage)
     assert (practice.context, practice.online, practice.duration_min) == (
         PracticeContext.MYSORE,
@@ -152,7 +166,7 @@ def test_static_presets(client: TestClient, preset: str, summary: str) -> None:
 
     body = _tap(client, _data(lengths, preset))
 
-    assert body["text"].endswith(summary)
+    assert _main(body).endswith(summary)
 
 
 def test_custom_half_primary_plus_intermediate(client: TestClient) -> None:
@@ -170,7 +184,7 @@ def test_custom_half_primary_plus_intermediate(client: TestClient) -> None:
     grid = _tap(client, _data(ranges, "Primary, 2nd half + Intermediate"))
     body = _tap(client, _data(grid, "Pasasana"))
 
-    assert body["text"].endswith("Primary, 2nd half + Intermediate → Pasasana")
+    assert _main(body).endswith("Primary, 2nd half + Intermediate → Pasasana")
 
 
 def test_russian_labels(client: TestClient) -> None:
@@ -183,8 +197,8 @@ def test_russian_labels(client: TestClient) -> None:
     grid = _tap(client, _data(ranges, "1-я половина первой + вторая"), lang="ru")
     part = _tap(client, _data(grid, "Пашасана"), lang="ru")
 
-    assert full["text"].endswith("Первая серия целиком")
-    assert part["text"].endswith("1-я половина первой + вторая → Пашасана")
+    assert _main(full).endswith("Первая серия целиком")
+    assert _main(part).endswith("1-я половина первой + вторая → Пашасана")
 
 
 def test_grid_pages_and_full_series(client: TestClient) -> None:
@@ -198,7 +212,7 @@ def test_grid_pages_and_full_series(client: TestClient) -> None:
     assert "◀" in _texts(second)
     assert grid["text"] == "Last asana in Intermediate:"
     body = _tap(client, _data(grid, "Full series"))
-    assert body["text"].endswith("\n\nFull Intermediate")
+    assert _main(body).endswith("\n\nFull Intermediate")
 
 
 def test_same_as_last_time_copies_the_previous_day(
@@ -213,7 +227,7 @@ def test_same_as_last_time_copies_the_previous_day(
     assert "Last time: Led · Full Primary" in details["text"]
     body = _tap(client, _data(details, "🔁 Same as last time"))
 
-    assert body["text"].endswith("Led · Full Primary")
+    assert _main(body).endswith("Led · Full Primary")
     assert len(storage.day_repo.practice_rows) == 2
 
 

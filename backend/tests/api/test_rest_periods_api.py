@@ -75,6 +75,7 @@ def test_ladies_today_returns_the_offer_with_the_servers_choices(api: TestClient
         "date": _d(0),
         "status": "ladies",
         "practices": [],
+        "check_ins": [],  # PR-06
         "pause_offer": {
             "start": _d(0),
             "kind": "ladies",

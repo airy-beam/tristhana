@@ -348,3 +348,37 @@ remind-paused-until = ⏸ Paused through { $until }
 remind-resume = ▶️ Resume now
 settings-ladies-button = Show the 🌸 Ladies' holiday button
 settings-ladies-button-hint = In the bot and here. Days you already logged stay as they are.
+
+## After-practice check-in (PR-06). Always optional; describes, never advises.
+checkin-title = How do you feel?
+checkin-mood = Mood
+checkin-energy = ⚡ Energy: 1 low → 5 high
+checkin-effort = 🔥 Effort: 1 easy → 5 hard
+checkin-body = Body
+checkin-mind = Mind
+# Screen readers: the mood chips are emoji.
+checkin-mood-label = Mood { $n } of 5
+checkin-mood-chip = { $n ->
+        [1] 😔
+        [2] 😕
+        [3] 😐
+        [4] 🙂
+       *[5] 😊
+    }
+checkin-tag = { $tag ->
+        [stiff] Stiff
+        [open] Open
+        [strong] Strong
+        [light] Light
+        [heavy] Heavy
+        [sore] Sore muscles
+        [focused] Focused
+        [calm] Calm
+        [scattered] Scattered
+       *[steady_breath] Steady breath
+    }
+checkin-edit = ✨ Check-in
+checkin-clear = Remove check-in
+checkin-save-failed = Couldn't save the check-in. Try once more in a moment.
+settings-checkin = Offer a check-in after practice
+settings-checkin-hint = Mood, energy and effort right after logging today's practice. You can always add one from the day.
