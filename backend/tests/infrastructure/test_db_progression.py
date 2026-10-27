@@ -345,7 +345,7 @@ async def test_0014_adds_the_tables_and_downgrade_drops_them(
     migrated_url: str, engine: AsyncEngine
 ) -> None:
     me = await _account(engine)
-    await asyncio.to_thread(migrate.downgrade, migrated_url, "0013")
+    await asyncio.to_thread(migrate.downgrade, migrated_url, "0013")  # via 0015
     try:
         async with engine.connect() as conn:
             assert (await conn.execute(text(_HAS_TABLES))).scalar_one() == 0
@@ -354,6 +354,16 @@ async def test_0014_adds_the_tables_and_downgrade_drops_them(
     async with engine.connect() as conn:
         assert (await conn.execute(text(_HAS_TABLES))).scalar_one() == 2
     assert await SqlProgressionRepository(engine).apply(me, _start(NAVASANA), None, me)
+
+
+def test_0015_follows_0014_and_is_the_head() -> None:
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(migrate.alembic_config("postgresql://unused"))
+    revision = script.get_revision("0015")
+    assert revision is not None
+    assert revision.down_revision == "0014"
+    assert script.get_current_head() == "0015"
 
 
 def test_0014_tables_match_the_metadata(migrated_url: str) -> None:
