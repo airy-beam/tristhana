@@ -24,8 +24,7 @@ MIGRATE_SA="tristhana-migrate" # runs the migrations job (ADR-0014)
 WIF_POOL="github"
 WIF_PROVIDER="github-actions"
 BUDGET_NAME="tristhana-monthly"
-KEEPWARM_JOB="tristhana-keepwarm"
-TICK_JOB="tristhana-tick" # every 10 min: reminders + calendars; replaces the keep-warm job
+TICK_JOB="tristhana-tick" # every 10 min: reminders + calendars; also keeps an instance warm
 HOSTING_SITE="tristhana" # https://tristhana.web.app (Mini App, UI-03)
 BACKUP_SA="tristhana-backup"
 BACKUP_JOB="tristhana-backup"
@@ -164,20 +163,12 @@ if ! exists "${gc[@]}" run services describe "$SERVICE" --region "$REGION"; then
     --allow-unauthenticated
 fi
 
-step "Keep-warm ping (Cloud Scheduler, every 10 min; free tier: 3 jobs per billing account)"
-# An instance kept alive by pings already has aiogram loaded (~3 s import, UI-01 spec).
-# /health/db also keeps the Supabase free project active (it pauses after ~1 week idle).
+# The service URL, for the tick job below. The old keep-warm job (tristhana-keepwarm) is gone:
+# the tick also pings the DB every 10 min (ADR-0018), which keeps an instance warm and the
+# Supabase free project active. Scheduler free tier: 3 jobs; we use 2 (tick, weekly backup).
 service_url="https://SERVICE_URL"
 if ! $DRY_RUN; then
   service_url="$("${gc[@]}" run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')"
-fi
-if ! exists "${gc[@]}" scheduler jobs describe "$KEEPWARM_JOB" --location "$REGION"; then
-  run "${gc[@]}" scheduler jobs create http "$KEEPWARM_JOB" --location "$REGION" \
-    --schedule "*/10 * * * *" --time-zone "Etc/UTC" --uri "${service_url}/api/v1/health/db" \
-    --http-method GET --attempt-deadline 30s --description "Keep one tristhana-api instance warm"
-else
-  run "${gc[@]}" scheduler jobs update http "$KEEPWARM_JOB" --location "$REGION" \
-    --uri "${service_url}/api/v1/health/db"
 fi
 
 step "Weekly database backup (Cloud Run Job ${BACKUP_JOB} → gs://${BACKUP_BUCKET}; infra/backup/README.md)"
@@ -236,8 +227,6 @@ fi
 
 step "Scheduler tick (${TICK_JOB}, every 10 min; ADR-0018)"
 # Needs a value in internal-tick-token (added by the owner via stdin); skipped until then.
-# Once the tick runs, delete the keep-warm job (it also keeps the instance warm):
-#   gcloud scheduler jobs delete ${KEEPWARM_JOB} --location ${REGION}
 tick_token=""
 if ! $DRY_RUN; then
   tick_token="$("${gc[@]}" secrets versions access latest --secret internal-tick-token 2>/dev/null || true)"
