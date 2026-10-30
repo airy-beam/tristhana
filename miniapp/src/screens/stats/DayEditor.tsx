@@ -7,6 +7,7 @@ import {
   useDaysRange,
   useMe,
   useSetDay,
+  type Celebration,
   type DaySaved,
   type DayStatus,
 } from "../../api/client";
@@ -17,6 +18,7 @@ import { CheckIn } from "../CheckIn";
 import { DiaryNote } from "../DiaryNote";
 import { PauseOffer, PeriodLine } from "../PauseOffer";
 import { PracticeDetails } from "../PracticeDetails";
+import { CountCelebration } from "../progression/CountCelebration";
 
 interface Props {
   date: string;
@@ -34,6 +36,8 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
   const setDay = useSetDay();
   const hideLadies = useMe().data?.hide_ladies === true;
   const [after, setAfter] = useState<DaySaved | null>(null);
+  // GM-01 part 2: a practice count this save reached (dismissed on its own).
+  const [counted, setCounted] = useState<Celebration[]>([]);
   // Taps update this cache optimistically (every day query), so it is always current.
   const logged = days.data?.days.find((d) => d.date === date);
   const auto = logged ? undefined : days.data?.auto.find((a) => a.date === date);
@@ -49,11 +53,18 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
   const save = (status: DayStatus | null) => {
     haptics.impact("light");
     setAfter(null);
+    setCounted([]);
     setDay.mutate(
       { date, status },
       {
         onSuccess: (saved) => {
           setAfter(saved);
+          // Only kinds the card shows (an older server's answer has no `celebrations`).
+          const found = (saved?.celebrations ?? []).filter((c) => c.kind === "practice_count");
+          if (found.length) {
+            haptics.notify("success");
+            setCounted(found);
+          }
         },
         onError: () => {
           haptics.notify("error");
@@ -76,6 +87,14 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
           logged={stored !== null}
           practiceOn={days.data.practice_on}
           showLadies={showLadies}
+        />
+      )}
+      {counted.length > 0 && (
+        <CountCelebration
+          found={counted}
+          onDismiss={() => {
+            setCounted([]);
+          }}
         />
       )}
       <div className="chips" role="group" aria-labelledby="editor-title">

@@ -128,7 +128,7 @@ def test_items_and_standing_only(api: TestClient) -> None:
     item = _post(api, kind="item_given", item="drop-backs", expected_event_id=expected)
     assert item.status_code == 201
     assert item.json()["celebrations"] == [
-        {"kind": "item", "series": None, "key": "drop-backs", "first": None}
+        {"kind": "item", "series": None, "key": "drop-backs", "first": None, "count": None}
     ]
     assert item.json()["progression"]["items"] == ["drop-backs"]
 

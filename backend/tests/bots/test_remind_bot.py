@@ -388,3 +388,48 @@ async def test_notifier_renders_the_pause_note(monkeypatch: pytest.MonkeyPatch) 
     assert method.text.startswith("🌿 I'll stop asking for now.")
     assert "/remind" in method.text
     assert DEFAULTS.practice.on is None  # opt-in stays the default
+
+
+# GM-01 part 2: a practice count reached shows one 🎉 line on top of the edited screen.
+
+_HUNDRED = "🎉 100 practices in your log. Thank you for coming to the mat."
+
+
+def _ninety_nine(storage: InMemoryStorage, me: Any, practice: Practice | None = None) -> None:
+    for i in range(2, 101):
+        when = _today() - timedelta(days=i)
+        storage.day_repo.rows[(me.id, when)] = (DayLog(when, DayStatus.PRACTICED), ZONE)
+    if practice is not None:
+        storage.day_repo.practice_rows[(me.id, _today() - timedelta(days=2))] = practice
+
+
+@pytest.mark.parametrize("code", ["p", "s"])
+def test_a_reminder_tap_reaching_100_shows_the_line_once(
+    client: TestClient, storage: InMemoryStorage, code: str
+) -> None:
+    me = _me(client, storage)
+    _ninety_nine(storage, me, Practice(PracticeContext.MYSORE))
+
+    first = _tap(client, f"r1:{code}:{_ymd(_today())}")
+    already = _tap(client, f"r1:{code}:{_ymd(_today())}")
+    other_day = _tap(client, f"r1:{code}:{_ymd(_today() - timedelta(days=1))}")
+
+    assert first["text"].startswith(_HUNDRED)
+    assert first["method"] == "editMessageText"
+    assert _HUNDRED not in already["text"]
+    assert "🎉" not in other_day["text"]
+
+
+def test_the_day_log_reaching_100_shows_the_line_in_russian(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage, "ru")
+    _ninety_nine(storage, me)
+
+    body = _tap(client, f"d1:s:{_ymd(_today())}:p", "ru")
+    rest = _tap(client, f"d1:s:{_ymd(_today())}:r", "ru")
+    again = _tap(client, f"d1:s:{_ymd(_today())}:p", "ru")
+
+    assert body["text"].startswith("🎉 100 практик в журнале. Спасибо, что приходишь на коврик.")
+    assert "🎉" not in rest["text"]
+    assert "🎉" not in again["text"]

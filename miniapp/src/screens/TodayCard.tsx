@@ -9,6 +9,7 @@ import {
   useMoonCities,
   useMoonDays,
   useSetDay,
+  type Celebration,
   type DaySaved,
   type DayStatus,
 } from "../api/client";
@@ -20,6 +21,7 @@ import { DiaryNote } from "./DiaryNote";
 import { cityName } from "./MoonCard";
 import { PauseOffer, PeriodLine } from "./PauseOffer";
 import { PracticeDetails } from "./PracticeDetails";
+import { CountCelebration } from "./progression/CountCelebration";
 
 interface Props {
   /** The account's IANA zone (null until the device reported it). */
@@ -54,6 +56,8 @@ export function TodayCard({ zone, locale }: Props) {
   const hideLadies = useMe().data?.hide_ladies === true;
   // The last save's answer: the pause offer or "keep the pause" (WH-01).
   const [after, setAfter] = useState<DaySaved | null>(null);
+  // GM-01 part 2: a practice count this save reached (dismissed on its own).
+  const [counted, setCounted] = useState<Celebration[]>([]);
   if (days.isError) {
     return (
       <Localized id="today-load-failed">
@@ -82,12 +86,19 @@ export function TodayCard({ zone, locale }: Props) {
   const save = (status: DayStatus | null) => {
     haptics.impact("light"); // feedback before the network call
     setAfter(null);
+    setCounted([]);
     setDay.mutate(
       { date: today, status },
       {
         onSuccess: (saved) => {
           if (status !== null) markLogged(); // a clear isn't a saved day
           setAfter(saved);
+          // Only kinds the card shows (an older server's answer has no `celebrations`).
+          const found = (saved?.celebrations ?? []).filter((c) => c.kind === "practice_count");
+          if (found.length) {
+            haptics.notify("success");
+            setCounted(found);
+          }
         },
         onError: () => {
           haptics.notify("error");
@@ -130,6 +141,14 @@ export function TodayCard({ zone, locale }: Props) {
         <Localized id="home-first-hint">
           <p className="hint" />
         </Localized>
+      )}
+      {counted.length > 0 && (
+        <CountCelebration
+          found={counted}
+          onDismiss={() => {
+            setCounted([]);
+          }}
+        />
       )}
       <div className="chips" role="group" aria-labelledby="today-title">
         {statuses.map((status) => (

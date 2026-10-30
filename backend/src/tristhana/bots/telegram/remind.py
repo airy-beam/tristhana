@@ -241,7 +241,8 @@ class RemindScreens:
                 )
             return self._days.saved_screen(principal, day, logged.day.status)
         if status is DayStatus.PRACTICED:
-            return await practice.details(principal, day, cut=logged.cut, known=True)
+            lead = practice.count_lead(principal.account.locale, logged.celebrations)
+            return await practice.details(principal, day, cut=logged.cut, known=True, lead=lead)
         return self._days.saved_screen(principal, day, status)
 
     async def _same(self, principal: Principal, day: date) -> Screen:
@@ -263,8 +264,9 @@ class RemindScreens:
                     principal, day, practice=stored, offer=False, check_ins=logged.day.check_ins
                 )
             return self._days.saved_screen(principal, day, logged.day.status)
+        lead = practice.count_lead(principal.account.locale, logged.celebrations)
         if not logged.day.practices:  # nothing to copy yet: the details screen
-            return await practice.details(principal, day, cut=logged.cut, known=True)
+            return await practice.details(principal, day, cut=logged.cut, known=True, lead=lead)
         note = None
         if logged.copied_from is not None and day - logged.copied_from > COPIED_DATE_AFTER:
             locale = principal.account.locale
@@ -282,6 +284,7 @@ class RemindScreens:
             offer=False,
             cut=logged.cut,
             check_ins=(),  # the day was empty until this tap
+            lead=lead,
         )
 
     async def settings(self, principal: Principal) -> Screen:

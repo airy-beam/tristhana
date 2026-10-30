@@ -213,6 +213,7 @@ class SendMyExport:
             events=owned.events,
             reminders=owned.reminders,
             exported_at=now,
+            milestones=owned.milestones,
         )
 
     def labels(self, locale: Locale) -> ExportLabels:

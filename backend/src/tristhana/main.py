@@ -85,6 +85,7 @@ from tristhana.infrastructure.export_zip import ZipExportPacker
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
 from tristhana.infrastructure.seed.cities_yaml import load_cities
+from tristhana.infrastructure.seed.milestones_yaml import load_milestones
 from tristhana.infrastructure.seed.practice_catalog import load_practice_catalog
 from tristhana.logs import configure_logging
 from tristhana.settings import Settings, get_settings
@@ -191,18 +192,19 @@ class _Services:
         # The aiogram import and the catalog parse (CPU, in threads) overlap the DB warm-up's
         # network wait.
         seed = self._settings.seed_dir
-        _, _, loaded, cities = await asyncio.gather(
+        _, _, loaded, cities, counts = await asyncio.gather(
             self._storage.start(),
             self._bot.preimport(),
             asyncio.to_thread(load_practice_catalog, seed),
             asyncio.to_thread(load_cities, seed / "cities.yaml"),
+            asyncio.to_thread(load_milestones, seed / "milestones.yaml"),
         )
         clock = SystemClock()
         translator = FluentTranslator()
         ensure = EnsureAccount(self._storage.accounts, clock)
         days = DayUseCases(
             get=GetDays(self._storage.days, cities, clock),
-            set=SetDayStatus(self._storage.days, clock),
+            set=SetDayStatus(self._storage.days, clock, counts),
             clear=ClearDayStatus(self._storage.days),
         )
         app.state.storage = self._storage
@@ -280,7 +282,9 @@ class _Services:
             settings=notification_settings,
             update=UpdatePracticeReminder(self._storage.notifications, clock),
             offer=AnswerPracticeOffer(self._storage.notifications, clock),
-            quick_log=QuickLogSameAsLast(self._storage.days, self._storage.practices, clock),
+            quick_log=QuickLogSameAsLast(
+                self._storage.days, self._storage.practices, clock, counts
+            ),
             day_off=SetDayOff(self._storage.accounts, clock),
             dismiss_day_off=DismissDayOffQuestion(self._storage.accounts),
         )
@@ -289,7 +293,7 @@ class _Services:
             start=StartRestPeriod(self._storage.rest_periods, clock),
             restore=RestoreRestPeriod(self._storage.rest_periods, clock),
             end=EndRestPeriod(self._storage.rest_periods, clock),
-            log_from_reminder=LogFromReminder(self._storage.days, clock),
+            log_from_reminder=LogFromReminder(self._storage.days, clock, counts),
             skip=SkipRestPeriod(self._storage.rest_periods, clock),
         )
         app.state.rest = rest

@@ -686,6 +686,32 @@ def test_progression_copy_avoids_competitive_or_guilty_words(locale: str) -> Non
         assert not [line for line in lines if word in line], word
 
 
+# GM-01 part 2 (spec §7): a count is a thank-you, never a score, and 365 is never "a year"
+# or daily practice (rest days are part of the method). On top of `_AVOID`.
+_AVOID_COUNT = {
+    "en": (
+        "record", "best", "total", "in a row", "left", "until", "badge", "year", "daily",
+        "every day", "keep",
+    ),
+    "ru": (
+        "рекорд", "лучш", "подряд", "осталось", "до цели", "значок", "год", "ежедневн",
+        "каждый день", "продолжай", "так держать",
+    ),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_practice_count_copy_avoids_scores_and_years(locale: str) -> None:
+    from tristhana.infrastructure.i18n.fluent import FluentTranslator
+
+    t = FluentTranslator()
+    for n in (100, 365, 1000):
+        line = t.t(locale, "celebrate-practice-count", count=n).lower()  # type: ignore[arg-type]
+        assert str(n)[0] in line
+        for word in (*_AVOID[locale], *_AVOID_COUNT[locale]):
+            assert word not in line, (n, word)
+
+
 # ST-09 (spec §9): no sadness, retention nudges, "are you sure?", banned progression words, or
 # "skipped" anywhere in the export/delete copy and the README.
 _DATA_AVOID = {

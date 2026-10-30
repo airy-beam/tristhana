@@ -60,6 +60,8 @@ export function celebrationLines(
             })
           : get(l10n, "celebrate-new-asana", { asana }),
       );
+    } else if (c.kind === "practice_count") {
+      lines.push(...countLines(l10n, [c]));
     } else if (c.kind === "item") {
       lines.push(
         get(l10n, "celebrate-item", { item: itemLabel(l10n, catalog, c.key ?? "", locale) }),
@@ -79,4 +81,13 @@ export function celebrationLines(
     }
   }
   return lines;
+}
+
+/** The 🎉 line for a practice count a day save reached (GM-01 part 2): no catalog needed. */
+export function countLines(l10n: ReactLocalization, found: readonly Celebration[]): string[] {
+  return found.flatMap((c) =>
+    c.kind === "practice_count" && c.count != null
+      ? [get(l10n, "celebrate-practice-count", { count: c.count })]
+      : [],
+  );
 }

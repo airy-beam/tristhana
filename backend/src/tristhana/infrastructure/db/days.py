@@ -8,10 +8,10 @@ from datetime import date, timedelta
 from typing import Any, Protocol
 from uuid import UUID
 
-from sqlalchemy import and_, case, delete, exists, func, literal, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import Integer, Uuid, and_, case, delete, exists, func, literal, select
+from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy.sql.elements import Label
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from tristhana.application.ports.days import History, Inserted, RangeView, Upserted
 from tristhana.domain.days import DayLog, DayStatus, public_status
@@ -27,7 +27,13 @@ from tristhana.infrastructure.db.rest_periods import (
     period_arrays,
     practice_on_column,
 )
-from tristhana.infrastructure.db.tables import check_in, day_log, moon_day, practice
+from tristhana.infrastructure.db.tables import (
+    check_in,
+    day_log,
+    moon_day,
+    practice,
+    practice_milestone,
+)
 
 log = logging.getLogger(__name__)
 
@@ -74,12 +80,52 @@ def _snapshot(account_id: UUID, when: date) -> tuple[Label[Any], ...]:
 _DAY = timedelta(days=1)
 
 
+def _reached(
+    account_id: UUID, when: date, thresholds: Sequence[int], only_if: ColumnElement[bool]
+) -> Label[Any]:
+    """GM-01 part 2 (ADR-0028), for a write that makes `when` 🧘: the practice count
+    including it (`n`, read from the pre-statement snapshot, hence `<> when` + 1), and every
+    threshold at or below it recorded once (`seen`). A RETURNING column: the threshold equal
+    to the count that this statement newly recorded, else NULL. The insert CTE always runs,
+    since it is data-modifying; `only_if` gates it to a day that wasn't 🧘 before."""
+    n = (
+        select((func.count() + 1).label("after"))
+        .where(
+            day_log.c.account_id == account_id,
+            day_log.c.status == "practiced",
+            day_log.c.local_date != when,
+        )
+        .cte("n")
+    )
+    t = func.unnest(literal(list(thresholds), ARRAY(Integer()))).column_valued("t")
+    seen = (
+        insert(practice_milestone)
+        .from_select(
+            ["account_id", "threshold", "celebrated"],
+            select(literal(account_id, Uuid()), t, t == n.c.after)
+            .select_from(n)
+            .where(t <= n.c.after, only_if),
+        )
+        .on_conflict_do_nothing()
+        .returning(practice_milestone.c.threshold, practice_milestone.c.celebrated)
+        .cte("seen")
+    )
+    return (
+        select(func.max(seen.c.threshold))
+        .where(seen.c.celebrated)
+        .scalar_subquery()
+        .label("reached")
+    )
+
+
 class SqlDayLogRepository:
     def __init__(self, engine: AsyncEngine, cipher: Cipher) -> None:
         self._engine = engine
         self._cipher = cipher
 
-    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> Upserted:
+    async def upsert(
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
+    ) -> Upserted:
         public = public_status(day.status)
         sealed = (
             self._cipher.seal(_SEALED[day.status], _aad(account_id, day.local_date))
@@ -119,8 +165,13 @@ class SqlDayLogRepository:
         stmt = stmt.add_cte(stale.cte("gone")).add_cte(stale_check_in.cte("gone_check_in"))
         for cte in cut_ctes(account_id, day.local_date, day.status, only_if=~was_practiced):
             stmt = stmt.add_cte(cte)
+        reached = (
+            [_reached(account_id, day.local_date, thresholds, ~was_practiced)]
+            if day.status is DayStatus.PRACTICED and thresholds
+            else []
+        )
         stmt = stmt.returning(
-            *_snapshot(account_id, day.local_date), was_practiced.label("was_practiced")
+            *_snapshot(account_id, day.local_date), was_practiced.label("was_practiced"), *reached
         )
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
@@ -138,10 +189,11 @@ class SqlDayLogRepository:
             periods=periods,
             practice_on=bool(row.practice_on),
             cut=None if row.was_practiced else _cut(periods, day),
+            reached=row.reached if reached else None,
         )
 
     async def insert_if_absent(
-        self, account_id: UUID, day: DayLog, timezone: str | None
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
     ) -> Inserted:
         if day.status is DayStatus.LADIES:
             raise ValueError("reminder taps only log non-private statuses")
@@ -149,6 +201,16 @@ class SqlDayLogRepository:
             self._cipher.seal(_SEALED[day.status], _aad(account_id, day.local_date))
             if day.status is DayStatus.REST
             else None
+        )
+        # The cut and the count apply only when the day is still empty (the snapshot before
+        # the insert).
+        empty = ~exists().where(
+            day_log.c.account_id == account_id, day_log.c.local_date == day.local_date
+        )
+        reached = (
+            [_reached(account_id, day.local_date, thresholds, empty)]
+            if day.status is DayStatus.PRACTICED and thresholds
+            else []
         )
         stmt = (
             insert(day_log)
@@ -161,12 +223,10 @@ class SqlDayLogRepository:
             )
             .on_conflict_do_nothing(index_elements=[day_log.c.account_id, day_log.c.local_date])
             .returning(
-                day_log.c.local_date, *period_arrays(account_id, day.local_date, day.local_date)
+                day_log.c.local_date,
+                *period_arrays(account_id, day.local_date, day.local_date),
+                *reached,
             )
-        )
-        # The cut applies only when the day is still empty (the snapshot before the insert).
-        empty = ~exists().where(
-            day_log.c.account_id == account_id, day_log.c.local_date == day.local_date
         )
         for cte in cut_ctes(account_id, day.local_date, day.status, only_if=empty):
             stmt = stmt.add_cte(cte)
@@ -177,7 +237,7 @@ class SqlDayLogRepository:
         periods = open_periods(
             self._cipher, account_id, row.period_starts, row.period_ends, row.period_seals
         )
-        return Inserted(True, _cut(periods, day))
+        return Inserted(True, _cut(periods, day), row.reached if reached else None)
 
     async def delete(self, account_id: UUID, local_date: date) -> None:
         stmt = delete(day_log).where(

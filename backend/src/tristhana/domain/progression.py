@@ -52,6 +52,7 @@ class CelebrationKind(StrEnum):
     SERIES_COMPLETE = "series_complete"
     SERIES_BEGINS = "series_begins"
     ITEM = "item"
+    PRACTICE_COUNT = "practice_count"  # GM-01 part 2 (domain/milestones.py)
 
 
 class InvalidProgression(ValueError):
@@ -130,6 +131,7 @@ class Celebration:
     series: str | None = None
     key: str | None = None  # the new stop, or the item
     first: Position | None = None  # a jump over several stops: the first new one
+    count: int | None = None  # PRACTICE_COUNT: the threshold reached
 
 
 class Track:

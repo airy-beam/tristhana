@@ -1,7 +1,7 @@
 """In-memory adapters for tests above the infrastructure layer."""
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, date, datetime, timedelta
 from functools import cache
@@ -287,6 +287,10 @@ class InMemoryDays:
     progression_events: list[tuple[UUID, ProgressionEvent]] = field(
         default_factory=list[tuple[UUID, ProgressionEvent]]
     )
+    # GM-01 part 2: the practice-count ledger, (account, threshold) -> celebrated.
+    milestone_rows: dict[tuple[UUID, int], bool] = field(
+        default_factory=dict[tuple[UUID, int], bool]
+    )
     down: bool = False
     moon: "InMemoryMoon | None" = None  # for `range_with_moon`
     periods: InMemoryRestPeriods = field(default_factory=InMemoryRestPeriods)
@@ -308,7 +312,24 @@ class InMemoryDays:
 
         self.periods.logged = logged
 
-    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> Upserted:
+    def _ledger(self, account_id: UUID, thresholds: Sequence[int]) -> int | None:
+        """As the SQL (ADR-0028): after a day became 🧘, record every threshold at or below
+        the count; the one equal to it, newly recorded, celebrates."""
+        after = sum(
+            1
+            for (a, _), (d, _) in self.rows.items()
+            if a == account_id and d.status is DayStatus.PRACTICED
+        )
+        reached = None
+        for t in thresholds:
+            if t <= after and (account_id, t) not in self.milestone_rows:
+                self.milestone_rows[(account_id, t)] = t == after
+                reached = t if t == after else reached
+        return reached
+
+    async def upsert(
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
+    ) -> Upserted:
         self._check()
         when = day.local_date
         prev = self.rows.get((account_id, when - timedelta(days=1)))
@@ -327,23 +348,26 @@ class InMemoryDays:
         if day.status is not DayStatus.PRACTICED:
             self.practice_rows.pop((account_id, when), None)
             self.check_in_rows.pop((account_id, when), None)  # PR-06: same statement
+        became = day.status is DayStatus.PRACTICED and not again
         return Upserted(
             day,
             prev=prev[0].status if prev else None,
             periods=snapshot,
             practice_on=self.practice_on(account_id),
             cut=cut,
+            reached=self._ledger(account_id, thresholds) if became else None,
         )
 
     async def insert_if_absent(
-        self, account_id: UUID, day: DayLog, timezone: str | None
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
     ) -> Inserted:
         self._check()
         if (account_id, day.local_date) in self.rows:
             return Inserted(False)
         cut = self.periods.apply_log(account_id, day.local_date, day.status)
         self.rows[(account_id, day.local_date)] = (day, timezone)
-        return Inserted(True, cut)
+        practiced = day.status is DayStatus.PRACTICED
+        return Inserted(True, cut, self._ledger(account_id, thresholds) if practiced else None)
 
     async def delete(self, account_id: UUID, local_date: date) -> None:
         self._check()

@@ -46,7 +46,7 @@ from tristhana.domain.practice import (
     PracticeContext,
     PracticeLength,
 )
-from tristhana.domain.progression import Position, Track
+from tristhana.domain.progression import Celebration, CelebrationKind, Position, Track
 from tristhana.domain.rest_periods import PAUSABLE, RestPeriod
 
 if TYPE_CHECKING:
@@ -230,7 +230,8 @@ class PracticeScreens:
         pause"; `kept`: it was just restored. `known`: `practice` is the stored value even
         when None, on a day just logged (no read, no check-in yet). `check_ins` None = not
         read yet. `hint`: ask "New asana? 🎉" about this stop (PR-08, only on the reply to a
-        length tap); `lead`: lines on top (a celebration after "Yes, new")."""
+        length tap); `lead`: lines on top (a celebration after "Yes, new", or a practice
+        count reached by this 🧘, GM-01)."""
         if known:
             check_ins = check_ins or ()
         elif practice is None:
@@ -241,12 +242,12 @@ class PracticeScreens:
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
         if note:
             lines.insert(0, self._t.t(locale, note))
-        lines[:0] = lead or []
         rows: list[list[InlineKeyboardButton]] = []
         keep = self.keep_row(principal, day, cut)
         if keep:
             lines.insert(0, self.cut_line(principal, day, cut))  # type: ignore[arg-type]
             rows.append(keep)
+        lines[:0] = lead or []  # a 🎉 goes on top (GM-01 spec §5)
         if kept is not None:
             label = self._t.t(locale, f"status-{kept.kind.value}")
             lines.insert(0, self._t.t(locale, "pause-kept", label=label, until=DateArg(kept.end)))
@@ -325,6 +326,14 @@ class PracticeScreens:
         return self._t.t(locale, "pause-cut", label=label, until=DateArg(cut.end), rel=rel)
 
     # Screen V: done, a compact summary (+ the one-time practice-reminder offer, PR-10).
+    def count_lead(self, locale: Locale, celebrations: tuple[Celebration, ...]) -> list[str]:
+        """The 🎉 line for a practice count a day write reached (GM-01 part 2)."""
+        return [
+            self._t.t(locale, "celebrate-practice-count", count=c.count)
+            for c in celebrations
+            if c.kind is CelebrationKind.PRACTICE_COUNT and c.count is not None
+        ]
+
     async def summary(
         self,
         principal: Principal,
@@ -335,8 +344,10 @@ class PracticeScreens:
         cut: RestPeriod | None = None,
         check_ins: tuple[CheckIn, ...] | None = None,
         mood_row: bool = True,
+        lead: list[str] | None = None,
     ) -> Screen:
-        """`check_ins` None = not read yet. `mood_row` False: [✨ Check-in] only."""
+        """`check_ins` None = not read yet. `mood_row` False: [✨ Check-in] only. `lead`:
+        lines on top (a practice count reached, GM-01)."""
         if practice is None:
             logged = await self._current_day(principal, day)
             practice = logged.practices[0] if logged.practices else None
@@ -346,6 +357,7 @@ class PracticeScreens:
         keep = self.keep_row(principal, day, cut)
         if keep:
             lines.insert(0, self.cut_line(principal, day, cut))  # type: ignore[arg-type]
+        lines[:0] = lead or []  # a 🎉 goes on top (GM-01 spec §5)
         if has_details(practice):
             lines.append(self.summary_text(locale, day, practice))
         if extra:

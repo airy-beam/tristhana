@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Identity,
     Index,
+    Integer,
     LargeBinary,
     MetaData,
     PrimaryKeyConstraint,
@@ -275,6 +276,19 @@ progression_event = Table(
     CheckConstraint("(to_series IS NULL) = (to_key IS NULL)", name="to_position"),
     CheckConstraint("occurred_on >= '2000-01-01'", name="occurred_on_min"),
     Index("progression_event_account_id_idx", "account_id", "id"),
+)
+
+# GM-01 part 2 (ADR-0028): the practice-count thresholds a person has passed, each recorded
+# once ever inside the day write. `celebrated` = it was shown (False: seeded silently).
+practice_milestone = Table(
+    "practice_milestone",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("threshold", Integer(), nullable=False),
+    Column("celebrated", Boolean(), nullable=False),
+    _timestamp("reached_at"),
+    PrimaryKeyConstraint("account_id", "threshold"),
+    CheckConstraint("threshold BETWEEN 1 AND 100000", name="threshold"),
 )
 
 # MD-03 / ADR-0019: stored moon calendars per city (previous year … current + 2).

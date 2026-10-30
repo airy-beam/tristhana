@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
@@ -33,6 +34,7 @@ class Upserted:
     periods: tuple[RestPeriod, ...] = ()  # periods covering the day before or the day
     practice_on: bool = False
     cut: RestPeriod | None = None  # a period as it was before this 🧘 Practiced cut it
+    reached: int | None = None  # a practice-count threshold this write celebrates (GM-01)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,22 +43,28 @@ class Inserted:
 
     inserted: bool
     cut: RestPeriod | None = None
+    reached: int | None = None  # a practice-count threshold this write celebrates (GM-01)
 
 
 class DayLogRepository(Protocol):
     """One statement per method (see `AccountRepository`). Implementations keep private
     statuses private at rest (ADR-0016); callers always see the true `DayStatus`."""
 
-    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> Upserted:
+    async def upsert(
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
+    ) -> Upserted:
         """Insert or replace the status of that date. `timezone` = the zone "today" was
-        computed in, or None when it was a provisional guess."""
+        computed in, or None when it was a provisional guess. When the write makes the day
+        Practiced, the practice-count ledger is brought up to date in the same statement
+        (ADR-0028): every threshold at or below the new count is recorded once, and the
+        one equal to it, newly recorded, is `reached`."""
         ...
 
     async def insert_if_absent(
-        self, account_id: UUID, day: DayLog, timezone: str | None
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
     ) -> Inserted:
         """Log the day only if it has no status yet (a reminder tap never overwrites);
-        False when it was already logged."""
+        False when it was already logged. The ledger rule as in `upsert`."""
         ...
 
     async def delete(self, account_id: UUID, local_date: date) -> None:

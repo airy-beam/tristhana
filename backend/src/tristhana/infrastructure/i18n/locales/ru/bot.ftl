@@ -517,6 +517,11 @@ celebrate-series-begins =
        *[other] 🎉 { $series } серия начинается: { $traditional }.
     }
 celebrate-item = 🎉 { $item }: прекрасный шаг.
+celebrate-practice-count = 🎉 { $count } { $count ->
+        [one] практика
+        [few] практики
+       *[many] практик
+    } в журнале. Спасибо, что приходишь на коврик.
 preset-mine = 🧘 Моя практика: { $length }
 # Названия элементов-этапов: из каталога, плюс бытовое название, где оно в ходу.
 milestone-label =

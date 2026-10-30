@@ -246,7 +246,8 @@ class DayScreens:
         except DateTooEarly:
             return await self.week(principal, today, note="log-date-too-early")
         if status is DayStatus.PRACTICED and self.practice is not None:
-            return await self.practice.details(principal, day, cut=saved.cut)
+            lead = self.practice.count_lead(principal.account.locale, saved.celebrations)
+            return await self.practice.details(principal, day, cut=saved.cut, lead=lead)
         if saved.offer is not None:  # "for how many days?" (WH-01)
             return self.question(principal, day, status, saved.offer.reminders_on)
         if saved.period is not None:
