@@ -52,6 +52,8 @@ for loc in LOCALES:
     Locale.parse(loc).plural_form(5)
 from tristhana.infrastructure.seed.cities_yaml import load_cities
 assert load_cities(seed / "cities.yaml").default.slug == "mysuru", "cities.yaml"
+from tristhana.infrastructure.seed.milestones_yaml import load_milestones
+assert load_milestones(seed / "milestones.yaml").thresholds, "milestones.yaml"
 import aiogram  # noqa: F401  (imports in the slim image)
 import asyncpg  # noqa: F401  (C extension in the slim image)
 from tristhana.infrastructure.crypto import FieldCipher  # libsodium in the slim image

@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from zoneinfo import ZoneInfo
 
+from tristhana.application.days import count_celebrations
 from tristhana.application.policies import Principal
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.notifications import (
@@ -17,6 +18,7 @@ from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import Clock
 from tristhana.application.settings import PatchNotificationSettings
 from tristhana.domain.days import DayLog, DayStatus, check_loggable, provisional_zone
+from tristhana.domain.milestones import NO_COUNTS, PracticeCounts
 from tristhana.domain.notifications import (
     KEEP,
     NotificationPatch,
@@ -24,6 +26,7 @@ from tristhana.domain.notifications import (
     default_practice_time,
     defaults_for,
 )
+from tristhana.domain.progression import Celebration
 from tristhana.domain.rest_periods import RestPeriod
 
 
@@ -33,29 +36,40 @@ class QuickLog:
     copied_from: date | None  # the practice that was copied, if any
     already: bool  # the day was logged before the tap: nothing was written
     cut: RestPeriod | None = None  # a rest period this 🧘 cut, as it was (WH-01 "keep")
+    celebrations: tuple[Celebration, ...] = ()  # a practice count reached (GM-01)
 
 
 class QuickLogSameAsLast:
     """✅ on a reminder: Practiced + the usual practice copied, in one tap. Never overwrites
     a day that is already logged (it might be a private 🌸 record the reminder can't show)."""
 
-    def __init__(self, days: DayLogRepository, practices: PracticeRepository, clock: Clock) -> None:
+    def __init__(
+        self,
+        days: DayLogRepository,
+        practices: PracticeRepository,
+        clock: Clock,
+        counts: PracticeCounts = NO_COUNTS,
+    ) -> None:
         self._days, self._practices, self._clock = days, practices, clock
+        self._counts = counts
 
     async def execute(self, principal: Principal, local_date: date) -> QuickLog:
         """Raises `DateInFuture` / `DateTooEarly`."""
         account = principal.account
         check_loggable(local_date, self._clock.now(), account.timezone)
         day = DayLog(local_date, DayStatus.PRACTICED)
-        inserted = await self._days.insert_if_absent(account.id, day, account.timezone)
+        inserted = await self._days.insert_if_absent(
+            account.id, day, account.timezone, self._counts.thresholds
+        )
         if not inserted.inserted:
             stored = await self._days.list_range(account.id, local_date, local_date)
             return QuickLog(stored[0] if stored else None, None, already=True)
         copied = await self._practices.copy_usual(account.id, local_date, account.timezone)
+        celebrations = count_celebrations(inserted.reached)
         if copied is None:
-            return QuickLog(day, None, already=False, cut=inserted.cut)
+            return QuickLog(day, None, False, inserted.cut, celebrations)
         practiced = replace(day, practices=(copied.practice,))
-        return QuickLog(practiced, copied.source, already=False, cut=inserted.cut)
+        return QuickLog(practiced, copied.source, False, inserted.cut, celebrations)
 
 
 class LogFromReminder:
@@ -64,8 +78,10 @@ class LogFromReminder:
 
     _ALLOWED = frozenset({DayStatus.PRACTICED, DayStatus.REST})
 
-    def __init__(self, days: DayLogRepository, clock: Clock) -> None:
-        self._days, self._clock = days, clock
+    def __init__(
+        self, days: DayLogRepository, clock: Clock, counts: PracticeCounts = NO_COUNTS
+    ) -> None:
+        self._days, self._clock, self._counts = days, clock, counts
 
     async def execute(self, principal: Principal, local_date: date, status: DayStatus) -> QuickLog:
         """Raises `DateInFuture` / `DateTooEarly`. Two statements only when already logged."""
@@ -74,11 +90,14 @@ class LogFromReminder:
         account = principal.account
         check_loggable(local_date, self._clock.now(), account.timezone)
         day = DayLog(local_date, status)
-        inserted = await self._days.insert_if_absent(account.id, day, account.timezone)
+        inserted = await self._days.insert_if_absent(
+            account.id, day, account.timezone, self._counts.thresholds
+        )
         if not inserted.inserted:
             stored = await self._days.list_range(account.id, local_date, local_date)
             return QuickLog(stored[0] if stored else None, None, already=True)
-        return QuickLog(day, None, already=False, cut=inserted.cut)
+        celebrations = count_celebrations(inserted.reached)
+        return QuickLog(day, None, False, inserted.cut, celebrations)
 
 
 class UpdatePracticeReminder:

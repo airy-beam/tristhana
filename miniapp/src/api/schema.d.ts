@@ -580,9 +580,14 @@ export interface components {
          * CelebrationKind
          * @enum {string}
          */
-        CelebrationKind: "new_asana" | "series_complete" | "series_begins" | "item";
+        CelebrationKind: "new_asana" | "series_complete" | "series_begins" | "item" | "practice_count";
         /** CelebrationOut */
         CelebrationOut: {
+            /**
+             * Count
+             * @description practice_count: the number of practices reached (GM-01)
+             */
+            count?: number | null;
             /** @description A jump over several stops: the first new one (maybe in the series before) */
             first: components["schemas"]["PositionOut"] | null;
             /**
@@ -772,6 +777,12 @@ export interface components {
          * @description `practices` and `check_ins` are not included here: read them from GET /me/days.
          */
         DaySaved: {
+            /**
+             * Celebrations
+             * @description A practice count reached (GM-01: 100/365/1000), at most one, shown once
+             * @default []
+             */
+            celebrations: components["schemas"]["CelebrationOut"][];
             /**
              * Check Ins
              * @description The owner's own check-in (PR-06), only on a practiced day

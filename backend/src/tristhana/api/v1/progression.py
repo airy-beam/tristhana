@@ -34,6 +34,7 @@ from tristhana.application.progression import (
 )
 from tristhana.domain.days import DateInFuture, DateTooEarly
 from tristhana.domain.progression import (
+    Celebration,
     CelebrationKind,
     EventKind,
     InvalidProgression,
@@ -145,6 +146,19 @@ class CelebrationOut(BaseModel):
     first: PositionOut | None = Field(
         description="A jump over several stops: the first new one (maybe in the series before)"
     )
+    count: int | None = Field(
+        default=None, description="practice_count: the number of practices reached (GM-01)"
+    )
+
+    @classmethod
+    def of(cls, c: Celebration) -> "CelebrationOut":
+        return cls(
+            kind=c.kind,
+            series=c.series,
+            key=c.key,
+            first=PositionOut.maybe(c.first),
+            count=c.count,
+        )
 
 
 class ChangeOut(BaseModel):
@@ -218,12 +232,7 @@ def _change_out(track: Track, result: ChangeResult) -> ChangeOut:
     return ChangeOut(
         progression=ProgressionOut.of(track, result.view),
         event=EventOut.of(result.event) if result.event else None,
-        celebrations=[
-            CelebrationOut(
-                kind=c.kind, series=c.series, key=c.key, first=PositionOut.maybe(c.first)
-            )
-            for c in result.celebrations
-        ],
+        celebrations=[CelebrationOut.of(c) for c in result.celebrations],
     )
 
 

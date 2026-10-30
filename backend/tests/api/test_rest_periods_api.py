@@ -85,6 +85,7 @@ def test_ladies_today_returns_the_offer_with_the_servers_choices(api: TestClient
         },
         "period": None,
         "cut": None,
+        "celebrations": [],  # GM-01 part 2
     }
 
 

@@ -18,7 +18,9 @@ from tristhana.domain.days import (
     provisional_zone,
 )
 from tristhana.domain.diary import DiaryNote
+from tristhana.domain.milestones import NO_COUNTS, PracticeCounts
 from tristhana.domain.moon import Cities, City
+from tristhana.domain.progression import Celebration, CelebrationKind
 from tristhana.domain.rest_days import AutoDay, auto_days, joined_on
 from tristhana.domain.rest_periods import (
     PauseOffer,
@@ -55,6 +57,14 @@ class DaySaved:
     period: RestPeriod | None = None  # the period now covering `day`
     cut: RestPeriod | None = None  # the period as it was before a 🧘 cut it ("keep")
     practice_on: bool = False
+    celebrations: tuple[Celebration, ...] = ()  # a practice count reached (GM-01)
+
+
+def count_celebrations(reached: int | None) -> tuple[Celebration, ...]:
+    """The 🎉 for a practice-count threshold a day write reached (GM-01, ADR-0028)."""
+    if reached is None:
+        return ()
+    return (Celebration(CelebrationKind.PRACTICE_COUNT, count=reached),)
 
 
 def _zone(principal: Principal) -> tuple[str, bool]:
@@ -118,19 +128,23 @@ def _without_empty_check_ins(day: DayLog) -> DayLog:
 
 
 class SetDayStatus:
-    def __init__(self, days: DayLogRepository, clock: Clock) -> None:
+    def __init__(
+        self, days: DayLogRepository, clock: Clock, counts: PracticeCounts = NO_COUNTS
+    ) -> None:
         self._days = days
         self._clock = clock
+        self._counts = counts
 
     async def execute(self, principal: Principal, local_date: date, status: DayStatus) -> DaySaved:
         """Raises `DateInFuture` / `DateTooEarly`. Overwrites any earlier status. 🧘 inside a
         rest period cuts it (returned as `cut`); after 🌸/🤒/✈️ on today or yesterday the
-        pause question may follow (`offer`). One statement."""
+        pause question may follow (`offer`). A 🧘 that brings the practice count to a
+        threshold celebrates once ever (GM-01). One statement."""
         account = principal.account
         now = self._clock.now()
         check_loggable(local_date, now, account.timezone)
         day = DayLog(local_date=local_date, status=status)
-        saved = await self._days.upsert(account.id, day, account.timezone)
+        saved = await self._days.upsert(account.id, day, account.timezone, self._counts.thresholds)
         yesterday = local_date - timedelta(days=1)
         covering = next((p for p in saved.periods if p.covers(local_date)), None)
         before = next((p for p in saved.periods if p.covers(yesterday)), None)
@@ -144,7 +158,14 @@ class SetDayStatus:
             saved.practice_on,
         )
         period = None if saved.cut is not None else covering
-        return DaySaved(saved.day, offer, period, saved.cut, saved.practice_on)
+        return DaySaved(
+            saved.day,
+            offer,
+            period,
+            saved.cut,
+            saved.practice_on,
+            count_celebrations(saved.reached),
+        )
 
 
 class ClearDayStatus:

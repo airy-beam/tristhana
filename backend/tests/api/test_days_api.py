@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from tests.fakes import InMemoryStorage
 from tristhana.api.initdata import sign
+from tristhana.domain.days import DayLog, DayStatus
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -145,3 +146,21 @@ def test_openapi_lists_the_new_error_codes(api: TestClient) -> None:
     codes = api.get("/openapi.json").json()["components"]["schemas"]["ErrorCode"]["enum"]
 
     assert {"invalid_range", "date_in_future", "date_too_early"} <= set(codes)
+
+
+def test_the_hundredth_practice_celebrates_once(api: TestClient, storage: InMemoryStorage) -> None:
+    """GM-01 part 2: thresholds come from data/seed/milestones.yaml."""
+    today = _today_moscow()
+    api.put(f"/api/v1/me/days/{today}", json={"status": "rest"}, headers=_auth())
+    ((me, _),) = storage.day_repo.rows.keys()
+    for i in range(1, 100):
+        when = today - timedelta(days=i)
+        storage.day_repo.rows[(me, when)] = (DayLog(when, DayStatus.PRACTICED), None)
+
+    first = api.put(f"/api/v1/me/days/{today}", json={"status": "practiced"}, headers=_auth())
+    again = api.put(f"/api/v1/me/days/{today}", json={"status": "practiced"}, headers=_auth())
+
+    assert first.json()["celebrations"] == [
+        {"kind": "practice_count", "series": None, "key": None, "first": None, "count": 100}
+    ]
+    assert again.json()["celebrations"] == []

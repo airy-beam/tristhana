@@ -25,7 +25,11 @@ function json(body: unknown, status = 200): Response {
 /** Older fixtures predate WH-01: `periods` / `practice_on` default to none / off. */
 type DaysFixture = Omit<Days, "periods" | "practice_on" | "notes"> & Partial<Days>;
 
-function stubApi(fixture: DaysFixture, writeStatus = 200): Request[] {
+function stubApi(
+  fixture: DaysFixture,
+  writeStatus = 200,
+  saved: Record<string, unknown> = {},
+): Request[] {
   const days: Days = { periods: [], practice_on: false, notes: [], ...fixture };
   const seen: Request[] = [];
   vi.stubGlobal(
@@ -48,7 +52,7 @@ function stubApi(fixture: DaysFixture, writeStatus = 200): Request[] {
       return Promise.resolve(
         request.method === "DELETE"
           ? json(null, 204)
-          : json({ date: TODAY, status: "rest", practices: [], check_ins: [] }),
+          : json({ date: TODAY, status: "rest", practices: [], check_ins: [], ...saved }),
       );
     }),
   );
@@ -128,6 +132,45 @@ describe("TodayCard", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't save/);
     expect(screen.queryByRole("button", { pressed: true })).not.toBeInTheDocument();
     expect(haptics.notify).toHaveBeenCalledWith("error");
+  });
+
+  it("celebrates a practice count from the server's answer, then dismisses (GM-01)", async () => {
+    stubApi(
+      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
+      200,
+      {
+        status: "practiced",
+        celebrations: [
+          { kind: "practice_count", series: null, key: null, first: null, count: 1000 },
+        ],
+      },
+    );
+    renderCard();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Practiced/ }));
+
+    const card = await screen.findByText(/practices in your log/);
+    expect(visible(card)).toBe("🎉 1,000 practices in your log. Thank you for coming to the mat.");
+    expect(haptics.notify).toHaveBeenCalledWith("success");
+    fireEvent.click(card);
+    expect(screen.queryByText(/practices in your log/)).not.toBeInTheDocument();
+  });
+
+  it("shows no card when the save celebrates nothing", async () => {
+    stubApi(
+      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
+      200,
+      { status: "practiced", celebrations: [] },
+    );
+    renderCard();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Practiced/ }));
+
+    await vi.waitFor(() => {
+      expect(haptics.impact).toHaveBeenCalled();
+    });
+    expect(screen.queryByText(/practices in your log/)).not.toBeInTheDocument();
+    expect(haptics.notify).not.toHaveBeenCalledWith("success");
   });
 
   it("shows the privacy note for a ladies' holiday and can clear it", async () => {

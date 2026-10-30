@@ -12,6 +12,7 @@ from tristhana.api.errors import ApiError, error_responses
 from tristhana.api.v1.check_in import CheckInOut
 from tristhana.api.v1.diary import NO_STORE, DayNoteOut
 from tristhana.api.v1.practice import PracticeOut
+from tristhana.api.v1.progression import CelebrationOut
 from tristhana.api.v1.rest_periods import PauseOfferOut, RestPeriodOut
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayLog, DayStatus, InvalidRange
@@ -81,6 +82,10 @@ class DaySaved(Day):
         default=None,
         description="A period 🧘 Practiced just cut, as it was (for 'keep the pause')",
     )
+    celebrations: list[CelebrationOut] = Field(
+        default=[],
+        description="A practice count reached (GM-01: 100/365/1000), at most one, shown once",
+    )
 
 
 class DayStatusBody(BaseModel):
@@ -138,6 +143,7 @@ async def put_day(
         pause_offer=PauseOfferOut.of(saved.offer),
         period=RestPeriodOut.of(saved.period),
         cut=RestPeriodOut.of(saved.cut),
+        celebrations=[CelebrationOut.of(c) for c in saved.celebrations],
     )
 
 

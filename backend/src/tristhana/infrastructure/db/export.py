@@ -17,6 +17,7 @@ from tristhana.domain.export import (
     ExportDay,
     ExportEvent,
     ExportIdentity,
+    ExportMilestone,
     ExportNote,
     ExportPeriod,
     ExportPractice,
@@ -42,6 +43,7 @@ from tristhana.infrastructure.db.tables import (
     notification_delivery,
     notification_settings,
     practice,
+    practice_milestone,
     progression,
     progression_event,
     rest_period,
@@ -61,6 +63,7 @@ EXPORTED_TABLES = frozenset(
         "progression_event",
         "notification_settings",
         "notification_delivery",  # as `reminders` (category, date, status; 60 days)
+        "practice_milestone",  # as `practice_milestones` (GM-01 part 2)
     }
 )
 EXCLUDED_TABLES: dict[str, str] = {}  # table -> why it isn't exported
@@ -88,7 +91,9 @@ class SqlExportRepository:
                     (await conn.execute(stmt)).all()
                     for stmt in _statements(account_id, reminders_from)
                 ]
-        ids, settings, days, periods, practices, check_ins, notes, state, events, sent = rows
+        ids, settings, days, periods, practices, check_ins, notes, state, events, sent, passed = (
+            rows
+        )
         return Owned(
             account=to_account(row),
             identities=tuple(
@@ -126,6 +131,9 @@ class SqlExportRepository:
             ),
             events=tuple(_event(account_id, r) for r in events),
             reminders=tuple(ExportReminder(r.category, r.local_date, r.status) for r in sent),
+            milestones=tuple(
+                ExportMilestone(r.threshold, r.reached_at, r.celebrated) for r in passed
+            ),
         )
 
     async def claim(self, account_id: UUID, now: datetime, before: datetime) -> datetime | None:
@@ -206,6 +214,13 @@ def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
             )
         )
         .order_by(notification_delivery.c.local_date, notification_delivery.c.category),
+        select(
+            practice_milestone.c.threshold,
+            practice_milestone.c.reached_at,
+            practice_milestone.c.celebrated,
+        )
+        .where(practice_milestone.c.account_id == account_id)
+        .order_by(practice_milestone.c.threshold),
     ]
 
 

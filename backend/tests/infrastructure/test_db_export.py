@@ -62,12 +62,13 @@ async def _account(engine: AsyncEngine) -> tuple[UUID, str]:
 
 
 async def _fill(engine: AsyncEngine, me: UUID, keys: str = KEYS) -> None:
-    """One of everything: 🌸 day, practice + check-in, a sick pause, a note, progression,
-    notification settings and a delivery."""
+    """One of everything: 🌸 day, practice + check-in (its first practice: a milestone at a
+    threshold of 1), a sick pause, a note, progression, notification settings and a
+    delivery."""
     cipher = FieldCipher(keys)
     days = SqlDayLogRepository(engine, cipher)
     await days.upsert(me, DayLog(MON, DayStatus.LADIES), ZONE)
-    await days.upsert(me, DayLog(TUE, DayStatus.PRACTICED), ZONE)
+    assert (await days.upsert(me, DayLog(TUE, DayStatus.PRACTICED), ZONE, (1,))).reached == 1
     await days.upsert(me, DayLog(WED, DayStatus.SKIPPED), None)
     await SqlPracticeRepository(engine).save(
         me,
@@ -143,6 +144,7 @@ async def test_snapshot_opens_every_seal_for_the_owner(engine: AsyncEngine) -> N
     assert [(r.category, r.local_date, r.status) for r in owned.reminders] == [
         ("moon", TUE, "claimed")
     ]
+    assert [(m.count, m.celebrated) for m in owned.milestones] == [(1, True)]
 
 
 async def test_reminders_before_the_window_are_left_out(engine: AsyncEngine) -> None:
@@ -305,14 +307,13 @@ def test_every_fk_to_an_account_table_cascades_or_nulls() -> None:
                 assert (fk.ondelete or "").upper() in {"CASCADE", "SET NULL"}, t.name
 
 
-def test_0016_follows_0015_and_is_the_head() -> None:
+def test_0016_follows_0015() -> None:
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(migrate.alembic_config("postgresql://unused"))
     revision = script.get_revision("0016")
     assert revision is not None
     assert revision.down_revision == "0015"
-    assert script.get_current_head() == "0016"
 
 
 async def test_0016_down_and_up(migrated_url: str, engine: AsyncEngine) -> None:

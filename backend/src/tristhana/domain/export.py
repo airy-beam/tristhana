@@ -102,6 +102,16 @@ class ExportEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportMilestone:
+    """A practice-count threshold passed (GM-01 part 2); `celebrated` False = recorded
+    silently (already past it when milestones started, or a threshold added later)."""
+
+    count: int
+    reached_at: datetime
+    celebrated: bool
+
+
+@dataclass(frozen=True, slots=True)
 class Snapshot:
     """Everything the person owns, already opened, read in one transaction."""
 
@@ -120,6 +130,7 @@ class Snapshot:
     events: tuple[ExportEvent, ...]  # oldest first
     reminders: tuple[ExportReminder, ...]
     exported_at: datetime  # UTC
+    milestones: tuple[ExportMilestone, ...] = ()  # smallest count first
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,6 +216,10 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
         "reminders": [
             {"category": r.category, "date": r.local_date.isoformat(), "status": r.status}
             for r in s.reminders
+        ],
+        "practice_milestones": [
+            {"count": m.count, "reached_at": _instant(m.reached_at), "celebrated": m.celebrated}
+            for m in s.milestones
         ],
     }
 

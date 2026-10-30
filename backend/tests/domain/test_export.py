@@ -23,6 +23,7 @@ from tristhana.domain.export import (
     ExportEvent,
     ExportIdentity,
     ExportLabels,
+    ExportMilestone,
     ExportNote,
     ExportPeriod,
     ExportPractice,
@@ -129,6 +130,20 @@ def test_json_is_serializable() -> None:
     )
 
     json.dumps(to_json(snap, _labels()), ensure_ascii=False)
+
+
+def test_practice_milestones_keep_their_order_and_utc_instants() -> None:
+    later = datetime(2027, 3, 1, 4, 0, tzinfo=UTC)
+    milestones = (ExportMilestone(100, NOW, False), ExportMilestone(365, later, True))
+
+    out = to_json(_snapshot(milestones=milestones), _labels())
+
+    assert out["schema"] == "tristhana.export/1"  # additive: no bump
+    assert out["practice_milestones"] == [
+        {"count": 100, "reached_at": "2026-10-27T09:30:00Z", "celebrated": False},
+        {"count": 365, "reached_at": "2027-03-01T04:00:00Z", "celebrated": True},
+    ]
+    assert to_json(_snapshot(), _labels())["practice_milestones"] == []
 
 
 def test_account_keys_are_exactly_the_public_ones() -> None:

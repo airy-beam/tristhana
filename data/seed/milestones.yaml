@@ -1,0 +1,5 @@
+# Practice-count milestones (GM-01 part 2, ADR-0028): a quiet 🎉 when a person's number of
+# practised days reaches one of these. Strictly ascending, 1..100000, at most 12.
+# Add one: append it here and deploy. People already past it are recorded silently on
+# their next 🧘 (no late celebration). 108 is not here on purpose: it is a GM-02 badge.
+practice_counts: [100, 365, 1000]

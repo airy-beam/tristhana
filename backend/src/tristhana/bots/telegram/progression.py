@@ -342,6 +342,9 @@ class ProgressionScreens:
                 case CelebrationKind.ITEM:
                     label = self.item_label(locale, c.key or "")
                     lines.append(self.t.t(locale, "celebrate-item", item=label))
+                case CelebrationKind.PRACTICE_COUNT:  # day writes only (GM-01): exhaustive
+                    if c.count is not None:
+                        lines.append(self.t.t(locale, "celebrate-practice-count", count=c.count))
         return lines
 
     def position_text(self, locale: Locale, p: Position) -> str:

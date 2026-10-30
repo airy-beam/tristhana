@@ -79,13 +79,26 @@
           "new_asana",
           "series_complete",
           "series_begins",
-          "item"
+          "item",
+          "practice_count"
         ],
         "title": "CelebrationKind",
         "type": "string"
       },
       "CelebrationOut": {
         "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "practice_count: the number of practices reached (GM-01)",
+            "title": "Count"
+          },
           "first": {
             "anyOf": [
               {
@@ -539,6 +552,15 @@
       "DaySaved": {
         "description": "`practices` and `check_ins` are not included here: read them from GET /me/days.",
         "properties": {
+          "celebrations": {
+            "default": [],
+            "description": "A practice count reached (GM-01: 100/365/1000), at most one, shown once",
+            "items": {
+              "$ref": "#/components/schemas/CelebrationOut"
+            },
+            "title": "Celebrations",
+            "type": "array"
+          },
           "check_ins": {
             "default": [],
             "description": "The owner's own check-in (PR-06), only on a practiced day",

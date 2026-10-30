@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Sequence
 from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
@@ -342,11 +343,13 @@ class _UnavailableAccounts:
 
 
 class _UnavailableDays:
-    async def upsert(self, account_id: UUID, day: DayLog, timezone: str | None) -> NoReturn:
+    async def upsert(
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
+    ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
     async def insert_if_absent(
-        self, account_id: UUID, day: DayLog, timezone: str | None
+        self, account_id: UUID, day: DayLog, timezone: str | None, thresholds: Sequence[int] = ()
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 

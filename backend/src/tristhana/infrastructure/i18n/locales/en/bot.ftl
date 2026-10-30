@@ -507,6 +507,10 @@ celebrate-series-begins =
        *[other] 🎉 { $series } begins: { $traditional }.
     }
 celebrate-item = 🎉 { $item }: a lovely step.
+celebrate-practice-count = 🎉 { $count } { $count ->
+        [one] practice
+       *[other] practices
+    } in your log. Thank you for coming to the mat.
 preset-mine = 🧘 My practice: { $length }
 # Milestone item names: the catalog name, plus the everyday name where people use one.
 milestone-label =
