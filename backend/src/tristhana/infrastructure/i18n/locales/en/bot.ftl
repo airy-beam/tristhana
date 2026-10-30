@@ -203,6 +203,9 @@ moon-zone-needed = To remind you at the right hour I need your time zone: pick y
 moon-change-city = 📍 Change city
 moon-reminders = 🔔 Reminders
 moon-pick-city = Which city's moon days do you follow?
+# MD-04: the person's own city, when it isn't the followed one.
+moon-same-as-city = 📍 Same as my city ({ $city })
+moon-home-fyi = ℹ In 📍 { $city } it falls on { $date }
 # Full-width button: sets the account's time zone to the city's (only when unknown).
 moon-use-city-zone = 🕐 Time zone: 📍 { $city }
 # Toggle buttons, 3 per row; the screen text above already says "… before".
@@ -279,8 +282,13 @@ language-auto = As in Telegram
 language-en = English
 language-ru = Русский
 settings-language-line = 🗣 Language: { $language }
-settings-zone-line = 🕐 Time zone: { $zone }
-settings-zone-unset-line = 🕐 Time zone: not set yet. Reminders start once it's set.
+# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)".
+settings-city-line = 🏙 My city: { $zone }
+settings-city-unset-line = 🏙 My city: not chosen yet · 🕐 { $zone }
+settings-city-unlisted-line = 🏙 My city: not chosen · 🕐 { $zone }
+settings-city-no-zone-line = 🏙 My city: not chosen yet. Reminders start once it's set.
+settings-city-nudge = Pick your city if you like: times will then show its name.
+settings-city-not-now = Not now
 settings-moon-line = 🌙 Moon days: 📍 { $city }
 settings-quiet-line = 🔕 Quiet hours { $start }–{ $end } · { $n ->
         [one] at most { $n } message a day
@@ -290,9 +298,15 @@ settings-quiet-off-line = 🔕 No quiet hours · { $n ->
         [one] at most { $n } message a day
        *[other] at most { $n } messages a day
     }
-settings-zone-button = 🕐 Time zone
+settings-city-button = 🏙 My city
 settings-moon-link = 🌙 Moon days
-settings-pick-zone = Pick the city whose time you live by. Not in the list? Open the app: it can use your phone's zone.
+settings-pick-city = Which city do you live in? Reminders and times follow its clock.
+settings-city-unlisted = 📍 My city isn't listed
+settings-city-utc = 🌐 UTC
+settings-share-location = Send your location once and I'll set your time zone from it. I use it only for that and don't store it. Can't send it from this device? Open the app: it can use your phone's time.
+settings-share-location-button = 📍 Send my location
+settings-location-zone = 🕐 Done: your time zone is { $zone }. You can change it in /settings.
+settings-location-unknown = I couldn't find a time zone there. Pick a city in /settings, or open the app.
 settings-open-app = ⚙️ More in the app
 settings-link = ⚙️ Settings
 

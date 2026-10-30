@@ -96,7 +96,7 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
                 setShowDetails(true);
               }}
             >
-              {me && <TravelPrompt zone={me.timezone} locale={me.locale} />}
+              {me && <TravelPrompt zone={me.timezone} locale={me.locale} home={me.home_city} />}
               {me && <TodayCard zone={me.timezone} locale={me.locale} />}
               {me && (
                 <Localized id="stats-open">

@@ -286,4 +286,8 @@ describe("zoneLabel", () => {
   ])("%s -> %s", (zone, label) => {
     expect(zoneLabel(zone, "2026-10-19")).toBe(label);
   });
+
+  it("names the home city when it is given (MD-04)", () => {
+    expect(zoneLabel("Asia/Almaty", "2026-10-19", "06:30", "Astana")).toBe("Astana (UTC+5)");
+  });
 });

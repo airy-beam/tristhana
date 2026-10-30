@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from tristhana.application.ports.i18n import DateArg, TimeArg
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import label_city
 
 if TYPE_CHECKING:
     from fluent.runtime import FluentBundle
@@ -41,7 +42,8 @@ def _format_arg(value: str | int | DateArg | TimeArg, locale: Locale) -> str | i
 
 
 def format_time_label(arg: TimeArg, locale: Locale) -> str:
-    """ "06:30 Almaty (UTC+5)" / «06:30 Алматы (UTC+5)»; "UTC+5:30" for half hours."""
+    """ "06:30 Almaty (UTC+5)" / «06:30 Алматы (UTC+5)»; "UTC+5:30" for half hours. The
+    home city names its own zone: "06:30 Astana (UTC+5)" (ADR-0029)."""
     from babel.dates import get_timezone_location
 
     if arg.zone == "UTC":
@@ -50,7 +52,8 @@ def format_time_label(arg: TimeArg, locale: Locale) -> str:
     minutes = int(offset.total_seconds() // 60) if offset else 0
     sign, minutes = ("+" if minutes >= 0 else "-"), abs(minutes)
     hours = f"{minutes // 60}" + (f":{minutes % 60:02d}" if minutes % 60 else "")
-    city = get_timezone_location(arg.zone, locale, return_city=True)
+    home = label_city(arg.place, arg.zone)
+    city = home.name(locale) if home else get_timezone_location(arg.zone, locale, return_city=True)
     return f"{arg.at:%H:%M} {city} (UTC{sign}{hours})"
 
 

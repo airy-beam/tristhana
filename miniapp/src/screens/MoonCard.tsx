@@ -47,6 +47,18 @@ export function MoonCard({ locale }: { locale: Locale }) {
                 date: dateFormat.format(new Date(`${d.date}T00:00:00Z`)),
                 in: l10n.getString("moon-in-days", { n: daysBetween(moon.today, d.date) }),
               })}
+              {/* MD-04: the person's own city, only where its date differs (±1 day). */}
+              {moon.home && d.home_date && (
+                <Localized
+                  id="moon-home-fyi"
+                  vars={{
+                    city: cityName(moon.home, moon.home.slug, locale),
+                    date: dateFormat.format(new Date(`${d.home_date}T00:00:00Z`)),
+                  }}
+                >
+                  <span className="hint small moon-home" />
+                </Localized>
+              )}
             </li>
           ))}
         </ul>

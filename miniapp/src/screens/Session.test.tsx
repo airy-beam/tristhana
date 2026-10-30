@@ -16,6 +16,7 @@ const ME: Me = {
   locale_from_telegram: true,
   hide_ladies: false,
   offer_check_in: true, // WH-01 part 2
+  home_city_chosen: true, // MD-04: no nudge in these tests
 };
 
 type Route = (request: Request) => Response;

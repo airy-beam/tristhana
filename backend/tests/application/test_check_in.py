@@ -399,7 +399,7 @@ async def test_offer_check_in_is_on_for_a_new_account() -> None:
 async def test_update_profile_patches_offer_check_in_alone() -> None:
     accounts = InMemoryAccounts()
     me = await _account(accounts)
-    update = UpdateProfile(accounts)
+    update = UpdateProfile(accounts, cities())
 
     off = await update.execute(me, ProfilePatch(offer_check_in=False), TG)  # type: ignore[call-arg]
     named = await update.execute(Principal(off), ProfilePatch(display_name="Anna"), TG)

@@ -17,7 +17,7 @@ from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.moon_callbacks import PREFIX, MoonCallback, decode, encode
 from tristhana.bots.telegram.runtime import MoonUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
-from tristhana.domain.accounts import Account
+from tristhana.domain.accounts import Account, home_city_of
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay, MoonDayKind, MoonPhase
 from tristhana.domain.notifications import (
@@ -75,7 +75,12 @@ def reminder_screen(
 
 
 def moon_status(
-    t: Translator, locale: Locale, settings: NotificationSettings, zone: str | None, today: date
+    t: Translator,
+    locale: Locale,
+    settings: NotificationSettings,
+    zone: str | None,
+    today: date,
+    place: City | None = None,
 ) -> str:
     """The moon reminder line ("🔔 Reminders: 7 and 1 day before at 19:00 …")."""
     if zone is None:
@@ -87,7 +92,7 @@ def moon_status(
         locale,
         "moon-reminders-on",
         offsets=t.t(locale, "moon-offsets", code=int(code)),  # numeric variant keys
-        time=TimeArg(today, settings.moon.at, zone),
+        time=TimeArg(today, settings.moon.at, zone, place),
     )
 
 
@@ -163,11 +168,11 @@ class MoonScreens:
         lines = [self._t.t(locale, "moon-title", city=city)]
         upcoming = v.days[:UPCOMING]
         if upcoming:
-            lines.append("\n".join(self._day_line(locale, d, v.today) for d in upcoming))
+            lines.append("\n".join(self._day_lines(locale, d, v) for d in upcoming))
         else:
             lines.append(self._t.t(locale, "moon-none"))
         lines.append(self._t.t(locale, "moon-calc-note", city=city))
-        lines.append(self._status(locale, v))
+        lines.append(self._status(locale, v, principal.account))
         rows = [
             [
                 button(self._t, locale, "moon-change-city", _data(action="cities", page=0)),
@@ -185,6 +190,20 @@ class MoonScreens:
             )
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
+    def _day_lines(self, locale: Locale, d: MoonDay, v: MoonView) -> str:
+        """The day, and the home city's date under it when that differs (MD-04)."""
+        line = self._day_line(locale, d, v.today)
+        other = v.home_dates.get(d.date)
+        if v.home is None or other is None:
+            return line
+        fyi = self._t.t(
+            locale,
+            "moon-home-fyi",
+            city=v.home.name(locale),
+            date=DateArg(other, with_year=other.year != v.today.year),
+        )
+        return f"{line}\n{fyi}"
+
     def _day_line(self, locale: Locale, d: MoonDay, today: date) -> str:
         return self._t.t(
             locale,
@@ -194,8 +213,9 @@ class MoonScreens:
             **{"in": self._t.t(locale, "moon-in-days", n=(d.date - today).days)},
         )
 
-    def _status(self, locale: Locale, v: MoonView) -> str:
-        return moon_status(self._t, locale, v.settings, v.zone, v.today)
+    def _status(self, locale: Locale, v: MoonView, account: Account) -> str:
+        place = home_city_of(account, self._m.cities)
+        return moon_status(self._t, locale, v.settings, v.zone, v.today, place)
 
     def cities(self, principal: Principal, page: int) -> Screen:
         locale = principal.account.locale
@@ -206,6 +226,13 @@ class MoonScreens:
         shown = ordered[page * CITY_PAGE : (page + 1) * CITY_PAGE]
         buttons = [self._city_button(locale, c, c.slug == current) for c in shown]
         rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+        home = home_city_of(principal.account, self._m.cities)
+        if home is not None and home.slug != current:  # MD-04: a snapshot, not a link
+            same = InlineKeyboardButton(
+                text=self._t.t(locale, "moon-same-as-city", city=home.name(locale)),
+                callback_data=_data(action="city", slug=home.slug),
+            )
+            rows.insert(0, [same])
         paging: list[InlineKeyboardButton] = []
         if page > 0:
             paging.append(
@@ -271,4 +298,6 @@ class MoonScreens:
             ],
             [button(self._t, locale, "settings-link", scb.encode(scb.SettingsCallback("view")))],
         ]
-        return Screen(self._status(locale, v), InlineKeyboardMarkup(inline_keyboard=rows))
+        return Screen(
+            self._status(locale, v, principal.account), InlineKeyboardMarkup(inline_keyboard=rows)
+        )

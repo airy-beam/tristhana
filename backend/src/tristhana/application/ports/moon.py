@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import date
 from typing import Protocol
 
@@ -6,6 +7,12 @@ from tristhana.domain.moon import MoonDay, MoonLocation
 
 class MoonCalendarRepository(Protocol):
     async def days(self, location: str, start: date, end: date) -> list[MoonDay]: ...
+
+    async def days_for(
+        self, locations: Sequence[str], start: date, end: date
+    ) -> dict[str, list[MoonDay]]:
+        """Several cities in one statement (MD-04); every asked location is a key."""
+        ...
 
     async def coverage(self) -> dict[tuple[str, int], str]:
         """{(location, year): algo_version} of the stored calendars."""

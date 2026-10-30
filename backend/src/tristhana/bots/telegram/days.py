@@ -43,6 +43,7 @@ from tristhana.bots.telegram.screens import (
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import City
 from tristhana.domain.rest_days import AutoKind
 from tristhana.domain.rest_periods import PAUSE_DAYS, RestPeriod
 
@@ -142,6 +143,9 @@ class DayScreens:
 
     def today(self, principal: Principal) -> tuple[date, bool]:
         return self._days.get.today(principal)
+
+    def home_city(self, principal: Principal) -> City | None:
+        return self._days.get.home_city(principal)
 
     async def read(self, principal: Principal, start: date, end: date) -> DaysView:
         return await self._days.get.execute(principal, start, end)

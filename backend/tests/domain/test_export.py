@@ -157,6 +157,7 @@ def test_account_keys_are_exactly_the_public_ones() -> None:
         "locale_from_telegram",
         "timezone",
         "moon_city",
+        "home_city",
         "day_off",
         "hide_ladies",
         "offer_check_in",
@@ -164,6 +165,19 @@ def test_account_keys_are_exactly_the_public_ones() -> None:
         "last_seen_at",
     }
     assert account["moon_city"] == {"slug": "mysuru", "default": True}
+    assert account["home_city"] == {"slug": None, "chosen": False}
+
+
+@pytest.mark.parametrize(
+    ("stored", "exported"),
+    [("astana", {"slug": "astana", "chosen": True}), ("-", {"slug": None, "chosen": True})],
+)
+def test_home_city_is_the_slug_and_whether_it_was_answered(
+    stored: str, exported: dict[str, object]
+) -> None:
+    snap = _snapshot(account=_account(home_city=stored))
+
+    assert to_json(snap, _labels())["account"]["home_city"] == exported
 
 
 def test_day_off_is_iso_weekdays_with_its_history() -> None:

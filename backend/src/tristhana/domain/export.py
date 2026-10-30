@@ -13,7 +13,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 from typing import Any
 
-from tristhana.domain.accounts import Account
+from tristhana.domain.accounts import NOT_LISTED, Account
 from tristhana.domain.check_in import CheckIn
 from tristhana.domain.days import DayStatus
 from tristhana.domain.notifications import NotificationSettings
@@ -234,6 +234,10 @@ def _account(s: Snapshot) -> dict[str, object]:
         "locale_from_telegram": not a.locale_custom,
         "timezone": a.timezone,
         "moon_city": {"slug": s.moon_city, "default": s.moon_city_default},
+        "home_city": {  # MD-04 (ADR-0029): None + chosen = "not listed / not now"
+            "slug": None if a.home_city in (None, NOT_LISTED) else a.home_city,
+            "chosen": a.home_city_chosen,
+        },
         "day_off": {
             "days": _weekdays(a.day_off.days),
             "since": a.day_off.since.isoformat() if a.day_off.since else None,

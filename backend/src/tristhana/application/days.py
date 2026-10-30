@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from tristhana.application.policies import Principal
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.storage import Clock
-from tristhana.domain.accounts import Account
+from tristhana.domain.accounts import Account, home_city_of
 from tristhana.domain.days import (
     MIN_LOG_DATE,
     DayLog,
@@ -89,6 +89,10 @@ class GetDays:
         """The caller's local date (no DB access), and whether their zone is known."""
         zone, known = _zone(principal)
         return local_today(self._clock.now(), zone), known
+
+    def home_city(self, principal: Principal) -> City | None:
+        """The caller's own city for time labels (MD-04; no DB access)."""
+        return home_city_of(principal.account, self._cities)
 
     async def execute(
         self, principal: Principal, start: date | None = None, end: date | None = None

@@ -1,7 +1,7 @@
 """Moon days and moon-reminder settings (MD-03). Shared by the bot and the API; every call
 acts on the caller's own account (`Principal`)."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 
 from tristhana.application.policies import Principal
@@ -14,9 +14,9 @@ from tristhana.application.ports.notifications import (
 )
 from tristhana.application.ports.storage import Clock
 from tristhana.application.settings import PatchNotificationSettings, caller_today
-from tristhana.domain.accounts import Account
+from tristhana.domain.accounts import Account, home_city_of
 from tristhana.domain.days import check_range, local_today, provisional_zone
-from tristhana.domain.moon import Cities, City, MoonDay
+from tristhana.domain.moon import Cities, City, MoonDay, home_dates
 from tristhana.domain.notifications import (
     KEEP,
     NotificationPatch,
@@ -27,6 +27,7 @@ from tristhana.domain.notifications import (
 )
 
 DEFAULT_WINDOW = timedelta(days=60)
+_PAIRING = timedelta(days=1)  # MD-04: the home city's same phase within ±1 day
 
 
 class UnknownLocation(ValueError):
@@ -41,6 +42,8 @@ class MoonView:
     days: list[MoonDay]
     settings: NotificationSettings
     zone: str | None  # the account's own zone; reminders never use the provisional one
+    home: City | None = None  # MD-04: the person's own city, when it isn't the followed one
+    home_dates: dict[date, date] = field(default_factory=dict[date, date])  # followed → home
 
     @property
     def zone_known(self) -> bool:
@@ -80,11 +83,21 @@ class GetMoonView:
         start = start or today
         end = end or start + DEFAULT_WINDOW
         check_range(start, end)
-        days = await self._moon.days(city.slug, start, end)
+        home = home_city_of(account, self._cities)
+        pairs: dict[date, date] = {}
+        if home is None or home.slug == city.slug:
+            home = None
+            days = await self._moon.days(city.slug, start, end)
+        else:  # both calendars in one statement, a day wider for the ±1 pairing
+            both = await self._moon.days_for(
+                [city.slug, home.slug], start - _PAIRING, end + _PAIRING
+            )
+            days = [d for d in both[city.slug] if start <= d.date <= end]
+            pairs = home_dates(days, both[home.slug])
         settings = await self._notifications.settings(
             account.id, defaults_for(account.day_off.days)
         )
-        return MoonView(city, explicit, today, days, settings, account.timezone)
+        return MoonView(city, explicit, today, days, settings, account.timezone, home, pairs)
 
 
 class SetMoonLocation:

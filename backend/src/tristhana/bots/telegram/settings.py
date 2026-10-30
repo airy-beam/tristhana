@@ -1,5 +1,5 @@
-"""`/settings` (ID-06): language, time zone by city, links to the reminder screens. The
-name, quiet hours and the daily cap are set in the Mini App."""
+"""`/settings` (ID-06): language, "🏙 My city" (which sets the zone, MD-04 / ADR-0029), links
+to the reminder screens. The name, quiet hours and the daily cap are set in the Mini App."""
 
 from datetime import date, time
 
@@ -10,7 +10,10 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    KeyboardButton,
     Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
     User,
     WebAppInfo,
 )
@@ -27,18 +30,22 @@ from tristhana.bots.telegram.runtime import SettingsUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.bots.telegram.settings_callbacks import PREFIX, SettingsCallback, decode, encode
 from tristhana.domain.accounts import (
+    NOT_LISTED,
+    NOT_NOW,
     Account,
     ExternalProfile,
     IdentityKey,
     IdentityProvider,
     InvalidTimezone,
     ProfilePatch,
+    UnknownCity,
+    home_city_of,
 )
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
 from tristhana.domain.rest_days import InvalidDayOff
 
-ZONE_PAGE = 12  # 2 columns x 6 rows
+CITY_PAGE = 12  # 2 columns x 6 rows
 _LANGUAGES: tuple[tuple[Locale | None, str], ...] = (
     (None, "language-auto"),
     ("en", "language-en"),
@@ -73,9 +80,24 @@ def register_settings(
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
     async def on_settings_tap(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
+        if cb is not None and cb.action == "unlisted":  # a reply keyboard needs a new message
+            text, markup = await answered(callback, screens.location_prompt(Principal(account)))
+            return SendMessage(chat_id=callback.from_user.id, text=text, reply_markup=markup)
         work = screens.handle(Principal(account), cb, client_profile(callback.from_user))
         screen = await answered(callback, work)
         return show(callback, screen) if screen else None
+
+    # A shared location: its zone only (MD-04); live locations, venues and forwards are not
+    # answers.
+    @router.message(F.location, ~F.venue, F.forward_origin.is_(None))
+    async def on_location(message: Message, account: Account) -> SendMessage | None:  # pyright: ignore[reportUnusedFunction]
+        location = message.location
+        if location is None or location.live_period or message.from_user is None:
+            return None
+        text = await screens.zone_from_location(
+            Principal(account), location.latitude, location.longitude, message.from_user
+        )
+        return None if text is None else message.answer(text, reply_markup=ReplyKeyboardRemove())
 
 
 class SettingsScreens:
@@ -95,24 +117,22 @@ class SettingsScreens:
         match cb.action:
             case "view":
                 return await self.view(principal)
-            case "zones":
-                return self.zones(principal, cb.page)
+            case "cities":
+                return self.cities(principal, cb.page)
             case "language":
                 account = await self._s.profile.execute(
                     principal, ProfilePatch(locale=cb.locale), client
                 )
                 return await self.view(Principal(account))  # in the new language at once
-            case "zone":
-                city = self._s.cities.get(cb.slug)
-                if city is None:
-                    return await self.view(principal)
-                try:
-                    account = await self._s.profile.execute(
-                        principal, ProfilePatch(timezone=city.location.tz), client
-                    )
-                except InvalidTimezone:
-                    return await self.view(principal)
-                return await self.view(Principal(account))
+            case "city":
+                return await self._profile(principal, ProfilePatch(home_city=cb.slug), client)
+            case "utc":
+                patch = ProfilePatch(timezone="UTC", home_city=None)
+                return await self._profile(principal, patch, client)
+            case "not_now":  # the nudge is answered (unless a city was chosen since)
+                return await self._profile(principal, ProfilePatch(home_city=NOT_NOW), client)
+            case "unlisted":  # sent as a new message by the handler
+                return None
             case "day_off_pick":
                 return self.day_off(principal)
             case "day_off":
@@ -132,6 +152,40 @@ class SettingsScreens:
                 )
                 return await self.view(Principal(account))
 
+    async def _profile(
+        self, principal: Principal, patch: ProfilePatch, client: ExternalProfile
+    ) -> Screen:
+        try:
+            account = await self._s.profile.execute(principal, patch, client)
+        except (UnknownCity, InvalidTimezone):  # stale or forged
+            return await self.view(principal)
+        return await self.view(Principal(account))
+
+    async def location_prompt(self, principal: Principal) -> tuple[str, ReplyKeyboardMarkup]:
+        """ "My city isn't listed": ask for a location once (the zone comes from it)."""
+        locale = principal.account.locale
+        share = KeyboardButton(
+            text=self._t.t(locale, "settings-share-location-button"), request_location=True
+        )
+        markup = ReplyKeyboardMarkup(
+            keyboard=[[share]], resize_keyboard=True, one_time_keyboard=True
+        )
+        return self._t.t(locale, "settings-share-location"), markup
+
+    async def zone_from_location(
+        self, principal: Principal, lat: float, lon: float, user: User
+    ) -> str | None:
+        """The reply to a shared location; None when this bot doesn't take locations."""
+        if self._s.zone_from_location is None:
+            return None
+        locale = principal.account.locale
+        saved = await self._s.zone_from_location.execute(principal, lat, lon, client_profile(user))
+        if saved is None or saved.timezone is None:
+            return self._t.t(locale, "settings-location-unknown")
+        today, _ = self._s.today(Principal(saved))
+        zone = self._zone_label(saved.locale, saved.timezone, today, None)
+        return self._t.t(saved.locale, "settings-location-zone", zone=zone)
+
     def day_off(self, principal: Principal) -> Screen:
         locale = principal.account.locale
         return day_off_picker(
@@ -149,6 +203,7 @@ class SettingsScreens:
         settings = await self._s.settings.get(principal)
         today, _ = self._s.today(principal)
         zone = account.timezone
+        home = home_city_of(account, self._s.cities)
         city = self._s.cities.get(account.moon_location) or self._s.cities.default
         language = self._t.t(
             locale, "language-auto" if not account.locale_custom else f"language-{locale}"
@@ -156,17 +211,15 @@ class SettingsScreens:
         lines = [
             self._t.t(locale, "settings-title"),
             self._t.t(locale, "settings-language-line", language=language),
-            self._t.t(locale, "settings-zone-line", zone=self._zone_label(locale, zone, today))
-            if zone
-            else self._t.t(locale, "settings-zone-unset-line"),
+            self._city_line(account, home, today),
             self._t.t(locale, "settings-moon-line", city=city.name(locale)),
             day_off_line(self._t, locale, account.day_off.days),
             self._t.t(locale, "settings-ladies-line", shown="no" if account.hide_ladies else "yes"),
             self._t.t(
                 locale, "settings-checkin-line", offered="yes" if account.offer_check_in else "no"
             ),
-            moon_status(self._t, locale, settings, zone, today),
-            practice_status(self._t, locale, settings, zone, today),
+            moon_status(self._t, locale, settings, zone, today, home),
+            practice_status(self._t, locale, settings, zone, today, home),
             self._t.t(locale, "settings-quiet-off-line", n=settings.daily_cap)
             if settings.quiet.start == settings.quiet.end  # start == end: no quiet hours
             else self._t.t(
@@ -187,7 +240,7 @@ class SettingsScreens:
                 for code, key in _LANGUAGES
             ],
             [
-                button(self._t, locale, "settings-zone-button", _data(action="zones", page=0)),
+                button(self._t, locale, "settings-city-button", _data(action="cities", page=0)),
                 button(self._t, locale, "settings-day-off-button", _data(action="day_off_pick")),
             ],
             [
@@ -218,6 +271,11 @@ class SettingsScreens:
                 )
             ],
         ]
+        if not account.home_city_chosen:  # the one-time nudge: any answer ends it
+            lines.insert(3, self._t.t(locale, "settings-city-nudge"))
+            rows.insert(
+                2, [button(self._t, locale, "settings-city-not-now", _data(action="not_now"))]
+            )
         if self._my_data:
             rows.append(
                 [
@@ -240,35 +298,38 @@ class SettingsScreens:
             )
         return Screen("\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
-    def _zone_label(self, locale: Locale, zone: str, today: date) -> str:
-        """The zone with its offset today: "Almaty (UTC+5)" (the time label minus the time)."""
-        label = self._t.t(locale, "time-label", time=TimeArg(today, time(12), zone))
+    def _city_line(self, account: Account, home: City | None, today: date) -> str:
+        locale, zone = account.locale, account.timezone
+        if zone is None:
+            return self._t.t(locale, "settings-city-no-zone-line")
+        label = self._zone_label(locale, zone, today, home)
+        if home is not None:
+            return self._t.t(locale, "settings-city-line", zone=label)
+        key = (
+            "settings-city-unlisted-line"
+            if account.home_city_chosen
+            else "settings-city-unset-line"
+        )
+        return self._t.t(locale, key, zone=label)
+
+    def _zone_label(self, locale: Locale, zone: str, today: date, home: City | None) -> str:
+        """The zone with its offset today: "Astana (UTC+5)" (the time label minus the time)."""
+        label = self._t.t(locale, "time-label", time=TimeArg(today, time(12), zone, home))
         return label.split(" ", 1)[1] if " " in label else label
 
-    def _zone_city(self, principal: Principal) -> City | None:
-        """The city to mark for the account's zone (only the zone is stored): the followed
-        moon-day city when it shares the zone, else the city the zone is named after
-        (Europe/Moscow → Moscow, not Krasnaya Polyana), else the first listed city in it."""
-        zone = principal.account.timezone
-        followed = self._s.cities.get(principal.account.moon_location) or self._s.cities.default
-        if followed.location.tz == zone:
-            return followed
-        in_zone = [c for c in self._s.cities.all if c.location.tz == zone]
-        named = (zone or "").rsplit("/", 1)[-1].replace("_", " ")
-        return next((c for c in in_zone if c.name_en == named), in_zone[0] if in_zone else None)
-
-    def zones(self, principal: Principal, page: int) -> Screen:
-        locale = principal.account.locale
-        # Every moon-day city, so Moscow, Kazan and Sochi are all there (one zone, three cities).
+    def cities(self, principal: Principal, page: int) -> Screen:
+        account = principal.account
+        locale = account.locale
+        # Every listed city: Moscow, Kazan and Sochi share a zone, but each one is its own.
         cities = sorted(self._s.cities.all, key=lambda c: c.name(locale))
-        pages = max(1, -(-len(cities) // ZONE_PAGE))
+        pages = max(1, -(-len(cities) // CITY_PAGE))
         page = min(page, pages - 1)
-        shown = cities[page * ZONE_PAGE : (page + 1) * ZONE_PAGE]
-        marked = self._zone_city(principal)
+        shown = cities[page * CITY_PAGE : (page + 1) * CITY_PAGE]
+        home = home_city_of(account, self._s.cities)
         buttons = [
             InlineKeyboardButton(
-                text=("✓ " if c is marked else "") + c.name(locale),
-                callback_data=_data(action="zone", slug=c.slug),
+                text=("✓ " if home is not None and c.slug == home.slug else "") + c.name(locale),
+                callback_data=_data(action="city", slug=c.slug),
             )
             for c in shown
         ]
@@ -276,15 +337,28 @@ class SettingsScreens:
         paging: list[InlineKeyboardButton] = []
         if page > 0:
             paging.append(
-                button(self._t, locale, "page-prev", _data(action="zones", page=page - 1))
+                button(self._t, locale, "page-prev", _data(action="cities", page=page - 1))
             )
         if page < pages - 1:
             paging.append(
-                button(self._t, locale, "page-next", _data(action="zones", page=page + 1))
+                button(self._t, locale, "page-next", _data(action="cities", page=page + 1))
             )
         if paging:
             rows.append(paging)
+        utc = account.timezone == "UTC"
+        rows.append(
+            [
+                button(
+                    self._t,
+                    locale,
+                    "settings-city-unlisted",
+                    _data(action="unlisted"),
+                    mark=account.home_city == NOT_LISTED and not utc,
+                ),
+                button(self._t, locale, "settings-city-utc", _data(action="utc"), mark=utc),
+            ]
+        )
         rows.append([button(self._t, locale, "log-back", _data(action="view"))])
         return Screen(
-            self._t.t(locale, "settings-pick-zone"), InlineKeyboardMarkup(inline_keyboard=rows)
+            self._t.t(locale, "settings-pick-city"), InlineKeyboardMarkup(inline_keyboard=rows)
         )

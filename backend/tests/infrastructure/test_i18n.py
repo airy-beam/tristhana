@@ -71,6 +71,26 @@ def test_time_labels_carry_city_and_the_offset_on_that_date(
     assert FluentTranslator().t(locale, "time-label", time=arg) == label  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(
+    ("zone", "locale", "label"),
+    [
+        ("Asia/Almaty", "en", "06:30 Astana (UTC+5)"),
+        ("Asia/Almaty", "ru", "06:30 Астана (UTC+5)"),
+        ("Asia/Bangkok", "en", "06:30 Bangkok (UTC+7)"),  # another zone: the zone's own name
+    ],
+)
+def test_time_labels_name_the_home_city_in_its_zone(zone: str, locale: str, label: str) -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+    from tristhana.domain.moon import City, MoonLocation
+
+    astana = City("astana", "Astana", "Астана", MoonLocation(51.17, 71.45, "Asia/Almaty"))
+    arg = TimeArg(date(2026, 10, 19), time(6, 30), zone, place=astana)
+
+    assert FluentTranslator().t(locale, "time-label", time=arg) == label  # type: ignore[arg-type]
+
+
 # WH-01 part 2 (spec §7): new keys exist in both locales and format as written.
 
 WH01_KEYS = [

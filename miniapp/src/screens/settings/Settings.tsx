@@ -10,7 +10,9 @@ import {
   usePatchNotificationSettings,
   useSetDayOff,
   useSetMoonLocation,
+  type City as CityOut,
   type Me,
+  type MePatch,
   type NotificationSettings,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
@@ -19,11 +21,12 @@ import { cityName } from "../MoonCard";
 import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
 import { MyData } from "./MyData";
-import { deviceZone, labelOf, zoneCity } from "./zones";
+import { deviceZone, labelOf, placeFor } from "./zones";
 
 const OFFSETS = [7, 3, 1] as const;
 const MOON_TIMES = ["07:00", "12:00", "19:00", "21:00"] as const;
 const CAPS = [1, 2, 3, 5] as const;
+const UNLISTED = "-"; // the select's "My city isn't listed" (never a slug)
 const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
 
 interface Props {
@@ -51,10 +54,13 @@ export default function Settings({ me, onBack, focus }: Props) {
         <h1 />
       </Localized>
       <Profile me={me} />
-      <Zone me={me} />
+      <City me={me} />
       <DayOff me={me} />
-      <Moon locale={me.locale} zone={me.timezone} />
-      <PracticeReminderCard zone={me.timezone} />
+      <Moon locale={me.locale} zone={me.timezone} home={me.home_city} />
+      <PracticeReminderCard
+        zone={me.timezone}
+        place={placeFor(me.home_city, me.timezone, me.locale)}
+      />
       <Quiet zone={me.timezone} />
       <Privacy me={me} />
       <MyData />
@@ -126,29 +132,40 @@ function Profile({ me }: { me: Me }) {
   );
 }
 
-function Zone({ me }: { me: Me }) {
+/** "🏙 My city" (MD-04, ADR-0029): a listed city sets its zone; otherwise the phone's zone
+ * or UTC, with no city. */
+function City({ me }: { me: Me }) {
   const cities = useMoonCities().data;
-  const followed = useMoonDays().data?.location.slug;
   const patch = usePatchMe();
   const device = deviceZone();
   const ru = me.locale === "ru";
+  const [unlisted, setUnlisted] = useState(false);
+  const listed = me.home_city?.slug;
+  const showUnlisted = unlisted || (me.home_city_chosen && !listed);
   const now = (zone: string) =>
     new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zone }).format(
       new Date(),
     );
-  const set = (timezone: string) => {
+  const save = (body: MePatch) => {
     haptics.impact("light");
-    patch.mutate({ timezone });
+    patch.mutate(body, {
+      onError: () => {
+        haptics.notify("error");
+      },
+    });
   };
   return (
     <section className="card">
-      <Localized id="settings-zone">
+      <Localized id="settings-city">
         <h2 />
       </Localized>
       {me.timezone ? (
         <Localized
           id="settings-zone-now"
-          vars={{ time: now(me.timezone), zone: labelOf(me.timezone) }}
+          vars={{
+            time: now(me.timezone),
+            zone: labelOf(me.timezone, placeFor(me.home_city, me.timezone, me.locale)),
+          }}
         >
           <p />
         </Localized>
@@ -157,31 +174,38 @@ function Zone({ me }: { me: Me }) {
           <p className="hint" />
         </Localized>
       )}
-      {device && device !== me.timezone && (
-        <Localized id="settings-zone-use-device" vars={{ zone: labelOf(device) }}>
-          <button
-            type="button"
-            className="chip"
-            onClick={() => {
-              set(device);
-            }}
-          />
-        </Localized>
+      {!me.home_city_chosen && (
+        <div className="nudge">
+          <Localized id="settings-city-nudge">
+            <p />
+          </Localized>
+          <Localized id="settings-city-not-now">
+            <button
+              type="button"
+              className="chip"
+              onClick={() => {
+                save({ home_city: null });
+              }}
+            />
+          </Localized>
+        </div>
       )}
       {cities && (
         <label className="label">
-          <Localized id="settings-zone-pick">
+          <Localized id="settings-city-pick">
             <span />
           </Localized>
-          {/* Every moon-day city (Moscow, Kazan and Sochi share one zone); values are slugs. */}
+          {/* Every listed city (Almaty and Astana share a zone, but each is its own). */}
           <select
-            value={
-              me.timezone === "UTC" ? "UTC" : (zoneCity(cities, me.timezone, followed)?.slug ?? "")
-            }
+            value={showUnlisted ? UNLISTED : (listed ?? "")}
             onChange={(e) => {
               const value = e.target.value;
-              const zone = value === "UTC" ? "UTC" : cities.find((c) => c.slug === value)?.timezone;
-              if (zone) set(zone);
+              if (value === UNLISTED) {
+                setUnlisted(true);
+                return;
+              }
+              setUnlisted(false);
+              save({ home_city: value });
             }}
           >
             <option value="" disabled />
@@ -194,11 +218,37 @@ function Zone({ me }: { me: Me }) {
                   {ru ? c.name_ru : c.name_en}
                 </option>
               ))}
-            <Localized id="settings-zone-utc">
-              <option value="UTC" />
+            <Localized id="settings-city-unlisted-option">
+              <option value={UNLISTED} />
             </Localized>
           </select>
         </label>
+      )}
+      {showUnlisted && (
+        <div className="chips">
+          {device && (
+            <Localized id="settings-city-use-device" vars={{ zone: labelOf(device) }}>
+              <button
+                type="button"
+                className="chip"
+                aria-pressed={!listed && me.timezone === device}
+                onClick={() => {
+                  save({ home_city: null, timezone: device });
+                }}
+              />
+            </Localized>
+          )}
+          <Localized id="settings-zone-utc">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={me.timezone === "UTC"}
+              onClick={() => {
+                save({ home_city: null, timezone: "UTC" });
+              }}
+            />
+          </Localized>
+        </div>
       )}
       <Localized id="settings-zone-hint">
         <p className="hint small" />
@@ -212,7 +262,15 @@ function Zone({ me }: { me: Me }) {
   );
 }
 
-function Moon({ locale, zone }: { locale: Locale; zone: string | null }) {
+function Moon({
+  locale,
+  zone,
+  home,
+}: {
+  locale: Locale;
+  zone: string | null;
+  home: CityOut | null | undefined;
+}) {
   const moon = useMoonDays().data;
   const cities = useMoonCities().data;
   const settings = useNotificationSettings().data;
@@ -250,6 +308,12 @@ function Moon({ locale, zone }: { locale: Locale; zone: string | null }) {
               setLocation.mutate(e.target.value);
             }}
           >
+            {/* MD-04: stores the slug (a snapshot); a later trip never moves the calendar. */}
+            {home && home.slug !== slug && (
+              <Localized id="moon-same-as-city" vars={{ city: cityName(home, home.slug, locale) }}>
+                <option value={home.slug} />
+              </Localized>
+            )}
             {cities.map((c) => (
               <option key={c.slug} value={c.slug}>
                 {cityName(c, c.slug, locale)}
@@ -524,6 +588,9 @@ function Privacy({ me }: { me: Me }) {
       </Localized>
       <Localized id="settings-privacy-sharing">
         <p className="hint" />
+      </Localized>
+      <Localized id="settings-privacy-location">
+        <p className="hint small" />
       </Localized>
       <label className="toggle">
         <input

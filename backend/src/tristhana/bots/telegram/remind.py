@@ -31,6 +31,7 @@ from tristhana.bots.telegram.screens import Reply, Screen, answered, button, day
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import City
 from tristhana.domain.notifications import (
     COPIED_DATE_AFTER,
     PRACTICE_TIMES,
@@ -84,7 +85,12 @@ def reminder_screen(
 
 
 def practice_status(
-    t: Translator, locale: Locale, settings: NotificationSettings, zone: str | None, today: date
+    t: Translator,
+    locale: Locale,
+    settings: NotificationSettings,
+    zone: str | None,
+    today: date,
+    place: City | None = None,
 ) -> str:
     """The practice reminder line ("🔔 Practice reminder: every day except Saturday, …")."""
     p = settings.practice
@@ -92,7 +98,7 @@ def practice_status(
         return t.t(locale, "remind-status-off")
     # Without a known zone there is no honest zone label: "10:00 your time".
     time_text = (
-        t.t(locale, "time-label", time=TimeArg(today, p.at, zone))
+        t.t(locale, "time-label", time=TimeArg(today, p.at, zone, place))
         if zone
         else t.t(locale, "remind-local-time", time=f"{p.at:%H:%M}")
     )
@@ -302,7 +308,8 @@ class RemindScreens:
         locale = account.locale
         p = settings.practice
         today, _ = self._days.today(principal)
-        lines = [self.status_line(locale, settings, account.timezone, today)]
+        place = self._days.home_city(principal)
+        lines = [self.status_line(locale, settings, account.timezone, today, place)]
         paused = pause if p.enabled else None
         if paused is not None:
             lines.append(self._t.t(locale, "remind-paused-until", until=DateArg(paused.until)))
@@ -369,6 +376,11 @@ class RemindScreens:
         ]
 
     def status_line(
-        self, locale: Locale, settings: NotificationSettings, zone: str | None, today: date
+        self,
+        locale: Locale,
+        settings: NotificationSettings,
+        zone: str | None,
+        today: date,
+        place: City | None = None,
     ) -> str:
-        return practice_status(self._t, locale, settings, zone, today)
+        return practice_status(self._t, locale, settings, zone, today, place)

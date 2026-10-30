@@ -898,7 +898,7 @@ export interface components {
             retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -1055,6 +1055,14 @@ export interface components {
              * @default false
              */
             hide_ladies: boolean;
+            /** @description The person's own listed city; its zone is `timezone` (MD-04). null = none: never chosen, not listed, or cleared by a zone change */
+            home_city?: components["schemas"]["CityOut"] | null;
+            /**
+             * Home City Chosen
+             * @description False: never asked or answered (show the city nudge)
+             * @default false
+             */
+            home_city_chosen: boolean;
             /**
              * Id
              * Format: uuid
@@ -1095,6 +1103,11 @@ export interface components {
              * @description null = the default (shown)
              */
             hide_ladies?: boolean | null;
+            /**
+             * Home City
+             * @description A city slug: sets the city and its zone; null = not listed / not now (the zone stays). A zone that isn't the city's clears the city.
+             */
+            home_city?: string | null;
             locale?: components["schemas"]["Locale"] | null;
             /**
              * Offer Check In
@@ -1119,6 +1132,11 @@ export interface components {
              * Format: date
              */
             date: string;
+            /**
+             * Home Date
+             * @description The same phase in the person's own city when it falls on another day (MD-04, ±1 day); null otherwise
+             */
+            home_date?: string | null;
             kind: components["schemas"]["MoonDayKind"];
             /**
              * Phase
@@ -1130,6 +1148,8 @@ export interface components {
         MoonDays: {
             /** Days */
             days: components["schemas"]["MoonDayOut"][];
+            /** @description The person's own city, only when it is not the followed one (MD-04) */
+            home?: components["schemas"]["CityOut"] | null;
             location: components["schemas"]["Location"];
             /**
              * Today

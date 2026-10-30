@@ -750,8 +750,8 @@ export function usePatchNotificationSettings() {
 
 export type MePatch = components["schemas"]["MePatch"];
 
-/** Name, language or time zone (ID-06). A zone change moves "today" and the reminders, so
- * everything computed from it is refetched. */
+/** Name, language, time zone or home city (ID-06, MD-04). A zone or city change moves
+ * "today", the reminders and the moon FYI, so everything computed from it is refetched. */
 export function usePatchMe() {
   const client = useQueryClient();
   return useMutation({
@@ -762,16 +762,26 @@ export function usePatchMe() {
       return data;
     },
     onMutate: async (body) => {
-      if (body.hide_ladies === undefined && body.offer_check_in === undefined) {
+      const home = body.home_city !== undefined;
+      if (body.hide_ladies === undefined && body.offer_check_in === undefined && !home) {
         return { before: undefined };
       }
-      // "Hide the 🌸 button" (WH-01) and "Offer a check-in" (PR-06) apply at once.
+      // "Hide the 🌸 button" (WH-01), "Offer a check-in" (PR-06) and "My city" (MD-04) apply
+      // at once; a failed save rolls back.
       await client.cancelQueries({ queryKey: ["me"] });
       const before = client.getQueryData<Me>(["me"]);
       if (before) {
         const next = { ...before };
         if (body.hide_ladies !== undefined) next.hide_ladies = !!body.hide_ladies;
         if (body.offer_check_in !== undefined) next.offer_check_in = body.offer_check_in !== false;
+        if (home) {
+          const cities = client.getQueryData<City[]>(["moon-cities"]);
+          const city = cities?.find((c) => c.slug === body.home_city) ?? null;
+          next.home_city = city;
+          next.home_city_chosen = true;
+          if (city) next.timezone = city.timezone;
+          else if (body.timezone) next.timezone = body.timezone;
+        }
         client.setQueryData<Me>(["me"], next);
       }
       return { before };
@@ -781,7 +791,7 @@ export function usePatchMe() {
     },
     onSuccess: (me, body) => {
       client.setQueryData(["me"], me);
-      if (body.timezone !== undefined) {
+      if (body.timezone !== undefined || body.home_city !== undefined) {
         for (const key of [["days"], STATS_KEY, MOON_KEY, SETTINGS_KEY]) {
           void client.invalidateQueries({ queryKey: key });
         }

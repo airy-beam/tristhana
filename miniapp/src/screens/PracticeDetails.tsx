@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   useCatalog,
   useDismissNewAsanaHint,
+  useMe,
   usePracticePresets,
   useProgression,
   useProgressionEvent,
@@ -26,6 +27,7 @@ import {
   type Range,
 } from "./practiceText";
 import { CelebrationCard } from "./progression/CelebrationCard";
+import { placeFor } from "./settings/zones";
 import { celebrationLines, get, stopLabel } from "./progression/progressionText";
 
 const CONTEXTS: readonly PracticeContext[] = ["mysore", "led", "private", "self"];
@@ -47,6 +49,7 @@ interface Props {
 /** Details of today's practice (PR-02 context, PR-03 length, PR-05 duration and start). */
 export function PracticeDetails({ date, practice, zone, locale }: Props) {
   const { l10n } = useLocalization();
+  const me = useMe().data; // cached: the home city for the time label (MD-04)
   const catalog = useCatalog().data;
   const presets = usePracticePresets(date, true).data;
   const save = useSavePractice();
@@ -217,6 +220,7 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
           key={current.start_time ?? ""} // a new saved value resets the draft
           value={current.start_time ?? null}
           zone={practice?.timezone ?? zone}
+          place={placeFor(me?.home_city, practice?.timezone ?? zone, locale)}
           date={date}
           onCommit={(start_time) => {
             if (start_time !== current.start_time) update({ start_time });
@@ -401,11 +405,14 @@ function CustomLength({
 function StartTime({
   value,
   zone,
+  place,
   date,
   onCommit,
 }: {
   value: string | null;
   zone: string;
+  /** The home city's name when it names `zone` (MD-04). */
+  place: string | undefined;
   date: string;
   onCommit: (time: string | null) => void;
 }) {
@@ -428,7 +435,7 @@ function StartTime({
           if (e.key === "Enter") onCommit(draft || null);
         }}
       />
-      <span className="hint">{zoneLabel(zone, date, value ?? undefined)}</span>
+      <span className="hint">{zoneLabel(zone, date, value ?? undefined, place)}</span>
     </label>
   );
 }

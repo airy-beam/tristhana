@@ -137,6 +137,8 @@ class InMemoryAccounts:
             current = replace(current, hide_ladies=change.hide_ladies)  # type: ignore[call-arg]
         if "offer_check_in" in change.fields:  # PR-06
             current = replace(current, offer_check_in=change.offer_check_in)  # type: ignore[call-arg,attr-defined]
+        if "home_city" in change.fields:  # MD-04 (ADR-0029)
+            current = replace(current, home_city=change.home_city)
         return self._save(current)
 
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account:
@@ -682,8 +684,20 @@ class InMemoryMoon:
     days_by_location: dict[str, list[MoonDay]] = field(default_factory=dict[str, list[MoonDay]])
     ledger: dict[tuple[str, int], str] = field(default_factory=dict[tuple[str, int], str])
 
+    statements: int = 0
+
     async def days(self, location: str, start: date, end: date) -> list[MoonDay]:
+        self.statements += 1
         return [d for d in self.days_by_location.get(location, []) if start <= d.date <= end]
+
+    async def days_for(
+        self, locations: Sequence[str], start: date, end: date
+    ) -> dict[str, list[MoonDay]]:
+        self.statements += 1
+        return {
+            loc: [d for d in self.days_by_location.get(loc, []) if start <= d.date <= end]
+            for loc in dict.fromkeys(locations)
+        }
 
     async def coverage(self) -> dict[tuple[str, int], str]:
         return dict(self.ledger)
@@ -1109,7 +1123,7 @@ def settings_use_cases(storage: "InMemoryStorage | None" = None) -> SettingsUseC
 
     storage = storage or InMemoryStorage()
     return SettingsUseCases(
-        profile=UpdateProfile(storage.accounts),
+        profile=UpdateProfile(storage.accounts, cities()),
         settings=NotificationSettingsUseCase(storage.notifications, FixedClock()),
         cities=moon_use_cases(storage).cities,
         today=day_use_cases(storage.days).get.today,
