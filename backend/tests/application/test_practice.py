@@ -19,6 +19,7 @@ from tristhana.application.practice import (
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DayStatus
+from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.practice import (
     FULL_PRIMARY,
     InvalidLength,
@@ -53,7 +54,7 @@ def days() -> InMemoryDays:
 
 async def _practiced(days: InMemoryDays, me: Principal, *on: date) -> None:
     for day in on:
-        await SetDayStatus(days, FixedClock(NOW)).execute(me, day, DayStatus.PRACTICED)
+        await SetDayStatus(days, FixedClock(NOW), NO_COUNTS).execute(me, day, DayStatus.PRACTICED)
 
 
 async def test_each_tap_patches_one_field(days: InMemoryDays) -> None:
@@ -86,7 +87,7 @@ async def test_choosing_self_practice_turns_online_off(days: InMemoryDays) -> No
 
 async def test_details_need_a_practiced_day(days: InMemoryDays) -> None:
     me = _me()
-    await SetDayStatus(days, FixedClock(NOW)).execute(me, MON, DayStatus.REST)
+    await SetDayStatus(days, FixedClock(NOW), NO_COUNTS).execute(me, MON, DayStatus.REST)
 
     with pytest.raises(DayNotPracticed):
         await SavePractice(InMemoryPractices(days), catalog()).execute(
@@ -125,7 +126,7 @@ async def test_status_change_removes_details(days: InMemoryDays) -> None:
         me, MON, PracticePatch.of(duration_min=60)
     )
 
-    await SetDayStatus(days, FixedClock(NOW)).execute(me, MON, DayStatus.MOON)
+    await SetDayStatus(days, FixedClock(NOW), NO_COUNTS).execute(me, MON, DayStatus.MOON)
 
     assert days.practice_rows == {}
 

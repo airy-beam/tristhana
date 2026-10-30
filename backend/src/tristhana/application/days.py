@@ -18,7 +18,7 @@ from tristhana.domain.days import (
     provisional_zone,
 )
 from tristhana.domain.diary import DiaryNote
-from tristhana.domain.milestones import NO_COUNTS, PracticeCounts
+from tristhana.domain.milestones import PracticeCounts
 from tristhana.domain.moon import Cities, City
 from tristhana.domain.progression import Celebration, CelebrationKind
 from tristhana.domain.rest_days import AutoDay, auto_days, joined_on
@@ -128,9 +128,7 @@ def _without_empty_check_ins(day: DayLog) -> DayLog:
 
 
 class SetDayStatus:
-    def __init__(
-        self, days: DayLogRepository, clock: Clock, counts: PracticeCounts = NO_COUNTS
-    ) -> None:
+    def __init__(self, days: DayLogRepository, clock: Clock, counts: PracticeCounts) -> None:
         self._days = days
         self._clock = clock
         self._counts = counts

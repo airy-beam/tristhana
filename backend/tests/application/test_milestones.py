@@ -11,7 +11,7 @@ from tristhana.application.policies import Principal
 from tristhana.application.remind import LogFromReminder, QuickLogSameAsLast
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DayLog, DayStatus
-from tristhana.domain.milestones import PracticeCounts
+from tristhana.domain.milestones import NO_COUNTS, PracticeCounts
 from tristhana.domain.progression import Celebration, CelebrationKind
 
 NOW = datetime(2026, 10, 30, 6, 0, tzinfo=UTC)
@@ -131,7 +131,7 @@ async def test_a_threshold_added_later_is_silent(days: InMemoryDays, me: Princip
 async def test_without_counts_nothing_is_recorded(days: InMemoryDays, me: Principal) -> None:
     _seed(days, me, 99)
 
-    saved = await SetDayStatus(days, FixedClock(NOW)).execute(me, TODAY, P)
+    saved = await SetDayStatus(days, FixedClock(NOW), NO_COUNTS).execute(me, TODAY, P)
 
     assert (saved.celebrations, days.milestone_rows) == ((), {})
 

@@ -24,6 +24,7 @@ from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.policies import Principal
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayStatus
+from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import MoonDay, MoonDayKind
 
 NOW = datetime(2026, 10, 27, 6, 0, tzinfo=UTC)  # Almaty: Tue Oct 27, 11:00
@@ -244,7 +245,7 @@ async def test_get_days_carries_notes_for_logged_and_unlogged_days(
     days: InMemoryDays, diary: InMemoryDiary
 ) -> None:
     me = _me()
-    await SetDayStatus(days, FixedClock(NOW)).execute(me, MON, DayStatus.PRACTICED)
+    await SetDayStatus(days, FixedClock(NOW), NO_COUNTS).execute(me, MON, DayStatus.PRACTICED)
     await _save(diary).execute(me, MON, "practiced")
     await _save(diary).execute(me, SUN, "never logged")
     await _save(diary).execute(me, TUE - timedelta(days=30), "outside the window")
@@ -294,7 +295,7 @@ async def test_a_note_survives_every_status_change(
     days: InMemoryDays, diary: InMemoryDiary, status: DayStatus
 ) -> None:
     me = _me()
-    set_status = SetDayStatus(days, FixedClock(NOW))
+    set_status = SetDayStatus(days, FixedClock(NOW), NO_COUNTS)
     await set_status.execute(me, MON, DayStatus.PRACTICED)
     await _save(diary).execute(me, MON, "kept")
 
@@ -310,7 +311,7 @@ async def test_a_status_change_that_deletes_the_check_in_keeps_the_note(
     from tristhana.application.check_in_patch import CheckInPatch
 
     me = _me()
-    set_status = SetDayStatus(days, FixedClock(NOW))
+    set_status = SetDayStatus(days, FixedClock(NOW), NO_COUNTS)
     await set_status.execute(me, MON, DayStatus.PRACTICED)
     await SaveCheckIn(InMemoryCheckIns(days)).execute(me, MON, CheckInPatch.of(mood=4))
     await _save(diary).execute(me, MON, "kept")
@@ -323,7 +324,7 @@ async def test_a_status_change_that_deletes_the_check_in_keeps_the_note(
 
 async def test_clearing_the_day_keeps_the_note(days: InMemoryDays, diary: InMemoryDiary) -> None:
     me = _me()
-    await SetDayStatus(days, FixedClock(NOW)).execute(me, MON, DayStatus.SICK)
+    await SetDayStatus(days, FixedClock(NOW), NO_COUNTS).execute(me, MON, DayStatus.SICK)
     await _save(diary).execute(me, MON, "kept")
 
     await ClearDayStatus(days).execute(me, MON)
