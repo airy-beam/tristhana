@@ -51,7 +51,7 @@ from tristhana.application.rest_periods import (
     SkipRestPeriod,
     StartRestPeriod,
 )
-from tristhana.application.settings import UpdateProfile
+from tristhana.application.settings import UpdateProfile, ZoneFromLocation
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.progression import Track
@@ -154,6 +154,7 @@ class SettingsUseCases:
     cities: Cities
     today: Callable[[Principal], tuple[date, bool]]  # GetDays.today: no DB access
     day_off: SetDayOff
+    zone_from_location: ZoneFromLocation | None = None  # MD-04: a shared location
 
 
 @dataclass(frozen=True, slots=True)

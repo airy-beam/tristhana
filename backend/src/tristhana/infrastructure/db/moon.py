@@ -1,5 +1,6 @@
 """Stored moon calendars (MD-01 storage, ADR-0019)."""
 
+from collections.abc import Sequence
 from datetime import date
 
 from sqlalchemy import delete, func, select, text
@@ -24,6 +25,22 @@ class SqlMoonCalendarRepository:
         async with connection(self._engine) as conn:
             rows = (await conn.execute(stmt)).all()
         return [MoonDay(r.date, MoonDayKind(r.kind)) for r in rows]
+
+    async def days_for(
+        self, locations: Sequence[str], start: date, end: date
+    ) -> dict[str, list[MoonDay]]:
+        unique = list(dict.fromkeys(locations))
+        stmt = (
+            select(moon_day.c.location, moon_day.c.date, moon_day.c.kind)
+            .where(moon_day.c.location.in_(unique), moon_day.c.date.between(start, end))
+            .order_by(moon_day.c.location, moon_day.c.date)
+        )
+        async with connection(self._engine) as conn:
+            rows = (await conn.execute(stmt)).all()
+        by: dict[str, list[MoonDay]] = {loc: [] for loc in unique}
+        for r in rows:
+            by[r.location].append(MoonDay(r.date, MoonDayKind(r.kind)))
+        return by
 
     async def coverage(self) -> dict[tuple[str, int], str]:
         stmt = select(moon_calendar.c.location, moon_calendar.c.year, moon_calendar.c.algo_version)

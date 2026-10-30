@@ -23,12 +23,20 @@ const ME: Me = {
   locale_from_telegram: true,
   hide_ladies: false,
   offer_check_in: true, // WH-01 part 2
+  home_city_chosen: true, // MD-04: no nudge in these tests
 };
+const ALMATY: City = {
+  slug: "almaty",
+  name_en: "Almaty",
+  name_ru: "Алматы",
+  timezone: "Asia/Almaty",
+};
+const SOCHI: City = { slug: "sochi", name_en: "Sochi", name_ru: "Сочи", timezone: "Europe/Moscow" };
 const CITIES: City[] = [
   { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
-  { slug: "almaty", name_en: "Almaty", name_ru: "Алматы", timezone: "Asia/Almaty" },
+  ALMATY,
   { slug: "bangkok", name_en: "Bangkok", name_ru: "Бангкок", timezone: "Asia/Bangkok" },
-  { slug: "sochi", name_en: "Sochi", name_ru: "Сочи", timezone: "Europe/Moscow" },
+  SOCHI,
   { slug: "moscow", name_en: "Moscow", name_ru: "Москва", timezone: "Europe/Moscow" },
 ];
 const SETTINGS: NotificationSettings = {
@@ -151,17 +159,11 @@ describe("Settings", () => {
     expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ locale: null }]);
   });
 
-  it("offers the phone's zone and a city list (one per zone, plus UTC)", async () => {
+  it("lists every city, plus 'not listed' that offers the phone's time or UTC", async () => {
     deviceZoneIs("Asia/Bangkok");
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
-
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: (n) => plain(n).startsWith("Use this phone's zone: Bangkok"),
-      }),
-    );
-    const select = await screen.findByRole("combobox", { name: "Pick a city" });
+    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
     expect([...select.querySelectorAll("option")].map((o) => o.value)).toEqual([
       "",
       "almaty",
@@ -169,10 +171,21 @@ describe("Settings", () => {
       "moscow",
       "mysuru",
       "sochi",
-      "UTC",
+      "-",
     ]);
+    expect(screen.queryByRole("button", { name: /Use my phone's time/ })).not.toBeInTheDocument();
 
-    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ timezone: "Asia/Bangkok" }]);
+    fireEvent.change(select, { target: { value: "-" } });
+    expect(select).toHaveValue("-"); // stays on "not listed" while the chips are shown
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: (n) => plain(n).startsWith("Use my phone's time: Bangkok (UTC+7)"),
+      }),
+    );
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([
+      { home_city: null, timezone: "Asia/Bangkok" },
+    ]);
   });
 
   it("won't let quiet hours swallow an active reminder, and sets the cap", async () => {
@@ -233,6 +246,22 @@ describe("TravelPrompt", () => {
     expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ timezone: "Asia/Bangkok" }]);
   });
 
+  it("names the home city as 'here'", async () => {
+    deviceZoneIs("Asia/Bangkok");
+    stubApi();
+    const astana: City = {
+      slug: "astana",
+      name_en: "Astana",
+      name_ru: "Астана",
+      timezone: "Asia/Almaty",
+    };
+    renderWith(<TravelPrompt zone="Asia/Almaty" locale="en" home={astana} />);
+
+    expect(
+      await screen.findByRole("button", { name: (n) => plain(n) === "Keep Astana" }),
+    ).toBeInTheDocument();
+  });
+
   it("stays quiet for the same clock under another name", () => {
     deviceZoneIs("Europe/Kiev");
     stubApi();
@@ -271,16 +300,98 @@ describe("TravelPrompt", () => {
   });
 });
 
-describe("time zone cities", () => {
-  it("lists every city, even several in one zone, and sets its zone", async () => {
+describe("My city (MD-04)", () => {
+  afterEach(() => {
+    meFails = false;
+  });
+
+  it("marks the stored city, not another one in its zone, and saves the slug", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, timezone: "Europe/Moscow" }} onBack={vi.fn()} />);
-    const select = await screen.findByRole("combobox", { name: "Pick a city" });
+    renderWith(
+      <Settings me={{ ...ME, timezone: "Europe/Moscow", home_city: SOCHI }} onBack={vi.fn()} />,
+    );
+    const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
 
-    expect(select).toHaveValue("moscow"); // named after the zone, though Sochi is listed first
-    fireEvent.change(select, { target: { value: "sochi" } });
+    expect(select).toHaveValue("sochi"); // the bug: Moscow used to be marked
+    fireEvent.change(select, { target: { value: "moscow" } });
 
-    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ timezone: "Europe/Moscow" }]);
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ home_city: "moscow" }]);
+  });
+
+  it("labels the time with the city's name", async () => {
+    stubApi();
+    const astana: City = {
+      slug: "astana",
+      name_en: "Astana",
+      name_ru: "Астана",
+      timezone: "Asia/Almaty",
+    };
+    renderWith(<Settings me={{ ...ME, home_city: astana }} onBack={vi.fn()} />);
+
+    expect(
+      await screen.findByText(
+        (_, el) => el?.tagName === "P" && /Astana \(UTC\+5\)$/.test(plain(el.textContent)),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("nudges once: Not now answers it and keeps the zone", async () => {
+    const seen = stubApi();
+    renderWith(<Settings me={{ ...ME, home_city_chosen: false }} onBack={vi.fn()} />);
+
+    expect(
+      await screen.findByText("Pick your city if you like: times will then show its name."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ home_city: null }]);
+  });
+
+  it("has no nudge once answered", async () => {
+    stubApi();
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    await screen.findByRole("combobox", { name: "Which city do you live in?" });
+
+    expect(
+      screen.queryByText("Pick your city if you like: times will then show its name."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the old city again when the save fails", async () => {
+    meFails = true;
+    stubApi();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["me"], { ...ME, home_city: SOCHI, timezone: "Europe/Moscow" });
+    client.setQueryData(["moon-cities"], CITIES);
+    function Live() {
+      const me = client.getQueryData<Me>(["me"]) ?? ME;
+      return <Settings me={me} onBack={vi.fn()} />;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <L10nProvider locale="en">
+          <Live />
+        </L10nProvider>
+      </QueryClientProvider>,
+    );
+    const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
+
+    fireEvent.change(select, { target: { value: "almaty" } });
+
+    expect(await screen.findAllByRole("alert")).not.toHaveLength(0);
+    expect(client.getQueryData<Me>(["me"])?.home_city?.slug).toBe("sochi");
+  });
+
+  it("offers 'Same as my city' first in the moon calendar picker", async () => {
+    const seen = stubApi();
+    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "City for the calendar" });
+
+    const first = select.querySelector("option");
+    expect(first?.textContent && plain(first.textContent)).toBe("Same as my city (Almaty)");
+    fireEvent.change(select, { target: { value: "almaty" } });
+
+    expect(await bodies(seen, "PUT", "/api/v1/me/moon-location")).toEqual([{ slug: "almaty" }]);
   });
 });
 

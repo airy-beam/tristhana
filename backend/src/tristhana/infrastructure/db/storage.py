@@ -396,6 +396,11 @@ class _UnavailableMoon:
     async def days(self, location: str, start: date, end: date) -> list[MoonDay]:
         raise StorageUnavailable("not configured")
 
+    async def days_for(
+        self, locations: Sequence[str], start: date, end: date
+    ) -> dict[str, list[MoonDay]]:
+        raise StorageUnavailable("not configured")
+
     async def coverage(self) -> dict[tuple[str, int], str]:
         raise StorageUnavailable("not configured")
 

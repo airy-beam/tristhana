@@ -35,6 +35,7 @@ from tristhana.domain.accounts import Account
 from tristhana.domain.check_in import CheckIn, offer_mood_row
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import City
 from tristhana.domain.practice import (
     FULL_PRIMARY,
     HALF_PRIMARY,
@@ -252,7 +253,9 @@ class PracticeScreens:
             label = self._t.t(locale, f"status-{kept.kind.value}")
             lines.insert(0, self._t.t(locale, "pause-kept", label=label, until=DateArg(kept.end)))
         if has_details(practice):
-            lines.append(self.summary_text(locale, day, practice))
+            lines.append(
+                self.summary_text(locale, day, practice, self._days.get.home_city(principal))
+            )
         else:
             lines.append(self._t.t(locale, "practice-details-prompt"))
         asking = False
@@ -266,7 +269,11 @@ class PracticeScreens:
             if last is not None and has_details(last):
                 lines.append(
                     self._t.t(
-                        locale, "practice-last-time", summary=self.summary_text(locale, day, last)
+                        locale,
+                        "practice-last-time",
+                        summary=self.summary_text(
+                            locale, day, last, self._days.get.home_city(principal)
+                        ),
                     )
                 )
                 rows.append([self._button(locale, "practice-same-as-last", _data("same", day))])
@@ -359,7 +366,9 @@ class PracticeScreens:
             lines.insert(0, self.cut_line(principal, day, cut))  # type: ignore[arg-type]
         lines[:0] = lead or []  # a 🎉 goes on top (GM-01 spec §5)
         if has_details(practice):
-            lines.append(self.summary_text(locale, day, practice))
+            lines.append(
+                self.summary_text(locale, day, practice, self._days.get.home_city(principal))
+            )
         if extra:
             lines.append(extra)
         today, _ = self._days.get.today(principal)
@@ -531,7 +540,9 @@ class PracticeScreens:
         )
 
     # Text helpers.
-    def summary_text(self, locale: Locale, day: date, p: Practice | None) -> str:
+    def summary_text(
+        self, locale: Locale, day: date, p: Practice | None, place: City | None = None
+    ) -> str:
         """E.g. "Mysore · Primary + intermediate → Pasasana · 90 min · 06:30 Almaty (UTC+5)"."""
         if p is None:
             return ""
@@ -546,7 +557,7 @@ class PracticeScreens:
             parts.append(self._t.t(locale, "duration-min", min=p.duration_min))
         if p.start_time is not None and p.timezone:
             parts.append(
-                self._t.t(locale, "time-label", time=TimeArg(day, p.start_time, p.timezone))
+                self._t.t(locale, "time-label", time=TimeArg(day, p.start_time, p.timezone, place))
             )
         return " · ".join(parts)
 

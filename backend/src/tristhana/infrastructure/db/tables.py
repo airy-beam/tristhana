@@ -67,6 +67,8 @@ account = Table(
     Column("offer_check_in", Boolean(), nullable=False, server_default=text("true")),
     # ST-09: the export rate-limit slot (one per 10 min), released when sending fails.
     Column("export_claimed_at", DateTime(timezone=True)),
+    # MD-04 (ADR-0029): NULL = never chosen, '-' = not listed / not now, else a city slug.
+    Column("home_city", Text()),
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),
@@ -77,6 +79,10 @@ account = Table(
     CheckConstraint("day_off_before BETWEEN 0 AND 127", name="day_off_before"),
     CheckConstraint("day_off_before IS NULL OR day_off_since IS NOT NULL", name="day_off_period"),
     CheckConstraint("day_off_since IS NULL OR day_off IS NOT NULL", name="day_off_since_set"),
+    CheckConstraint("home_city ~ '^[a-z-]{1,24}$'", name="home_city"),
+    CheckConstraint(
+        "home_city IS NULL OR home_city = '-' OR timezone IS NOT NULL", name="home_city_zone"
+    ),
 )
 
 identity = Table(

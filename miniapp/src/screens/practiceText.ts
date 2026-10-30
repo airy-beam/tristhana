@@ -77,8 +77,9 @@ export function lengthText(
 
 /** "Almaty (UTC+5)": the city from the IANA id, the offset on `day` (at `time`, so a DST
  * switch day is right) from Intl. */
-export function zoneLabel(zone: string, day: string, time = "12:00"): string {
-  const city = (zone.split("/").pop() ?? zone).replace(/_/g, " ");
+export function zoneLabel(zone: string, day: string, time = "12:00", place?: string): string {
+  // `place`: the home city's name, only when it is this zone's city (ADR-0029, see placeFor).
+  const city = place ?? (zone.split("/").pop() ?? zone).replace(/_/g, " ");
   if (zone === "UTC") return "UTC";
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: zone,

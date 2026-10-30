@@ -233,14 +233,13 @@ async def test_the_ledger_cascades_on_account_delete(engine: AsyncEngine) -> Non
     assert await _ledger(engine, me) == []
 
 
-def test_0017_follows_0016_and_is_the_head() -> None:
+def test_0017_follows_0016() -> None:
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(migrate.alembic_config("postgresql://unused"))
     revision = script.get_revision("0017")
     assert revision is not None
-    assert revision.down_revision == "0016"
-    assert script.get_current_head() == "0017"
+    assert revision.down_revision == "0016"  # the head is checked by the newest migration
 
 
 async def test_0017_down_and_up(migrated_url: str, engine: AsyncEngine) -> None:

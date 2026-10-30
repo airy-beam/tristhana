@@ -1,4 +1,5 @@
 import type { City } from "../../api/client";
+import type { Locale } from "../../i18n/negotiate";
 import { zoneLabel } from "../practiceText";
 
 /** The phone's zone, or null when it says nothing about a place (UTC, unknown). */
@@ -14,18 +15,18 @@ export function offsetOf(zone: string): string {
   return /\(([^)]*)\)$/.exec(zoneLabel(zone, today()))?.[1] ?? "UTC";
 }
 
-/** "Almaty (UTC+5)". */
-export const labelOf = (zone: string) => zoneLabel(zone, today());
+/** "Almaty (UTC+5)", or "Astana (UTC+5)" with the home city's name. */
+export const labelOf = (zone: string, place?: string) => zoneLabel(zone, today(), "12:00", place);
 
-/** The city to show as chosen for a zone (only the zone is stored): the followed moon-day
- * city when it shares the zone, else the city the zone is named after (Europe/Moscow →
- * Moscow, not Krasnaya Polyana), else the first listed city in that zone. */
-export function zoneCity(cities: City[], zone: string | null, followed: string | undefined) {
-  const own = cities.find((c) => c.slug === followed);
-  if (own && own.timezone === zone) return own;
-  const inZone = cities.filter((c) => c.timezone === zone);
-  const named = (zone ?? "").split("/").pop()?.replace(/_/g, " ");
-  return inZone.find((c) => c.name_en === named) ?? inZone[0];
+/** The home city's name when it names `zone` (MD-04, ADR-0029): after a trip the label goes
+ * back to the zone's own name. */
+export function placeFor(
+  home: City | null | undefined,
+  zone: string | null,
+  locale: Locale,
+): string | undefined {
+  if (!home || home.timezone !== zone) return undefined;
+  return locale === "ru" ? home.name_ru : home.name_en;
 }
 
 /** A city name for a zone when one of the listed cities uses it, else the zone's label. */

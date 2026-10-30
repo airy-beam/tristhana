@@ -29,6 +29,7 @@ SECRET = "test-secret_123"
 TOKEN = "123456:TEST-token-for-unit-tests-only_xxxxxxxxxxx"
 CITIES = load_cities(Path(__file__).resolve().parents[3] / "data" / "seed" / "cities.yaml")
 _ids = itertools.count(90_000)
+INFO = "\N{INFORMATION SOURCE}"  # the MD-04 line's lead
 _METHOD = SendMessage(chat_id=1, text="x")  # what aiogram errors carry
 
 
@@ -144,6 +145,62 @@ def test_city_picker_and_city_zone(client: TestClient, storage: InMemoryStorage)
     [account] = storage.repo.accounts.values()
     assert account.timezone == "Asia/Almaty"
     assert "🔔 Reminders: 7 and 1 day before at 19:00 Almaty (UTC+5)" in zoned["text"]
+
+
+def _set_home(storage: InMemoryStorage, slug: str, zone: str) -> None:
+    [account] = storage.repo.accounts.values()
+    storage.repo.accounts[account.id] = replace(account, home_city=slug, timezone=zone)
+
+
+def test_the_home_citys_other_date_shows_under_the_day(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """MD-04: a gentle info line, only where the same phase falls on another day."""
+    [full] = storage.moon_repo.days_by_location["mysuru"]
+    storage.moon_repo.days_by_location["astana"] = [
+        MoonDay(full.date - timedelta(days=1), full.kind)
+    ]
+    _moon(client)
+    _set_home(storage, "astana", "Asia/Almaty")
+
+    en = _moon(client)
+    ru = _moon(client, "ru")
+
+    assert f"\n{INFO} In 📍 Astana it falls on " in en["text"]
+    assert f"\n{INFO} 📍 Астана: " in ru["text"]
+    assert "19:00 Astana (UTC+5)" in en["text"]  # the reminder label names the home city
+
+
+def test_no_fyi_when_the_dates_match_or_no_city(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    [full] = storage.moon_repo.days_by_location["mysuru"]
+    storage.moon_repo.days_by_location["astana"] = [full]
+    _moon(client)
+    without = _moon(client)
+    _set_home(storage, "astana", "Asia/Almaty")
+
+    same = _moon(client)
+
+    assert INFO not in without["text"]
+    assert INFO not in same["text"]
+
+
+def test_same_as_my_city_comes_first_and_stores_the_slug(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    _moon(client)
+    _set_home(storage, "astana", "Asia/Almaty")
+
+    picker = _tap(client, "m1:c:0")
+    chosen = _tap(client, "m1:s:astana")
+    again = _tap(client, "m1:c:0")
+
+    assert _texts(picker)[0] == "📍 Same as my city (Astana)"
+    [account] = storage.repo.accounts.values()
+    assert account.moon_location == "astana"  # a snapshot, not a link
+    assert chosen["text"].startswith("🌙 Moon days · 📍 Astana")
+    assert "📍 Same as my city (Astana)" not in _texts(again)  # already followed
 
 
 def test_reminder_settings_toggles(client: TestClient, storage: InMemoryStorage) -> None:

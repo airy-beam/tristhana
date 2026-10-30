@@ -25,7 +25,13 @@ export function inQuiet(quiet: NotificationSettings["quiet"], at: string): boole
 
 /** The daily practice reminder (PR-10): on/off and time. It comes on the practice days,
  * which the Day off section decides (PR-09). Off until chosen. */
-export function PracticeReminderCard({ zone }: { zone: string | null }) {
+export function PracticeReminderCard({
+  zone,
+  place,
+}: {
+  zone: string | null;
+  place?: string | undefined;
+}) {
   const query = useNotificationSettings();
   const save = usePatchNotificationSettings();
   const resume = useEndRestPeriod();
@@ -98,7 +104,9 @@ export function PracticeReminderCard({ zone }: { zone: string | null }) {
           <>
             <Localized
               id="remind-time-label"
-              vars={{ zone: zoneLabel(zone, new Date().toISOString().slice(0, 10)) }}
+              vars={{
+                zone: zoneLabel(zone, new Date().toISOString().slice(0, 10), "12:00", place),
+              }}
             >
               <p className="label" />
             </Localized>

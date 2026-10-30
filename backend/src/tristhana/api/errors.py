@@ -28,6 +28,7 @@ type ErrorCode = Literal[
     "body_too_large",
     "timezone_unknown",
     "unknown_location",
+    "unknown_city",
     "invalid_settings",
     "invalid_day_off",
     "invalid_rest_period",

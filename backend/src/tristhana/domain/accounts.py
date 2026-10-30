@@ -14,6 +14,7 @@ from uuid import UUID
 from zoneinfo import available_timezones
 
 from tristhana.domain.locale import Locale, negotiate_locale
+from tristhana.domain.moon import Cities, City, label_city
 from tristhana.domain.rest_days import NEVER_CHOSEN, DayOff
 
 DISPLAY_NAME_MAX = 64
@@ -24,6 +25,9 @@ LAST_SEEN_PRECISION = timedelta(hours=24)
 _BIDI_CONTROLS = re.compile("[‪-‮⁦-⁩‎‏]")
 _WHITESPACE = re.compile(r"\s+")
 _UTC_NAMES = frozenset({"UTC", "Etc/UTC"})
+# `account.home_city` (ADR-0029): None = never chosen (the nudge shows), NOT_LISTED = chosen:
+# not in the list / not now, otherwise a city slug whose zone is the account's zone.
+NOT_LISTED = "-"
 
 
 class IdentityProvider(StrEnum):
@@ -60,6 +64,11 @@ class Account:
     day_off_dismissed: bool = False  # "Not now" on the one-time day-off question
     hide_ladies: bool = False  # WH-01: leave the 🌸 button out of the status grids
     offer_check_in: bool = True  # PR-06: the one-tap mood row after logging a practice
+    home_city: str | None = None  # ADR-0029: None, NOT_LISTED or a city slug
+
+    @property
+    def home_city_chosen(self) -> bool:
+        return self.home_city is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +93,10 @@ class InvalidDisplayName(ValueError):
     pass
 
 
+class UnknownCity(ValueError):
+    pass
+
+
 class _Keep:
     """A patch field that was not sent: leave it as it is."""
 
@@ -92,6 +105,17 @@ class _Keep:
 
 
 KEEP = _Keep()
+
+
+class _NotNow:
+    """ "Not now" on the city nudge: answers it only while it is unanswered, so a stale
+    button never wipes a city chosen since (ADR-0029)."""
+
+    def __repr__(self) -> str:
+        return "NOT_NOW"
+
+
+NOT_NOW = _NotNow()
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +127,8 @@ class ProfilePatch:
     timezone: str | _Keep = KEEP
     hide_ladies: bool | _Keep | None = KEEP  # None = the default (shown)
     offer_check_in: bool | _Keep | None = KEEP  # None = the default (offered)
+    # A slug (sets its zone too); None = not listed; NOT_NOW = only if never chosen.
+    home_city: str | _Keep | _NotNow | None = KEEP
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,13 +144,15 @@ class ProfileChange:
     fields: frozenset[str] = frozenset({"name", "locale", "timezone"})
     hide_ladies: bool = False  # written only with "hide_ladies" in `fields`
     offer_check_in: bool = True  # written only with "offer_check_in" in `fields`
+    home_city: str | None = None  # written only with "home_city" in `fields`
 
 
 def resolve_profile(
-    account: Account, patch: ProfilePatch, client: ExternalProfile
+    account: Account, patch: ProfilePatch, client: ExternalProfile, cities: Cities
 ) -> ProfileChange:
     """The account fields after applying `patch`. Raises `InvalidDisplayName`,
-    `InvalidTimezone`. An explicit zone may be UTC (only ever chosen, never guessed)."""
+    `InvalidTimezone`, `UnknownCity`. An explicit zone may be UTC (only ever chosen, never
+    guessed). Keeps the ADR-0029 invariant: a home city's zone is the account's zone."""
     fields: set[str] = set()
     name, name_custom = account.display_name, account.name_custom
     if not isinstance(patch.display_name, _Keep):
@@ -152,6 +180,29 @@ def resolve_profile(
     if not isinstance(patch.timezone, _Keep):
         fields.add("timezone")
         zone = parse_timezone(patch.timezone)
+    home = account.home_city
+    if isinstance(patch.home_city, _Keep | _NotNow):
+        if isinstance(patch.home_city, _NotNow) and home is None:
+            fields.add("home_city")
+            home = NOT_LISTED
+        if "timezone" in fields:
+            # Written with every zone, so a stale read can't leave a city in another zone.
+            fields.add("home_city")
+            if home not in (None, NOT_LISTED):
+                city = cities.find(home)  # a removed city is normalised here too
+                if city is None or city.location.tz != zone:
+                    home = NOT_LISTED  # travel, UTC, a location: the city no longer holds
+    elif patch.home_city is None:
+        fields.add("home_city")
+        home = NOT_LISTED
+    else:
+        city = cities.find(patch.home_city)
+        if city is None:
+            raise UnknownCity(patch.home_city[:80])
+        if "timezone" in fields and zone != city.location.tz:
+            raise InvalidTimezone(f"{zone} is not the zone of {city.slug}")
+        fields |= {"home_city", "timezone"}
+        home, zone = city.slug, city.location.tz
     hide_ladies = account.hide_ladies
     if not isinstance(patch.hide_ladies, _Keep):
         fields.add("hide_ladies")
@@ -169,7 +220,13 @@ def resolve_profile(
         frozenset(fields),
         hide_ladies,
         offer_check_in,
+        home,
     )
+
+
+def home_city_of(account: Account, cities: Cities) -> City | None:
+    """The person's listed city while it still names their zone (time labels, MD-04)."""
+    return label_city(cities.find(account.home_city), account.timezone)
 
 
 def normalize_display_name(raw: str | None) -> str | None:

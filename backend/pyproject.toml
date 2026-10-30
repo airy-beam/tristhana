@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "sqlalchemy[asyncio]>=2.0.40",
     "tzdata>=2026.5",
+    "tzfpy>=2.1.1",
     "uvicorn>=0.54.0",
     "uvloop>=0.21",
 ]
@@ -196,3 +197,21 @@ source_modules = [
     "tristhana.main",
 ]
 forbidden_modules = ["sqlalchemy", "asyncpg", "alembic", "nacl"]
+
+[[tool.importlinter.contracts]]
+name = "tzfpy is imported only in infrastructure.zone_lookup"
+type = "forbidden"
+# The composition root (main) wires adapters, so only direct imports are forbidden.
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain",
+    "tristhana.application",
+    "tristhana.infrastructure",
+    "tristhana.api",
+    "tristhana.bots",
+    "tristhana.jobs",
+    "tristhana.moon",
+    "tristhana.main",
+]
+forbidden_modules = ["tzfpy"]
+ignore_imports = ["tristhana.infrastructure.zone_lookup -> tzfpy"]

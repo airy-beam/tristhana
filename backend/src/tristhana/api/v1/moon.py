@@ -16,6 +16,7 @@ from tristhana.api.deps import (
 )
 from tristhana.api.deps import patch_notification_settings as patch_settings_dep
 from tristhana.api.errors import ApiError, error_responses
+from tristhana.api.v1.schemas import CityOut
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -41,13 +42,6 @@ from tristhana.domain.notifications import (
 router = APIRouter(tags=["moon"])
 
 
-class CityOut(BaseModel):
-    slug: str
-    name_en: str
-    name_ru: str
-    timezone: str
-
-
 class Location(BaseModel):
     slug: str
     explicit: bool = Field(description="False: the default city (Mysuru), never chosen")
@@ -57,12 +51,21 @@ class MoonDayOut(BaseModel):
     date: dt.date
     kind: MoonDayKind
     phase: Literal["purnima", "amavasya"]
+    home_date: dt.date | None = Field(
+        default=None,
+        description="The same phase in the person's own city when it falls on another day "
+        "(MD-04, ±1 day); null otherwise",
+    )
 
 
 class MoonDays(BaseModel):
     location: Location
     today: dt.date
     days: list[MoonDayOut]
+    home: CityOut | None = Field(
+        default=None,
+        description="The person's own city, only when it is not the followed one (MD-04)",
+    )
 
 
 class LocationBody(BaseModel):
@@ -156,10 +159,7 @@ async def get_cities(
     if_none_match: Annotated[str | None, Header()] = None,
 ) -> list[CityOut] | Response:
     """Public: the cities whose moon calendars can be followed (the default first)."""
-    out = [
-        CityOut(slug=c.slug, name_en=c.name_en, name_ru=c.name_ru, timezone=c.location.tz)
-        for c in directory.ordered("en")
-    ]
+    out = [CityOut.of(c) for c in directory.ordered("en")]
     etag = '"' + hashlib.sha256(repr(out).encode()).hexdigest()[:16] + '"'
     headers = {"ETag": etag, "Cache-Control": "public, max-age=3600"}
     if etag in {t.strip().removeprefix("W/") for t in (if_none_match or "").split(",")}:
@@ -183,7 +183,16 @@ async def get_moon_days(
     return MoonDays(
         location=Location(slug=view.city.slug, explicit=view.explicit),
         today=view.today,
-        days=[MoonDayOut(date=d.date, kind=d.kind, phase=d.kind.phase.value) for d in view.days],
+        days=[
+            MoonDayOut(
+                date=d.date,
+                kind=d.kind,
+                phase=d.kind.phase.value,
+                home_date=view.home_dates.get(d.date),
+            )
+            for d in view.days
+        ],
+        home=CityOut.of(view.home) if view.home else None,
     )
 
 

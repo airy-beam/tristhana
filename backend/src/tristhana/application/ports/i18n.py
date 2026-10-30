@@ -3,6 +3,7 @@ from datetime import date, time
 from typing import Protocol
 
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import City
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +23,7 @@ class TimeArg:
     day: date
     at: time
     zone: str
+    place: City | None = None  # the home city: names the zone only if it is its zone (MD-04)
 
 
 class Translator(Protocol):

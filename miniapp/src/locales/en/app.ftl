@@ -122,6 +122,9 @@ moon-day-line = { $phase } · { $date } · { $in }
 moon-none = No moon days in the next two months yet: the calendar is being prepared.
 moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
 moon-city = City for the calendar
+# MD-04: the person's own city, when it isn't the followed one.
+moon-same-as-city = Same as my city ({ $city })
+moon-home-fyi = ℹ In 📍 { $city } it falls on { $date }
 moon-reminders-label = Remind me before
 moon-offset =
     { $n ->
@@ -225,13 +228,17 @@ settings-language = Language
 language-auto = As in Telegram
 language-en = English
 language-ru = Русский
-settings-zone = Time zone
+# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)".
+settings-city = 🏙 My city
 settings-zone-now = { $time } { $zone }
 settings-zone-unset = Not set yet. Reminders start once it's set.
-settings-zone-use-device = Use this phone's zone: { $zone }
-settings-zone-pick = Pick a city
+settings-city-nudge = Pick your city if you like: times will then show its name.
+settings-city-not-now = Not now
+settings-city-pick = Which city do you live in?
+settings-city-unlisted-option = My city isn't listed
+settings-city-use-device = Use my phone's time: { $zone }
 settings-zone-utc = UTC (no daylight saving)
-settings-zone-hint = Reminders follow this zone. Days you've already logged keep their dates.
+settings-zone-hint = Reminders and times follow your city's clock. Days you've already logged keep their dates.
 zone-travel = Your phone is on { $device } time. Reminders use { $current }.
 zone-travel-switch = Switch to { $city }
 zone-travel-keep = Keep { $city }
@@ -248,6 +255,8 @@ settings-cap = { $n ->
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
 settings-privacy-sharing = For now, only you see what you log. When teachers join, you choose what they see.
+# MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
+settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
 settings-save-failed = Couldn't save. Try again in a moment.
 
 ## Weekly day off and auto-rest (PR-09). { $d } is an ISO weekday (1 = Monday).

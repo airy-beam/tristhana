@@ -102,12 +102,14 @@ def test_settings_screen_without_a_zone(client: TestClient, storage: InMemorySto
     body = _command(client, "/settings")
 
     assert body["text"].startswith("⚙️ Settings\n🗣 Language: As in Telegram")
-    assert "🕐 Time zone: not set yet" in body["text"]
+    assert "🏙 My city: not chosen yet. Reminders start once it's set." in body["text"]
+    assert "Pick your city if you like: times will then show its name." in body["text"]  # nudge
     assert "🌙 Moon days: 📍 Mysuru" in body["text"]
     assert "🔕 Quiet hours 22:00–07:00 · at most 3 messages a day" in body["text"]  # noqa: RUF001
-    assert _rows(body)[:2] == [
+    assert _rows(body)[:3] == [
         ["✓ As in Telegram", "English", "Русский"],
-        ["🕐 Time zone", "😌 Day off"],
+        ["🏙 My city", "😌 Day off"],
+        ["Not now"],
     ]
     assert "😌 Day off: not chosen" in body["text"]
 
@@ -128,14 +130,14 @@ def test_language_tap_switches_at_once_and_sticks(
 
 
 def _all_picker_texts(client: TestClient) -> list[str]:
-    """Every button text on all pages of the zone picker (34 cities, 12 per page)."""
+    """Every button text on all pages of the city picker (34 cities, 12 per page)."""
     texts: list[str] = []
     for page in range(3):
-        texts += _texts(_tap(client, f"s1:zp:{page}"))
+        texts += _texts(_tap(client, f"s1:cp:{page}"))
     return texts
 
 
-def test_zone_picker_lists_every_moon_day_city(
+def test_city_picker_lists_every_moon_day_city(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     """Users asked for Moscow; Krasnaya Polyana used to stand in for its whole zone."""
@@ -148,33 +150,206 @@ def test_zone_picker_lists_every_moon_day_city(
 
     for city in cities.all:
         assert city.name_en in texts, city.slug
+    assert "📍 My city isn't listed" in texts
+    assert "🌐 UTC" in texts
 
 
-def test_zone_picker_marks_one_city_and_sets_its_zone(
+@pytest.mark.parametrize(
+    ("slug", "name", "zone"), [("astana", "Astana", ZONE), ("sochi", "Sochi", "Europe/Moscow")]
+)
+def test_the_picked_city_is_the_marked_one(
+    client: TestClient, storage: InMemoryStorage, slug: str, name: str, zone: str
+) -> None:
+    """The bug: Astana marked Almaty, Sochi marked Moscow (only the zone was stored)."""
+    me = _me(client, storage)
+
+    chosen = _tap(client, f"s1:c:{slug}")
+    marked = [t for t in _all_picker_texts(client) if t.startswith("✓ ")]
+
+    assert marked == [f"✓ {name}"]
+    assert (storage.repo.accounts[me.id].home_city, storage.repo.accounts[me.id].timezone) == (
+        slug,
+        zone,
+    )
+    assert f"🏙 My city: {name} (UTC+" in chosen["text"]
+    assert "Pick your city" not in chosen["text"]  # the nudge is answered
+    assert ["Not now"] not in _rows(chosen)
+
+
+def test_old_zone_buttons_still_work(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+
+    page = _tap(client, "s1:zp:1")
+    chosen = _tap(client, "s1:z:moscow")
+
+    assert "Which city do you live in?" in page["text"]
+    assert storage.repo.accounts[me.id].home_city == "moscow"
+    assert "🏙 My city: Moscow (UTC+3)" in chosen["text"]
+
+
+def test_not_now_ends_the_nudge_and_keeps_the_zone(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
-    storage.repo.accounts[me.id] = replace(me, timezone="Europe/Moscow", moon_location="kazan")
+    storage.repo.accounts[me.id] = replace(me, timezone=ZONE)
 
-    texts = _all_picker_texts(client)
-    chosen = _tap(client, "s1:z:moscow")
+    body = _tap(client, "s1:n")
 
-    assert [t for t in texts if t.startswith("✓ ")] == ["✓ Kazan"]  # the followed city
-    assert storage.repo.accounts[me.id].timezone == "Europe/Moscow"
-    assert "🕐 Time zone: Moscow (UTC+3)" in chosen["text"]
-    bangkok = _tap(client, "s1:z:bangkok")
-    assert "🕐 Time zone: Bangkok (UTC+7)" in bangkok["text"]
+    assert storage.repo.accounts[me.id].home_city == "-"
+    assert storage.repo.accounts[me.id].timezone == ZONE
+    assert "🏙 My city: not chosen · 🕐 Almaty (UTC+5)" in body["text"]
+    assert "Pick your city" not in body["text"]
 
 
-def test_moscow_is_marked_as_moscow(client: TestClient, storage: InMemoryStorage) -> None:
-    """Krasnaya Polyana is listed first in that zone, but Moscow is the zone's own name."""
+def test_a_stale_not_now_keeps_a_city_chosen_since(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
     me = _me(client, storage)
-    _tap(client, "s1:z:moscow")
+    _tap(client, "s1:c:astana")  # e.g. in the app, after the nudge was shown here
+
+    body = _tap(client, "s1:n")  # the old message's button
+
+    assert storage.repo.accounts[me.id].home_city == "astana"
+    assert "🏙 My city: Astana (UTC+5)" in body["text"]
+
+
+def test_the_picker_marks_no_city_outside_its_zone(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+    # A stale write left a city with another zone: the status line and the mark agree.
+    storage.repo.accounts[me.id] = replace(me, home_city="astana", timezone="Asia/Bangkok")
 
     marked = [t for t in _all_picker_texts(client) if t.startswith("✓ ")]
 
-    assert marked == ["✓ Moscow"]
-    assert storage.repo.accounts[me.id].timezone == "Europe/Moscow"
+    assert not any("Astana" in t for t in marked)
+
+
+def test_utc_clears_the_city(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+    _tap(client, "s1:c:astana")
+
+    body = _tap(client, "s1:u")
+    marked = [t for t in _texts(_tap(client, "s1:cp:0")) if t.startswith("✓ ")]
+
+    assert (storage.repo.accounts[me.id].home_city, storage.repo.accounts[me.id].timezone) == (
+        "-",
+        "UTC",
+    )
+    assert "🕐 UTC" in body["text"]
+    assert marked == ["✓ 🌐 UTC"]
+
+
+def test_not_listed_asks_for_a_location_in_a_new_message(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+
+    body = _tap(client, "s1:c:-")
+
+    assert body["method"] == "sendMessage"
+    assert body["text"].startswith("Send your location once")
+    [[share]] = body["reply_markup"]["keyboard"]
+    assert share == {"text": "📍 Send my location", "request_location": True}
+    assert body["reply_markup"]["one_time_keyboard"] is True
+    assert storage.repo.accounts[me.id].home_city is None  # nothing is written yet
+
+
+def _location(client: TestClient, **extra: Any) -> Any:
+    message = {
+        "message_id": 11,
+        "date": 1_760_000_000,
+        "chat": {"id": 42, "type": "private"},
+        "from": _user("en"),
+        "location": {"latitude": 13.7563, "longitude": 100.5018} | extra,
+    }
+    return _post(client, {"update_id": next(_ids), "message": message})
+
+
+def test_a_shared_location_sets_the_zone_only(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+    _tap(client, "s1:c:astana")
+
+    body = _location(client)
+
+    account = storage.repo.accounts[me.id]
+    assert (account.timezone, account.home_city) == ("Asia/Bangkok", "-")
+    assert (
+        body["text"]
+        == "🕐 Done: your time zone is Bangkok (UTC+7). You can change it in /settings."
+    )
+    assert body["reply_markup"] == {"remove_keyboard": True}
+
+
+def test_a_live_location_is_not_an_answer(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+
+    body = _location(client, live_period=900)
+
+    assert body is None
+    assert storage.repo.accounts[me.id].timezone is None
+
+
+def test_a_forwarded_location_is_not_an_answer(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+
+    message = {
+        "message_id": 12,
+        "date": 1_760_000_000,
+        "chat": {"id": 42, "type": "private"},
+        "from": _user("en"),
+        "forward_origin": {"type": "hidden_user", "date": 1_760_000_000, "sender_user_name": "X"},
+        "location": {"latitude": 13.7563, "longitude": 100.5018},
+    }
+    body = _post(client, {"update_id": next(_ids), "message": message})
+
+    assert body is None
+    assert storage.repo.accounts[me.id].timezone is None
+
+
+def test_a_venue_is_not_an_answer(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+
+    where = {"latitude": 13.7563, "longitude": 100.5018}
+    message = {
+        "message_id": 13,
+        "date": 1_760_000_000,
+        "chat": {"id": 42, "type": "private"},
+        "from": _user("en"),
+        "location": where,
+        "venue": {"location": where, "title": "Café", "address": "Sukhumvit"},
+    }
+    _post(client, {"update_id": next(_ids), "message": message})
+
+    assert storage.repo.accounts[me.id].timezone is None
+
+
+def test_a_location_at_sea_writes_nothing(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+    message = {
+        "message_id": 11,
+        "date": 1_760_000_000,
+        "chat": {"id": 42, "type": "private"},
+        "from": _user("en"),
+        "location": {"latitude": 0.0, "longitude": -30.0},
+    }
+
+    body = _post(client, {"update_id": next(_ids), "message": message})
+
+    assert body["text"].startswith("I couldn't find a time zone there.")
+    assert storage.repo.accounts[me.id].timezone is None
+
+
+def test_the_time_labels_name_the_home_city(client: TestClient, storage: InMemoryStorage) -> None:
+    _me(client, storage)
+    _tap(client, "s1:c:astana")
+
+    body = _command(client, "/settings")
+
+    assert "Almaty (UTC+5)" not in body["text"]
+    assert "Astana (UTC+5)" in body["text"]
 
 
 def test_links_both_ways(client: TestClient, storage: InMemoryStorage) -> None:
@@ -187,7 +362,10 @@ def test_links_both_ways(client: TestClient, storage: InMemoryStorage) -> None:
     assert "⚙️ Settings" in _texts(_tap(client, "r1:v"))
 
 
-@pytest.mark.parametrize("data", ["s1", "s1:x", "s1:l:de", "s1:zp:x", "s1:z:Bad", "s0:v"])
+@pytest.mark.parametrize(
+    "data",
+    ["s1", "s1:x", "s1:l:de", "s1:zp:x", "s1:cp:99", "s1:z:Bad", "s1:c:Bad", "s1:u:1", "s0:v"],
+)
 def test_malformed_settings_callbacks(data: str) -> None:
     assert decode(data) is None
 
@@ -200,8 +378,11 @@ def test_every_settings_callback_fits_64_bytes() -> None:
         SettingsCallback("view"),
         SettingsCallback("language"),
         SettingsCallback("language", locale="ru"),
-        SettingsCallback("zones", page=2),
-        *(SettingsCallback("zone", slug=c.slug) for c in cities.all),
+        SettingsCallback("cities", page=2),
+        SettingsCallback("unlisted"),
+        SettingsCallback("utc"),
+        SettingsCallback("not_now"),
+        *(SettingsCallback("city", slug=c.slug) for c in cities.all),
     ]:
         data = encode(cb)
         assert len(data.encode()) <= 64

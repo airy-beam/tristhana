@@ -164,6 +164,26 @@ body {
   line-height: 1.7;
 }
 
+/* MD-04: "ℹ In 📍 Astana it falls on …" under a moon day. */
+.moon-days .moon-home {
+  display: block;
+  line-height: 1.4;
+}
+
+/* MD-04: the one-time "Pick your city" nudge with its "Not now" chip. */
+.nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.nudge p {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
 .hint.small {
   font-size: 13px;
 }

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, StrictInt
 
 from tristhana.api.deps import (
     CurrentPrincipal,
+    cities,
     client_profile,
     dismiss_day_off,
     record_device_timezone,
@@ -15,6 +16,7 @@ from tristhana.api.deps import (
     update_profile,
 )
 from tristhana.api.errors import ApiError, error_responses
+from tristhana.api.v1.schemas import CityOut
 from tristhana.application.accounts import RecordDeviceTimezone
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.settings import UpdateProfile
@@ -25,8 +27,11 @@ from tristhana.domain.accounts import (
     InvalidDisplayName,
     InvalidTimezone,
     ProfilePatch,
+    UnknownCity,
+    home_city_of,
 )
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import Cities
 from tristhana.domain.rest_days import InvalidDayOff, Weekdays
 
 router = APIRouter(prefix="/me", tags=["me"], responses=error_responses(401, 503))
@@ -50,9 +55,18 @@ class Me(BaseModel):
     offer_check_in: bool = Field(
         default=True, description="Offer the check-in right after logging a practice (PR-06)"
     )
+    home_city: CityOut | None = Field(
+        default=None,
+        description="The person's own listed city; its zone is `timezone` (MD-04). null = "
+        "none: never chosen, not listed, or cleared by a zone change",
+    )
+    home_city_chosen: bool = Field(
+        default=False, description="False: never asked or answered (show the city nudge)"
+    )
 
     @classmethod
-    def of(cls, account: Account) -> "Me":
+    def of(cls, account: Account, cities: Cities) -> "Me":
+        home = home_city_of(account, cities)
         return cls(
             id=account.id,
             display_name=account.display_name,
@@ -63,6 +77,8 @@ class Me(BaseModel):
             day_off=_weekdays(account.day_off.days),
             hide_ladies=account.hide_ladies,
             offer_check_in=account.offer_check_in,
+            home_city=CityOut.of(home) if home else None,
+            home_city_chosen=account.home_city_chosen,
         )
 
 
@@ -78,6 +94,12 @@ class MePatch(BaseModel):
     timezone: str | None = Field(default=None, max_length=64, description="IANA zone or UTC")
     hide_ladies: bool | None = Field(default=None, description="null = the default (shown)")
     offer_check_in: bool | None = Field(default=None, description="null = the default (on)")
+    home_city: str | None = Field(
+        default=None,
+        max_length=24,
+        description="A city slug: sets the city and its zone; null = not listed / not now "
+        "(the zone stays). A zone that isn't the city's clears the city.",
+    )
 
 
 class DayOffBody(BaseModel):
@@ -95,9 +117,12 @@ class DeviceTimezone(BaseModel):
     timezone: str = Field(max_length=64, description="Intl.DateTimeFormat().resolvedOptions()")
 
 
+Directory = Annotated[Cities, Depends(cities)]
+
+
 @router.get("")
-async def get_me(principal: CurrentPrincipal) -> Me:
-    return Me.of(principal.account)
+async def get_me(principal: CurrentPrincipal, directory: Directory) -> Me:
+    return Me.of(principal.account, directory)
 
 
 @router.patch("", responses=error_responses(422))
@@ -106,6 +131,7 @@ async def patch_me(
     principal: CurrentPrincipal,
     use_case: Annotated[UpdateProfile, Depends(update_profile)],
     client: Annotated[ExternalProfile, Depends(client_profile)],
+    directory: Directory,
 ) -> Me:
     sent = body.model_fields_set
     patch = ProfilePatch(
@@ -114,6 +140,7 @@ async def patch_me(
         timezone=body.timezone if "timezone" in sent and body.timezone is not None else KEEP,
         hide_ladies=body.hide_ladies if "hide_ladies" in sent else KEEP,
         offer_check_in=body.offer_check_in if "offer_check_in" in sent else KEEP,
+        home_city=body.home_city if "home_city" in sent else KEEP,
     )
     if "timezone" in sent and body.timezone is None:
         raise ApiError(422, "invalid_timezone")  # a zone can be changed, not removed
@@ -123,7 +150,9 @@ async def patch_me(
         raise ApiError(422, "invalid_timezone") from None
     except InvalidDisplayName:
         raise ApiError(422, "invalid_display_name") from None
-    return Me.of(account)
+    except UnknownCity:
+        raise ApiError(422, "unknown_city") from None
+    return Me.of(account, directory)
 
 
 @router.post("/device-timezone", responses=error_responses(422))
@@ -131,13 +160,14 @@ async def post_device_timezone(
     body: DeviceTimezone,
     principal: CurrentPrincipal,
     record: Annotated[RecordDeviceTimezone, Depends(record_device_timezone)],
+    directory: Directory,
 ) -> Me:
     """Stores the device zone only if none is set yet; returns the account either way."""
     try:
         account = await record.execute(principal, body.timezone)
     except InvalidTimezone:
         raise ApiError(422, "invalid_timezone") from None
-    return Me.of(account)
+    return Me.of(account, directory)
 
 
 @router.put("/day-off", responses=error_responses(422))

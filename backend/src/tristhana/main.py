@@ -59,7 +59,11 @@ from tristhana.application.rest_periods import (
     SkipRestPeriod,
     StartRestPeriod,
 )
-from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
+from tristhana.application.settings import (
+    PatchNotificationSettings,
+    UpdateProfile,
+    ZoneFromLocation,
+)
 from tristhana.application.stats import GetYearStats
 from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
@@ -87,6 +91,7 @@ from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
 from tristhana.infrastructure.seed.cities_yaml import load_cities
 from tristhana.infrastructure.seed.milestones_yaml import load_milestones
 from tristhana.infrastructure.seed.practice_catalog import load_practice_catalog
+from tristhana.infrastructure.zone_lookup import TzfpyZoneLookup
 from tristhana.logs import configure_logging
 from tristhana.settings import Settings, get_settings
 
@@ -274,7 +279,7 @@ class _Services:
         )
         notification_settings = NotificationSettingsUseCase(self._storage.notifications, clock)
         app.state.notification_settings = notification_settings
-        app.state.update_profile = UpdateProfile(self._storage.accounts)
+        app.state.update_profile = UpdateProfile(self._storage.accounts, cities)
         app.state.patch_notification_settings = PatchNotificationSettings(
             self._storage.notifications, clock
         )
@@ -321,6 +326,7 @@ class _Services:
             cities=cities,
             today=days.get.today,
             day_off=remind.day_off,
+            zone_from_location=ZoneFromLocation(TzfpyZoneLookup(), app.state.update_profile),
         )
         try:
             async with self._bot.lifespan():

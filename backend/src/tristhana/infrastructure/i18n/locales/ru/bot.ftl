@@ -204,6 +204,9 @@ moon-zone-needed = Чтобы напоминать в нужный час, мн�
 moon-change-city = 📍 Сменить город
 moon-reminders = 🔔 Напоминания
 moon-pick-city = По какому городу считать лунные дни?
+# MD-04: свой город, если это не тот, по которому считаются лунные дни. Город не склоняется.
+moon-same-as-city = 📍 Как мой город ({ $city })
+moon-home-fyi = ℹ 📍 { $city }: { $date }
 # Кнопка во всю ширину: ставит часовой пояс города (только если пояс неизвестен).
 moon-use-city-zone = 🕐 Часовой пояс: 📍 { $city }
 moon-offset =
@@ -281,8 +284,13 @@ language-auto = Как в Telegram
 language-en = English
 language-ru = Русский
 settings-language-line = 🗣 Язык: { $language }
-settings-zone-line = 🕐 Часовой пояс: { $zone }
-settings-zone-unset-line = 🕐 Часовой пояс: пока не задан. Напоминания начнутся, как только он появится.
+# MD-04 (ADR-0029): город задаёт часовой пояс. $zone = «Астана (UTC+5)».
+settings-city-line = 🏙 Мой город: { $zone }
+settings-city-unset-line = 🏙 Мой город: пока не выбран · 🕐 { $zone }
+settings-city-unlisted-line = 🏙 Мой город: не выбран · 🕐 { $zone }
+settings-city-no-zone-line = 🏙 Мой город: пока не выбран. Напоминания начнутся, когда ты его выберешь.
+settings-city-nudge = Если хочешь, выбери свой город: рядом со временем будет его название.
+settings-city-not-now = Не сейчас
 settings-moon-line = 🌙 Лунные дни: 📍 { $city }
 settings-quiet-line = 🔕 Тихие часы { $start }–{ $end } · { $n ->
         [one] не больше { $n } сообщения в день
@@ -292,9 +300,15 @@ settings-quiet-off-line = 🔕 Без тихих часов · { $n ->
         [one] не больше { $n } сообщения в день
        *[other] не больше { $n } сообщений в день
     }
-settings-zone-button = 🕐 Часовой пояс
+settings-city-button = 🏙 Мой город
 settings-moon-link = 🌙 Лунные дни
-settings-pick-zone = Выбери город, по времени которого живёшь. Нет в списке? Открой приложение: оно возьмёт пояс телефона.
+settings-pick-city = В каком городе ты живёшь? Напоминания и время идут по его часам.
+settings-city-unlisted = 📍 Моего города нет в списке
+settings-city-utc = 🌐 UTC
+settings-share-location = Пришли геопозицию один раз, и я поставлю по ней часовой пояс. Она нужна только для этого, и я её не храню. Не получается отправить с этого устройства? Открой приложение: оно возьмёт время телефона.
+settings-share-location-button = 📍 Отправить геопозицию
+settings-location-zone = 🕐 Готово: часовой пояс теперь { $zone }. Изменить можно в /settings.
+settings-location-unknown = Не удалось найти там часовой пояс. Выбери город в /settings или открой приложение.
 settings-open-app = ⚙️ Ещё в приложении
 settings-link = ⚙️ Настройки
 

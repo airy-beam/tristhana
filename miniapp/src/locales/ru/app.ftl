@@ -124,6 +124,9 @@ moon-day-line = { $phase } · { $date } · { $in }
 moon-none = В ближайшие два месяца лунных дней пока нет: календарь готовится.
 moon-calc-note = Даты рассчитаны по городу 📍 { $city } (лунный день на восходе). Календарь твоей шалы может отличаться на день: ориентируйся на своего учителя.
 moon-city = Город для календаря
+# MD-04: свой город, если это не тот, по которому считаются лунные дни. Город не склоняется.
+moon-same-as-city = Как мой город ({ $city })
+moon-home-fyi = ℹ 📍 { $city }: { $date }
 moon-reminders-label = Напоминать
 moon-offset =
     { $n ->
@@ -235,13 +238,17 @@ settings-language = Язык
 language-auto = Как в Telegram
 language-en = English
 language-ru = Русский
-settings-zone = Часовой пояс
+# MD-04 (ADR-0029): город задаёт часовой пояс. $zone = «Астана (UTC+5)».
+settings-city = 🏙 Мой город
 settings-zone-now = { $time } { $zone }
-settings-zone-unset = Пока не задан. Напоминания начнутся, как только он появится.
-settings-zone-use-device = Взять пояс телефона: { $zone }
-settings-zone-pick = Выбрать город
+settings-zone-unset = Пока не задан. Напоминания начнутся, как только он будет задан.
+settings-city-nudge = Если хочешь, выбери свой город: рядом со временем будет его название.
+settings-city-not-now = Не сейчас
+settings-city-pick = В каком городе ты живёшь?
+settings-city-unlisted-option = Моего города нет в списке
+settings-city-use-device = Взять время телефона: { $zone }
 settings-zone-utc = UTC (без летнего времени)
-settings-zone-hint = Напоминания приходят по этому поясу. Уже отмеченные дни останутся на своих датах.
+settings-zone-hint = Напоминания и время идут по часам твоего города. Уже отмеченные дни останутся на своих датах.
 zone-travel = Время на телефоне: { $device }. Напоминания приходят по времени: { $current }.
 zone-travel-switch = Перейти: { $city }
 zone-travel-keep = Оставить: { $city }
@@ -258,6 +265,8 @@ settings-cap = { $n ->
 settings-privacy = Приватность
 settings-privacy-ladies = 🌸 Женские дни хранятся в зашифрованном виде. Остальные видят только «День отдыха».
 settings-privacy-sharing = Пока твои отметки видишь только ты. Когда появятся учителя, ты выберешь, что им показывать.
+# MD-04: данные о поясах в tzfpy под ODbL (ADR-0029), поэтому указаны здесь и в README.
+settings-privacy-location = 📍 Геопозиция, которую ты присылаешь боту, нужна только чтобы найти часовой пояс, и не хранится. Поиск идёт на нашем сервере через tzfpy; данные карты © участники OpenStreetMap (ODbL).
 settings-save-failed = Не получилось сохранить. Попробуй ещё раз чуть позже.
 
 ## Выходной и автоотдых (PR-09). { $d } — день недели по ISO (1 = понедельник).

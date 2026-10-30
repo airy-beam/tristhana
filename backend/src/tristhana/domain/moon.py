@@ -1,7 +1,8 @@
 """Moon days (Purnima/Amavasya) as observed at a location. See notes `07 Moon Days`."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from enum import StrEnum
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -82,10 +83,40 @@ class Cities:
     def get(self, slug: str | None) -> City | None:
         return self.default if slug is None else self._by_slug.get(slug)
 
+    def find(self, slug: str | None) -> City | None:
+        """The listed city, or None (never the default: `get(None)` is Mysuru)."""
+        return None if slug is None else self._by_slug.get(slug)
+
     def ordered(self, locale: str) -> list[City]:
         """The default first, then by the localised name."""
         rest = sorted((c for c in self.all if c is not self.default), key=lambda c: c.name(locale))
         return [self.default, *rest]
+
+
+def label_city(home: City | None, zone: str | None) -> City | None:
+    """The city that names `zone` in a time label: the home city only in its own zone
+    (ADR-0029). After a trip the label goes back to the zone's own name."""
+    return home if home is not None and home.location.tz == zone else None
+
+
+def home_dates(followed: Iterable[MoonDay], home: Iterable[MoonDay]) -> dict[date, date]:
+    """MD-04: {followed date: the home city's date} where the same phase falls on another
+    day. Paired by phase within ±1 day (kshaya is the same phase); an unpaired or ambiguous
+    day is left out, never guessed."""
+    by_date: dict[date, list[MoonDay]] = {}
+    for h in home:
+        by_date.setdefault(h.date, []).append(h)
+    paired: dict[date, date] = {}
+    for f in followed:
+        near = [
+            h
+            for delta in (-1, 0, 1)
+            for h in by_date.get(f.date + timedelta(days=delta), [])
+            if h.kind.phase == f.kind.phase
+        ]
+        if len(near) == 1 and near[0].date != f.date:
+            paired[f.date] = near[0].date
+    return paired
 
 
 def calendar_years(today: date) -> range:

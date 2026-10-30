@@ -25,6 +25,7 @@ const ME: Me = {
   locale_from_telegram: true,
   hide_ladies: false,
   offer_check_in: true, // WH-01 part 2
+  home_city_chosen: true, // MD-04: no nudge in these tests
 };
 
 const TODAY = "2026-10-19";
@@ -121,6 +122,31 @@ describe("MoonCard", () => {
       "🌑 New moon (Amavasya) · Fri, Nov 6 · in 18 days",
     ]);
     expect(screen.getByText(/follow your teacher/)).toBeInTheDocument();
+  });
+
+  it("adds the home city's date under a day only where it differs (MD-04)", async () => {
+    stubApi({
+      ...MOON,
+      home: CITIES[1] ?? null,
+      days: [
+        { date: "2026-10-22", kind: "purnima", phase: "purnima", home_date: "2026-10-21" },
+        { date: "2026-11-06", kind: "kshaya_amavasya", phase: "amavasya", home_date: null },
+      ],
+    });
+    renderWith(<MoonCard locale="ru" />, "ru");
+
+    await screen.findByRole("heading");
+    const items = screen.getAllByRole("listitem").map(visible);
+    expect(items[0]).toMatch(/ℹ 📍 Алматы: ср, 21 окт\.$/);
+    expect(items[1]).not.toMatch(/ℹ/);
+  });
+
+  it("still renders a payload from before MD-04", async () => {
+    stubApi(MOON);
+    renderWith(<MoonCard locale="en" />);
+
+    await screen.findByRole("heading");
+    expect(screen.getAllByRole("listitem").map(visible).join(" ")).not.toMatch(/ℹ/);
   });
 
   it("changes the city", async () => {
