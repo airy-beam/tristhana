@@ -18,7 +18,7 @@ from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.storage import Clock
 from tristhana.application.settings import PatchNotificationSettings
 from tristhana.domain.days import DayLog, DayStatus, check_loggable, provisional_zone
-from tristhana.domain.milestones import NO_COUNTS, PracticeCounts
+from tristhana.domain.milestones import PracticeCounts
 from tristhana.domain.notifications import (
     KEEP,
     NotificationPatch,
@@ -48,7 +48,7 @@ class QuickLogSameAsLast:
         days: DayLogRepository,
         practices: PracticeRepository,
         clock: Clock,
-        counts: PracticeCounts = NO_COUNTS,
+        counts: PracticeCounts,
     ) -> None:
         self._days, self._practices, self._clock = days, practices, clock
         self._counts = counts
@@ -78,9 +78,7 @@ class LogFromReminder:
 
     _ALLOWED = frozenset({DayStatus.PRACTICED, DayStatus.REST})
 
-    def __init__(
-        self, days: DayLogRepository, clock: Clock, counts: PracticeCounts = NO_COUNTS
-    ) -> None:
+    def __init__(self, days: DayLogRepository, clock: Clock, counts: PracticeCounts) -> None:
         self._days, self._clock, self._counts = days, clock, counts
 
     async def execute(self, principal: Principal, local_date: date, status: DayStatus) -> QuickLog:

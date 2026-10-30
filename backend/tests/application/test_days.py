@@ -10,6 +10,7 @@ from tristhana.application.policies import Principal
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DateInFuture, DayLog, DayStatus, InvalidRange
 from tristhana.domain.locale import Locale
+from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import MoonDay, MoonDayKind
 from tristhana.domain.rest_days import AutoDay, AutoKind, DayOff
 
@@ -57,7 +58,7 @@ async def test_unknown_zone_uses_a_provisional_guess(
 
 async def test_set_today_yesterday_and_overwrite(repo: InMemoryDays, clock: FixedClock) -> None:
     me = _principal()
-    set_status = SetDayStatus(repo, clock)
+    set_status = SetDayStatus(repo, clock, NO_COUNTS)
 
     await set_status.execute(me, date(2026, 10, 19), DayStatus.PRACTICED)
     await set_status.execute(me, date(2026, 10, 18), DayStatus.MOON)
@@ -72,7 +73,9 @@ async def test_set_today_yesterday_and_overwrite(repo: InMemoryDays, clock: Fixe
 
 async def test_future_dates_are_refused(repo: InMemoryDays, clock: FixedClock) -> None:
     with pytest.raises(DateInFuture):
-        await SetDayStatus(repo, clock).execute(_principal(), date(2026, 10, 20), DayStatus.REST)
+        await SetDayStatus(repo, clock, NO_COUNTS).execute(
+            _principal(), date(2026, 10, 20), DayStatus.REST
+        )
 
 
 async def test_unknown_zone_never_blocks_a_real_today(
@@ -81,7 +84,7 @@ async def test_unknown_zone_never_blocks_a_real_today(
     # The guess (Moscow) says Oct 18, but the person may really be in Almaty (Oct 19).
     me = _principal(None)
 
-    await SetDayStatus(repo, clock).execute(me, date(2026, 10, 19), DayStatus.PRACTICED)
+    await SetDayStatus(repo, clock, NO_COUNTS).execute(me, date(2026, 10, 19), DayStatus.PRACTICED)
 
     [(_, zone)] = repo.rows.values()
     assert zone is None  # the guess is never stored
@@ -89,7 +92,7 @@ async def test_unknown_zone_never_blocks_a_real_today(
 
 async def test_clear_is_idempotent(repo: InMemoryDays, clock: FixedClock) -> None:
     me = _principal()
-    await SetDayStatus(repo, clock).execute(me, date(2026, 10, 19), DayStatus.REST)
+    await SetDayStatus(repo, clock, NO_COUNTS).execute(me, date(2026, 10, 19), DayStatus.REST)
 
     await ClearDayStatus(repo).execute(me, date(2026, 10, 19))
     await ClearDayStatus(repo).execute(me, date(2026, 10, 19))
@@ -98,7 +101,9 @@ async def test_clear_is_idempotent(repo: InMemoryDays, clock: FixedClock) -> Non
 
 
 async def test_days_are_per_account(repo: InMemoryDays, clock: FixedClock) -> None:
-    await SetDayStatus(repo, clock).execute(_principal(), date(2026, 10, 19), DayStatus.REST)
+    await SetDayStatus(repo, clock, NO_COUNTS).execute(
+        _principal(), date(2026, 10, 19), DayStatus.REST
+    )
 
     assert (await GetDays(repo, cities(), clock).execute(_principal())).days == []
 

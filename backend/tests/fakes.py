@@ -53,6 +53,7 @@ from tristhana.domain.accounts import (
 )
 from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.domain.export import ExportIdentity
+from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import Cities, MoonDay, MoonDayKind, MoonLocation
 from tristhana.domain.notifications import (
     NotificationSettings,
@@ -1031,7 +1032,7 @@ def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = N
     repo, clock = repo or InMemoryDays(), clock or FixedClock()
     return DayUseCases(
         get=GetDays(repo, cities(), clock),
-        set=SetDayStatus(repo, clock),
+        set=SetDayStatus(repo, clock, NO_COUNTS),
         clear=ClearDayStatus(repo),
     )
 
@@ -1096,7 +1097,7 @@ def remind_use_cases(
         settings=NotificationSettingsUseCase(storage.notifications, clock),
         update=UpdatePracticeReminder(storage.notifications, clock),
         offer=AnswerPracticeOffer(storage.notifications, clock),
-        quick_log=QuickLogSameAsLast(storage.days, storage.practices, clock),
+        quick_log=QuickLogSameAsLast(storage.days, storage.practices, clock, NO_COUNTS),
         day_off=SetDayOff(storage.accounts, clock),
         dismiss_day_off=DismissDayOffQuestion(storage.accounts),
     )

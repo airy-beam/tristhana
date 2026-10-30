@@ -38,6 +38,7 @@ from tristhana.domain.accounts import (
     ProfilePatch,
 )
 from tristhana.domain.days import DayStatus
+from tristhana.domain.milestones import NO_COUNTS
 
 
 def _uc() -> Any:
@@ -98,7 +99,7 @@ def check_ins(days: InMemoryDays) -> InMemoryCheckIns:
 
 
 async def _log(days: InMemoryDays, me: Principal, day: date, status: DayStatus) -> None:
-    await SetDayStatus(days, FixedClock(NOW)).execute(me, day, status)
+    await SetDayStatus(days, FixedClock(NOW), NO_COUNTS).execute(me, day, status)
 
 
 async def _practiced(days: InMemoryDays, me: Principal, *on: date) -> None:

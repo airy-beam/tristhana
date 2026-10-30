@@ -30,6 +30,7 @@ from tristhana.application.stats import GetYearStats
 from tristhana.application.tick import RunTick
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DateInFuture, DayLog, DayStatus
+from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import MoonDay, MoonDayKind, calendar_years
 from tristhana.domain.notifications import DEFAULTS, send_instant
 from tristhana.domain.rest_periods import InvalidRestPeriod, PauseOffer, RestPeriod
@@ -93,7 +94,7 @@ async def test_a_pausable_status_today_comes_with_the_offer(
 ) -> None:
     me = await _me(storage)
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, kind)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, TODAY, kind)
 
     assert saved.day == DayLog(TODAY, kind)
     assert saved.offer == PauseOffer(TODAY, kind, reminders_on=False)
@@ -106,7 +107,7 @@ async def test_the_offer_says_whether_practice_reminders_are_on(
 ) -> None:
     me = await _me(storage, reminders=True)
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, _d(-1), K)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, _d(-1), K)
 
     assert saved.offer == PauseOffer(_d(-1), K, reminders_on=True)
 
@@ -120,7 +121,7 @@ async def test_no_offer_for_backfill_or_other_statuses(
 ) -> None:
     me = await _me(storage)
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, day, status)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, day, status)
 
     assert saved.offer is None
 
@@ -129,7 +130,7 @@ async def test_no_offer_for_a_continuation(storage: InMemoryStorage, clock: Fixe
     me = await _me(storage)
     _log(storage, me, _d(-1), L)
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, L)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, TODAY, L)
 
     assert saved.offer is None
 
@@ -139,7 +140,7 @@ async def test_a_pause_that_ran_out_asks_again(storage: InMemoryStorage, clock: 
     _log(storage, me, _d(-3), L)
     _store(storage, me, _p(-3, -1, L))
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, L)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, TODAY, L)
 
     assert saved.offer == PauseOffer(TODAY, L, reminders_on=False)
 
@@ -152,7 +153,7 @@ async def test_no_offer_inside_a_period_and_the_period_is_returned(
     _log(storage, me, _d(-1), L)
     _store(storage, me, period)
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, L)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, TODAY, L)
 
     assert saved.offer is None
     assert saved.period == period
@@ -164,7 +165,9 @@ async def test_a_re_tap_on_the_origin_may_choose_again(
     me = await _me(storage)
     _store(storage, me, _p(0, 3, K))
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, T)  # corrected kind
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(
+        me, TODAY, T
+    )  # corrected kind
 
     assert saved.offer == PauseOffer(TODAY, T, reminders_on=False)
 
@@ -179,7 +182,9 @@ async def test_practiced_inside_a_period_cuts_it_and_returns_the_cut(
     period = _p(-2, 2, K)
     _store(storage, me, period)
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, DayStatus.PRACTICED)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(
+        me, TODAY, DayStatus.PRACTICED
+    )
 
     assert saved.cut == period  # as it was, for "keep the pause"
     assert saved.period is None
@@ -193,7 +198,9 @@ async def test_practiced_on_the_origin_removes_the_period(
     me = await _me(storage)
     _store(storage, me, _p(0, 4, L))
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, DayStatus.PRACTICED)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(
+        me, TODAY, DayStatus.PRACTICED
+    )
 
     assert saved.cut == _p(0, 4, L)
     assert _periods(storage, me) == []
@@ -207,7 +214,7 @@ async def test_other_statuses_inside_change_only_that_day(
     period = _p(-2, 2, L)
     _store(storage, me, period)
 
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, status)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, TODAY, status)
 
     assert saved.cut is None
     assert saved.period == period
@@ -218,7 +225,7 @@ async def test_clearing_the_origin_removes_the_period(
     storage: InMemoryStorage, clock: FixedClock
 ) -> None:
     me = await _me(storage)
-    set_status = SetDayStatus(storage.days, clock)
+    set_status = SetDayStatus(storage.days, clock, NO_COUNTS)
     await set_status.execute(me, _d(-1), L)
     _store(storage, me, _p(-1, 3, L))
 
@@ -233,7 +240,7 @@ async def test_clearing_a_later_day_keeps_the_period(
     me = await _me(storage)
     period = _p(-1, 3, L)
     _store(storage, me, period)
-    await SetDayStatus(storage.days, clock).execute(me, TODAY, DayStatus.SKIPPED)
+    await SetDayStatus(storage.days, clock, NO_COUNTS).execute(me, TODAY, DayStatus.SKIPPED)
 
     await ClearDayStatus(storage.days).execute(me, TODAY)
 
@@ -332,7 +339,9 @@ async def test_keep_the_pause_restores_the_period_exactly(
 ) -> None:
     me = await _me(storage)
     _store(storage, me, _p(-2, 3, L))
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, DayStatus.PRACTICED)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(
+        me, TODAY, DayStatus.PRACTICED
+    )
     assert saved.cut is not None
 
     kept = await RestoreRestPeriod(storage.rest_periods, clock).execute(me, saved.cut)
@@ -347,7 +356,9 @@ async def test_keep_the_pause_after_the_origin_was_practiced(
 ) -> None:
     me = await _me(storage)
     _store(storage, me, _p(0, 2, K))
-    saved = await SetDayStatus(storage.days, clock).execute(me, TODAY, DayStatus.PRACTICED)
+    saved = await SetDayStatus(storage.days, clock, NO_COUNTS).execute(
+        me, TODAY, DayStatus.PRACTICED
+    )
     assert saved.cut == _p(0, 2, K)
     assert saved.cut is not None
 
@@ -480,7 +491,7 @@ async def test_year_stats_count_covered_days_as_their_kind(
 
 
 def _from_reminder(storage: InMemoryStorage, clock: FixedClock):
-    return remind_app.LogFromReminder(storage.days, clock)
+    return remind_app.LogFromReminder(storage.days, clock, NO_COUNTS)
 
 
 @pytest.mark.parametrize("status", [DayStatus.PRACTICED, DayStatus.REST])
@@ -612,7 +623,7 @@ async def test_a_stale_keep_never_deletes_a_newer_pause(
     me = await _me(storage)
     _store(storage, me, RestPeriod(date(2026, 10, 20), date(2026, 10, 26), L))
     on_24 = FixedClock(datetime(2026, 10, 24, 6, tzinfo=UTC))
-    saved = await SetDayStatus(storage.days, on_24).execute(
+    saved = await SetDayStatus(storage.days, on_24, NO_COUNTS).execute(
         me, date(2026, 10, 22), DayStatus.PRACTICED
     )
     _store(storage, me, RestPeriod(date(2026, 10, 23), date(2026, 10, 27), K))
@@ -633,7 +644,7 @@ async def test_re_saving_practiced_never_cuts_again(
     """🧘 cut the pause, Keep put it back; tapping ✓🧘 again leaves it kept."""
     me = await _me(storage)
     _store(storage, me, _p(-2, 3, K))
-    set_status = SetDayStatus(storage.days, clock)
+    set_status = SetDayStatus(storage.days, clock, NO_COUNTS)
     first = await set_status.execute(me, TODAY, DayStatus.PRACTICED)
     assert first.cut is not None
     await RestoreRestPeriod(storage.rest_periods, clock).execute(me, first.cut)

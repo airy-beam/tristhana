@@ -30,6 +30,7 @@ from tristhana.application.remind import (
 from tristhana.application.tick import RunTick
 from tristhana.domain.accounts import Account, IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DateInFuture, DayLog, DayStatus
+from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import MoonDay, MoonDayKind, calendar_years
 from tristhana.domain.notifications import (
     DEFAULTS,
@@ -88,7 +89,7 @@ def _practiced(days: InMemoryDays, me: Account, when: date, practice: Practice) 
 
 
 def _quick(days: InMemoryDays, now: datetime = MORNING) -> QuickLogSameAsLast:
-    return QuickLogSameAsLast(days, InMemoryPractices(days), FixedClock(now))
+    return QuickLogSameAsLast(days, InMemoryPractices(days), FixedClock(now), NO_COUNTS)
 
 
 # QuickLogSameAsLast
