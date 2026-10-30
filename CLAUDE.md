@@ -37,7 +37,7 @@ A Telegram bot + Telegram Mini App (later web/mobile) for the **Ashtanga yoga** 
 
 ## Commands
 > CI: `.github/workflows/backend.yml` and `miniapp.yml`. API contract: `cd backend && uv run tristhana-openapi` → `miniapp/src/api/openapi.json`, then `cd miniapp && npm run gen:api`.
-- Backend: `cd backend && uv sync` · `uv run pytest` · `uv run ruff check . && uv run ruff format .` · `uv run pyright` · `uv run lint-imports` · full moon parity: `uv run pytest -m slow` · DB tests: set `TEST_DATABASE_URL` (local Postgres, see `backend/README.md`) · migrations: `uv run tristhana-migrate`
+- Backend: `cd backend && uv sync` · `uv run pytest` · `uv run ruff check . && uv run ruff format .` · `uv run pyright` · `uv run lint-imports` · full moon parity: `uv run pytest -m slow` · DB tests: set `TEST_DATABASE_URL` (local Postgres, see `backend/README.md`) · migrations: `uv run tristhana-migrate` (reads `DATABASE_URL` from the environment, not `.env`: `set -a && . ./.env && set +a` first; a fresh dev DB must be migrated once before `tristhana-dev`)
 - Run locally: `cd backend && uv run tristhana-dev` (API on :8000, `/docs`; with `TELEGRAM_MODE=polling` + the dev bot token in `backend/.env`, @tristhana_dev_bot long-polls in the same process). Config: copy `backend/.env.example` → `backend/.env`.
 - Mini App: `cd miniapp && npm ci` · `npm run dev` (mocked Telegram; `/api` proxied to :8000) · `npm test` · `npm run lint` · `npm run format:check` (CI runs it; fix with `npx prettier --write .`) · `npm run typecheck` · `npm run build && npm run check:bundle` · `npm run gen:api`
 - Diagrams: `python3 tools/render_diagrams.py`
