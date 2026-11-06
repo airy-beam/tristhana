@@ -10,7 +10,7 @@ import {
   type StatsSummary,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { backButtonAvailable, useBackButton } from "../../telegram";
+import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
 import { cityName } from "../MoonCard";
 import { DayOffQuestion } from "../DayOffQuestion";
 import { autoDays, loadShowLadies, moonDates, parse, saveShowLadies } from "./cells";
@@ -143,6 +143,7 @@ function Loaded({
               className="link"
               disabled={stats.year <= first}
               onClick={() => {
+                haptics.selection();
                 onYear(stats.year - 1);
               }}
             />
@@ -154,6 +155,7 @@ function Loaded({
               className="link"
               disabled={isCurrent}
               onClick={() => {
+                haptics.selection();
                 onYear(stats.year + 1);
               }}
             />
@@ -172,7 +174,10 @@ function Loaded({
           city={city}
           showLadies={showLadies}
           month={month}
-          onMonth={setMonth}
+          onMonth={(m) => {
+            haptics.selection();
+            setMonth(m);
+          }}
           monthName={monthName}
           dateLabel={dateLabel}
         />

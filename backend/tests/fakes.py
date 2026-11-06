@@ -732,14 +732,7 @@ class InMemoryNotifications:
         # Reminder days are the practice days (PR-09): never stored.
         return replace(stored, practice=replace(stored.practice, days=defaults.practice.days))
 
-    async def save(
-        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
-    ) -> NotificationSettings:
-        if not with_practice:
-            current = self.stored.get(account_id)
-            settings = replace(
-                settings, practice=current.practice if current else settings.practice
-            )
+    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
         self.stored[account_id] = settings
         return settings
 

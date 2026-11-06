@@ -140,21 +140,16 @@ class SqlNotificationRepository:
             row = (await conn.execute(stmt)).one()
         return _settings(row, defaults), _pause(row)  # all NULL (no row) = the defaults
 
-    async def save(
-        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
-    ) -> NotificationSettings:
+    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
         values: dict[str, Any] = {
             "moon_offsets": sorted(settings.moon.offsets),
             "moon_at": settings.moon.at,
             "quiet_start": settings.quiet.start,
             "quiet_end": settings.quiet.end,
             "daily_cap": settings.daily_cap,
+            "practice_on": settings.practice.on,
+            "practice_at": settings.practice.at,
         }
-        if with_practice:
-            values |= {
-                "practice_on": settings.practice.on,
-                "practice_at": settings.practice.at,
-            }
         return await self._upsert(account_id, values, settings)
 
     async def stored_row(self, account_id: UUID) -> StoredSettings:

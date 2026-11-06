@@ -16,7 +16,7 @@ import {
   themeParams,
   viewport,
 } from "@telegram-apps/sdk-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export interface LaunchUser {
   firstName: string | null;
@@ -40,6 +40,7 @@ export function initTelegram(): void {
     themeParams.mountSync.ifAvailable(); // older clients without miniApp support
   }
   themeParams.bindCssVars.ifAvailable();
+  followTelegramColorScheme();
   if (viewport.mount.isAvailable()) {
     viewport
       .mount()
@@ -51,6 +52,16 @@ export function initTelegram(): void {
         // Some clients time out here; the CSS has viewport fallbacks.
       });
   }
+}
+
+/** Native controls (selects, date pickers, scrollbars) follow Telegram's theme, not the
+ * phone's: the two can differ. Stays in sync when the theme changes while the app is open. */
+function followTelegramColorScheme(): void {
+  const apply = (dark: boolean) => {
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  };
+  apply(themeParams.isDark());
+  themeParams.isDark.sub(apply);
 }
 
 /** Telegram's ⋯ menu "Settings" item opens `onOpen` while mounted (ID-06). */
@@ -69,17 +80,34 @@ export function backButtonAvailable(): boolean {
   return backButton.show.isAvailable();
 }
 
-/** Shows Telegram's Back button while mounted; `onBack` runs when it's pressed. */
-export function useBackButton(onBack: () => void): void {
+// One Back button, several layers: the newest one (a day editor over its screen) gets the press.
+const backLayers: { current: () => void }[] = [];
+let stopListening: (() => void) | undefined;
+
+/** Shows Telegram's Back button while mounted and `enabled`; `onBack` runs when it's pressed,
+ * unless a layer opened later is still there (that one closes first). */
+export function useBackButton(onBack: () => void, enabled = true): void {
+  const layer = useRef(onBack);
   useEffect(() => {
-    if (!backButton.show.isAvailable()) return;
-    backButton.show();
-    const off = backButton.onClick(onBack);
-    return () => {
-      off();
-      backButton.hide.ifAvailable();
-    };
+    layer.current = onBack;
   }, [onBack]);
+  useEffect(() => {
+    if (!enabled || !backButton.show.isAvailable()) return;
+    backLayers.push(layer);
+    if (backLayers.length === 1) {
+      backButton.show();
+      stopListening = backButton.onClick(() => {
+        backLayers.at(-1)?.current();
+      });
+    }
+    return () => {
+      backLayers.splice(backLayers.indexOf(layer), 1);
+      if (backLayers.length === 0) {
+        stopListening?.();
+        backButton.hide.ifAvailable();
+      }
+    };
+  }, [enabled]);
 }
 
 /** Tell Telegram the app is ready (hides its loading placeholder). */
@@ -118,6 +146,9 @@ export const haptics = {
   notify: (type: "success" | "error" | "warning"): void => {
     hapticFeedback.notificationOccurred.ifAvailable(type);
   },
+  selection: (): void => {
+    hapticFeedback.selectionChanged.ifAvailable();
+  },
 };
 
 /** Shows Telegram's main button with `text` while the component is mounted; `loading` shows
@@ -134,7 +165,7 @@ export function useMainButton(
       mainButton.setParams({ isVisible: false });
       return;
     }
-    mainButton.setParams({ text, isVisible: true, isEnabled: true });
+    mainButton.setParams({ text, isVisible: true });
     const off = mainButton.onClick(onClick);
     return () => {
       off();
@@ -142,9 +173,10 @@ export function useMainButton(
     };
   }, [text, onClick, visible]);
 
+  // Also after showing it: a new label mid-load must not turn the button back on.
   useEffect(() => {
     mainButton.setParams.ifAvailable({ isLoaderVisible: loading, isEnabled: !loading });
-  }, [loading]);
+  }, [loading, text, visible]);
 }
 
 /** Telegram's native confirm popup with a destructive button (ST-09 delete); resolves true

@@ -12,7 +12,7 @@ import {
   type DayStatus,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { haptics } from "../../telegram";
+import { haptics, useBackButton } from "../../telegram";
 import { AutoNote } from "../AutoNote";
 import { CheckIn } from "../CheckIn";
 import { DiaryNote } from "../DiaryNote";
@@ -32,6 +32,7 @@ interface Props {
 
 /** Log or change one earlier day from the month calendar (the Mini App backfill, ST-01). */
 export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Props) {
+  useBackButton(onClose);
   const days = useDaysRange(date, date);
   const setDay = useSetDay();
   const hideLadies = useMe().data?.hide_ladies === true;

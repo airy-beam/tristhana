@@ -7,6 +7,7 @@ import { haptics } from "../telegram";
 import { TodayCard } from "./TodayCard";
 
 vi.mock("../telegram", () => ({
+  useBackButton: vi.fn(),
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn() },
 }));

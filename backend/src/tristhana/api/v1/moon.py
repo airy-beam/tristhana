@@ -31,10 +31,8 @@ from tristhana.domain.moon import Cities, MoonDayKind
 from tristhana.domain.notifications import (
     KEEP,
     InvalidSettings,
-    MoonReminders,
     NotificationPatch,
     NotificationSettings,
-    PracticeReminders,
     QuietHours,
     day_off_question,
 )
@@ -97,7 +95,7 @@ class PracticeSettingsOut(PracticeSettings):
     paused_until: dt.date | None = Field(
         default=None,
         description="Practice reminders skip days through this date (inclusive); null "
-        "when no period covers today (the deprecated PUT never reads it)",
+        "when no period covers today",
     )
 
 
@@ -105,12 +103,6 @@ class _SettingsCommon(BaseModel):
     moon: MoonSettings
     quiet: Quiet
     daily_cap: int = Field(ge=1, le=10)
-
-
-class NotificationSettingsBody(_SettingsCommon):
-    practice: PracticeSettings | None = Field(
-        default=None, description="The daily practice reminder; omitted = unchanged"
-    )
 
 
 class DayOffQuestionOut(BaseModel):
@@ -286,27 +278,3 @@ async def patch_notification_settings(
     except InvalidSettings:
         raise ApiError(422, "invalid_settings") from None
     return _settings_out(saved, principal.account, pause)
-
-
-@router.put("/me/notification-settings", responses=error_responses(401, 422, 503), deprecated=True)
-async def put_notification_settings(
-    body: NotificationSettingsBody,
-    principal: CurrentPrincipal,
-    use_case: Annotated[NotificationSettingsUseCase, Depends(notification_settings)],
-) -> NotificationSettingsOut:
-    settings = NotificationSettings(
-        moon=MoonReminders(frozenset(body.moon.offsets), body.moon.at.replace(tzinfo=None)),
-        quiet=QuietHours(
-            body.quiet.start.replace(tzinfo=None), body.quiet.end.replace(tzinfo=None)
-        ),
-        daily_cap=body.daily_cap,
-    )
-    practice = None
-    if body.practice is not None:
-        p = body.practice
-        practice = PracticeReminders(p.on, p.at.replace(tzinfo=None), frozenset(p.days))
-    try:
-        saved = await use_case.save(principal, settings, practice)
-    except InvalidSettings:
-        raise ApiError(422, "invalid_settings") from None
-    return _settings_out(saved, principal.account)

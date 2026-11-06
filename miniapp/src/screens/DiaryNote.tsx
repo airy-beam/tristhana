@@ -2,7 +2,13 @@ import { Localized, useLocalization } from "@fluent/react";
 import { useEffect, useState } from "react";
 
 import { useSaveDiaryNote, type DayNote } from "../api/client";
-import { disableClosingConfirmation, enableClosingConfirmation, haptics } from "../telegram";
+import {
+  confirmDestructive,
+  disableClosingConfirmation,
+  enableClosingConfirmation,
+  haptics,
+  useBackButton,
+} from "../telegram";
 
 interface Props {
   date: string;
@@ -38,6 +44,18 @@ export function DiaryNote({ date, note }: Props) {
     setDraft(null);
     save.reset();
   };
+  // Back while typing asks first; the text is kept nowhere else (Q68).
+  useBackButton(() => {
+    confirmDestructive(
+      l10n.getString("diary-discard-confirm"),
+      l10n.getString("diary-discard-yes"),
+      l10n.getString("diary-discard-no"),
+    )
+      .then((discard) => {
+        if (discard) close();
+      })
+      .catch(() => undefined); // a second press while the popup is open: it is still asking
+  }, dirty);
   const commit = (text: string | null) => {
     haptics.impact("light");
     save.mutate(

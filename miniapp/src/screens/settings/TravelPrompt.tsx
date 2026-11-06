@@ -49,6 +49,9 @@ export function TravelPrompt({
                   onSuccess: () => {
                     setDismissed(true);
                   },
+                  onError: () => {
+                    haptics.notify("error");
+                  },
                 },
               );
             }}

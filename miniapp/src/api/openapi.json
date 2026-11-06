@@ -1576,40 +1576,6 @@
         "title": "MoonSettings",
         "type": "object"
       },
-      "NotificationSettingsBody": {
-        "properties": {
-          "daily_cap": {
-            "maximum": 10.0,
-            "minimum": 1.0,
-            "title": "Daily Cap",
-            "type": "integer"
-          },
-          "moon": {
-            "$ref": "#/components/schemas/MoonSettings"
-          },
-          "practice": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PracticeSettings"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The daily practice reminder; omitted = unchanged"
-          },
-          "quiet": {
-            "$ref": "#/components/schemas/Quiet"
-          }
-        },
-        "required": [
-          "moon",
-          "quiet",
-          "daily_cap"
-        ],
-        "title": "NotificationSettingsBody",
-        "type": "object"
-      },
       "NotificationSettingsOut": {
         "properties": {
           "daily_cap": {
@@ -2045,46 +2011,6 @@
         "title": "PracticePresets",
         "type": "object"
       },
-      "PracticeSettings": {
-        "properties": {
-          "at": {
-            "description": "Local wall clock, 15-minute grid",
-            "format": "time",
-            "title": "At",
-            "type": "string"
-          },
-          "days": {
-            "description": "ISO weekdays (1 = Monday)",
-            "items": {
-              "maximum": 7.0,
-              "minimum": 1.0,
-              "type": "integer"
-            },
-            "minItems": 1,
-            "title": "Days",
-            "type": "array"
-          },
-          "on": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "null = never chosen (off; the bot may offer it once)",
-            "title": "On"
-          }
-        },
-        "required": [
-          "on",
-          "at",
-          "days"
-        ],
-        "title": "PracticeSettings",
-        "type": "object"
-      },
       "PracticeSettingsOut": {
         "properties": {
           "at": {
@@ -2139,7 +2065,7 @@
                 "type": "null"
               }
             ],
-            "description": "Practice reminders skip days through this date (inclusive); null when no period covers today (the deprecated PUT never reads it)",
+            "description": "Practice reminders skip days through this date (inclusive); null when no period covers today",
             "title": "Paused Until"
           }
         },
@@ -4343,71 +4269,6 @@
           }
         ],
         "summary": "Patch Notification Settings",
-        "tags": [
-          "moon"
-        ]
-      },
-      "put": {
-        "deprecated": true,
-        "operationId": "put_notification_settings_api_v1_me_notification_settings_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NotificationSettingsBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationSettingsOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Unprocessable Content"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "TelegramInitData": []
-          }
-        ],
-        "summary": "Put Notification Settings",
         "tags": [
           "moon"
         ]

@@ -95,8 +95,8 @@ def test_notification_settings_round_trip(api: TestClient) -> None:
         "quiet": {"start": "23:00:00", "end": "06:00:00"},
         "daily_cap": 2,
     }
-    saved = api.put("/api/v1/me/notification-settings", json=body, headers=_auth())
-    bad = api.put(
+    saved = api.patch("/api/v1/me/notification-settings", json=body, headers=_auth())
+    bad = api.patch(
         "/api/v1/me/notification-settings",
         json=body | {"moon": {"offsets": [1], "at": "07:05:00"}},
         headers=_auth(),
@@ -167,32 +167,20 @@ class _NoCompute:
 
 
 def test_practice_reminder_settings_round_trip(api: TestClient) -> None:
-    current = api.get("/api/v1/me/notification-settings", headers=_auth()).json()
-    on = current | {"practice": {"on": True, "at": "20:00:00", "days": [1, 2, 3, 4, 5, 6]}}
-    del on["timezone"]
+    url = "/api/v1/me/notification-settings"
+    days = api.get(url, headers=_auth()).json()["practice"]["days"]
+    on: dict[str, Any] = {"on": True, "at": "20:00:00"}
 
-    saved = api.put("/api/v1/me/notification-settings", json=on, headers=_auth())
-    no_days = api.put(
-        "/api/v1/me/notification-settings",
-        json=on | {"practice": on["practice"] | {"days": []}},
-        headers=_auth(),
-    )
-    in_quiet = api.put(
-        "/api/v1/me/notification-settings",
-        json=on | {"practice": on["practice"] | {"at": "23:00:00"}},
-        headers=_auth(),
-    )
-    moon_only = api.put(
-        "/api/v1/me/notification-settings",
-        json={k: v for k, v in on.items() if k != "practice"},
-        headers=_auth(),
-    )
+    saved = api.patch(url, json={"practice": on}, headers=_auth())
+    no_days = api.patch(url, json={"practice": on | {"days": list[int]()}}, headers=_auth())
+    in_quiet = api.patch(url, json={"practice": {"at": "23:00:00"}}, headers=_auth())
+    moon_only = api.patch(url, json={"moon": {"offsets": [1]}}, headers=_auth())
 
-    paused = {"paused_start": None, "paused_until": None}  # WH-01 part 2
-    assert saved.json()["practice"] == on["practice"] | paused
+    expected = on | {"days": days, "paused_start": None, "paused_until": None}  # WH-01 part 2
+    assert saved.json()["practice"] == expected
     assert no_days.status_code == 422
     assert (in_quiet.status_code, in_quiet.json()) == (422, {"code": "invalid_settings"})
-    assert moon_only.json()["practice"] == on["practice"] | paused  # omitted: unchanged
+    assert moon_only.json()["practice"] == expected  # omitted: unchanged
 
 
 def test_stats_for_the_owner(api: TestClient, storage: InMemoryStorage) -> None:

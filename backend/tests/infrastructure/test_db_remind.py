@@ -152,13 +152,3 @@ async def test_copy_usual_with_only_led_history_and_with_none(engine: AsyncEngin
     copied = await practices.copy_usual(me, MON, ZONE)
     assert copied is not None
     assert (copied.source, copied.practice.context) == (sun, PracticeContext.LED)
-
-
-async def test_saving_without_practice_leaves_it_alone(engine: AsyncEngine) -> None:
-    me = await _account(engine)
-    repo = SqlNotificationRepository(engine)
-    await repo.patch_practice(me, ReminderPatch(on=True, at=time(18)), DEFAULTS)
-
-    saved = await repo.save(me, replace(DEFAULTS, daily_cap=2), with_practice=False)
-
-    assert (saved.practice.on, saved.practice.at, saved.daily_cap) == (True, time(18), 2)

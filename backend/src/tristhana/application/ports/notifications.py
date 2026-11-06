@@ -73,10 +73,8 @@ class NotificationRepository(Protocol):
         """`settings` plus the rest period covering `today`, in one statement (WH-01)."""
         ...
 
-    async def save(
-        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
-    ) -> NotificationSettings:
-        """Replace the settings; `with_practice=False` leaves the practice columns alone."""
+    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
+        """Replace the settings."""
         ...
 
     async def stored_row(self, account_id: UUID) -> StoredSettings:

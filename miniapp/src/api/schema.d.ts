@@ -326,11 +326,7 @@ export interface paths {
         };
         /** Get Notification Settings */
         get: operations["get_notification_settings_api_v1_me_notification_settings_get"];
-        /**
-         * Put Notification Settings
-         * @deprecated
-         */
-        put: operations["put_notification_settings_api_v1_me_notification_settings_put"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1198,15 +1194,6 @@ export interface components {
              */
             offsets: (1 | 3 | 7)[];
         };
-        /** NotificationSettingsBody */
-        NotificationSettingsBody: {
-            /** Daily Cap */
-            daily_cap: number;
-            moon: components["schemas"]["MoonSettings"];
-            /** @description The daily practice reminder; omitted = unchanged */
-            practice?: components["schemas"]["PracticeSettings"] | null;
-            quiet: components["schemas"]["Quiet"];
-        };
         /** NotificationSettingsOut */
         NotificationSettingsOut: {
             /** Daily Cap */
@@ -1350,25 +1337,6 @@ export interface components {
             /** Presets */
             presets: components["schemas"]["Preset"][];
         };
-        /** PracticeSettings */
-        PracticeSettings: {
-            /**
-             * At
-             * Format: time
-             * @description Local wall clock, 15-minute grid
-             */
-            at: string;
-            /**
-             * Days
-             * @description ISO weekdays (1 = Monday)
-             */
-            days: number[];
-            /**
-             * On
-             * @description null = never chosen (off; the bot may offer it once)
-             */
-            on: boolean | null;
-        };
         /** PracticeSettingsOut */
         PracticeSettingsOut: {
             /**
@@ -1394,7 +1362,7 @@ export interface components {
             paused_start?: string | null;
             /**
              * Paused Until
-             * @description Practice reminders skip days through this date (inclusive); null when no period covers today (the deprecated PUT never reads it)
+             * @description Practice reminders skip days through this date (inclusive); null when no period covers today
              */
             paused_until?: string | null;
         };
@@ -2717,57 +2685,6 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    put_notification_settings_api_v1_me_notification_settings_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NotificationSettingsBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationSettingsOut"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -26,6 +26,8 @@ interface Props {
 
 type Target = { series: string | null; last: string | null };
 
+const noop = () => undefined;
+
 /** "🧘 My asanas" (PR-08): where the practice ends now, a new asana, the milestone items,
  * a correction (never celebrated), and a short history with Undo on the newest entry.
  * Loaded lazily, so Home stays light. Writes are not optimistic. */
@@ -316,6 +318,7 @@ function ChangeForm({
   onSave: (target: Target) => void;
   onCancel: (() => void) | undefined;
 }) {
+  useBackButton(onCancel ?? noop, onCancel !== undefined);
   const [series, setSeries] = useState(position?.series ?? catalog.series[0]?.slug ?? "");
   const stops = catalog.series.find((s) => s.slug === series)?.stops ?? [];
   const [last, setLast] = useState(position?.last ?? "");
