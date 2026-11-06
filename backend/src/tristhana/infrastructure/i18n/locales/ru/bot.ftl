@@ -18,7 +18,7 @@ help-text =
     🔔 /remind: напоминание о практике
     🧘 /asanas: мои асаны, отметить новую
     🌙 /moon: ближайшие лунные дни и напоминания
-    ⚙️ /settings: язык, часовой пояс, напоминания
+    ⚙️ /settings: язык, город, напоминания
     📊 Журнал практики и статистика — в приложении (кнопка рядом с полем ввода).
 
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
@@ -301,7 +301,7 @@ remind-days-follow = Они приходят в дни практики. Пом�
 remind-practice-link = 🧘 Напоминание о практике
 
 ## Настройки (ID-06).
-command-settings = Язык, часовой пояс, напоминания
+command-settings = Язык, город, напоминания
 settings-title = ⚙️ Настройки
 language-auto = Как в Telegram
 language-en = English
