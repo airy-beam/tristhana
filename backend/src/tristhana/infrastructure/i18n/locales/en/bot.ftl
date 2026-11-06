@@ -18,7 +18,7 @@ help-text =
     🔔 /remind: practice reminder
     🧘 /asanas: my asanas, mark a new one
     🌙 /moon: upcoming moon days and reminders
-    ⚙️ /settings: language, time zone, reminders
+    ⚙️ /settings: language, city, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
 
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
@@ -299,7 +299,7 @@ remind-days-follow = They come on your practice days. To change the days, tap �
 remind-practice-link = 🧘 Practice reminder
 
 ## Settings (ID-06).
-command-settings = Language, time zone, reminders
+command-settings = Language, city, reminders
 settings-title = ⚙️ Settings
 language-auto = As in Telegram
 language-en = English
