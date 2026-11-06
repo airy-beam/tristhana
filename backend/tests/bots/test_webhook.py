@@ -209,7 +209,7 @@ def test_start_offers_the_mini_app_when_configured() -> None:
     with TestClient(create_app(settings, InMemoryStorage())) as client:
         body = _post(client, _update("/start", language_code="ru")).json()
 
-    [language, app] = body["reply_markup"]["inline_keyboard"][-1]
+    [language, app] = body["reply_markup"]["inline_keyboard"][-2]
     assert language == {"text": "🗣 English", "callback_data": "o1:l:en"}
     assert app["web_app"] == {"url": "https://tristhana.web.app"}
     assert app["text"] == "Открыть приложение"
@@ -220,7 +220,7 @@ def test_start_without_a_mini_app_url_has_only_the_language_button(
 ) -> None:
     body = _post(bot_client, _update("/start")).json()
 
-    assert body["reply_markup"]["inline_keyboard"][-1] == [
+    assert body["reply_markup"]["inline_keyboard"][-2] == [
         {"text": "🗣 Русский", "callback_data": "o1:l:ru"}
     ]
 

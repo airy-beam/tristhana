@@ -32,13 +32,15 @@ const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")
 interface Props {
   me: Me;
   onBack: () => void;
+  /** Opens the quick tour on Home (UI-02). */
+  onTour: () => void;
   /** Open scrolled to a section (the stats "Set your weekly day off" link). */
   focus?: "day-off" | undefined;
 }
 
 /** Everything in one place (ID-06): profile, time zone, moon days, reminders, privacy.
  * Loaded lazily, so Home stays light. */
-export default function Settings({ me, onBack, focus }: Props) {
+export default function Settings({ me, onBack, onTour, focus }: Props) {
   useBackButton(onBack);
   useEffect(() => {
     if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
@@ -62,6 +64,9 @@ export default function Settings({ me, onBack, focus }: Props) {
         place={placeFor(me.home_city, me.timezone, me.locale)}
       />
       <Quiet zone={me.timezone} />
+      <Localized id="tour-open">
+        <button type="button" className="row-button" onClick={onTour} />
+      </Localized>
       <Privacy me={me} />
       <MyData />
     </main>

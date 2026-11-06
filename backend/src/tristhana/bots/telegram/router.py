@@ -7,7 +7,6 @@ Handlers return an unexecuted Bot API method: in webhook mode it becomes the HTT
 
 from aiogram import F, Router
 from aiogram.enums import ChatType
-from aiogram.filters import Command
 from aiogram.methods import AnswerCallbackQuery, SendMessage
 from aiogram.types import (
     CallbackQuery,
@@ -37,6 +36,7 @@ from tristhana.bots.telegram.runtime import (
 )
 from tristhana.bots.telegram.settings import register_settings
 from tristhana.bots.telegram.start import register_start
+from tristhana.bots.telegram.tour import register_tour
 from tristhana.domain.accounts import Account
 
 
@@ -62,14 +62,11 @@ def build_router(
     router.message.middleware(accounts)
     router.callback_query.middleware(accounts)
 
-    @router.message(Command("help"))
-    async def on_help(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        return message.answer(translator.t(account.locale, "help-text"))
-
     screens = day_screens.register(
         router, days, practices, translator, remind, miniapp_url, check_ins, diary, progression
     )
-    register_start(router, screens, settings, translator, miniapp_url)
+    start = register_start(router, screens, settings, translator, miniapp_url)
+    register_tour(router, start, translator, miniapp_url)
     register_moon(router, moon, translator)
     remind_screens = register_remind(router, remind, screens, translator, rest)
     if rest is not None:  # WH-01 rest periods (always wired by the app)

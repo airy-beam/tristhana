@@ -13,8 +13,9 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram.days import DayScreens
 from tristhana.bots.telegram.runtime import SettingsUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, app_button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, app_button, nothing, show
 from tristhana.bots.telegram.settings import client_profile
+from tristhana.bots.telegram.tour_callbacks import Origin, step
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.locale import LOCALES, Locale
 
@@ -39,7 +40,7 @@ def register_start(
     settings: SettingsUseCases,
     translator: Translator,
     miniapp_url: str = "",
-) -> None:
+) -> "StartScreens":
     screens = StartScreens(days, settings, translator, miniapp_url)
 
     # Any payload: deep links (`t_<code>`, ID-04 teacher invites) aren't parsed or logged yet.
@@ -52,15 +53,18 @@ def register_start(
     async def on_language(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         locale = decode(callback.data)
         if locale is None:
-            await answered(callback, _nothing())
+            await answered(callback, nothing())
             return None
         work = screens.switch(Principal(account), locale, client_profile(callback.from_user))
         screen = await answered(callback, work)
         return show(callback, screen)
 
+    return screens
 
-async def _nothing() -> None:
-    return None
+
+def tour_button(t: Translator, locale: Locale, origin: Origin) -> InlineKeyboardButton:
+    """Opens the quick tour (UI-02) on its first step."""
+    return InlineKeyboardButton(text=t.t(locale, "tour-open"), callback_data=step(1, origin))
 
 
 class StartScreens:
@@ -95,7 +99,7 @@ class StartScreens:
         ]
         if self._app:
             last.append(app_button(self._t, locale, self._app))
-        rows = [*picker.markup.inline_keyboard, last]
+        rows = [*picker.markup.inline_keyboard, last, [tour_button(self._t, locale, "s")]]
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def switch(self, principal: Principal, locale: Locale, client: ExternalProfile) -> Screen:

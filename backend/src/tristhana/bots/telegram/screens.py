@@ -56,6 +56,11 @@ async def answered[T](callback: CallbackQuery, work: Awaitable[T]) -> T:
         await answering
 
 
+async def nothing() -> None:
+    """`answered` work for a tap that changes nothing (old or forged data)."""
+    return None
+
+
 async def _answer(callback: CallbackQuery) -> None:
     try:
         await callback.answer()

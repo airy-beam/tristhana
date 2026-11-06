@@ -45,6 +45,13 @@ export function keptFor(device: string): boolean {
   }
 }
 
+/** The phone's clock differs from the account's zone and the person hasn't answered yet.
+ * Clocks, not names: Kiev vs Kyiv is the same clock. */
+export function travelPending(zone: string | null): boolean {
+  const device = deviceZone();
+  return !!zone && !!device && !keptFor(device) && offsetOf(device) !== offsetOf(zone);
+}
+
 export function keep(device: string): void {
   try {
     localStorage.setItem("tz.keep", device);

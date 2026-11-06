@@ -38,6 +38,7 @@ from tristhana.bots.telegram.screens import (
     answered,
     app_button,
     day_label,
+    nothing,
     show,
 )
 from tristhana.domain.accounts import Account
@@ -114,7 +115,7 @@ def register(
     async def on_day(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
         if cb is None:
-            await answered(callback, _nothing())
+            await answered(callback, nothing())
             return None
         screen = await answered(callback, screens.handle(Principal(account), cb))
         if cb.action == "today":
@@ -126,10 +127,6 @@ def register(
         return show(callback, screen)
 
     return screens
-
-
-async def _nothing() -> None:
-    return None
 
 
 class DayScreens:

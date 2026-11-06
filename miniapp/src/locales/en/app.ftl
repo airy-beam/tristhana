@@ -497,3 +497,20 @@ delete-cancel = Cancel
 delete-failed = Couldn't delete. Try again in a moment.
 delete-done-app = Your account and data are deleted. Wishing you good practice 🙏 Open the bot any time to start fresh.
 delete-close = Close
+
+## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
+
+tour-open = 🧭 Quick tour
+tour-offer = Want a quick look around? It takes a minute.
+tour-offer-yes = Show me
+tour-offer-no = Not now
+tour-progress = { $n } of { $total }
+tour-next = Next
+tour-prev = ‹
+    .aria-label = Previous step
+tour-done = Done
+tour-today = Log today: practice or rest. After a practice you can add details, how it felt and a private note.
+tour-stats = Your year at a glance, plus a calendar for filling in earlier days.
+tour-asanas = Your last asana. Log a new one here when your teacher gives it.
+tour-moon = The next moon days: full and new moons, traditional rest days. You pick the city in Settings.
+tour-settings = Your city, weekly day off, reminders and privacy. This tour lives here too.
