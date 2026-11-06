@@ -706,6 +706,17 @@ def test_progression_copy_avoids_competitive_or_guilty_words(locale: str) -> Non
         assert not [line for line in lines if word in line], word
 
 
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_tour_copy_stays_gentle_and_never_names_the_ladies_holiday(locale: str) -> None:
+    text = (files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl").read_text(
+        encoding="utf-8"
+    )
+    section = text.split("(UI-02)", 1)[1].split("fallback-text", 1)[0].split("\n", 1)[1].lower()
+    assert "tour-app" in section
+    banned = (*_AVOID[locale], "🌸", "ladies", "женск", "missed", "skipped", "серия")
+    assert not [word for word in banned if word in section]
+
+
 # GM-01 part 2 (spec §7): a count is a thank-you, never a score, and 365 is never "a year"
 # or daily practice (rest days are part of the method). On top of `_AVOID`.
 _AVOID_COUNT = {

@@ -34,7 +34,7 @@ export function MoonCard({ locale }: { locale: Locale }) {
   const upcoming = moon.days.slice(0, UPCOMING);
 
   return (
-    <section className="card" aria-labelledby="moon-title">
+    <section className="card" data-tour="moon" aria-labelledby="moon-title">
       <Localized id="moon-title" vars={{ city }}>
         <h2 id="moon-title" />
       </Localized>

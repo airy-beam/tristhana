@@ -106,8 +106,8 @@ def test_start_greets_and_asks_about_today_in_one_message(client: TestClient) ->
     assert "Practice or rest? Both go in your log." in body["text"]
     rows = _rows(body)
     assert rows[0] == ["🧘 Practiced"]
-    assert rows[-2] == ["📅 Another day"]
-    assert rows[-1] == ["🗣 Русский", "Open the app"]
+    assert rows[-3] == ["📅 Another day"]
+    assert rows[-2] == ["🗣 Русский", "Open the app"]
     data = body["reply_markup"]["inline_keyboard"][0][0]["callback_data"]
     assert data == f"d1:s:{_today():%Y%m%d}:p"  # an absolute date
 
@@ -142,7 +142,7 @@ def test_language_button_switches_in_place_and_sticks(
 
     assert ru["method"] == "editMessageText"
     assert ru["text"].startswith("Намасте 🙏")
-    assert _rows(ru)[-1][0] == "🗣 English"
+    assert _rows(ru)[-2][0] == "🗣 English"
     assert again["text"].startswith("Намасте 🙏")  # chosen: Telegram's English doesn't undo it
     [account] = storage.repo.accounts.values()
     assert account.locale_custom
@@ -176,7 +176,7 @@ def test_start_in_russian(client: TestClient) -> None:
 
     assert body["text"].startswith("Намасте 🙏")
     assert _rows(body)[0] == ["🧘 Практика"]
-    assert _rows(body)[-1] == ["🗣 English", "Открыть приложение"]
+    assert _rows(body)[-2] == ["🗣 English", "Открыть приложение"]
 
 
 def test_forged_language_data_changes_nothing(client: TestClient, storage: InMemoryStorage) -> None:

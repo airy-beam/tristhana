@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMoonCities, usePatchMe, type City } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
-import { deviceZone, keep, keptFor, offsetOf, placeFor, placeOf } from "./zones";
+import { deviceZone, keep, offsetOf, placeFor, placeOf, travelPending } from "./zones";
 
 /** "Your phone is on Bangkok time" when the phone's UTC offset differs from the account's
  * zone. The zone is never changed silently (ID-06): a phone and a desktop would flip it. */
@@ -22,8 +22,7 @@ export function TravelPrompt({
   const patch = usePatchMe();
   const [dismissed, setDismissed] = useState(false);
   const device = deviceZone();
-  if (!zone || !device || dismissed || keptFor(device)) return null;
-  if (offsetOf(device) === offsetOf(zone)) return null; // Kiev vs Kyiv: same clock
+  if (!zone || !device || dismissed || !travelPending(zone)) return null;
   const ru = locale === "ru";
   const there = placeOf(device, cities, ru);
   const here = placeFor(home, zone, locale) ?? placeOf(zone, cities, ru);

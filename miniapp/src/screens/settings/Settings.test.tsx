@@ -135,9 +135,19 @@ afterEach(() => {
 });
 
 describe("Settings", () => {
+  it("re-opens the quick tour from a row above Privacy", async () => {
+    stubApi();
+    const onTour = vi.fn();
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={onTour} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "🧭 Quick tour" }));
+
+    expect(onTour).toHaveBeenCalledOnce();
+  });
+
   it("saves a name on blur, and blank goes back to the Telegram name", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} />);
     const name = await screen.findByRole("textbox", { name: "Name" });
     expect(name).toHaveAttribute("placeholder", "Ash");
 
@@ -149,7 +159,9 @@ describe("Settings", () => {
 
   it("switches the language and back to Telegram's", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, locale_from_telegram: false }} onBack={vi.fn()} />);
+    renderWith(
+      <Settings me={{ ...ME, locale_from_telegram: false }} onBack={vi.fn()} onTour={vi.fn()} />,
+    );
 
     expect(
       await screen.findByRole("button", { name: "English", pressed: true }),
@@ -162,7 +174,7 @@ describe("Settings", () => {
   it("lists every city, plus 'not listed' that offers the phone's time or UTC", async () => {
     deviceZoneIs("Asia/Bangkok");
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
+    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} onTour={vi.fn()} />);
     const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
     expect([...select.querySelectorAll("option")].map((o) => o.value)).toEqual([
       "",
@@ -190,7 +202,7 @@ describe("Settings", () => {
 
   it("won't let quiet hours swallow an active reminder, and sets the cap", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} />);
 
     const from = await screen.findByRole("combobox", { name: "Quiet from" });
     const option = (h: string) => from.querySelector(`option[value="${h}"]`) as HTMLOptionElement;
@@ -205,7 +217,7 @@ describe("Settings", () => {
 
   it("explains privacy and shares the 🌸 switch with Stats", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} />);
 
     expect(await screen.findByText(/stored encrypted/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" }));
@@ -308,7 +320,11 @@ describe("My city (MD-04)", () => {
   it("marks the stored city, not another one in its zone, and saves the slug", async () => {
     const seen = stubApi();
     renderWith(
-      <Settings me={{ ...ME, timezone: "Europe/Moscow", home_city: SOCHI }} onBack={vi.fn()} />,
+      <Settings
+        me={{ ...ME, timezone: "Europe/Moscow", home_city: SOCHI }}
+        onBack={vi.fn()}
+        onTour={vi.fn()}
+      />,
     );
     const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
 
@@ -326,7 +342,7 @@ describe("My city (MD-04)", () => {
       name_ru: "Астана",
       timezone: "Asia/Almaty",
     };
-    renderWith(<Settings me={{ ...ME, home_city: astana }} onBack={vi.fn()} />);
+    renderWith(<Settings me={{ ...ME, home_city: astana }} onBack={vi.fn()} onTour={vi.fn()} />);
 
     expect(
       await screen.findByText(
@@ -337,7 +353,9 @@ describe("My city (MD-04)", () => {
 
   it("nudges once: Not now answers it and keeps the zone", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, home_city_chosen: false }} onBack={vi.fn()} />);
+    renderWith(
+      <Settings me={{ ...ME, home_city_chosen: false }} onBack={vi.fn()} onTour={vi.fn()} />,
+    );
 
     expect(
       await screen.findByText("Pick your city if you like: times will then show its name."),
@@ -349,7 +367,7 @@ describe("My city (MD-04)", () => {
 
   it("has no nudge once answered", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} />);
     await screen.findByRole("combobox", { name: "Which city do you live in?" });
 
     expect(
@@ -365,7 +383,7 @@ describe("My city (MD-04)", () => {
     client.setQueryData(["moon-cities"], CITIES);
     function Live() {
       const me = client.getQueryData<Me>(["me"]) ?? ME;
-      return <Settings me={me} onBack={vi.fn()} />;
+      return <Settings me={me} onBack={vi.fn()} onTour={vi.fn()} />;
     }
     render(
       <QueryClientProvider client={client}>
@@ -384,7 +402,7 @@ describe("My city (MD-04)", () => {
 
   it("offers 'Same as my city' first in the moon calendar picker", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
+    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} onTour={vi.fn()} />);
     const select = await screen.findByRole("combobox", { name: "City for the calendar" });
 
     const first = select.querySelector("option");
@@ -402,7 +420,7 @@ describe("Day off (PR-09)", () => {
 
   it("starts with nothing pressed and takes up to two days off", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
+    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} onTour={vi.fn()} />);
     const group = await screen.findByRole("group", { name: "Day off" });
     const chip = (name: string) =>
       within(group).getByRole("button", { name: (n) => plain(n) === name });
@@ -428,7 +446,7 @@ describe("Day off (PR-09)", () => {
   it("rolls back when the save fails", async () => {
     dayOffFails = true;
     stubApi();
-    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
+    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} onTour={vi.fn()} />);
     const group = await screen.findByRole("group", { name: "Day off" });
     fireEvent.click(within(group).getByRole("button", { name: "No fixed day off" }));
 
@@ -450,7 +468,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("is on by default, explains itself, and saves at once", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} />);
+    renderWith(<Settings me={shown} onBack={vi.fn()} onTour={vi.fn()} />);
 
     const box = await toggle();
     expect(box).toBeChecked();
@@ -465,7 +483,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("reads the stored choice", async () => {
     stubApi();
-    renderWith(<Settings me={{ ...ME, hide_ladies: true }} onBack={vi.fn()} />);
+    renderWith(<Settings me={{ ...ME, hide_ladies: true }} onBack={vi.fn()} onTour={vi.fn()} />);
 
     expect(await toggle()).not.toBeChecked();
   });
@@ -473,7 +491,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
   it("rolls back when the save fails", async () => {
     meFails = true;
     stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} />);
+    renderWith(<Settings me={shown} onBack={vi.fn()} onTour={vi.fn()} />);
     const box = await toggle();
 
     fireEvent.click(box);
@@ -485,7 +503,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("is separate from the device-only 🌸 days switch", async () => {
     stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} />);
+    renderWith(<Settings me={shown} onBack={vi.fn()} onTour={vi.fn()} />);
     fireEvent.click(await toggle());
 
     expect(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" })).not.toBeChecked();
@@ -503,7 +521,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
 
   it("is on by default, explains itself, and saves at once", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} />);
+    renderWith(<Settings me={offered} onBack={vi.fn()} onTour={vi.fn()} />);
 
     const box = await toggle();
     expect(box).toBeChecked();
@@ -520,7 +538,9 @@ describe("Offer a check-in after practice (PR-06)", () => {
 
   it("reads the stored choice and turns it back on", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...offered, offer_check_in: false }} onBack={vi.fn()} />);
+    renderWith(
+      <Settings me={{ ...offered, offer_check_in: false }} onBack={vi.fn()} onTour={vi.fn()} />,
+    );
 
     const box = await toggle();
     expect(box).not.toBeChecked();
@@ -532,7 +552,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
   it("rolls back when the save fails", async () => {
     meFails = true;
     stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} />);
+    renderWith(<Settings me={offered} onBack={vi.fn()} onTour={vi.fn()} />);
     const box = await toggle();
 
     fireEvent.click(box);
@@ -544,7 +564,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
 
   it("is in Russian too", async () => {
     stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} />, "ru");
+    renderWith(<Settings me={offered} onBack={vi.fn()} onTour={vi.fn()} />, "ru");
 
     expect(
       await screen.findByRole("checkbox", {

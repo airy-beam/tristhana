@@ -459,3 +459,79 @@ body {
   margin: 8px 0 0;
   padding-left: 20px;
 }
+
+/* UI-02: the quick tour. Theme colours only; the spotlight's shadow is the dim. */
+[data-tour] {
+  scroll-margin-top: 12px;
+}
+
+.tour-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.tour-blocker.dim {
+  background: rgb(0 0 0 / 55%);
+}
+
+.tour-spot {
+  position: fixed;
+  z-index: 101;
+  border-radius: 12px;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 55%);
+  outline: 2px solid var(--c-accent);
+  pointer-events: none;
+  transition:
+    top 0.2s,
+    left 0.2s,
+    width 0.2s,
+    height 0.2s;
+}
+
+.tour-sheet {
+  position: fixed;
+  right: 8px;
+  bottom: calc(100vh - var(--tg-viewport-stable-height, 100vh) + 8px + env(safe-area-inset-bottom));
+  left: 8px;
+  z-index: 102;
+  padding: var(--space);
+  border-radius: 12px;
+  background: var(--c-bg);
+  color: var(--c-text);
+}
+
+.tour-sheet.top {
+  top: calc(8px + env(safe-area-inset-top));
+  bottom: auto;
+}
+
+.tour-sheet p {
+  outline: none;
+}
+
+.tour-sheet .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tour-sheet .row button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.tour-sheet .chip {
+  background: var(--c-accent);
+  color: var(--c-accent-text);
+}
+
+.tour-sheet .row button:last-child {
+  margin-left: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot {
+    transition: none;
+  }
+}

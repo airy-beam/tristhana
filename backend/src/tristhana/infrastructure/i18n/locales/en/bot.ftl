@@ -15,11 +15,34 @@ start-open-app = Open the app
 help-text =
     I'm Tristhana, a companion for your Ashtanga practice.
     📝 /log: today or an earlier day
-    🔔 /remind: daily practice reminder
+    🔔 /remind: practice reminder
     🧘 /asanas: my asanas, mark a new one
     🌙 /moon: upcoming moon days and reminders
     ⚙️ /settings: language, time zone, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
+
+## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
+
+tour-open = 🧭 Quick tour
+tour-progress = { $n } of { $total }
+tour-next = Next ›
+tour-back = ‹ Back
+tour-done = ✓ Done
+tour-log =
+    📝 Your log
+    Practice or rest? Both go in your log. Mysore, led or on your own, short or full: it's all practice. After a practice you can add details, how it felt and a private note. An earlier day? /log takes you back.
+tour-rest =
+    🌿 Rest and moon days
+    Rest is part of the practice. Full and new moon days are traditional rest days: they fill in on their own, and so does your weekly day off once you set it in /settings. If a day goes differently, just log it. Dates and moon reminders are in /moon.
+tour-remind =
+    🔔 Reminders
+    If you'd like, /remind asks once a day how it went, with a one-tap log. It comes on your practice days, not on moon days. Out for a few days, say sick or traveling? Log the first day and I'll offer a pause.
+tour-asanas =
+    🧘 My asanas
+    /asanas keeps your last asana, so logging a practice takes fewer taps. New asana from your teacher? Mark it there 🎉
+tour-app =
+    📊 The app
+    Your year at a glance, month summaries and a calendar for earlier days. Everything you log here is there too. This tour stays in /help.
 
 fallback-text = I can't answer messages yet. Try /start or /help 🙏
 
@@ -231,7 +254,7 @@ moon-reminder-off = 🔕 Moon reminders are off. You can turn them back on in /m
 moon-reminder-on = 🔔 Moon reminders are on again.
 
 ## Practice reminder (PR-10). { $day } and { $date } arrive formatted ("Mon, Oct 19"); { $d } is an ISO weekday (1 = Monday).
-command-remind = Daily practice reminder
+command-remind = Practice reminder
 remind-practice = 🌿 { $day }: practice or rest? One tap to log it.
 remind-same = ✅ Practiced, same as last time
 remind-practiced = 🧘 Practiced…

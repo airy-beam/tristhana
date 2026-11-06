@@ -29,7 +29,7 @@ from tristhana.bots.telegram.data_callbacks import (
     encode,
 )
 from tristhana.bots.telegram.runtime import DataUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, button, nothing, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
 
@@ -43,7 +43,7 @@ def register_data(router: Router, data: DataUseCases, translator: Translator) ->
     async def on_data_tap(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
         if cb is None:
-            await answered(callback, _nothing())
+            await answered(callback, nothing())
             return None
         if cb.action == "export":
             screen = await screens.export(callback, Principal(account), cb.from_delete)
@@ -54,10 +54,6 @@ def register_data(router: Router, data: DataUseCases, translator: Translator) ->
         if screen.markup.inline_keyboard == [] and isinstance(callback.message, Message):
             return callback.message.edit_text(screen.text)  # delete-done: no keyboard
         return show(callback, screen)
-
-
-async def _nothing() -> None:
-    return None
 
 
 class DataScreens:

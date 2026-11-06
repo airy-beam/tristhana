@@ -18,6 +18,7 @@ import { haptics } from "../telegram";
 import { AutoNote } from "./AutoNote";
 import { CheckIn } from "./CheckIn";
 import { DiaryNote } from "./DiaryNote";
+import { loggedBefore, markLogged } from "./onboard";
 import { cityName } from "./MoonCard";
 import { PauseOffer, PeriodLine } from "./PauseOffer";
 import { PracticeDetails } from "./PracticeDetails";
@@ -27,24 +28,6 @@ interface Props {
   /** The account's IANA zone (null until the device reported it). */
   zone: string | null;
   locale: Locale;
-}
-
-const LOGGED_KEY = "onboard.logged";
-
-function loggedBefore(): boolean {
-  try {
-    return localStorage.getItem(LOGGED_KEY) === "1";
-  } catch {
-    return true; // storage blocked: never nag
-  }
-}
-
-function markLogged(): void {
-  try {
-    localStorage.setItem(LOGGED_KEY, "1");
-  } catch {
-    // Blocked storage: the hint just isn't remembered.
-  }
 }
 
 /** Today's status chips on Home (PR-01). "Today" comes from the server, never the device. */
@@ -108,7 +91,7 @@ export function TodayCard({ zone, locale }: Props) {
   };
 
   return (
-    <section className="card" aria-labelledby="today-title">
+    <section className="card" data-tour="today" aria-labelledby="today-title">
       <Localized id="today-title">
         <h2 id="today-title" />
       </Localized>

@@ -11,7 +11,10 @@ import { NotInTelegram } from "./screens/NotInTelegram";
 import { MoonCard } from "./screens/MoonCard";
 import { TravelPrompt } from "./screens/settings/TravelPrompt";
 import { Session } from "./screens/Session";
+import { markTourSeen } from "./screens/onboard";
 import { TodayCard } from "./screens/TodayCard";
+import { TourOffer } from "./screens/tour/TourOffer";
+import { useTour } from "./screens/tour/useTour";
 import { markReady, useSettingsButton } from "./telegram";
 
 // The stats screen (ST-01..03) is its own chunk: Home's first load doesn't pay for it.
@@ -37,9 +40,16 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
   const home = useCallback(() => {
     setView("home");
   }, []);
+  const { Tour, start: startTour, close: closeTour } = useTour();
   const settings = useCallback(() => {
+    closeTour(); // Telegram's ⋯ item works during the tour too
     setView("settings");
-  }, []);
+  }, [closeTour]);
+  const tour = useCallback(() => {
+    markTourSeen(); // taken from Settings: no offer for it afterwards
+    setView("home");
+    startTour();
+  }, [startTour]);
   const stats = useCallback(() => {
     setView("stats"); // back from the day off opened on the stats screen
   }, []);
@@ -85,6 +95,7 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
               <Settings
                 me={me}
                 onBack={view === "day-off" ? stats : home}
+                onTour={tour}
                 focus={view === "day-off" ? "day-off" : undefined}
               />
             </Suspense>
@@ -98,12 +109,15 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             >
               {me && <TravelPrompt zone={me.timezone} locale={me.locale} home={me.home_city} />}
               {me && <TodayCard zone={me.timezone} locale={me.locale} />}
+              {me && <TourOffer zone={me.timezone} onStart={startTour} />}
               {me && (
                 <Localized id="stats-open">
                   <button
                     type="button"
                     className="row-button"
+                    data-tour="stats"
                     onClick={() => {
+                      closeTour(); // still loading: don't open it on the way back
                       setView("stats");
                     }}
                   />
@@ -114,7 +128,9 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
                   <button
                     type="button"
                     className="row-button"
+                    data-tour="asanas"
                     onClick={() => {
+                      closeTour();
                       setView("progression");
                     }}
                   />
@@ -123,9 +139,15 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
               {me && <MoonCard locale={me.locale} />}
               {me && (
                 <Localized id="settings-open">
-                  <button type="button" className="row-button" onClick={settings} />
+                  <button
+                    type="button"
+                    className="row-button"
+                    data-tour="settings"
+                    onClick={settings}
+                  />
                 </Localized>
               )}
+              {me && Tour && <Tour onExit={closeTour} />}
             </Home>
           )
         }
