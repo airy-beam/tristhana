@@ -1,7 +1,7 @@
 """Moon days and moon-reminder settings (MD-03). Shared by the bot and the API; every call
 acts on the caller's own account (`Principal`)."""
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from tristhana.application.policies import Principal
@@ -21,8 +21,6 @@ from tristhana.domain.notifications import (
     KEEP,
     NotificationPatch,
     NotificationSettings,
-    PracticeReminders,
-    check_settings,
     defaults_for,
 )
 
@@ -148,7 +146,7 @@ class UpdateMoonReminders:
 
 
 class NotificationSettingsUseCase:
-    """The API's full read/replace of the caller's notification settings."""
+    """The API's read of the caller's notification settings."""
 
     def __init__(self, notifications: NotificationRepository, clock: Clock) -> None:
         self._notifications = notifications
@@ -167,20 +165,3 @@ class NotificationSettingsUseCase:
         defaults = defaults_for(account.day_off.days)
         today = caller_today(principal, self._clock)
         return await self._notifications.settings_with_pause(account.id, defaults, today)
-
-    async def save(
-        self,
-        principal: Principal,
-        settings: NotificationSettings,
-        practice: PracticeReminders | None = None,
-    ) -> NotificationSettings:
-        """`practice` None = keep the stored one (older clients don't send it). Raises
-        `InvalidSettings`."""
-        account_id = principal.account.id
-        if practice is None:  # validate against the stored one, but don't write it back
-            defaults = defaults_for(principal.account.day_off.days)
-            stored = (await self._notifications.settings(account_id, defaults)).practice
-            check_settings(replace(settings, practice=stored))
-            return await self._notifications.save(account_id, settings, with_practice=False)
-        settings = replace(settings, practice=practice)
-        return await self._notifications.save(account_id, check_settings(settings))

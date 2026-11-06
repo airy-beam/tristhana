@@ -421,9 +421,7 @@ class _UnavailableNotifications:
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
-    async def save(
-        self, account_id: UUID, settings: NotificationSettings, with_practice: bool = True
-    ) -> NotificationSettings:
+    async def save(self, account_id: UUID, settings: NotificationSettings) -> NotificationSettings:
         raise StorageUnavailable("not configured")
 
     async def patch_with_pause(

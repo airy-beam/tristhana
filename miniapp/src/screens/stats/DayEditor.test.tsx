@@ -2,12 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { L10nProvider } from "../../i18n/L10nProvider";
-import { haptics } from "../../telegram";
+import { haptics, useBackButton } from "../../telegram";
 import { DayEditor } from "./DayEditor";
 
 vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn() },
+  useBackButton: vi.fn(),
 }));
 
 const TODAY = "2026-10-30";
@@ -46,7 +47,7 @@ function stubApi(celebrations: unknown[]) {
   );
 }
 
-function renderEditor() {
+function renderEditor(onClose: () => void = () => undefined) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -57,7 +58,7 @@ function renderEditor() {
           zone="Asia/Almaty"
           locale="en"
           showLadies
-          onClose={() => undefined}
+          onClose={onClose}
         />
       </L10nProvider>
     </QueryClientProvider>,
@@ -72,6 +73,14 @@ afterEach(() => {
 });
 
 describe("DayEditor practice count (GM-01 part 2)", () => {
+  it("Telegram's Back closes the editor, not the screen under it", () => {
+    stubApi([]);
+    const onClose = vi.fn();
+    renderEditor(onClose);
+
+    expect(useBackButton).toHaveBeenCalledWith(onClose);
+  });
+
   it("celebrates a backfill that reaches 100, from the server's answer", async () => {
     stubApi([{ kind: "practice_count", series: null, key: null, first: null, count: 100 }]);
     renderEditor();

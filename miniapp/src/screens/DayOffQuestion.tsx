@@ -14,7 +14,11 @@ export function DayOffQuestion({ onOther }: { onOther: () => void }) {
   const other = weekday === 6 ? 7 : weekday === 7 ? 6 : null; // the other weekend day
   const choose = (d: number) => {
     haptics.impact("light");
-    setDayOff.mutate([d]);
+    setDayOff.mutate([d], {
+      onError: () => {
+        haptics.notify("error");
+      },
+    });
   };
   return (
     <div className="question" role="group" aria-labelledby="day-off-ask">

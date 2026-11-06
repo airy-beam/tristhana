@@ -419,6 +419,9 @@ diary-clear = Удалить заметку
 diary-clear-confirm = Удалить заметку?
 diary-clear-yes = Удалить
 diary-removed = Заметка удалена из дневника.
+diary-discard-confirm = Выйти, не сохранив заметку?
+diary-discard-yes = Не сохранять
+diary-discard-no = Продолжить писать
 
 ## Прогресс (PR-08) и праздники (GM-01). Как в боте; названия асан, элементов и серий —
 ## из каталога. $series — `series-name`, $traditional — традиционное

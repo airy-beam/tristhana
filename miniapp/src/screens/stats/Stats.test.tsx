@@ -10,7 +10,7 @@ const backButton = vi.hoisted(() => ({ available: true }));
 
 vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
   backButtonAvailable: vi.fn(() => backButton.available),
 }));

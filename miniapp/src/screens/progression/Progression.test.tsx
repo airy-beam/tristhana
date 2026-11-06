@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import type { Catalog, Progression as ProgressionValue } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
-import { haptics } from "../../telegram";
+import { haptics, useBackButton } from "../../telegram";
 import { PracticeDetails } from "../PracticeDetails";
 import Progression from "./Progression";
 
@@ -275,6 +275,22 @@ test("Change sets a corrected position without celebrating", async () => {
     expect(posts(seen)[0]).toMatchObject({ kind: "set", series: "primary", last: "kurmasana" });
   });
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+test("Telegram's Back closes the Change form and stays on the screen", async () => {
+  stubApi({});
+  const onBack = vi.fn();
+  renderWith(<Progression locale="en" onBack={onBack} />);
+  fireEvent.click(await screen.findByRole("button", { name: "✏️ Change" }));
+
+  const [cancel, enabled] = vi.mocked(useBackButton).mock.lastCall ?? [];
+  expect(enabled).toBe(true);
+  act(() => {
+    cancel?.();
+  });
+
+  expect(screen.queryByLabelText("Last asana")).not.toBeInTheDocument();
+  expect(onBack).not.toHaveBeenCalled();
 });
 
 test("PracticeDetails asks after a length past the last asana; Yes celebrates", async () => {

@@ -93,11 +93,12 @@ def test_notification_settings_patch_changes_only_what_was_sent(api: TestClient)
     assert default["daily_cap"] == 3
 
 
-def test_put_is_deprecated_but_still_works(api: TestClient) -> None:
-    schema = api.get("/openapi.json").json()["paths"]["/api/v1/me/notification-settings"]
+def test_settings_are_written_by_patch_only(api: TestClient) -> None:
+    url = "/api/v1/me/notification-settings"
+    schema = api.get("/openapi.json").json()["paths"][url]
 
-    assert schema["put"]["deprecated"] is True
-    assert "patch" in schema
+    assert "put" not in schema  # removed after one release (ADR-0021, Q34)
+    assert api.put(url, json={}, headers=_auth()).status_code == 405
 
 
 def test_a_whole_group_cannot_be_nulled(api: TestClient) -> None:

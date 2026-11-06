@@ -408,6 +408,9 @@ diary-clear = Remove note
 diary-clear-confirm = Remove this note?
 diary-clear-yes = Remove
 diary-removed = Removed from your diary.
+diary-discard-confirm = Leave without saving your note?
+diary-discard-yes = Don't save
+diary-discard-no = Keep writing
 
 ## Progression (PR-08) and its celebrations (GM-01). Same wording as the bot; asana, item
 ## and series names come from the catalog. $series is a `series-name`, $traditional a

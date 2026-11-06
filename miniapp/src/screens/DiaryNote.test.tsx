@@ -1,9 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import type { Days } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
-import { enableClosingConfirmation, disableClosingConfirmation } from "../telegram";
+import {
+  confirmDestructive,
+  enableClosingConfirmation,
+  disableClosingConfirmation,
+  useBackButton,
+} from "../telegram";
 import { DayEditor } from "./stats/DayEditor";
 import { TodayCard } from "./TodayCard";
 
@@ -17,6 +22,7 @@ vi.mock("../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn() },
   useBackButton: vi.fn(),
+  confirmDestructive: vi.fn(() => Promise.resolve(false)),
   backButtonAvailable: vi.fn(() => true),
   enableClosingConfirmation: vi.fn(),
   disableClosingConfirmation: vi.fn(),
@@ -285,6 +291,53 @@ describe("DiaryNote: editing", () => {
 
     expect(noteRequests(seen, "PUT")).toEqual([]);
     expect(textarea().value).toBe("half a thought");
+  });
+
+  const pressBack = async () => {
+    const [onBack, enabled] = vi.mocked(useBackButton).mock.lastCall ?? [];
+    expect(enabled).toBe(true);
+    await act(async () => {
+      onBack?.();
+      await Promise.resolve();
+    });
+  };
+
+  it("Back asks first and keeps typing when the answer is no", async () => {
+    vi.mocked(confirmDestructive).mockResolvedValueOnce(false);
+    stubApi();
+    renderToday();
+    fireEvent.click(await addLink());
+    type("half a thought");
+
+    await pressBack();
+
+    expect(confirmDestructive).toHaveBeenCalledWith(
+      "Leave without saving your note?",
+      "Don't save",
+      "Keep writing",
+    );
+    expect(textarea().value).toBe("half a thought");
+  });
+
+  it("Back drops the draft after the person agrees, without saving", async () => {
+    vi.mocked(confirmDestructive).mockResolvedValueOnce(true);
+    const seen = stubApi();
+    renderToday();
+    fireEvent.click(await addLink());
+    type("half a thought");
+
+    await pressBack();
+
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(noteRequests(seen, "PUT")).toEqual([]);
+  });
+
+  it("Back is left alone while nothing was typed", async () => {
+    stubApi();
+    renderToday();
+    fireEvent.click(await addLink());
+
+    expect(vi.mocked(useBackButton).mock.lastCall?.[1]).toBe(false);
   });
 
   it("Cancel discards the change", async () => {
