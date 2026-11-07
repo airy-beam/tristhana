@@ -194,11 +194,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("the Settings row opens the lazy screen, and Home has no row", async () => {
+test("the Settings row opens the lazy screen, and Home has no row for it", async () => {
+  // ST-06: Home now reads the shared `useLinks` for its students row, and the 60 s staleTime
+  // keeps that to one fetch for both screens.
   const seen = stubApi(() => TWO);
   await renderApp();
   expect(screen.queryByRole("button", { name: "👥 Teachers and students" })).toBeNull();
-  expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(0);
 
   act(() => {
     telegram.openSettings();

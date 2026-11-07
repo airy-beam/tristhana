@@ -40,29 +40,28 @@ _ids = itertools.count(120_000)
 
 EN_CONSENT = (
     "🤝 Лена sent you an invite. Add them to your teachers? If you confirm: "
-    "• Лена sees your name (Ash), nothing more for now. "
-    "• Later, when teachers get their own screen, they'll also see what you log from today on: "
-    "practice or rest and your practice length. "
-    "They'll see your last asana as marked in your log too. "
-    "All rest looks the same, whatever the reason. "
-    "• Any teacher on your list will then also be able to mark a new asana for you. "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest and your "
+    "practice length. "
+    "• Лена also sees your last asana as marked in your log. "
+    "• All rest you log looks the same, whatever the reason. "
+    "• If nothing shows for a while, Лена sees a short note saying just that. "
+    "• Later, any teacher on your list will also be able to mark a new asana for you. "
     "You can undo it. "
-    "• Check-ins, diary notes and the reason for a rest stay private unless you choose to "
-    "share them. "
+    "• Check-ins, diary notes and the reason for a rest stay private. "
     "• You can remove Лена from your list any time in /teachers. No one gets a message. "
     "Anyone can choose any name here, so confirm only if you know this person. "
     "If you tap Not now, Лена isn't told."
 )
 RU_CONSENT = (
     "🤝 Лена отправляет тебе приглашение. Добавить в список твоих учителей? Если подтвердить: "
-    "• Лена увидит твоё имя (Ash), пока больше ничего. "
-    "• Позже, когда у учителей появится свой экран, будет видно и то, что ты отмечаешь с "
-    "сегодняшнего дня: практика или отдых и объём практики. "
-    "Ещё будет видна последняя асана по отметкам в журнале. "
-    "Любой отдых выглядит одинаково, какой бы ни была причина. "
-    "• Тогда же любой учитель из твоего списка сможет отметить тебе новую асану. "
+    "• Лена увидит твоё имя (Ash) и то, что ты отмечаешь с сегодняшнего дня: практика или отдых "
+    "и объём практики. "
+    "• Ещё будет видна твоя последняя асана по отметкам в журнале. "
+    "• Любой отмеченный отдых выглядит одинаково, какой бы ни была причина. "
+    "• Если какое-то время показать нечего, Лена увидит об этом короткую пометку. "
+    "• Позже любой учитель из твоего списка сможет отметить тебе новую асану. "
     "Это можно отменить. "
-    "• Самочувствие, заметки и причина отдыха остаются личными, если ты не решишь ими делиться. "
+    "• Самочувствие, заметки и причина отдыха остаются личными. "
     "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит. "
     "Имя здесь может выбрать любой, поэтому подтверждай, только если знаешь этого человека. "
     "Если нажать «Не сейчас», Лена об этом не узнает."
@@ -246,7 +245,7 @@ def test_a_brand_new_person_gets_the_consent_screen_in_their_language(
     assert _flat(body["text"]) == consent
     decline = "Not now" if lang == "en" else "Не сейчас"
     assert _rows(body) == [[confirm, decline], [other_language]]
-    assert _data(body, confirm) == f"t1:y:{CODE}"
+    assert _data(body, confirm) == f"t1:a:{CODE}"
     assert _data(body, decline) == "t1:n"
     assert _data(body, other_language) == f"t1:l:{switch}:{CODE}"
     new = [a for a in storage.repo.accounts.values() if a.id != teacher.id]
@@ -257,8 +256,8 @@ def test_a_brand_new_person_gets_the_consent_screen_in_their_language(
 @pytest.mark.parametrize(
     ("lang", "bare"),
     [
-        ("en", "• Лена sees your name, nothing more for now."),
-        ("ru", "• Лена увидит твоё имя, пока больше ничего."),
+        ("en", "• Лена sees your name and what you log from today on:"),
+        ("ru", "• Лена увидит твоё имя и то, что ты отмечаешь с сегодняшнего дня:"),
     ],
 )
 def test_without_a_name_the_parenthesis_drops_out(
@@ -290,7 +289,7 @@ def test_the_language_button_keeps_the_invite(client: TestClient, storage: InMem
 
     assert ru["method"] == "editMessageText"
     assert _flat(ru["text"]) == RU_CONSENT
-    assert _data(ru, "✅") == f"t1:y:{CODE}"
+    assert _data(ru, "✅") == f"t1:a:{CODE}"
     assert _data(ru, "🗣") == f"t1:l:en:{CODE}"
     me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
     assert (me.locale, me.locale_custom) == ("ru", True)  # the same `UpdateProfile` as `o1:`
@@ -412,7 +411,7 @@ def test_a_forged_confirm_of_ones_own_code_says_own(
     me = _me(client, storage)
     storage.teacher_links.codes[me.id] = CODE
 
-    body = _tap(client, f"t1:y:{CODE}")
+    body = _tap(client, f"t1:a:{CODE}")
 
     _grid_with(body, "This is your own invite link")
     assert storage.teacher_links.rows == {}
@@ -424,7 +423,7 @@ def test_a_confirm_at_the_cap_says_full(client: TestClient, storage: InMemorySto
     for _ in range(MAX_TEACHERS):
         storage.teacher_links.add(me.id, uuid4())
 
-    body = _tap(client, f"t1:y:{CODE}")
+    body = _tap(client, f"t1:a:{CODE}")
 
     _grid_with(body, "This link can't add a teacher right now.")
 
@@ -501,7 +500,7 @@ def test_the_code_stays_out_of_the_logs_when_a_handler_fails(
     storage.teacher_links.fail_with = RuntimeError(f"boom {CODE}")
     _command(client, f"/start t_{CODE}")
     storage.teacher_links.fail_with = RuntimeError(f"boom {CODE}")
-    _tap(client, f"t1:y:{CODE}")
+    _tap(client, f"t1:a:{CODE}")
 
     _assert_clean(logs, "telegram handler failed")
 
@@ -707,12 +706,14 @@ def test_students_are_paged_ten_at_a_time(client: TestClient, storage: InMemoryS
     assert _data(second, "◀") == "t1:s:0"
 
 
-def test_a_stale_page_shows_the_last_one(client: TestClient, storage: InMemoryStorage) -> None:
+def test_a_stale_page_shows_the_first_one(client: TestClient, storage: InMemoryStorage) -> None:
+    """ST-06 §4: an offset past the end has no total, so the bot re-reads page 0."""
     _students(client, storage, 12)
 
     body = _tap(client, "t1:s:9")
 
-    assert "Student 11" in _texts(body)
+    assert "Student 00" in _texts(body)
+    assert "◀" not in _texts(body)
 
 
 def test_a_teacher_sees_the_count_and_the_plain_invite_button(
@@ -937,9 +938,10 @@ def test_every_screen_keeps_its_data_short_and_versioned(
             if data.startswith(safe):
                 todo.append(_tap(client, data))
 
-    assert {d[:4] for d in seen} >= {"t1:y", "t1:n", "t1:l", "t1:o", "t1:s", "t1:c", "t1:u"}
+    assert {d[:4] for d in seen} >= {"t1:a", "t1:n", "t1:l", "t1:o", "t1:s", "t1:c", "t1:u"}
+    assert not [d for d in seen if d.startswith("t1:y")]  # ST-06: no screen offers it any more
     assert {d[:4] for d in seen} >= {"t1:v", "t1:r", "t1:z", "t1:i", "t1:q", "t1:w"}
-    assert max(len(d.encode()) for d in seen) <= 41  # spec §5; Telegram allows 64
+    assert max(len(d.encode()) for d in seen) <= 46  # ST-06 spec §5; Telegram allows 64
 
 
 @pytest.mark.parametrize("action", ["c", "p", "u", "x", "v", "r", "z"])
@@ -966,6 +968,9 @@ def test_a_forged_uuid_changes_nothing_and_shows_a_list(
         "t1:y",
         "t1:y:short",
         f"t1:y:{CODE}x",
+        "t1:a",
+        "t1:a:short",
+        f"t1:a:{CODE}x",
         "t1:l:de:" + CODE,
         "t1:l:ru:short",
         "t1:s:x",
@@ -992,7 +997,7 @@ def test_malformed_data_is_only_answered(
 @pytest.mark.parametrize(
     ("data", "write"),
     [
-        (f"t1:y:{CODE}", "accept"),
+        (f"t1:a:{CODE}", "accept"),
         ("t1:p:{teacher}", "set_primary"),
         ("t1:x:{teacher}", "unlink"),
     ],
@@ -1047,6 +1052,6 @@ def test_the_note_carries_the_stored_name_over_telegrams(
     me = _me(client, storage)
     storage.repo.accounts[me.id] = replace(me, display_name="Аша", name_custom=True)
 
-    _tap(client, f"t1:y:{CODE}")
+    _tap(client, f"t1:a:{CODE}")
 
     assert _note(outbound, 1001).fields["text"] == "👥 Аша is on your list of students now."

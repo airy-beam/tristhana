@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Localized } from "@fluent/react";
 import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
-import { isAccountDeleted, onAccountDeleted } from "./api/client";
+import { isAccountDeleted, onAccountDeleted, useLinks } from "./api/client";
 import { L10nProvider } from "./i18n/L10nProvider";
 import type { Locale } from "./i18n/negotiate";
 import { AccountDeleted } from "./screens/AccountDeleted";
@@ -22,6 +22,7 @@ const Stats = lazy(() => import("./screens/stats/Stats"));
 const Settings = lazy(() => import("./screens/settings/Settings"));
 const Progression = lazy(() => import("./screens/progression/Progression"));
 const Links = lazy(() => import("./screens/settings/Links"));
+const Students = lazy(() => import("./screens/teachers/Students"));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -33,10 +34,27 @@ interface AppProps {
   inTelegram: boolean;
 }
 
+function StudentsRow({ onOpen }: { onOpen: () => void }) {
+  const { data } = useLinks();
+  if (!data?.students.length) return null;
+  return (
+    <Localized id="link-students-open">
+      <button type="button" className="row-button" onClick={onOpen} />
+    </Localized>
+  );
+}
+
 export function App({ locale, firstName, inTelegram }: AppProps) {
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
   const [view, setView] = useState<
-    "home" | "stats" | "settings" | "day-off" | "progression" | "links"
+    | "home"
+    | "stats"
+    | "settings"
+    | "day-off"
+    | "progression"
+    | "links"
+    | "students"
+    | "links-students"
   >("home");
   const home = useCallback(() => {
     setView("home");
@@ -96,7 +114,16 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             </Suspense>
           ) : me && view === "links" ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
-              <Links onBack={settings} />
+              <Links
+                onBack={settings}
+                onStudents={() => {
+                  setView("links-students");
+                }}
+              />
+            </Suspense>
+          ) : me && (view === "students" || view === "links-students") ? (
+            <Suspense fallback={<main className="screen" aria-busy="true" />}>
+              <Students locale={me.locale} onBack={view === "students" ? home : links} />
             </Suspense>
           ) : me && (view === "settings" || view === "day-off") ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
@@ -144,6 +171,14 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
                     }}
                   />
                 </Localized>
+              )}
+              {me && (
+                <StudentsRow
+                  onOpen={() => {
+                    closeTour();
+                    setView("students");
+                  }}
+                />
               )}
               {me && <MoonCard locale={me.locale} />}
               {me && (

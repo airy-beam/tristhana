@@ -1,5 +1,6 @@
 # ADR-0022: Auto-filled rest days are derived at read time, never stored
 - Status: accepted (owner, 2026-10-25)
+- Amended by ADR-0031 (2026-11-07): teachers never see auto days; an unlogged day off or moon day is blank (Q87).
 - Date: 2026-10-25
 
 ## Context

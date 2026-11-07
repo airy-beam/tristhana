@@ -975,6 +975,7 @@ class InMemoryStorage:
     notification_repo: InMemoryNotifications | None = None
     export_repo: InMemoryExport | None = None
     link_repo: Any = None  # ID-04: tests/teacher_link_fakes.py, loaded on first use
+    view_repo: Any = None  # ST-06: tests/teacher_view_fakes.py, loaded on first use
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
@@ -1052,6 +1053,14 @@ class InMemoryStorage:
 
             self.link_repo = InMemoryTeacherLinks(self.repo)
         return self.link_repo
+
+    @property
+    def teacher_view(self) -> Any:  # ST-06
+        if self.view_repo is None:
+            from tests.teacher_view_fakes import InMemoryTeacherView
+
+            self.view_repo = InMemoryTeacherView(self.teacher_links, self.day_repo)
+        return self.view_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

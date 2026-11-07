@@ -1001,8 +1001,8 @@ export function useDeleteAccount() {
   });
 }
 
-// Teachers and students (ID-04). Writes wait for the server; only names cross accounts, and
-// the link comes from the API: it is never built here.
+// Teachers and students (ID-04). Writes wait for the server, and the link comes from the API: it
+// is never built here. A teacher's view of a student (ST-06) follows `useLinks`.
 export type TeacherLinks = components["schemas"]["LinksOut"];
 export type LinkedTeacher = components["schemas"]["TeacherOut"];
 export type LinkedStudent = components["schemas"]["StudentOut"];
@@ -1010,8 +1010,50 @@ export type Invite = components["schemas"]["InviteOut"];
 
 const LINKS_KEY = ["links"];
 
+const STUDENTS_KEY = ["students"];
+export type StudentsPage = components["schemas"]["StudentsOut"];
+export type StudentCard = components["schemas"]["StudentCardOut"];
+export const STUDENTS_PAGE = 20;
+
+export function useStudents(offset: number) {
+  return useQuery({
+    queryKey: [...STUDENTS_KEY, offset],
+    queryFn: async (): Promise<StudentsPage> => {
+      const { data, error, response } = await api.GET("/api/v1/me/students", {
+        params: { query: { offset, limit: STUDENTS_PAGE } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useStudent(id: string) {
+  return useQuery({
+    queryKey: [...STUDENTS_KEY, "card", id],
+    queryFn: async (): Promise<StudentCard> => {
+      const { data, error, response } = await api.GET("/api/v1/me/students/{id}", {
+        params: { path: { id } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useDropStudents() {
+  const client = useQueryClient();
+  return () => {
+    client.removeQueries({ queryKey: STUDENTS_KEY });
+  };
+}
+
 export function useLinks() {
   return useQuery({
+    staleTime: 60_000,
     queryKey: LINKS_KEY,
     queryFn: async (): Promise<TeacherLinks> => {
       const { data, error, response } = await api.GET("/api/v1/me/links");
@@ -1060,7 +1102,10 @@ export function useRemoveStudent() {
       });
       if (!response.ok) fail(response, error);
     },
-    onSettled: () => client.invalidateQueries({ queryKey: LINKS_KEY }),
+    onSettled: () => {
+      client.removeQueries({ queryKey: STUDENTS_KEY });
+      return client.invalidateQueries({ queryKey: LINKS_KEY });
+    },
   });
 }
 

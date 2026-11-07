@@ -46,6 +46,7 @@ class Row:
     is_primary: bool
     linked_on: date
     created_at: datetime
+    quiet_note_agreed: bool = False  # ST-06: the column's default; only `accept` sets it
 
 
 class FixedCodes:
@@ -82,8 +83,10 @@ class InMemoryTeacherLinks:
         primary: bool = False,
         linked_on: date = FIRST_LINKED_ON,
         created_at: datetime | None = None,
+        quiet_note_agreed: bool = False,
     ) -> Row:
-        row = Row(student, teacher, primary, linked_on, created_at or self._next_instant())
+        at = created_at or self._next_instant()
+        row = Row(student, teacher, primary, linked_on, at, quiet_note_agreed)
         self.rows[(student, teacher)] = row
         return row
 
@@ -123,7 +126,7 @@ class InMemoryTeacherLinks:
             and len(self.students_of(teacher.id)) < caps.students
         )
         if created:
-            self.add(me, teacher.id, linked_on=linked_on)
+            self.add(me, teacher.id, linked_on=linked_on, quiet_note_agreed=True)  # as `_accept`
             self.writes.append("accept")
         return Accepted(
             created=created,

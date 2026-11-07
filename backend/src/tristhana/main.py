@@ -76,6 +76,7 @@ from tristhana.application.teacher_links import (
     RotateInvite,
     SetPrimaryTeacher,
 )
+from tristhana.application.teacher_view import GetStudent, GetStudents, TeacherViewUseCases
 from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
 from tristhana.bots.telegram.runtime import (
@@ -323,6 +324,11 @@ class _Services:
             self._storage.notifications,
             self._notifier,
         )
+        view = TeacherViewUseCases(
+            GetStudents(self._storage.teacher_view, clock),
+            GetStudent(self._storage.teacher_view, clock),
+        )
+        app.state.teacher_view = view
         teacher_links = self._storage.teacher_links
         codes = SecretCodes()
         links = LinkUseCases(
@@ -335,6 +341,9 @@ class _Services:
             remove_teacher=RemoveTeacher(teacher_links),
             remove_student=RemoveStudent(teacher_links),
             qr=SegnoQrCodes(),
+            view=view,
+            labels=PracticeLabels(translator, loaded.catalog, track),
+            catalog=loaded.catalog,
         )
         app.state.links = links
         self._bot.ensure_account = ensure

@@ -42,6 +42,7 @@ function respond(path: string) {
   if (path === "/api/v1/me") return ME;
   if (path === "/api/v1/health") return { version: "1", commit: "abcdef0" };
   if (path === "/api/v1/moon/cities") return [];
+  if (path === "/api/v1/me/links") return { teachers: [], students: [] };
   if (path === "/api/v1/me/days") {
     return {
       today: TODAY,

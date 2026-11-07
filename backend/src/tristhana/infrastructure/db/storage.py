@@ -35,6 +35,11 @@ from tristhana.application.ports.teacher_links import (
     Links,
     TeacherLinkRepository,
 )
+from tristhana.application.ports.teacher_view import (
+    SharedDetail,
+    SharedPage,
+    TeacherViewRepository,
+)
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileChange, ProfileUpdate
 from tristhana.domain.check_in import CheckInTag
@@ -83,6 +88,7 @@ class PostgresStorage:
         self._progression: ProgressionRepository | None = None
         self._export: ExportRepository | None = None
         self._teacher_links: TeacherLinkRepository | None = None
+        self._teacher_view: TeacherViewRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -97,6 +103,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.progression import SqlProgressionRepository
         from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
         from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
+        from tristhana.infrastructure.db.teacher_view import SqlTeacherViewRepository
 
         self._engine = build_engine(
             self._url,
@@ -115,6 +122,7 @@ class PostgresStorage:
         self._progression = SqlProgressionRepository(self._engine)
         self._export = SqlExportRepository(self._engine, self._cipher)
         self._teacher_links = SqlTeacherLinkRepository(self._engine)
+        self._teacher_view = SqlTeacherViewRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -203,6 +211,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._teacher_links
 
+    @property
+    def teacher_view(self) -> TeacherViewRepository:
+        if self._teacher_view is None:
+            raise RuntimeError("storage not started")
+        return self._teacher_view
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -229,6 +243,10 @@ class UnconfiguredStorage:
     @property
     def teacher_links(self) -> TeacherLinkRepository:
         return _UnavailableTeacherLinks()
+
+    @property
+    def teacher_view(self) -> TeacherViewRepository:
+        return _UnavailableTeacherView()
 
     @property
     def days(self) -> DayLogRepository:
@@ -484,6 +502,18 @@ class _UnavailableNotifications:
         raise StorageUnavailable("not configured")
 
     async def prune(self, before: datetime) -> int:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableTeacherView:
+    async def page(
+        self, teacher: UUID, offset: int, limit: int, since: date, until: date
+    ) -> SharedPage:
+        raise StorageUnavailable("not configured")
+
+    async def student(
+        self, teacher: UUID, student: UUID, since: date, until: date
+    ) -> SharedDetail | None:
         raise StorageUnavailable("not configured")
 
 

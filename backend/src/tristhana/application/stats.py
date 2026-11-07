@@ -1,6 +1,6 @@
 """Practice stats for one year (ST-01..03, ADR-0020). The caller's own data only
-(`Principal`): a later teacher view goes through a policy and `public_status`, so it can
-never see a ladies' holiday."""
+(`Principal`): teachers get no stats, because every figure here depends on "No practice"
+versus unlogged (ADR-0031)."""
 
 from dataclasses import dataclass
 from datetime import date
