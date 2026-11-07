@@ -52,6 +52,7 @@ from tristhana.application.rest_periods import (
     StartRestPeriod,
 )
 from tristhana.application.settings import UpdateProfile, ZoneFromLocation
+from tristhana.application.teacher_links import LinkUseCases
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.progression import Track
@@ -178,6 +179,8 @@ def build_runtime(
     diary: DiaryUseCases | None = None,
     progression: ProgressionUseCases | None = None,
     data: DataUseCases | None = None,
+    links: LinkUseCases | None = None,
+    bot_username: str = "",
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -200,6 +203,8 @@ def build_runtime(
             diary,
             progression,
             data,
+            links,
+            bot_username,
         )
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)

@@ -179,7 +179,7 @@ class MoonScreens:
                 button(self._t, locale, "moon-reminders", _data(action="reminders")),
             ]
         ]
-        if not v.zone_known and v.explicit:
+        if not v.zone_known and v.explicit and v.city is not self._m.cities.default:
             rows.append(
                 [
                     InlineKeyboardButton(

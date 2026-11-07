@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # Telegram (injected from Secret Manager in prod; backend/.env in dev).
     telegram_bot_token: SecretStr | None = None
     telegram_webhook_secret: SecretStr | None = None
+    telegram_bot_username: str = ""
     telegram_mode: TelegramMode = "webhook"  # dev: "polling" with @tristhana_dev_bot
 
     # Postgres (ADR-0014). Unset: the app starts, DB features answer "temporarily unavailable".

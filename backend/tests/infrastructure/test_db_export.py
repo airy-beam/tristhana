@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from tristhana.application.ports.teacher_links import Caps
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DayLog, DayStatus
@@ -37,6 +38,8 @@ from tristhana.infrastructure.db.notifications import SqlNotificationRepository
 from tristhana.infrastructure.db.practice import SqlPracticeRepository
 from tristhana.infrastructure.db.progression import SqlProgressionRepository
 from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
+from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
+from tristhana.infrastructure.invite_codes import SecretCodes
 
 pytestmark = pytest.mark.db
 
@@ -225,19 +228,35 @@ async def _counts(engine: AsyncEngine, account_id: UUID) -> dict[str, int]:
     found: dict[str, int] = {}
     async with engine.connect() as conn:
         for name in sorted(_account_tables()):
+            mine = (
+                "student_id = :a OR teacher_id = :a"
+                if name == "teacher_link"
+                else "account_id = :a"
+            )
             n = await conn.execute(
-                text(f"SELECT count(*) FROM tristhana.{name} WHERE account_id = :a"),  # noqa: S608
+                text(f"SELECT count(*) FROM tristhana.{name} WHERE {mine}"),  # noqa: S608
                 {"a": account_id},
             )
             found[name] = n.scalar_one()
     return found
 
 
+async def _link(engine: AsyncEngine, student: UUID, teacher: UUID) -> None:
+    """A teacher link and the student's own invite (ID-04)."""
+    links = SqlTeacherLinkRepository(engine)
+    code = await links.invite(teacher, SecretCodes().new())
+    assert await links.accept(code, student, Caps(20, 500), MON)
+    await links.invite(student, SecretCodes().new())
+
+
 async def test_delete_removes_every_row_and_nothing_else(engine: AsyncEngine) -> None:
     me, tg = await _account(engine)
     other, _ = await _account(engine)
+    teacher, _ = await _account(engine)
     await _fill(engine, me)
     await _fill(engine, other)
+    await _link(engine, me, teacher)
+    await _link(engine, other, teacher)
     before = await _counts(engine, me)
     assert all(before[t] > 0 for t in _account_tables())  # the fill covers every table
     others = await _counts(engine, other)

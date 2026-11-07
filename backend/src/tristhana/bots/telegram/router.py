@@ -15,6 +15,7 @@ from aiogram.types import (
 
 from tristhana.application.accounts import EnsureAccount
 from tristhana.application.ports.i18n import Translator
+from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import days as day_screens
 from tristhana.bots.telegram.data import register_data
 from tristhana.bots.telegram.diary import register_diary_reply
@@ -35,7 +36,8 @@ from tristhana.bots.telegram.runtime import (
     SettingsUseCases,
 )
 from tristhana.bots.telegram.settings import register_settings
-from tristhana.bots.telegram.start import register_start
+from tristhana.bots.telegram.start import StartScreens, register_start
+from tristhana.bots.telegram.teacher_links import LinkScreens, register_links
 from tristhana.bots.telegram.tour import register_tour
 from tristhana.domain.accounts import Account
 
@@ -54,6 +56,8 @@ def build_router(
     diary: DiaryUseCases | None = None,
     progression: ProgressionUseCases | None = None,
     data: DataUseCases | None = None,
+    links: LinkUseCases | None = None,
+    bot_username: str = "",
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -65,7 +69,13 @@ def build_router(
     screens = day_screens.register(
         router, days, practices, translator, remind, miniapp_url, check_ins, diary, progression
     )
-    start = register_start(router, screens, settings, translator, miniapp_url)
+    start = StartScreens(screens, settings, translator, miniapp_url)
+    invites = None
+    if links is not None:  # ID-04 (always wired by the app)
+        invites = LinkScreens(links, start, settings, translator, miniapp_url, bot_username)
+    register_start(router, start, invites)
+    if invites is not None:
+        register_links(router, invites)
     register_tour(router, start, translator, miniapp_url)
     register_moon(router, moon, translator)
     remind_screens = register_remind(router, remind, screens, translator, rest)

@@ -9,7 +9,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from tristhana.application.labels import PracticeLabels
-from tristhana.application.policies import Principal, can_delete_account, can_export
+from tristhana.application.policies import NotAllowed, Principal, can_delete_account, can_export
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.export import ExportPacker, ExportRepository, Owned
 from tristhana.application.ports.i18n import Translator
@@ -49,6 +49,7 @@ README_KEYS = (
     "export-readme-days",
     "export-readme-moon-logged",
     "export-readme-moon-city",
+    "export-readme-links",
     "export-readme-ladies",
     "export-readme-statuses",
     "export-readme-length",
@@ -77,10 +78,6 @@ _KIND_KEYS = {
     EventKind.ITEM_GIVEN: "export-kind-item-given",
     EventKind.ITEM_REMOVED: "export-kind-item-removed",
 }
-
-
-class NotAllowed(Exception):
-    """A policy refused (only ever one's own account today)."""
 
 
 class ExportTooSoon(Exception):
@@ -214,6 +211,7 @@ class SendMyExport:
             reminders=owned.reminders,
             exported_at=now,
             milestones=owned.milestones,
+            links=owned.links,
         )
 
     def labels(self, locale: Locale) -> ExportLabels:

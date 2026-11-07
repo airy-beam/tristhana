@@ -9,6 +9,7 @@ from tristhana.domain.export import (
     ExportDay,
     ExportEvent,
     ExportIdentity,
+    ExportLink,
     ExportMilestone,
     ExportNote,
     ExportPeriod,
@@ -40,6 +41,7 @@ class Owned:
     events: tuple[ExportEvent, ...]
     reminders: tuple[ExportReminder, ...]
     milestones: tuple[ExportMilestone, ...] = ()  # GM-01 part 2
+    links: tuple[ExportLink, ...] = ()
 
 
 class ExportRepository(Protocol):

@@ -28,6 +28,13 @@ from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.progression import ProgressionRepository
 from tristhana.application.ports.rest_periods import RestPeriodRepository
 from tristhana.application.ports.storage import StorageUnavailable
+from tristhana.application.ports.teacher_links import (
+    Accepted,
+    Caps,
+    InvitePreview,
+    Links,
+    TeacherLinkRepository,
+)
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileChange, ProfileUpdate
 from tristhana.domain.check_in import CheckInTag
@@ -75,6 +82,7 @@ class PostgresStorage:
         self._diary: DiaryRepository | None = None
         self._progression: ProgressionRepository | None = None
         self._export: ExportRepository | None = None
+        self._teacher_links: TeacherLinkRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -88,6 +96,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.practice import SqlPracticeRepository
         from tristhana.infrastructure.db.progression import SqlProgressionRepository
         from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
+        from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
 
         self._engine = build_engine(
             self._url,
@@ -105,6 +114,7 @@ class PostgresStorage:
         self._diary = SqlDiaryRepository(self._engine, self._cipher)
         self._progression = SqlProgressionRepository(self._engine)
         self._export = SqlExportRepository(self._engine, self._cipher)
+        self._teacher_links = SqlTeacherLinkRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -187,6 +197,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._export
 
+    @property
+    def teacher_links(self) -> TeacherLinkRepository:
+        if self._teacher_links is None:
+            raise RuntimeError("storage not started")
+        return self._teacher_links
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -209,6 +225,10 @@ class UnconfiguredStorage:
     @property
     def accounts(self) -> AccountRepository:
         return _UnavailableAccounts()
+
+    @property
+    def teacher_links(self) -> TeacherLinkRepository:
+        return _UnavailableTeacherLinks()
 
     @property
     def days(self) -> DayLogRepository:
@@ -464,4 +484,27 @@ class _UnavailableNotifications:
         raise StorageUnavailable("not configured")
 
     async def prune(self, before: datetime) -> int:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableTeacherLinks:
+    async def preview(self, code: str, me: UUID) -> InvitePreview | None:
+        raise StorageUnavailable("not configured")
+
+    async def accept(self, code: str, me: UUID, caps: Caps, linked_on: date) -> Accepted | None:
+        raise StorageUnavailable("not configured")
+
+    async def overview(self, me: UUID) -> Links:
+        raise StorageUnavailable("not configured")
+
+    async def invite(self, me: UUID, new_code: str) -> str:
+        raise StorageUnavailable("not configured")
+
+    async def rotate(self, me: UUID, new_code: str) -> str:
+        raise StorageUnavailable("not configured")
+
+    async def set_primary(self, me: UUID, teacher_id: UUID) -> bool:
+        raise StorageUnavailable("not configured")
+
+    async def unlink(self, student: UUID, teacher: UUID) -> bool:
         raise StorageUnavailable("not configured")

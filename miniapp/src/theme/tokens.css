@@ -535,3 +535,30 @@ body {
     transition: none;
   }
 }
+
+/* Teachers and students (ID-04). A QR needs a white quiet zone in the dark theme too. */
+.link-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 0;
+}
+
+.link-person span {
+  flex: 1 1 8em;
+  overflow-wrap: anywhere;
+}
+
+.invite-qr {
+  display: block;
+  width: min(240px, 100%);
+  margin: 0 auto;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.invite-url {
+  overflow-wrap: anywhere;
+}

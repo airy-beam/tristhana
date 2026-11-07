@@ -18,6 +18,7 @@ help-text =
     🔔 /remind: practice reminder
     🧘 /asanas: my asanas, mark a new one
     🌙 /moon: upcoming moon days and reminders
+    👥 /teachers: your teachers and students
     ⚙️ /settings: language, city, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
 
@@ -574,7 +575,7 @@ delete-button = Delete my account…
 delete-export-first = ⬇️ Download my data first
 delete-confirm = Delete everything
 delete-explain =
-    This deletes your account and everything in it, right away: days and rest pauses, practices, check-ins, diary notes, your asana progress and settings. It can't be undone.
+    This deletes your account and everything in it, right away: days and rest pauses, practices, check-ins, diary notes, your asana progress, teacher and student lists and settings. It can't be undone.
     • Messages in this chat stay; you can clear the chat in Telegram.
     • Copies in our backups disappear within 30 days.
     • If you write to the bot again, it starts fresh.
@@ -631,3 +632,49 @@ export-readme-hide-ladies = hide_ladies: hide the 🌸 button (your 🌸 days ar
 export-readme-standing = In progression.csv, "standing" means sun salutations and standing only.
 export-readme-marked-by = marked_by: "self" = you, "teacher" = a teacher, "unknown" = an account that no longer exists.
 export-readme-unreadable = unreadable = yes: this entry was saved, but a private part couldn't be read. An unreadable day status is shown as rest (never 🌸); an unreadable diary note is left empty.
+
+invite-ask = 🤝 { $name } sent you an invite. Add them to your teachers?
+invite-consent =
+    If you confirm:
+    • { $name } sees your name{ $me }, nothing more for now.
+    • Later, when teachers get their own screen, they'll also see what you log from today on: practice or rest and your practice length. They'll see your last asana as marked in your log too. All rest looks the same, whatever the reason.
+    • Any teacher on your list will then also be able to mark a new asana for you. You can undo it.
+    • Check-ins, diary notes and the reason for a rest stay private unless you choose to share them.
+    • You can remove { $name } from your list any time in /teachers. No one gets a message.
+invite-know-them = Anyone can choose any name here, so confirm only if you know this person.
+invite-not-told = If you tap Not now, { $name } isn't told.
+invite-accept = ✅ Confirm
+invite-decline = Not now
+invite-linked = ✅ { $name } is on your list of teachers now.
+invite-already = { $name } is already on your list of teachers.
+invite-own = This is your own invite link: share it with your students.
+invite-invalid = This invite link no longer works. The person who shared it can send a new one.
+invite-full = This link can't add a teacher right now.
+link-student-joined = 👥 { $name } is on your list of students now.
+link-students-open = 👥 My students
+invite-hint = Share this link or QR code. Each student confirms for themselves.
+invite-share-text = My link to add me as your teacher in Tristhana. The bot shows what I'd see before you confirm.
+invite-new-ask = Get a new link? The old link and QR stop working. People already on your list stay.
+invite-qr-caption = Scan to add me as your teacher in Tristhana.
+link-unlink-ask = Remove { $name } from your teachers? They won't get a message, but you'll no longer be on their list.
+link-next-main = { $name } becomes your main teacher.
+link-remove-ask = Remove { $name } from your students? They won't get a message.
+links-empty = No teachers on your list. Your log works the same either way.
+links-no-students = No students on your list.
+links-primary-hint = ⭐ marks your main teacher. You can change it any time.
+links-main-chosen = ⭐ Main teacher: { $name }
+links-main-auto = ⭐ Main teacher: { $name } (first on your list)
+links-title = 👥 Teachers and students
+command-teachers = My teachers and students
+link-no-name = (no name)
+export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
+links-make-main = ⭐ Make main
+links-remove = Remove…
+links-invite-first = I teach: invite students
+links-students = 👥 My students ({ $count })
+links-invite = ➕ Invite students
+links-remove-yes = Remove
+invite-share = 📤 Share
+invite-qr = 🔳 QR code
+invite-new = 🔄 New link…
+invite-new-yes = 🔄 Yes, new link

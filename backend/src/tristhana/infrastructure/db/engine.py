@@ -94,14 +94,19 @@ def sqlstate(error: DBAPIError) -> str:
     return str(getattr(error.orig, "sqlstate", "") or "")
 
 
+def constraint_name(error: DBAPIError) -> str:
+    cause = getattr(error.orig, "__cause__", None)
+    return str(getattr(cause, "constraint_name", "") or getattr(error.orig, "constraint_name", ""))
+
+
 def is_account_gone(error: DBAPIError) -> bool:
     """A write hit the missing parent row of a just-deleted account (ST-09): 23503 on an
-    `<table>_account_id_fkey` constraint."""
+    `<table>_account_id_fkey` constraint, or on the student side of a teacher link (ID-04;
+    the teacher side means someone else's account, so the repository handles that)."""
     if sqlstate(error) != "23503":
         return False
-    cause = getattr(error.orig, "__cause__", None)
-    name = str(getattr(cause, "constraint_name", "") or getattr(error.orig, "constraint_name", ""))
-    return name.endswith("_account_id_fkey")
+    name = constraint_name(error)
+    return name.endswith("_account_id_fkey") or name == "teacher_link_student_id_fkey"
 
 
 def is_unavailable(state: str) -> bool:

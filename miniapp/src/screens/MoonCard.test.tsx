@@ -151,7 +151,7 @@ describe("MoonCard", () => {
 
   it("changes the city", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
     const select = await screen.findByRole("combobox", { name: "City for the calendar" });
 
     fireEvent.change(select, { target: { value: "almaty" } });
@@ -166,7 +166,7 @@ describe("MoonCard", () => {
 
   it("toggles reminder offsets", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
 
     fireEvent.click(
       await screen.findByRole("button", {
@@ -185,7 +185,14 @@ describe("MoonCard", () => {
 
   it("explains that reminders need a time zone", async () => {
     stubApi();
-    renderWith(<Settings me={{ ...ME, timezone: null }} onBack={vi.fn()} onTour={vi.fn()} />);
+    renderWith(
+      <Settings
+        me={{ ...ME, timezone: null }}
+        onBack={vi.fn()}
+        onTour={vi.fn()}
+        onLinks={vi.fn()}
+      />,
+    );
 
     expect(await screen.findByText(/once your time zone is known/)).toBeInTheDocument();
     expect(

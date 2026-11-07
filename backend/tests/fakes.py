@@ -867,6 +867,10 @@ class FakeNotifier:
         default_factory=list[tuple[Recipient, ExportFile]]
     )
     export_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
+    joined: list[tuple[Recipient, str | None]] = field(  # ID-04: the new-student note
+        default_factory=list[tuple[Recipient, str | None]]
+    )
+    join_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
 
     @property
     def moon(self) -> list[tuple[Recipient, MoonReminder]]:
@@ -885,6 +889,12 @@ class FakeNotifier:
         if self.export_outcomes:
             return self.export_outcomes.pop(0)
         return DeliveryResult(DeliveryStatus.SENT)
+
+    async def tell_student_joined(self, recipient: Recipient, name: str | None) -> DeliveryResult:
+        self.joined.append((recipient, name))
+        return (
+            self.join_outcomes.pop(0) if self.join_outcomes else DeliveryResult(DeliveryStatus.SENT)
+        )
 
 
 @dataclass
@@ -964,6 +974,7 @@ class InMemoryStorage:
     moon_repo: InMemoryMoon = field(default_factory=InMemoryMoon)
     notification_repo: InMemoryNotifications | None = None
     export_repo: InMemoryExport | None = None
+    link_repo: Any = None  # ID-04: tests/teacher_link_fakes.py, loaded on first use
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
@@ -1033,6 +1044,14 @@ class InMemoryStorage:
         if self.export_repo is None:
             self.export_repo = InMemoryExport(self.repo)
         return self.export_repo
+
+    @property
+    def teacher_links(self) -> Any:  # ID-04
+        if self.link_repo is None:
+            from tests.teacher_link_fakes import InMemoryTeacherLinks
+
+            self.link_repo = InMemoryTeacherLinks(self.repo)
+        return self.link_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

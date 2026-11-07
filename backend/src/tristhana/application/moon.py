@@ -103,11 +103,11 @@ class SetMoonLocation:
         self._cities, self._accounts = cities, accounts
 
     async def execute(self, principal: Principal, slug: str | None) -> Account:
-        """`None` = back to the default. Raises `UnknownLocation`."""
+        """Stores what was chosen, so an explicit Mysuru isn't mistaken for never choosing
+        (ID-04, for MD-02). `None` = back to the default. Raises `UnknownLocation`."""
         if slug is not None and self._cities.get(slug) is None:
             raise UnknownLocation(slug)
-        stored = None if slug == self._cities.default.slug else slug
-        return await self._accounts.set_moon_location(principal.account.id, stored)
+        return await self._accounts.set_moon_location(principal.account.id, slug)
 
 
 class UseCityTimezone:

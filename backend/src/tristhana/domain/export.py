@@ -112,6 +112,15 @@ class ExportMilestone:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportLink:
+    """Never a name or an id of the other person (ID-04, like `marked_by`)."""
+
+    other_side: str  # teacher | student
+    primary: bool | None  # null on rows where I'm the teacher: they never learn it
+    linked_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class Snapshot:
     """Everything the person owns, already opened, read in one transaction."""
 
@@ -131,6 +140,7 @@ class Snapshot:
     reminders: tuple[ExportReminder, ...]
     exported_at: datetime  # UTC
     milestones: tuple[ExportMilestone, ...] = ()  # smallest count first
+    links: tuple[ExportLink, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,6 +230,10 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
         "practice_milestones": [
             {"count": m.count, "reached_at": _instant(m.reached_at), "celebrated": m.celebrated}
             for m in s.milestones
+        ],
+        "teacher_links": [
+            {"other_side": k.other_side, "primary": k.primary, "linked_at": _instant(k.linked_at)}
+            for k in s.links
         ],
     }
 

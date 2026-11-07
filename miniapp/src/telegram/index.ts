@@ -9,6 +9,7 @@ import {
   isTMA,
   mainButton,
   miniApp,
+  openTelegramLink as sdkOpenTelegramLink,
   popup,
   requestWriteAccess,
   retrieveLaunchParams,
@@ -211,4 +212,8 @@ export async function allowBotMessages(): Promise<boolean> {
 /** Closes the Mini App (after the account was deleted); a no-op where unsupported. */
 export function closeApp(): void {
   miniApp.close.ifAvailable();
+}
+
+export function openTelegramLink(url: string): void {
+  sdkOpenTelegramLink.ifAvailable(url);
 }

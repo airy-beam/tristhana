@@ -4,8 +4,10 @@ new and returning people (stateless), so it doubles as a home screen.
     o1:l:en / o1:l:ru   switch the language (an explicit choice, ID-06)
 """
 
+from typing import TYPE_CHECKING
+
 from aiogram import F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.methods import SendMessage
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
@@ -18,6 +20,10 @@ from tristhana.bots.telegram.settings import client_profile
 from tristhana.bots.telegram.tour_callbacks import Origin, step
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.locale import LOCALES, Locale
+from tristhana.domain.teacher_links import parse_invite
+
+if TYPE_CHECKING:
+    from tristhana.bots.telegram.teacher_links import LinkScreens
 
 PREFIX = "o1"
 
@@ -35,18 +41,19 @@ def encode(locale: Locale) -> str:
 
 
 def register_start(
-    router: Router,
-    days: DayScreens,
-    settings: SettingsUseCases,
-    translator: Translator,
-    miniapp_url: str = "",
-) -> "StartScreens":
-    screens = StartScreens(days, settings, translator, miniapp_url)
-
-    # Any payload: deep links (`t_<code>`, ID-04 teacher invites) aren't parsed or logged yet.
+    router: Router, screens: "StartScreens", invites: "LinkScreens | None" = None
+) -> None:
+    # Only `t_<code>` (ID-04) means anything; no payload is ever logged.
     @router.message(CommandStart())
-    async def on_start(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        screen = await screens.start(Principal(account))
+    async def on_start(  # pyright: ignore[reportUnusedFunction]
+        message: Message, account: Account, command: CommandObject
+    ) -> SendMessage:
+        principal = Principal(account)
+        code = parse_invite(command.args)
+        if code is not None and invites is not None:
+            screen = await invites.invited(principal, code)
+        else:
+            screen = await screens.start(principal)
         return message.answer(screen.text, reply_markup=screen.markup)
 
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
@@ -58,8 +65,6 @@ def register_start(
         work = screens.switch(Principal(account), locale, client_profile(callback.from_user))
         screen = await answered(callback, work)
         return show(callback, screen)
-
-    return screens
 
 
 def tour_button(t: Translator, locale: Locale, origin: Origin) -> InlineKeyboardButton:
@@ -76,13 +81,20 @@ class StartScreens:
         self._t = translator
         self._app = app
 
-    async def start(self, principal: Principal) -> Screen:
-        """Greeting + "how was today?" + today's status grid (✓ on today's status)."""
+    async def start(
+        self,
+        principal: Principal,
+        lead: str | None = None,
+        lead_row: list[InlineKeyboardButton] | None = None,
+    ) -> Screen:
+        """Greeting + "how was today?" + today's status grid (✓ on today's status). An
+        answered invite (ID-04) puts its line and button on top."""
         locale = principal.account.locale
         today, _ = self._days.today(principal)
         picker, auto = await self._days.today_picker(principal)
         text = "\n\n".join(
             [
+                *([lead] if lead else []),
                 self._t.t(locale, "start-greeting"),
                 *([auto] if auto else []),  # today shows as auto-rest (PR-09)
                 self._t.t(locale, "start-prompt", day=self._days.day(locale, today, today)),
@@ -99,7 +111,12 @@ class StartScreens:
         ]
         if self._app:
             last.append(app_button(self._t, locale, self._app))
-        rows = [*picker.markup.inline_keyboard, last, [tour_button(self._t, locale, "s")]]
+        rows = [
+            *([lead_row] if lead_row else []),
+            *picker.markup.inline_keyboard,
+            last,
+            [tour_button(self._t, locale, "s")],
+        ]
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def switch(self, principal: Principal, locale: Locale, client: ExternalProfile) -> Screen:

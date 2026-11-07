@@ -1000,3 +1000,79 @@ export function useDeleteAccount() {
     },
   });
 }
+
+// Teachers and students (ID-04). Writes wait for the server; only names cross accounts, and
+// the link comes from the API: it is never built here.
+export type TeacherLinks = components["schemas"]["LinksOut"];
+export type LinkedTeacher = components["schemas"]["TeacherOut"];
+export type LinkedStudent = components["schemas"]["StudentOut"];
+export type Invite = components["schemas"]["InviteOut"];
+
+const LINKS_KEY = ["links"];
+
+export function useLinks() {
+  return useQuery({
+    queryKey: LINKS_KEY,
+    queryFn: async (): Promise<TeacherLinks> => {
+      const { data, error, response } = await api.GET("/api/v1/me/links");
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+export function useMakeMainTeacher() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<TeacherLinks> => {
+      const { data, error, response } = await api.PUT("/api/v1/me/teachers/{id}/primary", {
+        params: { path: { id } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (links) => {
+      client.setQueryData(LINKS_KEY, links);
+    },
+    onError: () => client.invalidateQueries({ queryKey: LINKS_KEY }), // 409: someone else tapped
+  });
+}
+
+export function useRemoveTeacher() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error, response } = await api.DELETE("/api/v1/me/teachers/{id}", {
+        params: { path: { id } },
+      });
+      if (!response.ok) fail(response, error);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: LINKS_KEY }),
+  });
+}
+
+export function useRemoveStudent() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error, response } = await api.DELETE("/api/v1/me/students/{id}", {
+        params: { path: { id } },
+      });
+      if (!response.ok) fail(response, error);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: LINKS_KEY }),
+  });
+}
+
+/** Shows the invite; `rotate` replaces it, so the old link and QR stop working. */
+export function useInvite() {
+  return useMutation({
+    mutationFn: async (rotate: boolean): Promise<Invite> => {
+      const { data, error, response } = await api.POST("/api/v1/me/invite", {
+        body: { rotate },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}

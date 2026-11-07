@@ -355,3 +355,32 @@ notification_delivery = Table(
     CheckConstraint("category IN ('moon', 'practice')", name="category"),
     CheckConstraint("status IN ('claimed', 'sent', 'failed', 'blocked')", name="status"),
 )
+
+
+# ID-04, ADR-0030. `is_primary` = an explicit choice only (the default is read-time);
+# `linked_on` = the student's local date at confirm, the boundary of "from today on".
+teacher_link = Table(
+    "teacher_link",
+    metadata,
+    Column("student_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("teacher_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("is_primary", Boolean(), nullable=False, server_default=text("false")),
+    Column("linked_on", Date(), nullable=False),
+    _timestamp("created_at"),
+    PrimaryKeyConstraint("student_id", "teacher_id"),
+    CheckConstraint("student_id <> teacher_id", name="not_self"),
+    Index("teacher_link_teacher_id_student_id_idx", "teacher_id", "student_id"),
+    Index(
+        "teacher_link_one_primary", "student_id", unique=True, postgresql_where=text("is_primary")
+    ),
+)
+
+# One reusable code per teacher, stored plain: it must be re-shown and exposes only a name.
+teacher_invite = Table(
+    "teacher_invite",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), primary_key=True),
+    Column("code", Text(), nullable=False, unique=True),
+    _timestamp("created_at"),
+    CheckConstraint("code ~ '^[A-Za-z0-9]{16}$'", name="code"),
+)
