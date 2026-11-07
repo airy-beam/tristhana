@@ -50,8 +50,8 @@ def _accept(code: str, me: UUID, caps: Caps, linked_on: date) -> Any:
     added = (
         insert(teacher_link)
         .from_select(
-            ["student_id", "teacher_id", "linked_on"],
-            select(literal(me), found.c.teacher_id, literal(linked_on)).where(
+            ["student_id", "teacher_id", "linked_on", "quiet_note_agreed"],
+            select(literal(me), found.c.teacher_id, literal(linked_on), literal(True)).where(
                 found.c.teacher_id != me,
                 found.c.mine < caps.teachers,
                 found.c.theirs < caps.students,

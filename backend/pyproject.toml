@@ -102,6 +102,13 @@ dev = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "The teacher view holds no key"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["tristhana.infrastructure.db.teacher_view", "tristhana.application.teacher_view"]
+forbidden_modules = ["tristhana.infrastructure.crypto", "tristhana.application.ports.days", "tristhana.application.ports.progression"]
+
+[[tool.importlinter.contracts]]
 name = "aiogram is imported only in bots.telegram"
 type = "forbidden"
 # The composition root (main) wires adapters, so only direct imports are forbidden.

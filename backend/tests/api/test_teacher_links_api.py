@@ -245,7 +245,8 @@ def test_no_route_takes_a_code_in_its_path_or_query(api: TestClient) -> None:
             continue
         for operation in operations.values():
             names = {p["name"] for p in operation.get("parameters", [])}
-            assert names <= {"id", "Authorization"}, (path, names)
+            # ST-06: the student list pages; `offset` and `limit` carry no code.
+            assert names <= {"id", "Authorization", "offset", "limit"}, (path, names)
 
 
 def test_the_invite_url_keeps_the_code_out_of_the_path(api: TestClient) -> None:

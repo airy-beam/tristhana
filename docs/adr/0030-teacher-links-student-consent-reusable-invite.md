@@ -1,5 +1,6 @@
 # ADR-0030: Teacher links: the student always consents, one reusable invite code per teacher, primary resolved at read time
 - Status: accepted (owner, 2026-11-07)
+- Amended by ADR-0031 (2026-11-07): `created_at` can't identify which consent text was confirmed, so `teacher_link.quiet_note_agreed` records the quiet-note consent.
 - Date: 2026-11-07
 ## Context
 ID-04 is the first time one account relates to another. A student has 0..n teachers with one primary, a teacher has teachers too, linking goes through `t.me/bot?start=t_<code>`, and either side can unlink. ST-06, MD-02, NT-03, SC-03 and PR-08 teacher marks all build on it. Being a teacher is a capability derived from relationships (ID-03, no role column). Teachers need to show one QR to a whole room, or print it for a shala wall. Account delete is one cascading statement (ADR-0027). Bot interactions are stateless (ADR-0008). Spec: `docs/specs/ID-04-teacher-links.md`.

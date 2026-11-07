@@ -24,13 +24,12 @@ def _table(name: str) -> Any:
     return table
 
 
-def test_0019_follows_0018_and_is_the_head() -> None:
+def test_0019_follows_0018() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0019")
 
     assert revision is not None
     assert revision.down_revision == "0018"
-    assert script.get_current_head() == "0019"
 
 
 def test_teacher_link_columns_and_key() -> None:
@@ -43,6 +42,7 @@ def test_teacher_link_columns_and_key() -> None:
         "is_primary",
         "linked_on",
         "created_at",
+        "quiet_note_agreed",  # ST-06, migration 0020
     }
     assert {c.name for c in table.columns if c.nullable} == set()
     assert table.c.is_primary.server_default is not None

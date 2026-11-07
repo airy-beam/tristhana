@@ -124,6 +124,35 @@ async def test_progression_writes_work_as_the_app_role(app_engine: AsyncEngine) 
     assert found is not None
 
 
+async def test_the_teacher_view_reads_work_as_the_app_role(app_engine: AsyncEngine) -> None:
+    """ST-06: both statements, the new column included, under the app role's table grants."""
+    from tristhana.domain.teacher_view import SharedDay
+    from tristhana.infrastructure.db.teacher_view import SqlTeacherViewRepository
+
+    teacher, student = await _account(app_engine), await _account(app_engine, "7778")
+    async with app_engine.connect() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO tristhana.teacher_link"
+                " (student_id, teacher_id, linked_on, quiet_note_agreed)"
+                " VALUES (:s, :t, :on, true)"
+            ),
+            {"s": student, "t": teacher, "on": ON},
+        )
+    await SqlDayLogRepository(app_engine, FieldCipher(KEYS)).upsert(
+        student, DayLog(ON, DayStatus.LADIES), "Asia/Almaty"
+    )
+    repo = SqlTeacherViewRepository(app_engine)
+
+    page = await repo.page(teacher, 0, 10, ON, ON)
+    detail = await repo.student(teacher, student, ON, ON)
+
+    assert page.total == 1
+    assert page.students[0].shown == {ON: SharedDay.REST}
+    assert detail is not None
+    assert detail.quiet_note_agreed is True
+
+
 async def test_export_and_delete_work_as_the_app_role(app_engine: AsyncEngine) -> None:
     """ST-09: the claim, the read-only snapshot transaction and the account delete."""
     from datetime import UTC, datetime, timedelta

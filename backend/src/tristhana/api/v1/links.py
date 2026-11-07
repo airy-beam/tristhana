@@ -1,25 +1,31 @@
-"""The caller's teachers and students (ID-04, ADR-0030). Names only cross accounts. The
-invite code never appears in a URL or a query (Cloud Run logs those), and accepting an
-invite has no endpoint: it always lands in the bot (Q12)."""
+"""The caller's teachers and students (ID-04, ADR-0030), and what a teacher sees of a
+student (ST-06, ADR-0031). The invite code never appears in a URL or a query (Cloud Run
+logs those), and accepting an invite has no endpoint: it always lands in the bot (Q12)."""
 
 import base64
+from datetime import date as date_
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
 
-from tristhana.api.deps import CurrentPrincipal, app_settings, links
+from tristhana.api.deps import CurrentPrincipal, app_settings, links, teacher_view
 from tristhana.api.errors import ApiError, error_responses
+from tristhana.api.v1.practice import Length
+from tristhana.api.v1.progression import PositionOut
 from tristhana.application.ports.teacher_links import Links, LinksChanged, NotLinked
 from tristhana.application.teacher_links import LinkUseCases
-from tristhana.domain.teacher_links import effective_primary, invite_url
+from tristhana.application.teacher_view import TeacherViewUseCases
+from tristhana.domain.teacher_links import MAX_STUDENTS, effective_primary, invite_url
+from tristhana.domain.teacher_view import SharedDay
 from tristhana.settings import Settings
 
 router = APIRouter(prefix="/me", tags=["links"], responses=error_responses(401, 503))
 
 UseCases = Annotated[LinkUseCases, Depends(links)]
+ViewCases = Annotated[TeacherViewUseCases, Depends(teacher_view)]
 
 
 class TeacherOut(BaseModel):
@@ -124,3 +130,64 @@ async def delete_student(
 ) -> None:
     await use_cases.remove_student.execute(principal, id)
     response.headers["Cache-Control"] = "no-store"
+
+
+class DayOut(BaseModel):
+    date: date_
+    state: SharedDay | None
+    length: Length | None
+
+
+class StudentTodayOut(BaseModel):
+    id: UUID
+    name: str | None
+    today: SharedDay | None
+
+
+class StudentsOut(BaseModel):
+    students: list[StudentTodayOut]
+    total: int
+
+
+class StudentCardOut(BaseModel):
+    id: UUID
+    name: str | None
+    days: list[DayOut]
+    last_asana: PositionOut | None
+    quiet: bool
+
+
+@router.get("/students")
+async def get_students(
+    principal: CurrentPrincipal,
+    use_cases: ViewCases,
+    response: Response,
+    offset: Annotated[int, Query(ge=0, le=MAX_STUDENTS)] = 0,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> StudentsOut:
+    found, total = await use_cases.students.execute(principal, offset, limit)
+    response.headers["Cache-Control"] = "no-store"
+    return StudentsOut(
+        students=[StudentTodayOut(id=s.id, name=s.name, today=s.today) for s in found], total=total
+    )
+
+
+@router.get("/students/{id}", responses=error_responses(404))
+async def get_student(
+    id: UUID, principal: CurrentPrincipal, use_cases: ViewCases, response: Response
+) -> StudentCardOut:
+    try:
+        card = await use_cases.student.execute(principal, id)
+    except NotLinked:
+        raise ApiError(404, "not_linked") from None
+    response.headers["Cache-Control"] = "no-store"
+    return StudentCardOut(
+        id=card.id,
+        name=card.name,
+        days=[
+            DayOut(date=d.date, state=d.shown, length=Length.of(d.length) if d.length else None)
+            for d in card.days
+        ],
+        last_asana=PositionOut.maybe(card.last_asana),
+        quiet=card.quiet,
+    )

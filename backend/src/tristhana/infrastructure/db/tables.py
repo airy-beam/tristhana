@@ -367,6 +367,7 @@ teacher_link = Table(
     Column("is_primary", Boolean(), nullable=False, server_default=text("false")),
     Column("linked_on", Date(), nullable=False),
     _timestamp("created_at"),
+    Column("quiet_note_agreed", Boolean(), nullable=False, server_default=text("false")),
     PrimaryKeyConstraint("student_id", "teacher_id"),
     CheckConstraint("student_id <> teacher_id", name="not_self"),
     Index("teacher_link_teacher_id_student_id_idx", "teacher_id", "student_id"),

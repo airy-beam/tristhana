@@ -6,6 +6,7 @@ logged, and no exception carries it. A teacher never learns whether they are som
 
 from collections.abc import Awaitable
 from contextlib import suppress
+from datetime import date
 from typing import TYPE_CHECKING
 from urllib.parse import quote, urlencode
 from uuid import UUID
@@ -33,12 +34,14 @@ from tristhana.bots.telegram.screens import (
     answered,
     app_button,
     button,
+    day_label,
     nothing,
     show,
 )
 from tristhana.bots.telegram.settings import client_profile
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.locale import LOCALES, Locale
+from tristhana.domain.progression import STANDING_ONLY, Position
 from tristhana.domain.teacher_links import (
     InviteState,
     Linked,
@@ -47,6 +50,7 @@ from tristhana.domain.teacher_links import (
     next_primary,
     shown_name,
 )
+from tristhana.domain.teacher_view import DayCell
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.start import StartScreens
@@ -204,17 +208,18 @@ class LinkScreens:
 
     async def students(self, principal: Principal, page: int) -> Screen:
         locale = principal.account.locale
-        people = (await self._links.get.execute(principal)).students
-        last = max(0, (len(people) - 1) // PAGE)
-        page = min(page, last)
-        rows = [
-            [
-                InlineKeyboardButton(
-                    text=_name(self._t, locale, p.name), callback_data=cb.person("v", p.id)
-                )
-            ]
-            for p in people[page * PAGE : (page + 1) * PAGE]
-        ]
+        view = self._links.view
+        found, total = await view.students.execute(principal, page * PAGE, PAGE)
+        if not found and page > 0:
+            page = 0
+            found, total = await view.students.execute(principal, 0, PAGE)
+        rows: list[list[InlineKeyboardButton]] = []
+        for p in found:
+            label = _name(self._t, locale, p.name)
+            if p.today is not None:
+                label = f"{self._t.t(locale, 'students-mark', state=p.today.value)} {label}"
+            rows.append([InlineKeyboardButton(text=label, callback_data=cb.card(p.id, page))])
+        last = max(0, (total - 1) // PAGE)
         turn: list[InlineKeyboardButton] = []
         if page > 0:
             turn.append(self._button(locale, "page-prev", cb.students(page - 1)))
@@ -223,11 +228,15 @@ class LinkScreens:
         if turn:
             rows.append(turn)
         rows.append([self._button(locale, "log-back", cb.plain("o"))])
-        text = (
-            self._t.t(locale, "links-students", count=len(people))
-            if people
-            else self._t.t(locale, "links-no-students")
-        )
+        if found:
+            text = "\n".join(
+                [
+                    self._t.t(locale, "links-students", count=total),
+                    self._t.t(locale, "students-days-note"),
+                ]
+            )
+        else:
+            text = self._t.t(locale, "links-no-students")
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def teacher(self, principal: Principal, id: UUID) -> Screen:
@@ -263,17 +272,46 @@ class LinkScreens:
         ]
         return Screen("\n\n".join(parts), InlineKeyboardMarkup(inline_keyboard=rows))
 
-    async def student(self, principal: Principal, id: UUID) -> Screen:
+    def _asana(self, locale: Locale, p: Position) -> str:
+        if p == STANDING_ONLY:
+            return self._t.t(locale, "students-last-standing")
+        labels = self._links.labels
+        series = self._links.catalog.get(p.series or "")
+        name = labels.series(locale, series.number, lower=True) if series else p.series or ""
+        asana = labels.stop(locale, p.series or "", p.key or "")
+        return self._t.t(locale, "students-last-asana", asana=asana, series=name)
+
+    def _day(self, locale: Locale, d: DayCell, today: date) -> str:
+        label = day_label(self._t, locale, d.date, today)
+        if d.shown is None:
+            return self._t.t(locale, "students-day-blank", date=label)
+        state = self._t.t(locale, f"status-{d.shown.value}")
+        if d.length is None:
+            return self._t.t(locale, "students-day", date=label, state=state)
+        length = self._links.labels.length(locale, d.length)
+        return self._t.t(locale, "students-day-length", date=label, state=state, length=length)
+
+    async def student(self, principal: Principal, id: UUID, page: int = 0) -> Screen:
         locale = principal.account.locale
-        student = _find((await self._links.get.execute(principal)).students, id)
-        if student is None:
+        try:
+            card = await self._links.view.student.execute(principal, id)
+        except NotLinked:
             return await self.students(principal, 0)
+        today = card.days[-1].date
+        head = [_name(self._t, locale, card.name)]
+        if card.last_asana is not None:
+            head.append(self._asana(locale, card.last_asana))
+        week = [self._t.t(locale, "students-week")]
+        week += [self._day(locale, d, today) for d in reversed(card.days)]
+        week.append(self._t.t(locale, "students-blank-note"))
+        if card.quiet:
+            week.append(self._t.t(locale, "students-quiet"))
         rows = [
             [self._button(locale, "links-remove", cb.person("r", id))],
-            [self._button(locale, "log-back", cb.students(0))],
+            [self._button(locale, "log-back", cb.students(page))],
         ]
         return Screen(
-            _name(self._t, locale, student.name), InlineKeyboardMarkup(inline_keyboard=rows)
+            "\n".join(head) + "\n\n" + "\n".join(week), InlineKeyboardMarkup(inline_keyboard=rows)
         )
 
     async def ask_remove_student(self, principal: Principal, id: UUID) -> Screen:
@@ -348,6 +386,10 @@ class LinkScreens:
         match tap:
             case cb.Confirm(code):
                 return self.accept(principal, code)
+            case cb.Reopen(code):
+                return self.invited(principal, code)
+            case cb.Card(id, page):
+                return self.student(principal, id, page)
             case cb.Language(locale, code):
                 client = client_profile(callback.from_user)
                 return self.language(principal, locale, code, client)

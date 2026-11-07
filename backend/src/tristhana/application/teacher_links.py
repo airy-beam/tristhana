@@ -1,13 +1,15 @@
 """Teacher-student links (ID-04, ADR-0030): both adapters use these, except `AcceptInvite`
 and `PreviewInvite`, because an invite always lands in the bot (Q12).
 
-A link exposes only names. Every write is keyed on the caller's account, so an id from a
-client can only ever touch the caller's own rows.
+A link exposes names here; what a teacher sees of a student is `teacher_view` (ST-06). Every
+write is keyed on the caller's account, so an id from a client can only ever touch the
+caller's own rows.
 """
 
 from dataclasses import dataclass
 from uuid import UUID
 
+from tristhana.application.labels import PracticeLabels
 from tristhana.application.policies import (
     NotAllowed,
     Principal,
@@ -27,6 +29,8 @@ from tristhana.application.ports.teacher_links import (
     TeacherLinkRepository,
 )
 from tristhana.application.settings import caller_today
+from tristhana.application.teacher_view import TeacherViewUseCases
+from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS, InviteState, invite_state
 
 CAPS = Caps(MAX_TEACHERS, MAX_STUDENTS)
@@ -156,3 +160,6 @@ class LinkUseCases:
     remove_teacher: RemoveTeacher
     remove_student: RemoveStudent
     qr: QrCodes
+    view: TeacherViewUseCases
+    labels: PracticeLabels
+    catalog: PracticeCatalog

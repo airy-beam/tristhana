@@ -549,6 +549,42 @@
         "title": "DayOffQuestionOut",
         "type": "object"
       },
+      "DayOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedDay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "date",
+          "state",
+          "length"
+        ],
+        "title": "DayOut",
+        "type": "object"
+      },
       "DaySaved": {
         "description": "`practices` and `check_ins` are not included here: read them from GET /me/days.",
         "properties": {
@@ -2510,6 +2546,14 @@
         "title": "SeriesOut",
         "type": "object"
       },
+      "SharedDay": {
+        "enum": [
+          "practiced",
+          "rest"
+        ],
+        "title": "SharedDay",
+        "type": "string"
+      },
       "StartBody": {
         "properties": {
           "days": {
@@ -2640,6 +2684,56 @@
         "title": "StopOut",
         "type": "object"
       },
+      "StudentCardOut": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_asana": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "quiet": {
+            "title": "Quiet",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "days",
+          "last_asana",
+          "quiet"
+        ],
+        "title": "StudentCardOut",
+        "type": "object"
+      },
       "StudentOut": {
         "description": "No primary field: a teacher never learns whether they are someone's main teacher.",
         "properties": {
@@ -2671,6 +2765,64 @@
           "linked_at"
         ],
         "title": "StudentOut",
+        "type": "object"
+      },
+      "StudentTodayOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "today": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedDay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "today"
+        ],
+        "title": "StudentTodayOut",
+        "type": "object"
+      },
+      "StudentsOut": {
+        "properties": {
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/StudentTodayOut"
+            },
+            "title": "Students",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "students",
+          "total"
+        ],
+        "title": "StudentsOut",
         "type": "object"
       },
       "SummaryOut": {
@@ -5074,6 +5226,88 @@
         ]
       }
     },
+    "/api/v1/me/students": {
+      "get": {
+        "operationId": "get_students_api_v1_me_students_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 500,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Students",
+        "tags": [
+          "links"
+        ]
+      }
+    },
     "/api/v1/me/students/{id}": {
       "delete": {
         "operationId": "delete_student_api_v1_me_students__id__delete",
@@ -5130,6 +5364,82 @@
           }
         ],
         "summary": "Delete Student",
+        "tags": [
+          "links"
+        ]
+      },
+      "get": {
+        "operationId": "get_student_api_v1_me_students__id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentCardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Student",
         "tags": [
           "links"
         ]

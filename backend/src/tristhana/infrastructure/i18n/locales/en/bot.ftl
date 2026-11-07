@@ -636,10 +636,12 @@ export-readme-unreadable = unreadable = yes: this entry was saved, but a private
 invite-ask = 🤝 { $name } sent you an invite. Add them to your teachers?
 invite-consent =
     If you confirm:
-    • { $name } sees your name{ $me }, nothing more for now.
-    • Later, when teachers get their own screen, they'll also see what you log from today on: practice or rest and your practice length. They'll see your last asana as marked in your log too. All rest looks the same, whatever the reason.
-    • Any teacher on your list will then also be able to mark a new asana for you. You can undo it.
-    • Check-ins, diary notes and the reason for a rest stay private unless you choose to share them.
+    • { $name } sees your name{ $me } and what you log from today on: practice or rest and your practice length.
+    • { $name } also sees your last asana as marked in your log.
+    • All rest you log looks the same, whatever the reason.
+    • If nothing shows for a while, { $name } sees a short note saying just that.
+    • Later, any teacher on your list will also be able to mark a new asana for you. You can undo it.
+    • Check-ins, diary notes and the reason for a rest stay private.
     • You can remove { $name } from your list any time in /teachers. No one gets a message.
 invite-know-them = Anyone can choose any name here, so confirm only if you know this person.
 invite-not-told = If you tap Not now, { $name } isn't told.
@@ -678,3 +680,18 @@ invite-share = 📤 Share
 invite-qr = 🔳 QR code
 invite-new = 🔄 New link…
 invite-new-yes = 🔄 Yes, new link
+
+students-days-note = Days follow each student's own time zone.
+students-week = Last 7 days
+students-last-asana = Last asana, as marked in their log: { $asana } ({ $series })
+students-last-standing = As marked in their log: sun salutations and standing
+students-blank-note = Not every day gets logged, rest days included. A blank says nothing about the practice.
+students-quiet = Nothing shared for a while
+students-mark =
+    { $state ->
+        [practiced] 🧘
+       *[rest] 😌
+    }
+students-day = { $date }: { $state }
+students-day-length = { $date }: { $state }, { $length }
+students-day-blank = { $date }: ·

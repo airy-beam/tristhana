@@ -54,8 +54,8 @@ describe("ID-04 copy", () => {
   it("the privacy line tells what a link shows, and the old promise is gone", () => {
     const en = format(bundleFor("en"), "settings-privacy-sharing");
     const ru = format(bundleFor("ru"), "settings-privacy-sharing");
-    expect(en).toContain("A teacher on your list sees your name.");
-    expect(ru).toContain("Учитель из твоего списка видит твоё имя.");
+    expect(en).toContain("A teacher on your list sees your name, your last asana and what you log");
+    expect(ru).toContain("Учитель из твоего списка видит твоё имя, последнюю асану и то, что ты");
     expect(en).not.toContain("you choose what they see");
     expect(ru).not.toContain("ты выберешь, что им показывать");
   });

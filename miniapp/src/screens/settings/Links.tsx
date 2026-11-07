@@ -21,12 +21,12 @@ import {
 
 interface Props {
   onBack: () => void;
+  onStudents: () => void;
 }
 
-/** "👥 Teachers and students" (ID-04): my teachers, my students, my invite. Only names cross
- * accounts, and an invite is confirmed in the bot. A teacher never sees who chose them as
- * main. Loaded lazily, so Settings stays light. Writes are not optimistic. */
-export default function Links({ onBack }: Props) {
+/** "👥 Teachers and students" (ID-04): my teachers, my students, my invite. An invite is
+ * confirmed in the bot. A teacher never sees who chose them as main. Loaded lazily, so Settings stays light. Writes are not optimistic. */
+export default function Links({ onBack, onStudents }: Props) {
   useBackButton(onBack);
   const query = useLinks();
   const links = query.data;
@@ -48,7 +48,7 @@ export default function Links({ onBack }: Props) {
       {links && (
         <>
           <Teachers teachers={links.teachers} />
-          <Students students={links.students} />
+          <Students students={links.students} onOpen={onStudents} />
           <InviteCard hasStudents={links.students.length > 0} />
         </>
       )}
@@ -139,7 +139,7 @@ function Teachers({ teachers }: { teachers: LinkedTeacher[] }) {
   );
 }
 
-function Students({ students }: { students: LinkedStudent[] }) {
+function Students({ students, onOpen }: { students: LinkedStudent[]; onOpen: () => void }) {
   const { l10n } = useLocalization();
   const name = useName();
   const remove = useRemoveStudent();
@@ -160,6 +160,11 @@ function Students({ students }: { students: LinkedStudent[] }) {
       {students.length === 0 && (
         <Localized id="links-no-students">
           <p className="hint" />
+        </Localized>
+      )}
+      {students.length > 0 && (
+        <Localized id="link-students-open">
+          <button type="button" className="row-button" onClick={onOpen} />
         </Localized>
       )}
       {students.map((student) => (

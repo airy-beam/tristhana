@@ -12,6 +12,7 @@ from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.progression import ProgressionRepository
 from tristhana.application.ports.rest_periods import RestPeriodRepository
 from tristhana.application.ports.teacher_links import TeacherLinkRepository
+from tristhana.application.ports.teacher_view import TeacherViewRepository
 
 
 class StorageUnavailable(Exception):
@@ -65,6 +66,9 @@ class Storage(Protocol):
 
     @property
     def teacher_links(self) -> TeacherLinkRepository: ...
+
+    @property
+    def teacher_view(self) -> TeacherViewRepository: ...
 
 
 class Clock(Protocol):

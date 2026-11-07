@@ -562,3 +562,11 @@ body {
 .invite-url {
   overflow-wrap: anywhere;
 }
+
+.student-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+}

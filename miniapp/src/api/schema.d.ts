@@ -537,6 +537,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Students */
+        get: operations["get_students_api_v1_me_students_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/students/{id}": {
         parameters: {
             query?: never;
@@ -544,7 +561,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Student */
+        get: operations["get_student_api_v1_me_students__id__get"];
         put?: never;
         post?: never;
         /** Delete Student */
@@ -852,6 +870,16 @@ export interface components {
              * @description The one weekday practice reminders skip
              */
             weekday: number;
+        };
+        /** DayOut */
+        DayOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            length: components["schemas"]["Length"] | null;
+            state: components["schemas"]["SharedDay"] | null;
         };
         /**
          * DaySaved
@@ -1627,6 +1655,11 @@ export interface components {
             /** @description Shown name ("Yoga Chikitsa"; key = slug): Primary and Intermediate only */
             traditional?: components["schemas"]["StopOut"] | null;
         };
+        /**
+         * SharedDay
+         * @enum {string}
+         */
+        SharedDay: "practiced" | "rest";
         /** StartBody */
         StartBody: {
             /**
@@ -1685,6 +1718,21 @@ export interface components {
             /** Ru */
             ru: string;
         };
+        /** StudentCardOut */
+        StudentCardOut: {
+            /** Days */
+            days: components["schemas"]["DayOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            last_asana: components["schemas"]["PositionOut"] | null;
+            /** Name */
+            name: string | null;
+            /** Quiet */
+            quiet: boolean;
+        };
         /**
          * StudentOut
          * @description No primary field: a teacher never learns whether they are someone's main teacher.
@@ -1702,6 +1750,24 @@ export interface components {
             linked_at: string;
             /** Name */
             name: string | null;
+        };
+        /** StudentTodayOut */
+        StudentTodayOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string | null;
+            today: components["schemas"]["SharedDay"] | null;
+        };
+        /** StudentsOut */
+        StudentsOut: {
+            /** Students */
+            students: components["schemas"]["StudentTodayOut"][];
+            /** Total */
+            total: number;
         };
         /** SummaryOut */
         SummaryOut: {
@@ -3392,6 +3458,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_students_api_v1_me_students_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_student_api_v1_me_students__id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentCardOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

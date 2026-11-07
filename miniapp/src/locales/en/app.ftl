@@ -254,7 +254,7 @@ settings-cap = { $n ->
     }
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
-settings-privacy-sharing = Your log is yours. A teacher on your list sees your name. When teachers get their own screen, they'll also see what you log: practice or rest, your practice length and your last asana. A teacher on your list will also be able to mark a new asana for you, and you can undo it. Check-ins, diary notes and the reason for a rest stay private unless you choose to share them. You can remove a teacher from your list any time.
+settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short note saying just that. Later, a teacher on your list will also be able to mark a new asana for you, and you can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time.
 # MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
 settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
 settings-save-failed = Couldn't save. Try again in a moment.
@@ -497,6 +497,33 @@ delete-cancel = Cancel
 delete-failed = Couldn't delete. Try again in a moment.
 delete-done-app = Your account and data are deleted. Wishing you good practice 🙏 Open the bot any time to start fresh.
 delete-close = Close
+
+students-days-note = Days follow each student's own time zone.
+students-week = Last 7 days
+students-last-asana = Last asana, as marked in their log: { $asana } ({ $series })
+students-last-standing = As marked in their log: sun salutations and standing
+students-blank-note = Not every day gets logged, rest days included. A blank says nothing about the practice.
+students-quiet = Nothing shared for a while
+students-mark =
+    { $state ->
+        [practiced] 🧘
+       *[rest] 😌
+    }
+students-day = { $date }: { $state }
+students-day-length = { $date }: { $state }, { $length }
+students-day-blank-mark = { $date }: ·
+students-day-blank = { $date }: nothing to show
+students-more = Show more
+students-card-load-failed = Couldn't load this page. Try again in a moment.
+students-load-failed = Couldn't load your students. Try again in a moment.
+links-students = 👥 My students ({ $count })
+link-students-open = 👥 My students
+day-label =
+    { $rel ->
+        [today] Today, { $date }
+        [yesterday] Yesterday, { $date }
+       *[other] { $date }
+    }
 
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
