@@ -370,6 +370,9 @@ class _UnavailableAccounts:
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def set_moon_location_if_unset(self, account_id: UUID, slug: str) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def set_day_off(self, account_id: UUID, day_off: DayOff) -> NoReturn:
         raise StorageUnavailable("not configured")
 
@@ -533,8 +536,8 @@ class _UnavailableTeacherLinks:
     async def rotate(self, me: UUID, new_code: str) -> str:
         raise StorageUnavailable("not configured")
 
-    async def set_primary(self, me: UUID, teacher_id: UUID) -> bool:
+    async def set_primary(self, me: UUID, teacher_id: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 
-    async def unlink(self, student: UUID, teacher: UUID) -> bool:
+    async def unlink(self, student: UUID, teacher: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")

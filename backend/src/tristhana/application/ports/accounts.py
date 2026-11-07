@@ -39,6 +39,10 @@ class AccountRepository(Protocol):
 
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account: ...
 
+    async def set_moon_location_if_unset(self, account_id: UUID, slug: str) -> Account | None:
+        """One statement, only while `moon_location IS NULL` (MD-02 Keep). None: already set."""
+        ...
+
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> Account:
         """Sets the zone only if the account has none; returns the account either way."""
         ...

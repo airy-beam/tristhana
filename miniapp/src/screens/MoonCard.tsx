@@ -1,6 +1,6 @@
 import { Localized, useLocalization } from "@fluent/react";
 
-import { useMoonCities, useMoonDays, type City } from "../api/client";
+import { useMoonCities, useMoonDays, type City, type MoonDays } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 
 const UPCOMING = 3;
@@ -11,6 +11,47 @@ const daysBetween = (from: string, to: string) =>
 
 export const cityName = (city: City | undefined, slug: string, locale: Locale) =>
   city ? (locale === "ru" ? city.name_ru : city.name_en) : slug;
+
+/** Where the city comes from (MD-02): the main teacher, and for a teacher what students get. */
+export function MoonSource({
+  location,
+  city,
+  fallback,
+}: {
+  location: MoonDays["location"];
+  city: string;
+  /** The default city's name (first in `/moon/cities`): what students get without a choice. */
+  fallback: string;
+}) {
+  const { l10n } = useLocalization();
+  const name = location.teacher?.name ?? l10n.getString("link-no-name");
+  return (
+    <>
+      {location.teacher && location.source === "teacher" && (
+        <Localized id="moon-source-teacher" vars={{ name }}>
+          <p className="hint small" />
+        </Localized>
+      )}
+      {location.teacher && location.source === "default" && location.follow_chosen && (
+        <Localized id="moon-source-teacher-none" vars={{ name, city }}>
+          <p className="hint small" />
+        </Localized>
+      )}
+      {location.shared && (
+        <Localized
+          id="moon-teacher-shared"
+          vars={{
+            // "like yours" is untrue for one who follows their own teacher.
+            chosen: location.shared.chosen ? "yes" : location.follow_chosen ? "follow" : "no",
+            city: location.shared.chosen ? city : fallback,
+          }}
+        >
+          <p className="hint small" />
+        </Localized>
+      )}
+    </>
+  );
+}
 
 /** Upcoming moon days of the followed city (MD-03); the city and reminders are in Settings. */
 export function MoonCard({ locale }: { locale: Locale }) {
@@ -38,6 +79,11 @@ export function MoonCard({ locale }: { locale: Locale }) {
       <Localized id="moon-title" vars={{ city }}>
         <h2 id="moon-title" />
       </Localized>
+      <MoonSource
+        location={moon.location}
+        city={city}
+        fallback={cityName(cities?.[0], "mysuru", locale)}
+      />
       {upcoming.length ? (
         <ul className="moon-days">
           {upcoming.map((d) => (

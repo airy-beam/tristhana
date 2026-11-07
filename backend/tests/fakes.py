@@ -17,6 +17,7 @@ from tristhana.application.ports.notifications import (
     DeliveryResult,
     DeliveryStatus,
     ExportFile,
+    KeepOffer,
     MoonReminder,
     Notification,
     PracticePause,
@@ -144,6 +145,13 @@ class InMemoryAccounts:
     async def set_moon_location(self, account_id: UUID, slug: str | None) -> Account:
         self._check()
         return self._save(replace(self.accounts[account_id], moon_location=slug))
+
+    async def set_moon_location_if_unset(self, account_id: UUID, slug: str) -> Account | None:
+        self._check()
+        current = self.accounts[account_id]
+        if current.moon_location is not None:
+            return None
+        return self._save(replace(current, moon_location=slug))
 
     async def set_timezone_if_unset(self, account_id: UUID, timezone: str) -> Account:
         self._check()
@@ -890,7 +898,9 @@ class FakeNotifier:
             return self.export_outcomes.pop(0)
         return DeliveryResult(DeliveryStatus.SENT)
 
-    async def tell_student_joined(self, recipient: Recipient, name: str | None) -> DeliveryResult:
+    async def tell_student_joined(
+        self, recipient: Recipient, name: str | None, keep: KeepOffer | None = None
+    ) -> DeliveryResult:
         self.joined.append((recipient, name))
         return (
             self.join_outcomes.pop(0) if self.join_outcomes else DeliveryResult(DeliveryStatus.SENT)
@@ -1101,6 +1111,7 @@ def moon_use_cases(storage: "InMemoryStorage | None" = None) -> MoonUseCases:
 
     from tristhana.application.moon import (
         GetMoonView,
+        KeepMoonCity,
         SetMoonLocation,
         UpdateMoonReminders,
         UseCityTimezone,
@@ -1112,6 +1123,7 @@ def moon_use_cases(storage: "InMemoryStorage | None" = None) -> MoonUseCases:
         cities=known,
         view=GetMoonView(known, storage.moon, storage.notifications, FixedClock()),
         set_location=SetMoonLocation(known, storage.accounts),
+        keep=KeepMoonCity(known, storage.accounts),
         use_city_zone=UseCityTimezone(known, storage.accounts),
         reminders=UpdateMoonReminders(storage.notifications),
     )

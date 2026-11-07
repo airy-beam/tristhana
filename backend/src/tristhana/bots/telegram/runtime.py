@@ -17,6 +17,7 @@ from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryN
 from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.moon import (
     GetMoonView,
+    KeepMoonCity,
     NotificationSettingsUseCase,
     SetMoonLocation,
     UpdateMoonReminders,
@@ -123,6 +124,7 @@ class MoonUseCases:
     cities: Cities
     view: GetMoonView
     set_location: SetMoonLocation
+    keep: KeepMoonCity
     use_city_zone: UseCityTimezone
     reminders: UpdateMoonReminders
 

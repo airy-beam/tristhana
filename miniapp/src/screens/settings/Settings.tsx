@@ -2,6 +2,7 @@ import { Localized, useLocalization } from "@fluent/react";
 import { useEffect, useState } from "react";
 
 import {
+  useLinks,
   useMe,
   useMoonCities,
   useMoonDays,
@@ -17,7 +18,7 @@ import {
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
-import { cityName } from "../MoonCard";
+import { cityName, MoonSource } from "../MoonCard";
 import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
 import { MyData } from "./MyData";
@@ -272,6 +273,8 @@ function City({ me }: { me: Me }) {
   );
 }
 
+const FOLLOW = "-teacher"; // never a city slug
+
 function Moon({
   locale,
   zone,
@@ -286,8 +289,13 @@ function Moon({
   const settings = useNotificationSettings().data;
   const setLocation = useSetMoonLocation();
   const save = usePatchNotificationSettings();
+  const { l10n } = useLocalization();
+  const main = useLinks().data?.teachers.find((t) => t.primary);
   if (!moon) return null;
   const slug = moon.location.slug;
+  // MD-02: the select's value for "Follow my teacher" (sent as null), shown only with a
+  // main teacher; selected while the city comes from them or following was chosen.
+  const following = !!main && (moon.location.source === "teacher" || moon.location.follow_chosen);
   const city = cityName(
     cities?.find((c) => c.slug === slug),
     slug,
@@ -312,12 +320,19 @@ function Moon({
             <span />
           </Localized>
           <select
-            value={slug}
+            value={following ? FOLLOW : slug}
             onChange={(e) => {
               haptics.impact("light");
-              setLocation.mutate(e.target.value);
+              setLocation.mutate(e.target.value === FOLLOW ? null : e.target.value);
             }}
           >
+            {main && (
+              <option value={FOLLOW}>
+                {l10n.getString("moon-follow-teacher", {
+                  name: main.name ?? l10n.getString("link-no-name"),
+                })}
+              </option>
+            )}
             {/* MD-04: stores the slug (a snapshot); a later trip never moves the calendar. */}
             {home && home.slug !== slug && (
               <Localized id="moon-same-as-city" vars={{ city: cityName(home, home.slug, locale) }}>
@@ -332,6 +347,11 @@ function Moon({
           </select>
         </label>
       )}
+      <MoonSource
+        location={moon.location}
+        city={city}
+        fallback={cityName(cities?.[0], "mysuru", locale)}
+      />
       <Localized id="moon-calc-note" vars={{ city }}>
         <p className="hint small" />
       </Localized>

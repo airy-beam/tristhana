@@ -17,15 +17,16 @@ from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.moon_callbacks import PREFIX, MoonCallback, decode, encode
 from tristhana.bots.telegram.runtime import MoonUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
-from tristhana.domain.accounts import Account, home_city_of
+from tristhana.domain.accounts import Account, home_city_of, moon_follow_of
 from tristhana.domain.locale import Locale
-from tristhana.domain.moon import City, MoonDay, MoonDayKind, MoonPhase
+from tristhana.domain.moon import City, MoonDay, MoonDayKind, MoonFollow, MoonPhase, MoonSource
 from tristhana.domain.notifications import (
     DEFAULTS,
     SEND_TIMES,
     InvalidSettings,
     NotificationSettings,
 )
+from tristhana.domain.teacher_links import shown_name
 
 UPCOMING = 4  # moon days on the /moon screen (~2 months)
 CITY_PAGE = 12  # 2 columns x 6 rows
@@ -107,7 +108,8 @@ def register_moon(router: Router, moon: MoonUseCases, translator: Translator) ->
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
     async def on_moon_tap(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
-        screen = await answered(callback, screens.handle(Principal(account), cb))
+        note = callback.message.text if isinstance(callback.message, Message) else None
+        screen = await answered(callback, screens.handle(Principal(account), cb, note))
         return show(callback, screen) if screen else None
 
 
@@ -116,7 +118,10 @@ class MoonScreens:
         self._m = moon
         self._t = translator
 
-    async def handle(self, principal: Principal, cb: MoonCallback | None) -> Screen | None:
+    async def handle(
+        self, principal: Principal, cb: MoonCallback | None, note: str | None = None
+    ) -> Screen | None:
+        """`note`: the tapped message's text, which Keep edits in place (stateless)."""
         if cb is None:
             return None
         locale = principal.account.locale
@@ -131,6 +136,11 @@ class MoonScreens:
                 case "city":
                     account = await self._m.set_location.execute(principal, cb.slug)
                     return await self.view(Principal(account))
+                case "follow":
+                    account = await self._m.set_location.execute(principal, None)
+                    return await self.view(Principal(account))
+                case "keep":
+                    return await self._keep(principal, cb.slug or "", note, locale)
                 case "zone":
                     account = await self._m.use_city_zone.execute(principal, cb.slug or "")
                     return await self.view(Principal(account))
@@ -144,6 +154,19 @@ class MoonScreens:
                     return await self._quick(principal, cb, locale)
         except (UnknownLocation, InvalidSettings):
             return await self.view(principal)  # stale or forged: just reshow
+
+    async def _keep(
+        self, principal: Principal, slug: str, note: str | None, locale: Locale
+    ) -> Screen:
+        """The first-student note, edited in place: the Keep row goes, 👥 My students stays."""
+        from tristhana.bots.telegram import teacher_links
+
+        result = await self._m.keep.execute(principal, slug)
+        city = result.follow.city.name(locale)
+        line = self._t.t(locale, "moon-kept" if result.kept else "moon-keep-already", city=city)
+        joined = (note or "").split("\n\n", 1)[0]  # `link-student-joined` is one paragraph
+        markup = teacher_links.joined_screen(self._t, locale, None).markup
+        return Screen(f"{joined}\n\n{line}" if joined else line, markup)
 
     async def _quick(self, principal: Principal, cb: MoonCallback, locale: Locale) -> Screen:
         offsets, status = {
@@ -166,12 +189,21 @@ class MoonScreens:
         locale = principal.account.locale
         city = v.city.name(locale)
         lines = [self._t.t(locale, "moon-title", city=city)]
+        source = self._source(locale, v.follow)
+        if source:
+            lines.append(source)
         upcoming = v.days[:UPCOMING]
         if upcoming:
             lines.append("\n".join(self._day_lines(locale, d, v) for d in upcoming))
         else:
             lines.append(self._t.t(locale, "moon-none"))
         lines.append(self._t.t(locale, "moon-calc-note", city=city))
+        if v.shared is not None:  # MD-02: told to anyone with students
+            # What the students get: this choice, else the default (one hop, never inherited).
+            theirs = city if v.shared else self._m.cities.default.name(locale)
+            # "like yours" is untrue for one who follows their own teacher.
+            chosen = "yes" if v.shared else "follow" if v.follow.follow_chosen else "no"
+            lines.append(self._t.t(locale, "moon-teacher-shared", chosen=chosen, city=theirs))
         lines.append(self._status(locale, v, principal.account))
         rows = [
             [
@@ -179,7 +211,9 @@ class MoonScreens:
                 button(self._t, locale, "moon-reminders", _data(action="reminders")),
             ]
         ]
-        if not v.zone_known and v.explicit and v.city is not self._m.cities.default:
+        # Only for a chosen city: a teacher's city is not where the student lives (MD-04 Q3).
+        chosen = v.follow.source is MoonSource.CHOSEN
+        if not v.zone_known and chosen and v.city is not self._m.cities.default:
             rows.append(
                 [
                     InlineKeyboardButton(
@@ -189,6 +223,18 @@ class MoonScreens:
                 ]
             )
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _source(self, locale: Locale, follow: MoonFollow) -> str | None:
+        """Where the city comes from (MD-02), under the title; nothing for a plain city."""
+        teacher = follow.teacher
+        if teacher is None:
+            return None
+        name = shown_name(teacher.name) or self._t.t(locale, "link-no-name")
+        if follow.source is MoonSource.TEACHER:
+            return self._t.t(locale, "moon-source-teacher", name=name)
+        return self._t.t(
+            locale, "moon-source-teacher-none", name=name, city=follow.city.name(locale)
+        )
 
     def _day_lines(self, locale: Locale, d: MoonDay, v: MoonView) -> str:
         """The day, and the home city's date under it when that differs (MD-04)."""
@@ -222,17 +268,36 @@ class MoonScreens:
         ordered = self._m.cities.ordered(locale)
         pages = max(1, -(-len(ordered) // CITY_PAGE))
         page = min(page, pages - 1)
-        current = principal.account.moon_location or self._m.cities.default.slug
+        account = principal.account
+        follow = moon_follow_of(account, self._m.cities)
+        teacher = account.main_teacher
+        # One tick per page: the follow row, else the city in use.
+        following = teacher is not None and (
+            follow.source is MoonSource.TEACHER or follow.follow_chosen
+        )
+        current = None if following else follow.city.slug
         shown = ordered[page * CITY_PAGE : (page + 1) * CITY_PAGE]
         buttons = [self._city_button(locale, c, c.slug == current) for c in shown]
         rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-        home = home_city_of(principal.account, self._m.cities)
+        home = home_city_of(account, self._m.cities)
         if home is not None and home.slug != current:  # MD-04: a snapshot, not a link
             same = InlineKeyboardButton(
                 text=self._t.t(locale, "moon-same-as-city", city=home.name(locale)),
                 callback_data=_data(action="city", slug=home.slug),
             )
             rows.insert(0, [same])
+        if teacher is not None:  # MD-02: first, only with a main teacher
+            name = shown_name(teacher.name) or self._t.t(locale, "link-no-name")
+            text = self._t.t(locale, "moon-follow-teacher", name=name)
+            rows.insert(
+                0,
+                [
+                    InlineKeyboardButton(
+                        text=f"✓ {text}" if following else text,
+                        callback_data=_data(action="follow"),
+                    )
+                ],
+            )
         paging: list[InlineKeyboardButton] = []
         if page > 0:
             paging.append(

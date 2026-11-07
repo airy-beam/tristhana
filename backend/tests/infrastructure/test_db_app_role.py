@@ -203,5 +203,42 @@ async def test_teacher_link_writes_work_as_the_app_role(app_engine: AsyncEngine)
     assert owned is not None
     assert len(owned.links) == 1
 
-    assert await repo.unlink(student, teacher)
+    assert (await repo.unlink(student, teacher)).removed
     assert (await repo.overview(student)).teachers == ()
+
+
+async def test_the_moon_follow_reads_and_keep_work_as_the_app_role(app_engine: AsyncEngine) -> None:
+    """MD-02: the account load with `teaches` and the main teacher, the conditional Keep
+    write and the tick's candidates, as `tristhana_app`."""
+    from datetime import UTC, datetime, timedelta
+
+    from tristhana.application.ports.teacher_links import Caps
+    from tristhana.domain.moon import TeacherMoon
+    from tristhana.domain.notifications import DEFAULTS
+    from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS
+    from tristhana.infrastructure.db.notifications import SqlNotificationRepository
+    from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
+
+    teacher, student = await _account(app_engine, "7101"), await _account(app_engine, "7102")
+    accounts = SqlAccountRepository(app_engine)
+    await accounts.set_moon_location(teacher, "almaty")
+    links = SqlTeacherLinkRepository(app_engine)
+    caps = Caps(teachers=MAX_TEACHERS, students=MAX_STUDENTS)
+    accepted = await links.accept(
+        await links.invite(teacher, "aB3dE6gH9jK2mN5p"), student, caps, ON
+    )
+    assert accepted is not None
+
+    found = await accounts.find_by_identity(IdentityKey(IdentityProvider.TELEGRAM, "7102"))
+    assert found is not None
+    assert found.main_teacher is not None
+    assert found.main_teacher == TeacherMoon(teacher, found.main_teacher.name, "almaty")
+    kept = await accounts.set_moon_location_if_unset(student, "almaty")
+    assert kept is not None
+    assert kept.moon_location == "almaty"
+    now = datetime(2026, 10, 27, 12, tzinfo=UTC)
+    await accounts.set_timezone_if_unset(student, "Asia/Almaty")
+    candidates = await SqlNotificationRepository(app_engine).candidates(
+        now - timedelta(days=12), now.date(), DEFAULTS
+    )
+    assert {c.account_id: c.teacher_location for c in candidates}.get(student) == "almaty"

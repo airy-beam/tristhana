@@ -1157,21 +1157,38 @@ export interface components {
         };
         /** @enum {string} */
         Locale: "en" | "ru";
-        /** Location */
+        /**
+         * Location
+         * @description The effective moon city (MD-02). Never the teacher's stored value, only the result.
+         */
         Location: {
             /**
              * Explicit
-             * @description False: the default city (Mysuru), never chosen
+             * @description A city or 'Follow my teacher' was chosen
              */
             explicit: boolean;
+            /**
+             * Follow Chosen
+             * @description 'Follow my teacher' is the stored choice
+             */
+            follow_chosen: boolean;
+            /** @description Only for someone with students */
+            shared: components["schemas"]["MoonShared"] | null;
             /** Slug */
             slug: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "chosen" | "teacher" | "default";
+            /** @description The main teacher, for source 'teacher' or a follow without their city */
+            teacher: components["schemas"]["MoonTeacher"] | null;
         };
         /** LocationBody */
         LocationBody: {
             /**
              * Slug
-             * @description A city slug; null = back to the default
+             * @description A city slug; null = Follow my teacher (MD-02)
              */
             slug: string | null;
         };
@@ -1332,6 +1349,24 @@ export interface components {
              * @description Days before; [] = off
              */
             offsets: (1 | 3 | 7)[];
+        };
+        /** MoonShared */
+        MoonShared: {
+            /**
+             * Chosen
+             * @description False: never chose, so students get the default too
+             */
+            chosen: boolean;
+        };
+        /** MoonTeacher */
+        MoonTeacher: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string | null;
         };
         /** NotificationSettingsOut */
         NotificationSettingsOut: {

@@ -25,6 +25,7 @@ from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
     GetMoonView,
+    KeepMoonCity,
     NotificationSettingsUseCase,
     SetMoonLocation,
     UpdateMoonReminders,
@@ -284,6 +285,7 @@ class _Services:
             cities=cities,
             view=GetMoonView(cities, self._storage.moon, self._storage.notifications, clock),
             set_location=SetMoonLocation(cities, self._storage.accounts),
+            keep=KeepMoonCity(cities, self._storage.accounts),
             use_city_zone=UseCityTimezone(cities, self._storage.accounts),
             reminders=UpdateMoonReminders(self._storage.notifications),
         )
@@ -333,12 +335,12 @@ class _Services:
         codes = SecretCodes()
         links = LinkUseCases(
             preview=PreviewInvite(teacher_links),
-            accept=AcceptInvite(teacher_links, self._notifier, clock),
+            accept=AcceptInvite(teacher_links, self._notifier, clock, cities),
             get=GetLinks(teacher_links),
             invite=GetInvite(teacher_links, codes),
             rotate=RotateInvite(teacher_links, codes),
-            primary=SetPrimaryTeacher(teacher_links),
-            remove_teacher=RemoveTeacher(teacher_links),
+            primary=SetPrimaryTeacher(teacher_links, cities),
+            remove_teacher=RemoveTeacher(teacher_links, cities),
             remove_student=RemoveStudent(teacher_links),
             qr=SegnoQrCodes(),
             view=view,

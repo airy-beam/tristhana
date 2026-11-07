@@ -675,12 +675,18 @@ export function useNotificationSettings() {
   });
 }
 
-/** Follow another city's moon calendar; the days are refetched for it. */
+/** What follows the moon city: the moon days, and the auto moon days in Days and stats. */
+function invalidateMoon(client: ReturnType<typeof useQueryClient>) {
+  for (const key of [MOON_KEY, ["days"], STATS_KEY])
+    void client.invalidateQueries({ queryKey: key });
+}
+
+/** Follow another city's moon calendar, or the main teacher's (null, MD-02). */
 export function useSetMoonLocation() {
   const client = useQueryClient();
   return useMutation({
     scope: { id: "settings" },
-    mutationFn: async (slug: string) => {
+    mutationFn: async (slug: string | null) => {
       const { data, error, response } = await api.PUT("/api/v1/me/moon-location", {
         body: { slug },
       });
@@ -688,7 +694,7 @@ export function useSetMoonLocation() {
       return data;
     },
     onSettled: () => {
-      void client.invalidateQueries({ queryKey: MOON_KEY });
+      invalidateMoon(client);
     },
   });
 }
@@ -1075,6 +1081,7 @@ export function useMakeMainTeacher() {
     },
     onSuccess: (links) => {
       client.setQueryData(LINKS_KEY, links);
+      invalidateMoon(client); // MD-02: the moon city may follow the new main teacher
     },
     onError: () => client.invalidateQueries({ queryKey: LINKS_KEY }), // 409: someone else tapped
   });
@@ -1089,7 +1096,10 @@ export function useRemoveTeacher() {
       });
       if (!response.ok) fail(response, error);
     },
-    onSettled: () => client.invalidateQueries({ queryKey: LINKS_KEY }),
+    onSettled: () => {
+      invalidateMoon(client); // MD-02: the moon city may follow who takes over
+      return client.invalidateQueries({ queryKey: LINKS_KEY });
+    },
   });
 }
 

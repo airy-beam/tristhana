@@ -16,6 +16,7 @@ from typing import Any
 from tristhana.domain.accounts import NOT_LISTED, Account
 from tristhana.domain.check_in import CheckIn
 from tristhana.domain.days import DayStatus
+from tristhana.domain.moon import MoonSource
 from tristhana.domain.notifications import NotificationSettings
 from tristhana.domain.practice import Practice, PracticeLength
 from tristhana.domain.progression import EventKind, Position, Progression, ProgressionEvent
@@ -127,8 +128,8 @@ class Snapshot:
     account: Account
     identities: tuple[ExportIdentity, ...]
     settings: NotificationSettings  # effective values
-    moon_city: str  # resolved slug
-    moon_city_default: bool  # never chosen: the default city
+    moon_city: str  # the effective slug (MD-02)
+    moon_city_source: MoonSource  # no teacher id or name (ID-04 Q14)
     catalog_version: str
     days: tuple[ExportDay, ...]
     periods: tuple[ExportPeriod, ...]
@@ -247,7 +248,11 @@ def _account(s: Snapshot) -> dict[str, object]:
         "locale": a.locale,
         "locale_from_telegram": not a.locale_custom,
         "timezone": a.timezone,
-        "moon_city": {"slug": s.moon_city, "default": s.moon_city_default},
+        "moon_city": {
+            "slug": s.moon_city,
+            "default": s.moon_city_source is MoonSource.DEFAULT,
+            "source": s.moon_city_source.value,
+        },
         "home_city": {  # MD-04 (ADR-0029): None + chosen = "not listed / not now"
             "slug": None if a.home_city in (None, NOT_LISTED) else a.home_city,
             "chosen": a.home_city_chosen,

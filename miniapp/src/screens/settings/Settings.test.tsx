@@ -84,6 +84,7 @@ function stubApi(): Request[] {
           days: [],
         });
       }
+      if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
       return json({});
     }),
   );

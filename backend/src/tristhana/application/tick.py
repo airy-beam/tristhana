@@ -22,7 +22,7 @@ from tristhana.application.ports.notifications import (
     ReminderPatch,
 )
 from tristhana.application.ports.storage import Clock
-from tristhana.domain.moon import Cities, MoonDay, calendar_years
+from tristhana.domain.moon import Cities, MoonDay, calendar_years, moon_follow
 from tristhana.domain.notifications import (
     DEFAULTS,
     Candidate,
@@ -95,7 +95,7 @@ class RunTick:
             if self._clock.now() >= deadline:
                 result.stopped_early = True
                 return
-            city = self._cities.get(c.location) or self._cities.default
+            city = moon_follow(c.location, c.teaches, c.teacher, self._cities).city
             if city.slug not in calendars:
                 calendars[city.slug] = await self._moon.days(city.slug, start, end)
             try:

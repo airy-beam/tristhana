@@ -139,6 +139,17 @@ moon-today =
     }
 moon-save-failed = Couldn't save. Try again in a moment.
 
+## Moon calendar inheritance (MD-02). Names fall back to `link-no-name`.
+moon-source-teacher = 👥 Same as your main teacher, { $name }. You can choose another city.
+moon-source-teacher-none = 👥 { $name } hasn't chosen a city yet, so the dates are for 📍 { $city } for now.
+moon-follow-teacher = 👥 Follow my teacher ({ $name })
+moon-teacher-shared =
+    { $chosen ->
+        [yes] 👥 Students who haven't chosen a city follow yours: 📍 { $city }.
+        [follow] 👥 Your students' moon days are for 📍 { $city }. You can keep it or choose your own city.
+       *[no] 👥 Your students' moon days are for 📍 { $city }, like yours. You can keep it or choose your own city.
+    }
+
 ## Practice reminder (PR-10). { $d } is an ISO weekday (1 = Monday).
 remind-card-title = 🧘 Practice reminder
 remind-switch = 🔔 Ask me once a day

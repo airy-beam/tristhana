@@ -1255,20 +1255,61 @@
         "type": "string"
       },
       "Location": {
+        "description": "The effective moon city (MD-02). Never the teacher's stored value, only the result.",
         "properties": {
           "explicit": {
-            "description": "False: the default city (Mysuru), never chosen",
+            "description": "A city or 'Follow my teacher' was chosen",
             "title": "Explicit",
             "type": "boolean"
+          },
+          "follow_chosen": {
+            "description": "'Follow my teacher' is the stored choice",
+            "title": "Follow Chosen",
+            "type": "boolean"
+          },
+          "shared": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoonShared"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only for someone with students"
           },
           "slug": {
             "title": "Slug",
             "type": "string"
+          },
+          "source": {
+            "enum": [
+              "chosen",
+              "teacher",
+              "default"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoonTeacher"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The main teacher, for source 'teacher' or a follow without their city"
           }
         },
         "required": [
           "slug",
-          "explicit"
+          "explicit",
+          "source",
+          "follow_chosen",
+          "teacher",
+          "shared"
         ],
         "title": "Location",
         "type": "object"
@@ -1284,7 +1325,7 @@
                 "type": "null"
               }
             ],
-            "description": "A city slug; null = back to the default",
+            "description": "A city slug; null = Follow my teacher (MD-02)",
             "title": "Slug"
           }
         },
@@ -1667,6 +1708,46 @@
           "at"
         ],
         "title": "MoonSettings",
+        "type": "object"
+      },
+      "MoonShared": {
+        "properties": {
+          "chosen": {
+            "description": "False: never chose, so students get the default too",
+            "title": "Chosen",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chosen"
+        ],
+        "title": "MoonShared",
+        "type": "object"
+      },
+      "MoonTeacher": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "MoonTeacher",
         "type": "object"
       },
       "NotificationSettingsOut": {

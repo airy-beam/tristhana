@@ -24,8 +24,10 @@ from aiogram.types import (
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
+from tristhana.application.ports.notifications import KeepOffer
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
 from tristhana.application.teacher_links import LinkUseCases
+from tristhana.bots.telegram import moon_callbacks
 from tristhana.bots.telegram import teacher_links_callbacks as cb
 from tristhana.bots.telegram.runtime import SettingsUseCases
 from tristhana.bots.telegram.screens import (
@@ -41,6 +43,7 @@ from tristhana.bots.telegram.screens import (
 from tristhana.bots.telegram.settings import client_profile
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.locale import LOCALES, Locale
+from tristhana.domain.moon import MoonFollow, MoonSource
 from tristhana.domain.progression import STANDING_ONLY, Position
 from tristhana.domain.teacher_links import (
     InviteState,
@@ -64,13 +67,34 @@ def _name(t: Translator, locale: Locale, name: str | None) -> str:
     return shown_name(name) or t.t(locale, "link-no-name")
 
 
-def joined_screen(t: Translator, locale: Locale, name: str | None) -> Screen:
-    """The note a teacher gets when a student confirms, in the teacher's language."""
+def joined_screen(
+    t: Translator, locale: Locale, name: str | None, keep: KeepOffer | None = None
+) -> Screen:
+    """The note a teacher gets when a student confirms, in the teacher's language. With
+    `keep` (MD-02), the first-student line and `[Keep 📍 …]` above 👥 My students."""
     open_list = button(t, locale, "link-students-open", cb.students(0))
-    return Screen(
-        t.t(locale, "link-student-joined", name=_name(t, locale, name)),
-        InlineKeyboardMarkup(inline_keyboard=[[open_list]]),
-    )
+    text = t.t(locale, "link-student-joined", name=_name(t, locale, name))
+    rows = [[open_list]]
+    if keep is not None:
+        kept = keep.kept.name(locale)
+        own = t.t(
+            locale,
+            "moon-teacher-own",
+            city=keep.now.name(locale),
+            kept=kept,
+            name=_name(t, locale, keep.teacher),
+        )
+        text = f"{text}\n\n{own}"
+        data = moon_callbacks.encode(moon_callbacks.MoonCallback("keep", slug=keep.kept.slug))
+        rows.insert(
+            0,
+            [
+                InlineKeyboardButton(
+                    text=t.t(locale, "moon-keep-city", city=kept), callback_data=data
+                )
+            ],
+        )
+    return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
 
 def _find(people: tuple[Linked, ...], id: UUID) -> Linked | None:
@@ -158,8 +182,10 @@ class LinkScreens:
                 make_main = [
                     self._button(locale, "links-make-main", cb.person("p", done.teacher_id))
                 ]
+            lead = self._t.t(locale, "invite-linked", name=name)
+            moved = self._moved(locale, done.moon)
             return await self._start.start(
-                principal, self._t.t(locale, "invite-linked", name=name), make_main
+                principal, f"{lead}\n\n{moved}" if moved else lead, make_main
             )
         if done.teacher_id == account.id:
             lead = self._t.t(locale, "invite-own")
@@ -176,12 +202,23 @@ class LinkScreens:
         account = await self._s.profile.execute(principal, ProfilePatch(locale=locale), client)
         return await self.invited(Principal(account), code)
 
-    async def overview(self, principal: Principal) -> Screen:
+    def _moved(self, locale: Locale, moon: MoonFollow | None) -> str | None:
+        """MD-02: one line when the caller's own tap moved their moon city."""
+        if moon is None:
+            return None
+        city = moon.city.name(locale)
+        if moon.source is MoonSource.TEACHER and moon.teacher is not None:
+            name = _name(self._t, locale, moon.teacher.name)
+            return self._t.t(locale, "moon-follow-changed", name=name, city=city)
+        return self._t.t(locale, "moon-follow-ended", city=city)
+
+    async def overview(self, principal: Principal, lead: str | None = None) -> Screen:
         locale = principal.account.locale
         found = await self._links.get.execute(principal)
         several = len(found.teachers) >= 2
         main = effective_primary(found.teachers)
-        lines = [self._t.t(locale, "links-title")]
+        lines = [lead] if lead else []
+        lines.append(self._t.t(locale, "links-title"))
         if not found.teachers:
             lines.append(self._t.t(locale, "links-empty"))
         rows: list[list[InlineKeyboardButton]] = []
@@ -327,13 +364,14 @@ class LinkScreens:
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def make_main(self, principal: Principal, id: UUID) -> Screen:
+        moon = None
         with suppress(NotLinked, LinksChanged):  # the list below shows what is true now
-            await self._links.primary.execute(principal, id)
-        return await self.overview(principal)
+            moon = await self._links.primary.execute(principal, id)
+        return await self.overview(principal, self._moved(principal.account.locale, moon))
 
     async def remove_teacher(self, principal: Principal, id: UUID) -> Screen:
-        await self._links.remove_teacher.execute(principal, id)
-        return await self.overview(principal)
+        moon = await self._links.remove_teacher.execute(principal, id)
+        return await self.overview(principal, self._moved(principal.account.locale, moon))
 
     async def remove_student(self, principal: Principal, id: UUID) -> Screen:
         await self._links.remove_student.execute(principal, id)
@@ -359,7 +397,8 @@ class LinkScreens:
             [self._button(locale, "invite-new", cb.plain("w"))],
             [self._button(locale, "log-back", cb.plain("o"))],
         ]
-        text = f"{url}\n\n{self._t.t(locale, 'invite-hint')}"
+        hints = (self._t.t(locale, "invite-hint"), self._t.t(locale, "invite-moon-hint"))
+        text = "\n\n".join((url, *hints))
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def ask_new_link(self, principal: Principal) -> Screen:

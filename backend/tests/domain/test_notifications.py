@@ -167,3 +167,38 @@ def test_a_send_time_inside_quiet_hours_is_refused() -> None:
 
     with pytest.raises(InvalidSettings):
         check_settings(late)
+
+
+# MD-02 (spec §3, decision 10): a followed city can move a moon day by one day (a teacher
+# changes city, a link comes or goes). A final key for date ±1 with the same "days before"
+# counts as sent, so one event never gets a second "7 days before".
+
+
+@pytest.mark.parametrize("moved", [-1, 1], ids=["was-a-day-earlier", "was-a-day-later"])
+@pytest.mark.parametrize("zone", ["Asia/Almaty", "Asia/Kathmandu", "Europe/Berlin"])
+def test_a_key_sent_for_the_neighbouring_date_with_the_same_k_counts_as_sent(
+    moved: int, zone: str
+) -> None:
+    sent = frozenset({moon_key(FULL.date + timedelta(days=moved), 7)})
+    c = Candidate(zone, _settings(offsets=frozenset({7})), (FULL,), sent_keys=sent)
+
+    assert due_moon_reminders(send_instant(FULL.date - timedelta(days=7), time(19), zone), c) == []
+
+
+def test_a_neighbouring_key_with_another_k_does_not_suppress() -> None:
+    sent = frozenset({moon_key(FULL.date - timedelta(days=1), 1)})
+    c = Candidate("Asia/Almaty", _settings(offsets=frozenset({7, 1})), (FULL,), sent_keys=sent)
+    week_before = send_instant(FULL.date - timedelta(days=7), time(19), "Asia/Almaty")
+
+    [due] = due_moon_reminders(week_before, c)
+
+    assert due.key == moon_key(FULL.date, 7)
+
+
+def test_a_key_two_days_away_is_another_event() -> None:
+    sent = frozenset({moon_key(FULL.date + timedelta(days=2), 7)})
+    c = Candidate("Asia/Almaty", _settings(offsets=frozenset({7})), (FULL,), sent_keys=sent)
+
+    [due] = due_moon_reminders(send_instant(date(2026, 10, 29), time(19), "Asia/Almaty"), c)
+
+    assert due.key == moon_key(FULL.date, 7)
