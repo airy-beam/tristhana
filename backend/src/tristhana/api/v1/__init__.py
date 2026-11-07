@@ -14,6 +14,7 @@ from tristhana.api.v1 import (
     practice,
     progression,
     rest_periods,
+    shalas,
     stats,
 )
 
@@ -30,3 +31,4 @@ router.include_router(progression.router)
 router.include_router(moon.router)
 router.include_router(stats.router)
 router.include_router(links.router)
+router.include_router(shalas.router)

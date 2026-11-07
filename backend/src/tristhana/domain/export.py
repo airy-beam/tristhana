@@ -122,6 +122,20 @@ class ExportLink:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportShala:
+    """One of my own shala memberships (SC-01): never an id, a code or another person."""
+
+    name: str
+    city: str
+    moon_city: str | None
+    online: bool
+    side: str  # staff | student
+    owner: bool
+    roles: tuple[str, ...]
+    joined_on: date
+
+
+@dataclass(frozen=True, slots=True)
 class Snapshot:
     """Everything the person owns, already opened, read in one transaction."""
 
@@ -142,6 +156,7 @@ class Snapshot:
     exported_at: datetime  # UTC
     milestones: tuple[ExportMilestone, ...] = ()  # smallest count first
     links: tuple[ExportLink, ...] = ()
+    shalas: tuple[ExportShala, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +250,19 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
         "teacher_links": [
             {"other_side": k.other_side, "primary": k.primary, "linked_at": _instant(k.linked_at)}
             for k in s.links
+        ],
+        "shalas": [
+            {
+                "name": h.name,
+                "city": h.city,
+                "moon_city": h.moon_city,
+                "online": h.online,
+                "side": h.side,
+                "owner": h.owner,
+                "roles": list(h.roles),
+                "joined_on": h.joined_on.isoformat(),
+            }
+            for h in s.shalas
         ],
     }
 

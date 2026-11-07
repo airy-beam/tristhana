@@ -14,7 +14,15 @@ from uuid import UUID
 from zoneinfo import available_timezones
 
 from tristhana.domain.locale import Locale, negotiate_locale
-from tristhana.domain.moon import Cities, City, MoonFollow, TeacherMoon, label_city, moon_follow
+from tristhana.domain.moon import (
+    Cities,
+    City,
+    MoonFollow,
+    ShalaMoon,
+    TeacherMoon,
+    label_city,
+    moon_follow,
+)
 from tristhana.domain.rest_days import NEVER_CHOSEN, DayOff
 
 DISPLAY_NAME_MAX = 64
@@ -69,6 +77,7 @@ class Account:
     home_city: str | None = None  # ADR-0029: None, NOT_LISTED or a city slug
     teaches: bool = False  # has at least one student (ID-04); loaded with the account
     main_teacher: TeacherMoon | None = None  # ID-04 `effective_primary` (MD-02)
+    shala: ShalaMoon | None = None  # SC-01: the main shala; loaded with the account
 
     @property
     def home_city_chosen(self) -> bool:
@@ -77,7 +86,9 @@ class Account:
 
 def moon_follow_of(account: Account, cities: Cities) -> MoonFollow:
     """The account's effective moon city (MD-02): every reader goes through this."""
-    return moon_follow(account.moon_location, account.teaches, account.main_teacher, cities)
+    return moon_follow(
+        account.moon_location, account.teaches, account.main_teacher, account.shala, cities
+    )
 
 
 def moon_shared(account: Account, cities: Cities) -> bool | None:

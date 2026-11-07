@@ -21,6 +21,7 @@ from tristhana.application.ports.notifications import (
     ReminderCandidate,
     ReminderPatch,
 )
+from tristhana.application.ports.shalas import ShalaRepository
 from tristhana.application.ports.storage import Clock
 from tristhana.domain.moon import Cities, MoonDay, calendar_years, moon_follow
 from tristhana.domain.notifications import (
@@ -63,7 +64,9 @@ class RunTick:
         calculator: MoonCalculator,
         notifications: NotificationRepository,
         notifier: Notifier,
+        shalas: ShalaRepository | None = None,
     ) -> None:
+        self._shalas = shalas  # SC-01: expired staff links are pruned with the deliveries
         self._clock = clock
         self._cities = cities
         self._moon = moon
@@ -79,6 +82,8 @@ class RunTick:
         await self._top_up(deadline, result)
         if self._clock.now() < deadline:
             result.pruned = await self._notifications.prune(self._clock.now() - KEEP_DELIVERIES)
+            if self._shalas is not None:
+                result.pruned += await self._shalas.prune_invites(self._clock.now())
         return result
 
     async def _send(self, deadline: datetime, result: TickResult) -> None:
@@ -95,7 +100,7 @@ class RunTick:
             if self._clock.now() >= deadline:
                 result.stopped_early = True
                 return
-            city = moon_follow(c.location, c.teaches, c.teacher, self._cities).city
+            city = moon_follow(c.location, c.teaches, c.teacher, c.shala, self._cities).city
             if city.slug not in calendars:
                 calendars[city.slug] = await self._moon.days(city.slug, start, end)
             try:

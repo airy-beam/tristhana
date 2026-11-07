@@ -78,6 +78,7 @@ def test_moon_days_default_to_mysuru(api: TestClient) -> None:
         "follow_chosen": False,
         "teacher": None,
         "shared": None,
+        "shala": None,
     }
     assert [(d["kind"], d["phase"]) for d in body["days"]] == [
         ("purnima", "purnima"),

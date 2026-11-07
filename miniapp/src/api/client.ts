@@ -681,15 +681,20 @@ function invalidateMoon(client: ReturnType<typeof useQueryClient>) {
     void client.invalidateQueries({ queryKey: key });
 }
 
-/** Follow another city's moon calendar, or the main teacher's (null, MD-02). */
+/** A city slug; null = follow the main teacher (MD-02); `{ follow: "shala" }` = SC-01. */
+export type MoonChoice = string | null | { follow: "shala" };
+
+/** Follow another city's moon calendar, the main teacher's or the shala's. */
 export function useSetMoonLocation() {
   const client = useQueryClient();
   return useMutation({
     scope: { id: "settings" },
-    mutationFn: async (slug: string | null) => {
-      const { data, error, response } = await api.PUT("/api/v1/me/moon-location", {
-        body: { slug },
-      });
+    mutationFn: async (choice: MoonChoice) => {
+      const body =
+        choice !== null && typeof choice === "object"
+          ? { slug: null, follow: choice.follow }
+          : { slug: choice };
+      const { data, error, response } = await api.PUT("/api/v1/me/moon-location", { body });
       if (!data) fail(response, error);
       return data;
     },
@@ -1125,6 +1130,180 @@ export function useInvite() {
     mutationFn: async (rotate: boolean): Promise<Invite> => {
       const { data, error, response } = await api.POST("/api/v1/me/invite", {
         body: { rotate },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+// Shalas (SC-01). Joining and staff links land in the bot; links come from the API, never built
+// here. Writes wait for the server. A shala can move the moon city, so membership changes
+// refetch the moon days too.
+export type MyShala = components["schemas"]["MyShalaOut"];
+export type Shala = components["schemas"]["ShalaOut"];
+export type ShalaRole = components["schemas"]["ShalaMeOut"]["roles"][number];
+export type ShalaStudents = components["schemas"]["ShalaStudentsOut"];
+export type ShalaLink = components["schemas"]["ShalaLinkOut"];
+export type NewShala = components["schemas"]["ShalaIn"];
+
+const SHALAS_KEY = ["shalas"];
+export const SHALA_STUDENTS_PAGE = 20;
+
+export function useMyShalas() {
+  return useQuery({
+    staleTime: 60_000,
+    queryKey: [...SHALAS_KEY, "mine"],
+    queryFn: async (): Promise<MyShala[]> => {
+      const { data, error, response } = await api.GET("/api/v1/me/shalas");
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+export function useShala(id: string) {
+  return useQuery({
+    staleTime: 60_000,
+    queryKey: [...SHALAS_KEY, id],
+    queryFn: async (): Promise<Shala> => {
+      const { data, error, response } = await api.GET("/api/v1/shalas/{id}", {
+        params: { path: { id } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    retry: false,
+  });
+}
+
+export function useShalaStudents(id: string, offset: number, enabled: boolean) {
+  return useQuery({
+    enabled,
+    staleTime: 60_000,
+    queryKey: [...SHALAS_KEY, id, "students", offset],
+    queryFn: async (): Promise<ShalaStudents> => {
+      const { data, error, response } = await api.GET("/api/v1/shalas/{id}/students", {
+        params: { path: { id }, query: { offset, limit: SHALA_STUDENTS_PAGE } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+export function useCreateShala() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: NewShala): Promise<Shala> => {
+      const { data, error, response } = await api.POST("/api/v1/shalas", { body });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (shala) => {
+      client.setQueryData([...SHALAS_KEY, shala.id], shala);
+      invalidateMoon(client); // a never-chose owner now follows their shala
+      return client.invalidateQueries({ queryKey: [...SHALAS_KEY, "mine"] });
+    },
+  });
+}
+
+export type ShalaPatch = components["schemas"]["ShalaPatchIn"];
+
+/** Name, city, online, moon city (null = same as the city): owners and managers. */
+export function useUpdateShala(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: ShalaPatch): Promise<Shala> => {
+      const { data, error, response } = await api.PATCH("/api/v1/shalas/{id}", {
+        params: { path: { id } },
+        body,
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (shala) => {
+      client.setQueryData([...SHALAS_KEY, id], shala);
+      invalidateMoon(client); // members may follow the shala's moon city
+      return client.invalidateQueries({ queryKey: [...SHALAS_KEY, "mine"] });
+    },
+  });
+}
+
+export function useSetStaffRoles(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ account, roles }: { account: string; roles: ShalaRole[] }) => {
+      const { data, error, response } = await api.PUT("/api/v1/shalas/{id}/staff/{account_id}", {
+        params: { path: { id, account_id: account } },
+        body: { roles },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (shala) => {
+      client.setQueryData([...SHALAS_KEY, id], shala);
+    },
+  });
+}
+
+export function useDeleteShala(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      const { error, response } = await api.DELETE("/api/v1/shalas/{id}", {
+        params: { path: { id } },
+      });
+      if (!response.ok) fail(response, error);
+    },
+    onSettled: () => {
+      client.removeQueries({ queryKey: [...SHALAS_KEY, id] });
+      invalidateMoon(client);
+      return client.invalidateQueries({ queryKey: [...SHALAS_KEY, "mine"] });
+    },
+  });
+}
+
+/** Removing someone, or leaving (my own id). Silent both ways. */
+export function useRemoveShalaMember(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ account, side }: { account: string; side: "staff" | "students" }) => {
+      const path = { id, account_id: account };
+      const { error, response } =
+        side === "staff"
+          ? await api.DELETE("/api/v1/shalas/{id}/staff/{account_id}", { params: { path } })
+          : await api.DELETE("/api/v1/shalas/{id}/students/{account_id}", { params: { path } });
+      if (!response.ok) fail(response, error);
+    },
+    onSettled: () => {
+      invalidateMoon(client); // the moon city may follow the shala no longer
+      return client.invalidateQueries({ queryKey: SHALAS_KEY });
+    },
+  });
+}
+
+/** The student link; `rotate` replaces it, so the old link and QR stop working. */
+export function useShalaJoinLink(id: string) {
+  return useMutation({
+    mutationFn: async (rotate: boolean): Promise<ShalaLink> => {
+      const { data, error, response } = await api.POST("/api/v1/shalas/{id}/join-link", {
+        params: { path: { id } },
+        body: { rotate },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+/** A single-use staff link for one role, valid for 7 days. */
+export function useShalaStaffInvite(id: string) {
+  return useMutation({
+    mutationFn: async (role: ShalaRole) => {
+      const { data, error, response } = await api.POST("/api/v1/shalas/{id}/staff-invites", {
+        params: { path: { id } },
+        body: { role },
       });
       if (!data) fail(response, error);
       return data;

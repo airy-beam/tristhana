@@ -106,7 +106,10 @@ def is_account_gone(error: DBAPIError) -> bool:
     if sqlstate(error) != "23503":
         return False
     name = constraint_name(error)
-    return name.endswith("_account_id_fkey") or name == "teacher_link_student_id_fkey"
+    return name.endswith("_account_id_fkey") or name in (
+        "teacher_link_student_id_fkey",
+        "shala_owner_id_fkey",  # SC-01: creating a shala as the account goes
+    )
 
 
 def is_unavailable(state: str) -> bool:

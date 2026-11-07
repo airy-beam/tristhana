@@ -10,11 +10,13 @@ from sqlalchemy import (
     case,
     delete,
     exists,
+    false,
     func,
     insert,
     literal,
     or_,
     select,
+    true,
     update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -30,10 +32,17 @@ from tristhana.domain.accounts import (
     ProfileUpdate,
 )
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
-from tristhana.domain.moon import TeacherMoon
+from tristhana.domain.moon import ShalaMoon, TeacherMoon
 from tristhana.domain.rest_days import DayOff, Weekdays
 from tristhana.infrastructure.db.engine import connection, sqlstate
-from tristhana.infrastructure.db.tables import account, identity, teacher_link
+from tristhana.infrastructure.db.tables import (
+    account,
+    identity,
+    shala,
+    shala_staff,
+    shala_student,
+    teacher_link,
+)
 
 _TEACHER = account.alias("main_teacher")
 _MAIN = teacher_link.alias("main_link")
@@ -75,6 +84,55 @@ MAIN_TEACHER = _MAIN_TEACHER  # correlated to `account`: whoever that row is in 
 MAIN_TEACHER_LOCATION = _main_teacher_of(_TEACHER.c.moon_location).label("teacher_location")
 TEACHES = _TEACHES
 
+# SC-01 (ADR-0033, Q108): the main shala, same statement. Staff memberships first, then student
+# ones where the main teacher is staff, then the oldest: two index reads (≤ 10 + 5 rows).
+_STAFF_AT = shala_staff.alias("staff_at")
+_TEACHER_AT = shala_staff.alias("teacher_at")
+_STUDENT_OF = shala_student.alias("student_of")
+_SHALA = shala.alias("main_shala")
+
+
+def _shala_json(staff: Any, teacher_on_staff: Any) -> Any:
+    return func.jsonb_build_object(
+        "id",
+        _SHALA.c.id,
+        "name",
+        _SHALA.c.name,
+        "moon",
+        func.coalesce(_SHALA.c.moon_city, _SHALA.c.city),
+        "city",
+        _SHALA.c.city,
+        "staff",
+        staff,
+        "teacher_on_staff",
+        teacher_on_staff,
+    )
+
+
+_AS_STAFF = (
+    select(_shala_json(true(), false()))
+    .select_from(_STAFF_AT.join(_SHALA, _SHALA.c.id == _STAFF_AT.c.shala_id))
+    .where(_STAFF_AT.c.account_id == account.c.id)
+    .order_by(_STAFF_AT.c.created_at, _SHALA.c.id)
+    .limit(1)
+    .correlate_except(_STAFF_AT, _SHALA)
+    .scalar_subquery()
+)
+_TEACHER_ON_STAFF = exists().where(
+    _TEACHER_AT.c.shala_id == _STUDENT_OF.c.shala_id,
+    _TEACHER_AT.c.account_id == _main_teacher_of(_TEACHER.c.id),
+)
+_AS_STUDENT = (
+    select(_shala_json(false(), _TEACHER_ON_STAFF))
+    .select_from(_STUDENT_OF.join(_SHALA, _SHALA.c.id == _STUDENT_OF.c.shala_id))
+    .where(_STUDENT_OF.c.account_id == account.c.id)
+    .order_by(_TEACHER_ON_STAFF.desc(), _STUDENT_OF.c.created_at, _SHALA.c.id)
+    .limit(1)
+    .correlate_except(_STUDENT_OF, _SHALA, _TEACHER_AT)
+    .scalar_subquery()
+)
+MAIN_SHALA = func.coalesce(_AS_STAFF, _AS_STUDENT).cast(JSONB).label("main_shala")
+
 _COLUMNS = (
     account.c.id,
     account.c.display_name,
@@ -94,6 +152,7 @@ _COLUMNS = (
     account.c.home_city,
     _TEACHES,
     _MAIN_TEACHER,
+    MAIN_SHALA,
 )
 
 
@@ -291,6 +350,20 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         home_city=row.home_city,
         teaches=row.teaches,
         main_teacher=to_teacher(row.main_teacher),
+        shala=to_shala(row.main_shala),
+    )
+
+
+def to_shala(found: dict[str, Any] | None) -> ShalaMoon | None:
+    if found is None:
+        return None
+    return ShalaMoon(
+        UUID(found["id"]),
+        found["name"],
+        found["moon"],
+        found["staff"],
+        found["teacher_on_staff"],
+        found.get("city"),
     )
 
 

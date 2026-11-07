@@ -7,6 +7,7 @@ caller's own rows.
 """
 
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from tristhana.application.labels import PracticeLabels
@@ -35,6 +36,9 @@ from tristhana.domain.moon import Cities, MoonFollow, MoonSource, TeacherMoon, m
 from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS, InviteState, invite_state
 
+if TYPE_CHECKING:
+    from tristhana.application.shalas import ShalaUseCases
+
 CAPS = Caps(MAX_TEACHERS, MAX_STUDENTS)
 
 
@@ -47,7 +51,7 @@ class Previewed:
 def _moved(account: Account, main: TeacherMoon | None, cities: Cities) -> MoonFollow | None:
     """MD-02: the caller's effective moon city with `main` as the main teacher, if its slug
     differs from now: the one-line notice on the result of their own tap."""
-    after = moon_follow(account.moon_location, account.teaches, main, cities)
+    after = moon_follow(account.moon_location, account.teaches, main, account.shala, cities)
     return after if after.city.slug != moon_follow_of(account, cities).city.slug else None
 
 
@@ -58,8 +62,9 @@ def _keep_offer(accepted: Accepted, cities: Cities) -> KeepOffer | None:
     # follow gets no offer.
     if accepted.teacher_students_before or own is not None or main is None:
         return None
-    before = moon_follow(own, False, main, cities)
-    after = moon_follow(own, True, main, cities)
+    shala = accepted.teacher_shala
+    before = moon_follow(own, False, main, shala, cities)
+    after = moon_follow(own, True, main, shala, cities)
     if before.source is not MoonSource.TEACHER or after.city.slug == before.city.slug:
         return None
     return KeepOffer(before.city, after.city, main.name)
@@ -203,3 +208,4 @@ class LinkUseCases:
     view: TeacherViewUseCases
     labels: PracticeLabels
     catalog: PracticeCatalog
+    shalas: "ShalaUseCases | None" = None  # SC-01: /teachers lists them, the bot joins them

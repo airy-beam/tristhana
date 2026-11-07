@@ -4,6 +4,7 @@ offsets to set, not "toggle"), so stale keyboards stay harmless.
     m1:v                 /moon screen            m1:r            reminder settings
     m1:c:2               city picker, page 2     m1:s:<slug>     follow a city
     m1:f                 follow my teacher (MD-02)
+    m1:h                 follow my shala (SC-01)
     m1:k:<slug>          keep that city as my own (the first-student note, MD-02)
     m1:z:<slug>          use that city's zone for reminders (only while none is set)
     m1:o:71              set offsets to {7, 1}   (m1:o:0 = off)
@@ -22,7 +23,17 @@ from tristhana.domain.notifications import MOON_OFFSETS
 
 PREFIX = "m1"
 type Action = Literal[
-    "view", "reminders", "cities", "city", "follow", "keep", "zone", "offsets", "time", "quick"
+    "view",
+    "reminders",
+    "cities",
+    "city",
+    "follow",
+    "follow_shala",
+    "keep",
+    "zone",
+    "offsets",
+    "time",
+    "quick",
 ]
 type Quick = Literal["only1", "off", "on"]
 
@@ -63,6 +74,8 @@ def encode(cb: MoonCallback) -> str:
             return f"{PREFIX}:s:{cb.slug}"
         case "follow":
             return f"{PREFIX}:f"
+        case "follow_shala":
+            return f"{PREFIX}:h"
         case "keep":
             return f"{PREFIX}:k:{cb.slug}"
         case "zone":
@@ -97,6 +110,8 @@ def decode(data: str | None) -> MoonCallback | None:
             return MoonCallback("cities", page=int(page))
         case ["f"]:
             return MoonCallback("follow")
+        case ["h"]:
+            return MoonCallback("follow_shala")
         case ["s" | "z" | "k" as kind, slug] if _SLUG.fullmatch(slug):
             return MoonCallback(_SLUG_ACTIONS[kind], slug=slug)
         case ["o", code] if code == "0" or (

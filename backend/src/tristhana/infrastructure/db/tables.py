@@ -385,3 +385,63 @@ teacher_invite = Table(
     _timestamp("created_at"),
     CheckConstraint("code ~ '^[A-Za-z0-9]{16}$'", name="code"),
 )
+
+# SC-01 (ADR-0033). Cities are slugs from `cities.yaml`, no FK (as ADR-0019); no sentinels.
+# The owner is `owner_id` and always has a staff row; staff and student are exclusive per shala.
+_ROLES = "'{admin,teacher,assistant,office}'::text[]"
+shala = Table(
+    "shala",
+    metadata,
+    Column("id", Uuid(), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("name", Text(), nullable=False),
+    Column("city", Text(), nullable=False),
+    Column("moon_city", Text()),  # NULL = same as the city
+    Column("online", Boolean(), nullable=False, server_default=text("false")),
+    Column("owner_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("join_code", Text(), nullable=False, unique=True),
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    CheckConstraint("char_length(name) BETWEEN 1 AND 64", name="name"),
+    CheckConstraint("city ~ '^[a-z][a-z-]{0,23}$'", name="city"),
+    CheckConstraint("moon_city ~ '^[a-z][a-z-]{0,23}$'", name="moon_city"),
+    CheckConstraint("join_code ~ '^[A-Za-z0-9]{16}$'", name="join_code"),
+    Index("shala_owner_id_idx", "owner_id"),
+)
+
+shala_staff = Table(
+    "shala_staff",
+    metadata,
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("roles", ARRAY(Text()), nullable=False, server_default=text("'{}'")),
+    Column("joined_on", Date(), nullable=False),  # the member's local date at confirm
+    _timestamp("created_at"),
+    PrimaryKeyConstraint("shala_id", "account_id"),
+    CheckConstraint(f"roles <@ {_ROLES}", name="roles"),
+    Index("shala_staff_account_id_created_at_idx", "account_id", "created_at"),
+)
+
+shala_student = Table(
+    "shala_student",
+    metadata,
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("joined_on", Date(), nullable=False),
+    _timestamp("created_at"),
+    PrimaryKeyConstraint("shala_id", "account_id"),
+    Index("shala_student_account_id_created_at_idx", "account_id", "created_at"),
+)
+
+# Single use, 7 days, one role (Q100); deleted when used, expired ones by the tick's pruning.
+shala_staff_invite = Table(
+    "shala_staff_invite",
+    metadata,
+    Column("code", Text(), primary_key=True),
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("role", Text(), nullable=False),
+    Column("created_by", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("code ~ '^[A-Za-z0-9]{16}$'", name="code"),
+    CheckConstraint(f"role = ANY ({_ROLES})", name="role"),
+    Index("shala_staff_invite_shala_id_idx", "shala_id"),
+)

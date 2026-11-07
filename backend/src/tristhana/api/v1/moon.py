@@ -46,6 +46,11 @@ class MoonTeacher(BaseModel):
     name: str | None
 
 
+class MoonShala(BaseModel):
+    id: UUID
+    name: str
+
+
 class MoonShared(BaseModel):
     chosen: bool = Field(description="False: never chose, so students get the default too")
 
@@ -54,13 +59,16 @@ class Location(BaseModel):
     """The effective moon city (MD-02). Never the teacher's stored value, only the result."""
 
     slug: str
-    explicit: bool = Field(description="A city or 'Follow my teacher' was chosen")
-    source: Literal["chosen", "teacher", "default"]
+    explicit: bool = Field(
+        description="A city, 'Follow my teacher' or 'Follow my shala' was chosen"
+    )
+    source: Literal["chosen", "teacher", "shala", "default"]
     follow_chosen: bool = Field(description="'Follow my teacher' is the stored choice")
     teacher: MoonTeacher | None = Field(
         description="The main teacher, for source 'teacher' or a follow without their city"
     )
     shared: MoonShared | None = Field(description="Only for someone with students")
+    shala: MoonShala | None = Field(description="The main shala, for source 'shala' (SC-01)")
 
     @classmethod
     def of(cls, follow: MoonFollow, explicit: bool, shared: bool | None) -> "Location":
@@ -72,6 +80,7 @@ class Location(BaseModel):
             follow_chosen=follow.follow_chosen,
             teacher=MoonTeacher(id=t.id, name=t.name) if t else None,
             shared=None if shared is None else MoonShared(chosen=shared),
+            shala=MoonShala(id=follow.shala.id, name=follow.shala.name) if follow.shala else None,
         )
 
 
@@ -97,7 +106,11 @@ class MoonDays(BaseModel):
 
 
 class LocationBody(BaseModel):
-    slug: str | None = Field(description="A city slug; null = Follow my teacher (MD-02)")
+    slug: str | None = Field(description="A city slug; null = follow (`follow`)")
+    follow: Literal["teacher", "shala"] | None = Field(
+        default=None,
+        description="With a null slug: 'shala' = Follow my shala (SC-01), else my teacher",
+    )
 
 
 class MoonSettings(BaseModel):
@@ -226,7 +239,7 @@ async def put_moon_location(
     directory: Annotated[Cities, Depends(cities)],
 ) -> Location:
     try:
-        account = await use_case.execute(principal, body.slug)
+        account = await use_case.execute(principal, body.slug, body.follow or "teacher")
     except UnknownLocation:
         raise ApiError(422, "unknown_location") from None
     follow = moon_follow_of(account, directory)

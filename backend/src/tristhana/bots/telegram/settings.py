@@ -1,7 +1,7 @@
 """`/settings` (ID-06): language, "🏙 My city" (which sets the zone, MD-04 / ADR-0029), links
 to the reminder screens. The name, quiet hours and the daily cap are set in the Mini App."""
 
-from datetime import date, time
+from datetime import date
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -19,7 +19,7 @@ from aiogram.types import (
 )
 
 from tristhana.application.policies import Principal
-from tristhana.application.ports.i18n import TimeArg, Translator
+from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram import data_callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import remind_callbacks as rcb
@@ -27,7 +27,7 @@ from tristhana.bots.telegram.day_off import day_off_line, day_off_picker
 from tristhana.bots.telegram.moon import moon_status
 from tristhana.bots.telegram.remind import practice_status
 from tristhana.bots.telegram.runtime import SettingsUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show, zone_label
 from tristhana.bots.telegram.settings_callbacks import PREFIX, SettingsCallback, decode, encode
 from tristhana.domain.accounts import (
     NOT_LISTED,
@@ -302,6 +302,8 @@ class SettingsScreens:
 
     def _moon_line(self, locale: Locale, follow: MoonFollow) -> str:
         city = follow.city.name(locale)
+        if follow.source is MoonSource.SHALA and follow.shala is not None:
+            return self._t.t(locale, "settings-moon-line-shala", city=city, shala=follow.shala.name)
         if follow.source is MoonSource.TEACHER and follow.teacher is not None:
             name = shown_name(follow.teacher.name) or self._t.t(locale, "link-no-name")
             return self._t.t(locale, "settings-moon-line-teacher", city=city, name=name)
@@ -322,9 +324,7 @@ class SettingsScreens:
         return self._t.t(locale, key, zone=label)
 
     def _zone_label(self, locale: Locale, zone: str, today: date, home: City | None) -> str:
-        """The zone with its offset today: "Astana (UTC+5)" (the time label minus the time)."""
-        label = self._t.t(locale, "time-label", time=TimeArg(today, time(12), zone, home))
-        return label.split(" ", 1)[1] if " " in label else label
+        return zone_label(self._t, locale, zone, today, home)
 
     def cities(self, principal: Principal, page: int) -> Screen:
         account = principal.account

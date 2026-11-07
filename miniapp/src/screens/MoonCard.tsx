@@ -27,6 +27,11 @@ export function MoonSource({
   const name = location.teacher?.name ?? l10n.getString("link-no-name");
   return (
     <>
+      {location.shala && location.source === "shala" && (
+        <Localized id="moon-source-shala" vars={{ shala: location.shala.name }}>
+          <p className="hint small" />
+        </Localized>
+      )}
       {location.teacher && location.source === "teacher" && (
         <Localized id="moon-source-teacher" vars={{ name }}>
           <p className="hint small" />

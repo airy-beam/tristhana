@@ -6,7 +6,22 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, case, exists, func, literal, or_, select, update
+from sqlalchemy import (
+    Text,
+    and_,
+    case,
+    exists,
+    false,
+    func,
+    literal,
+    null,
+    or_,
+    select,
+    true,
+    union_all,
+    update,
+)
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tristhana.application.ports.export import Owned
@@ -23,6 +38,7 @@ from tristhana.domain.export import (
     ExportPeriod,
     ExportPractice,
     ExportReminder,
+    ExportShala,
     MarkedBy,
 )
 from tristhana.domain.notifications import NotificationSettings
@@ -48,6 +64,9 @@ from tristhana.infrastructure.db.tables import (
     progression,
     progression_event,
     rest_period,
+    shala,
+    shala_staff,
+    shala_student,
     teacher_link,
 )
 
@@ -67,10 +86,14 @@ EXPORTED_TABLES = frozenset(
         "notification_delivery",  # as `reminders` (category, date, status; 60 days)
         "practice_milestone",  # as `practice_milestones` (GM-01 part 2)
         "teacher_link",  # as `teacher_links`, without the other person (ID-04)
+        "shala_staff",  # as `shalas`, my own memberships only (SC-01)
+        "shala_student",
     }
 )
 EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
     "teacher_invite": "a live credential, not personal content; an export may be shared",
+    "shala_staff_invite": "a live credential, not personal content; an export may be shared",
+    "shala": "an owner's rows hold the join code; my memberships carry the shala's name",
 }
 
 
@@ -109,6 +132,7 @@ class SqlExportRepository:
             sent,
             passed,
             links,
+            memberships,
         ) = rows
         return Owned(
             account=to_account(row),
@@ -153,6 +177,19 @@ class SqlExportRepository:
             links=tuple(
                 ExportLink("teacher" if r.mine else "student", r.primary, r.created_at)
                 for r in links
+            ),
+            shalas=tuple(
+                ExportShala(
+                    r.name,
+                    r.city,
+                    r.moon_city,
+                    r.online,
+                    "student" if r.student else "staff",
+                    r.owner,
+                    tuple(r.roles or ()),
+                    r.joined_on,
+                )
+                for r in memberships
             ),
         )
 
@@ -257,7 +294,41 @@ def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
         )
         .where(or_(mine, teacher_link.c.teacher_id == account_id))
         .order_by(teacher_link.c.created_at),
+        _memberships(account_id),
     ]
+
+
+def _memberships(account_id: UUID) -> Any:
+    """My own shala rows (SC-01), never an id, a code or another person."""
+    staff = select(
+        shala_staff.c.shala_id,
+        shala_staff.c.roles,
+        false().label("student"),
+        shala_staff.c.joined_on,
+        shala_staff.c.created_at,
+    ).where(shala_staff.c.account_id == account_id)
+    students = select(
+        shala_student.c.shala_id,
+        null().cast(ARRAY(Text())).label("roles"),
+        true().label("student"),
+        shala_student.c.joined_on,
+        shala_student.c.created_at,
+    ).where(shala_student.c.account_id == account_id)
+    m = union_all(staff, students).subquery("m")
+    return (
+        select(
+            shala.c.name,
+            shala.c.city,
+            shala.c.moon_city,
+            shala.c.online,
+            (shala.c.owner_id == account_id).label("owner"),
+            m.c.roles,
+            m.c.student,
+            m.c.joined_on,
+        )
+        .join_from(m, shala, shala.c.id == m.c.shala_id)
+        .order_by(m.c.created_at, m.c.shala_id)
+    )
 
 
 def _event(account_id: UUID, r: Any) -> ExportEvent:

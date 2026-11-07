@@ -50,6 +50,7 @@ README_KEYS = (
     "export-readme-moon-logged",
     "export-readme-moon-city",
     "export-readme-links",
+    "export-readme-shalas",
     "export-readme-ladies",
     "export-readme-statuses",
     "export-readme-length",
@@ -212,6 +213,7 @@ class SendMyExport:
             exported_at=now,
             milestones=owned.milestones,
             links=owned.links,
+            shalas=owned.shalas,
         )
 
     def labels(self, locale: Locale) -> ExportLabels:

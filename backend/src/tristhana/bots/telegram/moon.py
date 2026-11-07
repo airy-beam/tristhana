@@ -139,6 +139,9 @@ class MoonScreens:
                 case "follow":
                     account = await self._m.set_location.execute(principal, None)
                     return await self.view(Principal(account))
+                case "follow_shala":
+                    account = await self._m.set_location.execute(principal, None, follow="shala")
+                    return await self.view(Principal(account))
                 case "keep":
                     return await self._keep(principal, cb.slug or "", note, locale)
                 case "zone":
@@ -225,7 +228,10 @@ class MoonScreens:
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _source(self, locale: Locale, follow: MoonFollow) -> str | None:
-        """Where the city comes from (MD-02), under the title; nothing for a plain city."""
+        """Where the city comes from (MD-02, SC-01), under the title; nothing for a plain
+        city."""
+        if follow.source is MoonSource.SHALA and follow.shala is not None:
+            return self._t.t(locale, "moon-source-shala", shala=follow.shala.name)
         teacher = follow.teacher
         if teacher is None:
             return None
@@ -275,7 +281,9 @@ class MoonScreens:
         following = teacher is not None and (
             follow.source is MoonSource.TEACHER or follow.follow_chosen
         )
-        current = None if following else follow.city.slug
+        shala = account.shala
+        on_shala = shala is not None and follow.source is MoonSource.SHALA
+        current = None if following or on_shala else follow.city.slug
         shown = ordered[page * CITY_PAGE : (page + 1) * CITY_PAGE]
         buttons = [self._city_button(locale, c, c.slug == current) for c in shown]
         rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
@@ -286,6 +294,17 @@ class MoonScreens:
                 callback_data=_data(action="city", slug=home.slug),
             )
             rows.insert(0, [same])
+        if shala is not None:  # SC-01: after "Follow my teacher", only with a shala
+            text = self._t.t(locale, "moon-follow-shala", shala=shala.name)
+            rows.insert(
+                0,
+                [
+                    InlineKeyboardButton(
+                        text=f"✓ {text}" if on_shala else text,
+                        callback_data=_data(action="follow_shala"),
+                    )
+                ],
+            )
         if teacher is not None:  # MD-02: first, only with a main teacher
             name = shown_name(teacher.name) or self._t.t(locale, "link-no-name")
             text = self._t.t(locale, "moon-follow-teacher", name=name)

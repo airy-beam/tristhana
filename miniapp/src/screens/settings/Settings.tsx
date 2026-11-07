@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import {
   useLinks,
+  useMyShalas,
   useMe,
   useMoonCities,
   useMoonDays,
@@ -274,6 +275,7 @@ function City({ me }: { me: Me }) {
 }
 
 const FOLLOW = "-teacher"; // never a city slug
+const FOLLOW_SHALA = "-shala"; // SC-01
 
 function Moon({
   locale,
@@ -291,11 +293,15 @@ function Moon({
   const save = usePatchNotificationSettings();
   const { l10n } = useLocalization();
   const main = useLinks().data?.teachers.find((t) => t.primary);
+  const firstShala = useMyShalas().data?.[0];
   if (!moon) return null;
   const slug = moon.location.slug;
   // MD-02: the select's value for "Follow my teacher" (sent as null), shown only with a
   // main teacher; selected while the city comes from them or following was chosen.
   const following = !!main && (moon.location.source === "teacher" || moon.location.follow_chosen);
+  // SC-01: "Follow my shala", shown only with a shala; selected while the city comes from it.
+  const shala = moon.location.shala ?? firstShala;
+  const onShala = moon.location.source === "shala";
   const city = cityName(
     cities?.find((c) => c.slug === slug),
     slug,
@@ -320,10 +326,13 @@ function Moon({
             <span />
           </Localized>
           <select
-            value={following ? FOLLOW : slug}
+            value={following ? FOLLOW : onShala ? FOLLOW_SHALA : slug}
             onChange={(e) => {
               haptics.impact("light");
-              setLocation.mutate(e.target.value === FOLLOW ? null : e.target.value);
+              const value = e.target.value;
+              setLocation.mutate(
+                value === FOLLOW ? null : value === FOLLOW_SHALA ? { follow: "shala" } : value,
+              );
             }}
           >
             {main && (
@@ -331,6 +340,11 @@ function Moon({
                 {l10n.getString("moon-follow-teacher", {
                   name: main.name ?? l10n.getString("link-no-name"),
                 })}
+              </option>
+            )}
+            {shala && (
+              <option value={FOLLOW_SHALA}>
+                {l10n.getString("moon-follow-shala", { shala: shala.name })}
               </option>
             )}
             {/* MD-04: stores the slug (a snapshot); a later trip never moves the calendar. */}

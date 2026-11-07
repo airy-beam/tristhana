@@ -1,7 +1,14 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useState } from "react";
+import { lazy, Suspense, useState, type SyntheticEvent } from "react";
 
 import {
+  ApiError,
+  useCreateShala,
+  useMe,
+  useMoonCities,
+  useMyShalas,
+  type MyShala,
+  type ShalaRole,
   useInvite,
   useLinks,
   useMakeMainTeacher,
@@ -18,6 +25,11 @@ import {
   openTelegramLink,
   useBackButton,
 } from "../../telegram";
+import type { Locale } from "../../i18n/negotiate";
+import { cityName } from "../MoonCard";
+
+// SC-01: the card is its own lazy chunk, loaded when a shala is opened.
+const ShalaScreen = lazy(() => import("../shalas/ShalaScreen"));
 
 interface Props {
   onBack: () => void;
@@ -27,6 +39,22 @@ interface Props {
 /** "👥 Teachers and students" (ID-04): my teachers, my students, my invite. An invite is
  * confirmed in the bot. A teacher never sees who chose them as main. Loaded lazily, so Settings stays light. Writes are not optimistic. */
 export default function Links({ onBack, onStudents }: Props) {
+  const [shala, setShala] = useState<string | null>(null);
+  if (shala)
+    return (
+      <Suspense fallback={null}>
+        <ShalaScreen
+          id={shala}
+          onBack={() => {
+            setShala(null);
+          }}
+        />
+      </Suspense>
+    );
+  return <Lists onBack={onBack} onStudents={onStudents} onShala={setShala} />;
+}
+
+function Lists({ onBack, onStudents, onShala }: Props & { onShala: (id: string) => void }) {
   useBackButton(onBack);
   const query = useLinks();
   const links = query.data;
@@ -52,7 +80,169 @@ export default function Links({ onBack, onStudents }: Props) {
           <InviteCard hasStudents={links.students.length > 0} />
         </>
       )}
+      <Shalas onOpen={onShala} />
     </main>
+  );
+}
+
+const ROLES: ShalaRole[] = ["teacher", "assistant", "office", "admin"];
+const NAME_MAX = 64;
+
+/** SC-01: my shalas, and the create form (Q103: creating is in the Mini App only). */
+function Shalas({ onOpen }: { onOpen: (id: string) => void }) {
+  const { l10n } = useLocalization();
+  const mine = useMyShalas().data;
+  const [creating, setCreating] = useState(false);
+  return (
+    <section className="card">
+      <Localized id="links-shalas-title">
+        <h2 />
+      </Localized>
+      {mine?.map((s: MyShala) => (
+        <button
+          key={s.id}
+          type="button"
+          className="row-button"
+          onClick={() => {
+            haptics.selection();
+            onOpen(s.id);
+          }}
+        >
+          {l10n.getString("shala-title", { shala: s.name })}
+        </button>
+      ))}
+      {creating ? (
+        <CreateShala
+          onDone={(id) => {
+            setCreating(false);
+            onOpen(id);
+          }}
+        />
+      ) : (
+        <Localized id="shala-create">
+          <button
+            type="button"
+            className="row-button"
+            onClick={() => {
+              setCreating(true);
+            }}
+          />
+        </Localized>
+      )}
+    </section>
+  );
+}
+
+function CreateShala({ onDone }: { onDone: (id: string) => void }) {
+  const { l10n } = useLocalization();
+  const me = useMe().data;
+  const cities = useMoonCities().data;
+  const create = useCreateShala();
+  const locale: Locale = me?.locale ?? "en";
+  const [name, setName] = useState("");
+  const [city, setCity] = useState<string | null>(null);
+  const [online, setOnline] = useState(false);
+  const [roles, setRoles] = useState<ShalaRole[]>(["teacher"]);
+  const [blank, setBlank] = useState(false);
+  const chosen = city ?? me?.home_city?.slug ?? cities?.[0]?.slug ?? "";
+  const submit = (e: SyntheticEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setBlank(true);
+      return;
+    }
+    setBlank(false);
+    haptics.impact("light");
+    create.mutate(
+      { name, city: chosen, online, roles },
+      {
+        onSuccess: (shala) => {
+          onDone(shala.id);
+        },
+        onError: () => {
+          haptics.notify("error");
+        },
+      },
+    );
+  };
+  const capped = create.error instanceof ApiError && create.error.code === "shala_caps";
+  return (
+    <form className="shala-form" onSubmit={submit}>
+      <label className="label">
+        <Localized id="shala-name-label">
+          <span />
+        </Localized>
+        <input
+          type="text"
+          value={name}
+          maxLength={NAME_MAX}
+          onChange={(e) => {
+            setName(e.target.value);
+          }}
+        />
+      </label>
+      <label className="label">
+        <Localized id="shala-city-label">
+          <span />
+        </Localized>
+        <select
+          value={chosen}
+          onChange={(e) => {
+            setCity(e.target.value);
+          }}
+        >
+          {cities?.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {cityName(c, c.slug, locale)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={online}
+          onChange={() => {
+            setOnline(!online);
+          }}
+        />
+        {l10n.getString("shala-online-only")}
+      </label>
+      <Localized id="shala-my-roles">
+        <p className="label" />
+      </Localized>
+      {ROLES.map((role) => (
+        <label key={role} className="toggle">
+          <input
+            type="checkbox"
+            checked={roles.includes(role)}
+            onChange={() => {
+              setRoles((now) =>
+                now.includes(role) ? now.filter((r) => r !== role) : [...now, role],
+              );
+            }}
+          />
+          {l10n.getString("shala-role", { role })}
+        </label>
+      ))}
+      <Localized id="shala-create-submit">
+        <button type="submit" className="row-button" disabled={create.isPending} />
+      </Localized>
+      {(blank || create.isError) && (
+        <Localized
+          id={
+            blank ||
+            (create.error instanceof ApiError && create.error.code === "invalid_shala_name")
+              ? "shala-name-invalid"
+              : capped
+                ? "shala-caps"
+                : "shala-save-failed"
+          }
+        >
+          <p className="hint" role="alert" />
+        </Localized>
+      )}
+    </form>
   );
 }
 

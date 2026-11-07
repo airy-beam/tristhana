@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 
 from aiogram.methods import EditMessageText, SendMessage
 from aiogram.types import (
@@ -15,8 +15,9 @@ from aiogram.types import (
     WebAppInfo,
 )
 
-from tristhana.application.ports.i18n import DateArg, Translator
+from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import City
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,12 @@ def app_button(t: Translator, locale: Locale, url: str) -> InlineKeyboardButton:
 def day_label(t: Translator, locale: Locale, day: date, today: date) -> str:
     rel = "today" if day == today else "yesterday" if day == today - timedelta(1) else "other"
     return t.t(locale, "day-label", rel=rel, date=DateArg(day, with_year=day.year != today.year))
+
+
+def zone_label(t: Translator, locale: Locale, zone: str, today: date, city: City | None) -> str:
+    """The zone with its offset today: "Astana (UTC+5)" (the time label minus the time)."""
+    label = t.t(locale, "time-label", time=TimeArg(today, time(12), zone, city))
+    return label.split(" ", 1)[1] if " " in label else label
 
 
 async def answered[T](callback: CallbackQuery, work: Awaitable[T]) -> T:

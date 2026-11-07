@@ -906,6 +906,11 @@ class FakeNotifier:
             self.join_outcomes.pop(0) if self.join_outcomes else DeliveryResult(DeliveryStatus.SENT)
         )
 
+    async def tell_staff_joined(
+        self, recipient: Recipient, name: str | None, shala: str, role: Any
+    ) -> DeliveryResult:  # SC-01: tests/shala_fakes.py `StaffNotifier` records these
+        return DeliveryResult(DeliveryStatus.SENT)
+
 
 @dataclass
 class InMemoryExport:
@@ -986,6 +991,7 @@ class InMemoryStorage:
     export_repo: InMemoryExport | None = None
     link_repo: Any = None  # ID-04: tests/teacher_link_fakes.py, loaded on first use
     view_repo: Any = None  # ST-06: tests/teacher_view_fakes.py, loaded on first use
+    shala_repo: Any = None  # SC-01: tests/shala_fakes.py, loaded on first use
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
@@ -1071,6 +1077,14 @@ class InMemoryStorage:
 
             self.view_repo = InMemoryTeacherView(self.teacher_links, self.day_repo)
         return self.view_repo
+
+    @property
+    def shalas(self) -> Any:  # SC-01
+        if self.shala_repo is None:
+            from tests.shala_fakes import InMemoryShalas
+
+            self.shala_repo = InMemoryShalas(self.repo, self.teacher_links)  # pyright: ignore[reportArgumentType]
+        return self.shala_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

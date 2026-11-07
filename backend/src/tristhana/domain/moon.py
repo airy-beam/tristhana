@@ -94,14 +94,17 @@ class Cities:
         return [self.default, *rest]
 
 
-# `account.moon_location` for "Follow my teacher" (MD-02, ADR-0032). Never a slug: the loader
-# takes kebab-case only, so nothing listed starts with "-". NULL = never chosen.
+# `account.moon_location` for "Follow my teacher" (MD-02, ADR-0032) and "Follow my shala"
+# (SC-01, ADR-0033). Never a slug: the loader takes kebab-case only, so nothing listed starts
+# with "-". NULL = never chosen.
 FOLLOW_TEACHER = "-teacher"
+FOLLOW_SHALA = "-shala"
 
 
 class MoonSource(StrEnum):
     CHOSEN = "chosen"
     TEACHER = "teacher"
+    SHALA = "shala"
     DEFAULT = "default"
 
 
@@ -115,35 +118,78 @@ class TeacherMoon:
 
 
 @dataclass(frozen=True, slots=True)
+class ShalaMoon:
+    """The main shala (SC-01): its moon city (`moon_city`, else its city; maybe since removed
+    from the list), whether the person is staff there, and whether their main teacher is.
+    `city` is the shala's own city: the fallback when its moon city was removed (Q111)."""
+
+    id: UUID
+    name: str
+    moon_city: str
+    staff: bool
+    teacher_on_staff: bool
+    city: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class MoonFollow:
     """The effective moon city and where it comes from. `teacher` is set for TEACHER, and
-    for a chosen follow whose teacher has no city (`moon-source-teacher-none`)."""
+    for a chosen follow whose teacher has no city (`moon-source-teacher-none`); `shala` is
+    set for SHALA only."""
 
     city: City
     source: MoonSource
     teacher: TeacherMoon | None
-    follow_chosen: bool
+    follow_chosen: bool  # "Follow my teacher"
+    shala: ShalaMoon | None = None
+    shala_chosen: bool = False  # "Follow my shala"
 
     @property
     def explicit(self) -> bool:
-        """A city or "Follow my teacher" was chosen."""
-        return self.source is MoonSource.CHOSEN or self.follow_chosen
+        """A city, "Follow my teacher" or "Follow my shala" was chosen."""
+        return self.source is MoonSource.CHOSEN or self.follow_chosen or self.shala_chosen
 
 
 def moon_follow(
-    own: str | None, teaches: bool, teacher: TeacherMoon | None, cities: Cities
+    own: str | None,
+    teaches: bool,
+    teacher: TeacherMoon | None,
+    shala: ShalaMoon | None,
+    cities: Cities,
 ) -> MoonFollow:
-    """MD-02, read time, one hop: a listed own choice wins; "Follow my teacher", or never
-    chosen without students (Q76), takes the main teacher's own listed city; otherwise the
-    default. A teacher's NULL, "Follow my teacher" or removed slug gives nothing (Q77)."""
+    """MD-02 + SC-01 (Q99, Q108), read time, one hop: a listed own choice wins; "Follow my
+    shala" takes the shala's city; "Follow my teacher" the main teacher's own listed city.
+    Never chose: staff follow their shala; a student whose main teacher staffs the shala
+    follows it; without students (Q76) the teacher's own listed city; then a student's shala;
+    otherwise the default. A teacher's NULL, sentinel or removed slug gives nothing (Q77); a
+    shala whose moon slug was removed falls back to its own city (Q111), else gives nothing."""
     chosen = cities.find(own)
     if chosen is not None:
         return MoonFollow(chosen, MoonSource.CHOSEN, None, False)
+    by_shala = None
+    if (
+        shala is not None
+        and (city := cities.find(shala.moon_city) or cities.find(shala.city)) is not None
+    ):
+        by_shala = MoonFollow(city, MoonSource.SHALA, None, False, shala, own == FOLLOW_SHALA)
+    if own == FOLLOW_SHALA:
+        return by_shala or MoonFollow(
+            cities.default, MoonSource.DEFAULT, None, False, shala_chosen=True
+        )
     follow_chosen = own == FOLLOW_TEACHER
+    if (
+        not follow_chosen
+        and shala is not None
+        and by_shala
+        and (shala.staff or shala.teacher_on_staff)
+    ):
+        return by_shala
     if teacher is not None and (follow_chosen or not teaches):
         theirs = cities.find(teacher.moon_location)
         if theirs is not None:
             return MoonFollow(theirs, MoonSource.TEACHER, teacher, follow_chosen)
+    if not follow_chosen and by_shala is not None:
+        return by_shala
     shown = teacher if follow_chosen else None
     return MoonFollow(cities.default, MoonSource.DEFAULT, shown, follow_chosen)
 

@@ -36,6 +36,7 @@ from tristhana.bots.telegram.runtime import (
     SettingsUseCases,
 )
 from tristhana.bots.telegram.settings import register_settings
+from tristhana.bots.telegram.shalas import ShalaScreens, register_shalas
 from tristhana.bots.telegram.start import StartScreens, register_start
 from tristhana.bots.telegram.teacher_links import LinkScreens, register_links
 from tristhana.bots.telegram.tour import register_tour
@@ -70,12 +71,16 @@ def build_router(
         router, days, practices, translator, remind, miniapp_url, check_ins, diary, progression
     )
     start = StartScreens(screens, settings, translator, miniapp_url)
-    invites = None
+    invites = shalas = None
     if links is not None:  # ID-04 (always wired by the app)
         invites = LinkScreens(links, start, settings, translator, miniapp_url, bot_username)
-    register_start(router, start, invites)
+        if links.shalas is not None:  # SC-01
+            shalas = ShalaScreens(links.shalas, start, invites, settings, translator, bot_username)
+    register_start(router, start, invites, shalas)
     if invites is not None:
         register_links(router, invites)
+    if shalas is not None:
+        register_shalas(router, shalas)
     register_tour(router, start, translator, miniapp_url)
     register_moon(router, moon, translator)
     remind_screens = register_remind(router, remind, screens, translator, rest)

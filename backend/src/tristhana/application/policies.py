@@ -4,6 +4,10 @@ A `Principal` is the authenticated caller. Today every operation acts on the cal
 account; reads across accounts get a named policy function here. A teacher sees only what the
 link's consent names (ST-06, ADR-0031): `can_view_activity` and `can_view_last_asana`. The
 owner-only `can_view_*` below get no link argument.
+
+Shala policies (SC-01, ADR-0033) take the caller's `Membership`, read in the same statement as
+the write; None = not a member, which the use cases turn into `NotFound`, never `NotAllowed`,
+so shala ids can't be probed. A shala membership never grants any of the teacher policies.
 """
 
 from dataclasses import dataclass
@@ -11,10 +15,15 @@ from uuid import UUID
 
 from tristhana.application.ports.teacher_view import StudentLink
 from tristhana.domain.accounts import Account
+from tristhana.domain.shalas import Membership, ShalaRole, grantable
 
 
 class NotAllowed(Exception):
     """A policy said no."""
+
+
+class NotFound(Exception):
+    """Not there, or not a member: the two look the same from outside."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,3 +88,70 @@ def can_view_last_asana(viewer: Account, link: StudentLink) -> bool:
 def can_view_milestones(viewer: Account, student: Account) -> bool:
     """Milestones are the student's own: the consent doesn't name them (Q59)."""
     return viewer.id == student.id
+
+
+def can_view_shala(actor: Membership | None) -> bool:
+    """Any member sees the card: the shala, its staff and their roles."""
+    return actor is not None
+
+
+def can_view_shala_students(actor: Membership | None) -> bool:
+    """Staff see student names; students never see each other (Q106)."""
+    return actor is not None and actor.staff
+
+
+def can_show_join_link(actor: Membership | None) -> bool:
+    return actor is not None and actor.staff
+
+
+def _manages(actor: Membership | None) -> bool:
+    return actor is not None and actor.staff and (actor.owner or ShalaRole.ADMIN in actor.roles)
+
+
+def can_edit_shala(actor: Membership | None) -> bool:
+    return _manages(actor)
+
+
+def can_rotate_join_link(actor: Membership | None) -> bool:
+    return _manages(actor)
+
+
+def can_delete_shala(actor: Membership | None) -> bool:
+    return actor is not None and actor.owner
+
+
+def can_invite_staff(actor: Membership | None, role: ShalaRole) -> bool:
+    """A role the inviter may grant: managers are made by the owner only."""
+    return actor is not None and role in grantable(actor)
+
+
+def can_set_roles(
+    actor: Membership | None, target: Membership, roles: frozenset[ShalaRole]
+) -> bool:
+    """Never on the owner or a student; a manager's roles only by the owner."""
+    if actor is None or not target.staff or target.owner:
+        return False
+    allowed = grantable(actor)
+    if not allowed or not roles <= allowed:
+        return False
+    return actor.owner or ShalaRole.ADMIN not in target.roles
+
+
+def can_remove_staff(actor: Membership | None, target: Membership, *, own: bool) -> bool:
+    """The owner removes anyone else, a manager non-managers; anyone leaves but the owner."""
+    if actor is None or not target.staff or target.owner:
+        return False
+    if own:
+        return True
+    return actor.owner or (
+        actor.staff and ShalaRole.ADMIN in actor.roles and ShalaRole.ADMIN not in target.roles
+    )
+
+
+def can_remove_student(actor: Membership | None, *, own: bool) -> bool:
+    """A student leaves; the owner, a manager or the front desk removes a student."""
+    if actor is None:
+        return False
+    if own:
+        return actor.student
+    return actor.staff and (actor.owner or bool(actor.roles & {ShalaRole.ADMIN, ShalaRole.OFFICE}))

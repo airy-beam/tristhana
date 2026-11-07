@@ -37,6 +37,10 @@ type ErrorCode = Literal[
     "not_latest",
     "not_linked",
     "links_changed",
+    "not_found",
+    "not_allowed",
+    "shala_caps",
+    "invalid_shala_name",
     "export_too_soon",
     "bot_unreachable",
     "export_too_large",
@@ -54,10 +58,11 @@ class Error(BaseModel):
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, code: ErrorCode) -> None:
+    def __init__(self, status: int, code: ErrorCode, headers: dict[str, str] | None = None) -> None:
         super().__init__(code)
         self.status = status
         self.code: ErrorCode = code
+        self.headers = headers
 
 
 def error_responses(*statuses: int) -> dict[int | str, dict[str, object]]:
@@ -68,7 +73,7 @@ def error_responses(*statuses: int) -> dict[int | str, dict[str, object]]:
 def install_error_handlers(app: FastAPI) -> None:
     async def api_error(_: Request, exc: Exception) -> JSONResponse:
         assert isinstance(exc, ApiError)  # noqa: S101 - registered for ApiError only
-        return JSONResponse({"code": exc.code}, status_code=exc.status)
+        return JSONResponse({"code": exc.code}, status_code=exc.status, headers=exc.headers)
 
     async def unavailable(_: Request, _exc: Exception) -> JSONResponse:
         return JSONResponse({"code": "unavailable"}, status_code=503)
