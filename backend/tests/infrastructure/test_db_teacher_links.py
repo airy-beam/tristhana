@@ -33,6 +33,7 @@ from tristhana.domain.accounts import (
     IdentityProvider,
     NewAccount,
 )
+from tristhana.domain.moon import TeacherMoon
 from tristhana.domain.notifications import DEFAULTS
 from tristhana.domain.progression import Track
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS, effective_primary
@@ -174,7 +175,7 @@ async def test_each_call_is_one_statement(engine: AsyncEngine) -> None:
     assert len(seen) == 1
 
     with _statements(engine) as seen:
-        assert await repo.unlink(student, teacher)
+        assert (await repo.unlink(student, teacher)).removed
     assert len(seen) == 1
 
 
@@ -307,7 +308,7 @@ async def test_two_flips_at_once_flag_at_most_one(engine: AsyncEngine) -> None:
         return_exceptions=True,
     )
 
-    assert all(r is True or isinstance(r, LinksChanged) for r in results), results
+    assert all(isinstance(r, TeacherMoon | LinksChanged) for r in results), results
     assert len(await _flagged(engine, student)) == 1
 
 
@@ -398,7 +399,7 @@ async def test_set_primary_on_a_stranger_rolls_back_and_keeps_the_main(
     await _link(repo, student, chosen)
     assert await repo.set_primary(student, chosen)
 
-    assert await repo.set_primary(student, stranger) is False
+    assert await repo.set_primary(student, stranger) is None
 
     assert await _flagged(engine, student) == [chosen]
 
@@ -409,8 +410,8 @@ async def test_unlink_is_idempotent_and_keyed_on_the_pair(engine: AsyncEngine) -
     await _link(repo, student, teacher)
     await _link(repo, other, teacher)
 
-    assert await repo.unlink(student, teacher) is True
-    assert await repo.unlink(student, teacher) is False
+    assert (await repo.unlink(student, teacher)).removed is True
+    assert (await repo.unlink(student, teacher)).removed is False
 
     assert [s.id for s in (await repo.overview(teacher)).students] == [other]
 
@@ -692,7 +693,8 @@ async def test_the_links_cost_the_snapshot_one_statement(engine: AsyncEngine) ->
         owned = await repo.snapshot(me.id, DEFAULTS, ON)
 
     assert owned is not None
-    assert len([s for s in seen if "teacher_link" in s]) == 1
+    # The account load also reads `teacher_link` for MD-02's inputs; the links are one more.
+    assert len([s for s in seen if "teacher_link" in s and "main_teacher" not in s]) == 1
     assert not [s for s in seen if "teacher_invite" in s]
 
 

@@ -14,7 +14,7 @@ from uuid import UUID
 from zoneinfo import available_timezones
 
 from tristhana.domain.locale import Locale, negotiate_locale
-from tristhana.domain.moon import Cities, City, label_city
+from tristhana.domain.moon import Cities, City, MoonFollow, TeacherMoon, label_city, moon_follow
 from tristhana.domain.rest_days import NEVER_CHOSEN, DayOff
 
 DISPLAY_NAME_MAX = 64
@@ -56,7 +56,9 @@ class Account:
     locale: Locale
     timezone: str | None  # IANA name; None until the device reports it
     last_seen_at: datetime
-    moon_location: str | None = None  # city slug (MD-03); None = the default (Mysuru)
+    # City slug (MD-03), FOLLOW_TEACHER (MD-02) or None = never chosen. Read it through
+    # `moon_follow_of`, never directly.
+    moon_location: str | None = None
     name_custom: bool = False  # chosen in settings: Telegram's name no longer overwrites it
     locale_custom: bool = False  # chosen in settings: Telegram's language no longer does
     created_at: datetime | None = None  # None only in tests: then no join-date bound
@@ -65,10 +67,23 @@ class Account:
     hide_ladies: bool = False  # WH-01: leave the 🌸 button out of the status grids
     offer_check_in: bool = True  # PR-06: the one-tap mood row after logging a practice
     home_city: str | None = None  # ADR-0029: None, NOT_LISTED or a city slug
+    teaches: bool = False  # has at least one student (ID-04); loaded with the account
+    main_teacher: TeacherMoon | None = None  # ID-04 `effective_primary` (MD-02)
 
     @property
     def home_city_chosen(self) -> bool:
         return self.home_city is not None
+
+
+def moon_follow_of(account: Account, cities: Cities) -> MoonFollow:
+    """The account's effective moon city (MD-02): every reader goes through this."""
+    return moon_follow(account.moon_location, account.teaches, account.main_teacher, cities)
+
+
+def moon_shared(account: Account, cities: Cities) -> bool | None:
+    """For someone with students: whether they follow a city this person chose (MD-02).
+    None: no students. Never chose, or "Follow my teacher", shares nothing (one hop)."""
+    return cities.find(account.moon_location) is not None if account.teaches else None
 
 
 @dataclass(frozen=True, slots=True)

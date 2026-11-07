@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import StrEnum
+from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -91,6 +92,60 @@ class Cities:
         """The default first, then by the localised name."""
         rest = sorted((c for c in self.all if c is not self.default), key=lambda c: c.name(locale))
         return [self.default, *rest]
+
+
+# `account.moon_location` for "Follow my teacher" (MD-02, ADR-0032). Never a slug: the loader
+# takes kebab-case only, so nothing listed starts with "-". NULL = never chosen.
+FOLLOW_TEACHER = "-teacher"
+
+
+class MoonSource(StrEnum):
+    CHOSEN = "chosen"
+    TEACHER = "teacher"
+    DEFAULT = "default"
+
+
+@dataclass(frozen=True, slots=True)
+class TeacherMoon:
+    """The main teacher (ID-04 `effective_primary`) and their own stored moon value."""
+
+    id: UUID
+    name: str | None
+    moon_location: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MoonFollow:
+    """The effective moon city and where it comes from. `teacher` is set for TEACHER, and
+    for a chosen follow whose teacher has no city (`moon-source-teacher-none`)."""
+
+    city: City
+    source: MoonSource
+    teacher: TeacherMoon | None
+    follow_chosen: bool
+
+    @property
+    def explicit(self) -> bool:
+        """A city or "Follow my teacher" was chosen."""
+        return self.source is MoonSource.CHOSEN or self.follow_chosen
+
+
+def moon_follow(
+    own: str | None, teaches: bool, teacher: TeacherMoon | None, cities: Cities
+) -> MoonFollow:
+    """MD-02, read time, one hop: a listed own choice wins; "Follow my teacher", or never
+    chosen without students (Q76), takes the main teacher's own listed city; otherwise the
+    default. A teacher's NULL, "Follow my teacher" or removed slug gives nothing (Q77)."""
+    chosen = cities.find(own)
+    if chosen is not None:
+        return MoonFollow(chosen, MoonSource.CHOSEN, None, False)
+    follow_chosen = own == FOLLOW_TEACHER
+    if teacher is not None and (follow_chosen or not teaches):
+        theirs = cities.find(teacher.moon_location)
+        if theirs is not None:
+            return MoonFollow(theirs, MoonSource.TEACHER, teacher, follow_chosen)
+    shown = teacher if follow_chosen else None
+    return MoonFollow(cities.default, MoonSource.DEFAULT, shown, follow_chosen)
 
 
 def label_city(home: City | None, zone: str | None) -> City | None:

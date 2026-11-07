@@ -30,7 +30,14 @@ const ME: Me = {
 
 const TODAY = "2026-10-19";
 const MOON: MoonDays = {
-  location: { slug: "mysuru", explicit: false },
+  location: {
+    slug: "mysuru",
+    explicit: false,
+    source: "default",
+    follow_chosen: false,
+    teacher: null,
+    shared: null,
+  },
   today: TODAY,
   days: [
     { date: "2026-10-22", kind: "purnima", phase: "purnima" },
@@ -88,6 +95,7 @@ function stubApi(moon: MoonDays = MOON, settings: NotificationSettings = SETTING
           moon_location: "mysuru",
           days: [],
         });
+      if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
       return json({});
     }),
   );

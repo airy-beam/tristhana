@@ -9,7 +9,13 @@ from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from tests.fakes import InMemoryAccounts
-from tristhana.application.ports.teacher_links import Accepted, Caps, InvitePreview, Links
+from tristhana.application.ports.teacher_links import (
+    Accepted,
+    Caps,
+    InvitePreview,
+    Links,
+    Unlinked,
+)
 from tristhana.application.ports.teacher_links import LinksChanged as LinksChanged
 from tristhana.domain.accounts import (
     Account,
@@ -18,6 +24,7 @@ from tristhana.domain.accounts import (
     NewAccount,
 )
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import TeacherMoon
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS, Linked
 
 CAPS = Caps(teachers=MAX_TEACHERS, students=MAX_STUDENTS)
@@ -118,6 +125,8 @@ class InMemoryTeacherLinks:
         teacher = self._owner(code)
         if teacher is None:
             return None
+        students_before = len(self.students_of(teacher.id))
+        their_main = self.main_of(teacher.id)
         already = (me, teacher.id) in self.rows
         created = (
             not already
@@ -141,6 +150,9 @@ class InMemoryTeacherLinks:
             teacher_name=teacher.display_name,
             teacher_locale=teacher.locale,
             teacher_telegram_id=self._telegram_id(teacher.id),
+            teacher_moon=teacher.moon_location,
+            teacher_students_before=students_before,
+            teacher_main=their_main,
         )
 
     async def overview(self, me: UUID) -> Links:
@@ -167,7 +179,16 @@ class InMemoryTeacherLinks:
         self.codes[me] = new_code
         return new_code
 
-    async def set_primary(self, me: UUID, teacher_id: UUID) -> bool:
+    def main_of(self, student: UUID) -> TeacherMoon | None:
+        """`ORDER BY is_primary DESC, created_at, teacher_id LIMIT 1` with the teacher's row."""
+        mine = [r for r in self.rows.values() if r.student_id == student]
+        if not mine:
+            return None
+        row = min(mine, key=lambda r: (not r.is_primary, r.created_at, r.teacher_id))
+        teacher = self.accounts.accounts[row.teacher_id]
+        return TeacherMoon(teacher.id, teacher.display_name, teacher.moon_location)
+
+    async def set_primary(self, me: UUID, teacher_id: UUID) -> TeacherMoon | None:
         self._check()
         await asyncio.sleep(0)
         if self.lose_next_flip:
@@ -175,20 +196,20 @@ class InMemoryTeacherLinks:
             raise LinksChanged
         target = self.rows.get((me, teacher_id))
         if target is None:
-            return False
+            return None
         for row in self.rows.values():
             if row.student_id == me:
                 row.is_primary = False
         target.is_primary = True
         self.writes.append("set_primary")
-        return True
+        return self.main_of(me)
 
-    async def unlink(self, student: UUID, teacher: UUID) -> bool:
+    async def unlink(self, student: UUID, teacher: UUID) -> Unlinked:
         self._check()
         await asyncio.sleep(0)
         removed = self.rows.pop((student, teacher), None) is not None
         self.writes.append("unlink")
-        return removed
+        return Unlinked(removed, self.main_of(student))
 
     # Internals.
 

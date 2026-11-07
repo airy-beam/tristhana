@@ -68,17 +68,20 @@ async def test_choosing_mysuru_stores_its_slug() -> None:
     assert accounts.accounts[me.id].moon_location == "mysuru"
 
 
-async def test_none_stores_null_and_reads_as_never_chosen() -> None:
+async def test_none_stores_follow_my_teacher_and_reads_as_explicit() -> None:
+    """MD-02 (spec §3): `None` is "Follow my teacher" now; nothing writes NULL any more."""
+    from tristhana.domain.moon import FOLLOW_TEACHER
+
     accounts = InMemoryAccounts()
     me = await _account(accounts, "almaty")
 
     back = await SetMoonLocation(cities(), accounts).execute(Principal(me), None)
 
-    assert back.moon_location is None
+    assert back.moon_location == FOLLOW_TEACHER
     view = await GetMoonView(
         cities(), _moon(), InMemoryNotifications(accounts), FixedClock(EVENING)
     ).execute(Principal(back))
-    assert (view.city.slug, view.explicit) == ("mysuru", False)
+    assert (view.city.slug, view.explicit) == ("mysuru", True)  # no teacher: Mysuru for now
 
 
 async def test_a_chosen_mysuru_reads_as_explicit() -> None:
@@ -178,4 +181,8 @@ async def test_the_export_says_mysuru_is_no_default_once_chosen() -> None:
     await export.execute(Principal(me))
 
     [(data, _, _)] = packer.packed
-    assert data["account"]["moon_city"] == {"slug": "mysuru", "default": False}  # type: ignore[index]
+    assert data["account"]["moon_city"] == {  # type: ignore[index]
+        "slug": "mysuru",
+        "default": False,
+        "source": "chosen",  # MD-02
+    }

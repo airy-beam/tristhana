@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, case, delete, exists, func, literal, or_, select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -16,8 +16,11 @@ from tristhana.application.ports.teacher_links import (
     InvitePreview,
     Links,
     LinksChanged,
+    Unlinked,
 )
+from tristhana.domain.moon import TeacherMoon
 from tristhana.domain.teacher_links import Linked
+from tristhana.infrastructure.db.accounts import MAIN_TEACHER, to_teacher
 from tristhana.infrastructure.db.engine import connection, constraint_name, sqlstate
 from tristhana.infrastructure.db.tables import account, identity, teacher_invite, teacher_link
 
@@ -69,6 +72,8 @@ def _accept(code: str, me: UUID, caps: Caps, linked_on: date) -> Any:
             found.c.theirs,
             account.c.display_name,
             account.c.locale,
+            account.c.moon_location,  # MD-02: the teacher's own value and main teacher
+            MAIN_TEACHER,
             identity.c.provider_user_id,
             exists().where(added.c.teacher_id == found.c.teacher_id).label("created"),
         )
@@ -123,6 +128,9 @@ class SqlTeacherLinkRepository:
             teacher_name=row.display_name,
             teacher_locale=row.locale,
             teacher_telegram_id=row.provider_user_id,
+            teacher_moon=row.moon_location,
+            teacher_students_before=row.theirs,
+            teacher_main=to_teacher(row.main_teacher),
         )
 
     async def overview(self, me: UUID) -> Links:
@@ -167,9 +175,9 @@ class SqlTeacherLinkRepository:
         async with connection(self._engine) as conn:
             return (await conn.execute(stmt)).scalar_one()
 
-    async def set_primary(self, me: UUID, teacher_id: UUID) -> bool:
+    async def set_primary(self, me: UUID, teacher_id: UUID) -> TeacherMoon | None:
         """Clear, then set, in one transaction: the index isn't deferrable, so one UPDATE
-        flipping both rows can fail on row order."""
+        flipping both rows can fail on row order. Returns the chosen teacher (MD-02)."""
         link = teacher_link
         mine = link.c.student_id == me
         try:
@@ -179,22 +187,55 @@ class SqlTeacherLinkRepository:
                     await conn.execute(
                         update(link).where(mine, link.c.is_primary).values(is_primary=False)
                     )
-                    chosen = await conn.execute(
-                        update(link)
-                        .where(mine, link.c.teacher_id == teacher_id)
-                        .values(is_primary=True)
-                    )
-                    if chosen.rowcount == 0:
+                    chosen = (
+                        await conn.execute(
+                            update(link)
+                            .where(
+                                mine,
+                                link.c.teacher_id == teacher_id,
+                                account.c.id == link.c.teacher_id,
+                            )
+                            .values(is_primary=True)
+                            .returning(account.c.display_name, account.c.moon_location)
+                        )
+                    ).one_or_none()
+                    if chosen is None:
                         await transaction.rollback()  # keep the old choice
-                        return False
-                    return True
+                        return None
+                    return TeacherMoon(teacher_id, chosen.display_name, chosen.moon_location)
         except DBAPIError as e:
             if sqlstate(e) == "23505" and constraint_name(e) == _ONE_PRIMARY:
                 raise LinksChanged from e
             raise
 
-    async def unlink(self, student: UUID, teacher: UUID) -> bool:
+    async def unlink(self, student: UUID, teacher: UUID) -> Unlinked:
+        """One statement; the main teacher after it is read past the deleted row (MD-02)."""
         link = teacher_link
-        stmt = delete(link).where(link.c.student_id == student, link.c.teacher_id == teacher)
+        deleted = (
+            delete(link)
+            .where(link.c.student_id == student, link.c.teacher_id == teacher)
+            .returning(link.c.teacher_id)
+            .cte("deleted")
+        )
+        main = (
+            select(
+                func.jsonb_build_object(
+                    "id",
+                    account.c.id,
+                    "name",
+                    account.c.display_name,
+                    "moon",
+                    account.c.moon_location,
+                )
+            )
+            .join_from(link, account, account.c.id == link.c.teacher_id)
+            .where(link.c.student_id == student, link.c.teacher_id != teacher)
+            .order_by(link.c.is_primary.desc(), link.c.created_at, link.c.teacher_id)
+            .limit(1)
+            .scalar_subquery()
+            .cast(JSONB)
+        )
+        stmt = select(exists(select(deleted.c.teacher_id)).label("removed"), main.label("main"))
         async with connection(self._engine) as conn:
-            return (await conn.execute(stmt)).rowcount > 0
+            row = (await conn.execute(stmt)).one()
+        return Unlinked(row.removed, to_teacher(row.main))

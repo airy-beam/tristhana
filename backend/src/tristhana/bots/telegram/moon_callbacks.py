@@ -3,6 +3,8 @@ offsets to set, not "toggle"), so stale keyboards stay harmless.
 
     m1:v                 /moon screen            m1:r            reminder settings
     m1:c:2               city picker, page 2     m1:s:<slug>     follow a city
+    m1:f                 follow my teacher (MD-02)
+    m1:k:<slug>          keep that city as my own (the first-student note, MD-02)
     m1:z:<slug>          use that city's zone for reminders (only while none is set)
     m1:o:71              set offsets to {7, 1}   (m1:o:0 = off)
     m1:t:1900            send time 19:00
@@ -19,12 +21,15 @@ from tristhana.domain.moon import MoonPhase
 from tristhana.domain.notifications import MOON_OFFSETS
 
 PREFIX = "m1"
-type Action = Literal["view", "reminders", "cities", "city", "zone", "offsets", "time", "quick"]
+type Action = Literal[
+    "view", "reminders", "cities", "city", "follow", "keep", "zone", "offsets", "time", "quick"
+]
 type Quick = Literal["only1", "off", "on"]
 
 _SLUG = re.compile(r"[a-z-]{1,24}")
 _QUICK: dict[str, Quick] = {"1": "only1", "0": "off", "a": "on"}
 _QUICK_CODES = {v: k for k, v in _QUICK.items()}
+_SLUG_ACTIONS: dict[str, Action] = {"s": "city", "z": "zone", "k": "keep"}
 _PHASES = {"p": MoonPhase.PURNIMA, "a": MoonPhase.AMAVASYA}
 _PHASE_CODES = {v: k for k, v in _PHASES.items()}
 
@@ -56,6 +61,10 @@ def encode(cb: MoonCallback) -> str:
             return f"{PREFIX}:c:{cb.page}"
         case "city":
             return f"{PREFIX}:s:{cb.slug}"
+        case "follow":
+            return f"{PREFIX}:f"
+        case "keep":
+            return f"{PREFIX}:k:{cb.slug}"
         case "zone":
             return f"{PREFIX}:z:{cb.slug}"
         case "offsets":
@@ -86,8 +95,10 @@ def decode(data: str | None) -> MoonCallback | None:
             return MoonCallback("reminders")
         case ["c", page] if page.isdigit() and int(page) < 20:
             return MoonCallback("cities", page=int(page))
-        case ["s" | "z" as kind, slug] if _SLUG.fullmatch(slug):
-            return MoonCallback("city" if kind == "s" else "zone", slug=slug)
+        case ["f"]:
+            return MoonCallback("follow")
+        case ["s" | "z" | "k" as kind, slug] if _SLUG.fullmatch(slug):
+            return MoonCallback(_SLUG_ACTIONS[kind], slug=slug)
         case ["o", code] if code == "0" or (
             code.isdigit()
             and {int(c) for c in code} <= MOON_OFFSETS

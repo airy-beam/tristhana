@@ -3,6 +3,7 @@
 import datetime as dt
 import hashlib
 from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Response
 from pydantic import BaseModel, Field
@@ -25,9 +26,9 @@ from tristhana.application.moon import (
 )
 from tristhana.application.ports.notifications import PracticePause
 from tristhana.application.settings import PatchNotificationSettings
-from tristhana.domain.accounts import Account
+from tristhana.domain.accounts import Account, moon_follow_of, moon_shared
 from tristhana.domain.days import InvalidRange
-from tristhana.domain.moon import Cities, MoonDayKind
+from tristhana.domain.moon import Cities, MoonDayKind, MoonFollow
 from tristhana.domain.notifications import (
     KEEP,
     InvalidSettings,
@@ -40,9 +41,38 @@ from tristhana.domain.notifications import (
 router = APIRouter(tags=["moon"])
 
 
+class MoonTeacher(BaseModel):
+    id: UUID
+    name: str | None
+
+
+class MoonShared(BaseModel):
+    chosen: bool = Field(description="False: never chose, so students get the default too")
+
+
 class Location(BaseModel):
+    """The effective moon city (MD-02). Never the teacher's stored value, only the result."""
+
     slug: str
-    explicit: bool = Field(description="False: the default city (Mysuru), never chosen")
+    explicit: bool = Field(description="A city or 'Follow my teacher' was chosen")
+    source: Literal["chosen", "teacher", "default"]
+    follow_chosen: bool = Field(description="'Follow my teacher' is the stored choice")
+    teacher: MoonTeacher | None = Field(
+        description="The main teacher, for source 'teacher' or a follow without their city"
+    )
+    shared: MoonShared | None = Field(description="Only for someone with students")
+
+    @classmethod
+    def of(cls, follow: MoonFollow, explicit: bool, shared: bool | None) -> "Location":
+        t = follow.teacher
+        return cls(
+            slug=follow.city.slug,
+            explicit=explicit,
+            source=follow.source.value,
+            follow_chosen=follow.follow_chosen,
+            teacher=MoonTeacher(id=t.id, name=t.name) if t else None,
+            shared=None if shared is None else MoonShared(chosen=shared),
+        )
 
 
 class MoonDayOut(BaseModel):
@@ -67,7 +97,7 @@ class MoonDays(BaseModel):
 
 
 class LocationBody(BaseModel):
-    slug: str | None = Field(description="A city slug; null = back to the default")
+    slug: str | None = Field(description="A city slug; null = Follow my teacher (MD-02)")
 
 
 class MoonSettings(BaseModel):
@@ -173,7 +203,7 @@ async def get_moon_days(
     except InvalidRange:
         raise ApiError(422, "invalid_range") from None
     return MoonDays(
-        location=Location(slug=view.city.slug, explicit=view.explicit),
+        location=Location.of(view.follow, view.explicit, view.shared),
         today=view.today,
         days=[
             MoonDayOut(
@@ -199,8 +229,8 @@ async def put_moon_location(
         account = await use_case.execute(principal, body.slug)
     except UnknownLocation:
         raise ApiError(422, "unknown_location") from None
-    slug = account.moon_location or directory.default.slug
-    return Location(slug=slug, explicit=account.moon_location is not None)
+    follow = moon_follow_of(account, directory)
+    return Location.of(follow, follow.explicit, moon_shared(account, directory))
 
 
 @router.get("/me/notification-settings", responses=error_responses(401, 503))

@@ -290,10 +290,12 @@ def test_an_empty_bot_username_never_builds_a_broken_link(storage: InMemoryStora
     assert "t.me" not in response.text
 
 
-@pytest.mark.parametrize(("slug", "explicit"), [("mysuru", True), (None, False), ("almaty", True)])
+# MD-02: null is now "Follow my teacher", an explicit choice (Mysuru until a teacher links).
+@pytest.mark.parametrize(("slug", "explicit"), [("mysuru", True), (None, True), ("almaty", True)])
 def test_moon_location_keeps_an_explicit_mysuru(
     api: TestClient, slug: str | None, explicit: bool
 ) -> None:
     response = api.put("/api/v1/me/moon-location", json={"slug": slug}, headers=_auth())
 
-    assert response.json() == {"slug": slug or "mysuru", "explicit": explicit}
+    body = response.json()
+    assert (body["slug"], body["explicit"]) == (slug or "mysuru", explicit)

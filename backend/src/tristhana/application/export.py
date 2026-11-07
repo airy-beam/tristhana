@@ -20,7 +20,7 @@ from tristhana.application.ports.notifications import (
     Recipient,
 )
 from tristhana.application.ports.storage import Clock, StorageUnavailable
-from tristhana.domain.accounts import IdentityProvider
+from tristhana.domain.accounts import IdentityProvider, moon_follow_of
 from tristhana.domain.days import DayStatus
 from tristhana.domain.export import (
     EXPORT_EVERY,
@@ -193,13 +193,13 @@ class SendMyExport:
 
     def _snapshot(self, owned: Owned, now: datetime) -> Snapshot:
         a = owned.account
-        city = self._cities.get(a.moon_location) or self._cities.default
+        follow = moon_follow_of(a, self._cities)
         return Snapshot(
             account=a,
             identities=owned.identities,
             settings=owned.settings,
-            moon_city=city.slug,
-            moon_city_default=a.moon_location is None or self._cities.get(a.moon_location) is None,
+            moon_city=follow.city.slug,
+            moon_city_source=follow.source,
             catalog_version=self._catalog_version,
             days=owned.days,
             periods=owned.periods,

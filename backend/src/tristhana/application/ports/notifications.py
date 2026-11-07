@@ -5,7 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.locale import Locale
-from tristhana.domain.moon import City, MoonDay
+from tristhana.domain.moon import City, MoonDay, TeacherMoon
 from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
 
 
@@ -18,6 +18,18 @@ class Delivery:
 
 
 @dataclass(frozen=True, slots=True)
+class KeepOffer:
+    """MD-02 decision 3: a never-chose teacher's first student ends their inheritance."""
+
+    kept: City  # the city they stop inheriting, offered as `[Keep 📍 …]`
+    now: City  # their own setting from now on (the default)
+    teacher: str | None  # their own main teacher, who had that city
+
+
+_NO_ID = UUID(int=0)  # the tick never names or contacts the teacher
+
+
+@dataclass(frozen=True, slots=True)
 class ReminderCandidate:
     """An account that may get reminders (zone known, moon or practice on, reachable)."""
 
@@ -25,12 +37,21 @@ class ReminderCandidate:
     telegram_id: str
     locale: Locale
     zone: str
-    location: str | None  # None = the default city
+    location: str | None  # the account's own `moon_location`
     settings: NotificationSettings
     deliveries: tuple[Delivery, ...]  # recent ones, for dedupe and the daily cap
     had_moon_reminder: bool  # False: the next one carries the intro
     logged: frozenset[date] = frozenset()  # logged days in the window (practice skips them)
     paused: frozenset[date] = frozenset()  # unlogged days covered by a rest period (WH-01)
+    teaches: bool = False  # MD-02 inputs, as the account load carries them
+    teacher_location: str | None = None  # the main teacher's own `moon_location`
+
+    @property
+    def teacher(self) -> TeacherMoon | None:
+        """Enough of the main teacher for `moon_follow`: only the stored value is read."""
+        if self.teacher_location is None:
+            return None
+        return TeacherMoon(_NO_ID, None, self.teacher_location)
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +202,9 @@ class Notifier(Protocol):
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult: ...
 
-    async def tell_student_joined(self, recipient: Recipient, name: str | None) -> DeliveryResult:
-        """ID-04: one silent direct note, outside the ledger and the cap; no retry."""
+    async def tell_student_joined(
+        self, recipient: Recipient, name: str | None, keep: KeepOffer | None = None
+    ) -> DeliveryResult:
+        """ID-04: one silent direct note, outside the ledger and the cap; no retry. `keep`:
+        the MD-02 first-student offer."""
         ...

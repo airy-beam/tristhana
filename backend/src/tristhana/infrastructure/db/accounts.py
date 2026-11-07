@@ -4,7 +4,20 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Row, Text, case, delete, func, insert, literal, or_, select, update
+from sqlalchemy import (
+    Row,
+    Text,
+    case,
+    delete,
+    exists,
+    func,
+    insert,
+    literal,
+    or_,
+    select,
+    update,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -17,9 +30,50 @@ from tristhana.domain.accounts import (
     ProfileUpdate,
 )
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
+from tristhana.domain.moon import TeacherMoon
 from tristhana.domain.rest_days import DayOff, Weekdays
 from tristhana.infrastructure.db.engine import connection, sqlstate
-from tristhana.infrastructure.db.tables import account, identity
+from tristhana.infrastructure.db.tables import account, identity, teacher_link
+
+_TEACHER = account.alias("main_teacher")
+_MAIN = teacher_link.alias("main_link")
+# MD-02 inputs, in the same statement as the account (ADR-0032), so every RETURNING and SELECT
+# of `_COLUMNS` carries them: `teaches` by the (teacher_id, student_id) index, the main teacher
+# (ID-04 `effective_primary`) by the student_id PK prefix, ≤ 20 rows.
+_TEACHES = (
+    exists()
+    .where(teacher_link.c.teacher_id == account.c.id)
+    .correlate_except(teacher_link)
+    .label("teaches")
+)
+
+
+def _main_teacher_of(*columns: Any) -> Any:
+    """The main teacher's columns, ID-04 `effective_primary` order."""
+    return (
+        select(*columns)
+        .select_from(_MAIN.join(_TEACHER, _TEACHER.c.id == _MAIN.c.teacher_id))
+        .where(_MAIN.c.student_id == account.c.id)
+        .order_by(_MAIN.c.is_primary.desc(), _MAIN.c.created_at, _MAIN.c.teacher_id)
+        .limit(1)
+        .correlate_except(_MAIN, _TEACHER)
+        .scalar_subquery()
+    )
+
+
+_MAIN_TEACHER = (
+    _main_teacher_of(
+        func.jsonb_build_object(
+            "id", _TEACHER.c.id, "name", _TEACHER.c.display_name, "moon", _TEACHER.c.moon_location
+        )
+    )
+    .cast(JSONB)
+    .label("main_teacher")
+)
+MAIN_TEACHER = _MAIN_TEACHER  # correlated to `account`: whoever that row is in the statement
+# The tick needs only the teacher's stored value (it never names them).
+MAIN_TEACHER_LOCATION = _main_teacher_of(_TEACHER.c.moon_location).label("teacher_location")
+TEACHES = _TEACHES
 
 _COLUMNS = (
     account.c.id,
@@ -38,6 +92,8 @@ _COLUMNS = (
     account.c.hide_ladies,
     account.c.offer_check_in,
     account.c.home_city,
+    _TEACHES,
+    _MAIN_TEACHER,
 )
 
 
@@ -158,6 +214,17 @@ class SqlAccountRepository:
             row = (await conn.execute(stmt)).one()
         return _account(row)
 
+    async def set_moon_location_if_unset(self, account_id: UUID, slug: str) -> Account | None:
+        stmt = (
+            update(account)
+            .where(account.c.id == account_id, account.c.moon_location.is_(None))
+            .values(moon_location=slug, updated_at=func.now())
+            .returning(*_COLUMNS)
+        )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one_or_none()
+        return _account(row) if row else None
+
     async def set_day_off(self, account_id: UUID, day_off: DayOff) -> Account:
         stmt = (
             update(account)
@@ -222,7 +289,13 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         hide_ladies=row.hide_ladies,
         offer_check_in=row.offer_check_in,
         home_city=row.home_city,
+        teaches=row.teaches,
+        main_teacher=to_teacher(row.main_teacher),
     )
+
+
+def to_teacher(found: dict[str, Any] | None) -> TeacherMoon | None:
+    return None if found is None else TeacherMoon(UUID(found["id"]), found["name"], found["moon"])
 
 
 ACCOUNT_COLUMNS = _COLUMNS

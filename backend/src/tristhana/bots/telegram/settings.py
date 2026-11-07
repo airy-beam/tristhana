@@ -40,10 +40,12 @@ from tristhana.domain.accounts import (
     ProfilePatch,
     UnknownCity,
     home_city_of,
+    moon_follow_of,
 )
 from tristhana.domain.locale import Locale
-from tristhana.domain.moon import City
+from tristhana.domain.moon import City, MoonFollow, MoonSource
 from tristhana.domain.rest_days import InvalidDayOff
+from tristhana.domain.teacher_links import shown_name
 
 CITY_PAGE = 12  # 2 columns x 6 rows
 _LANGUAGES: tuple[tuple[Locale | None, str], ...] = (
@@ -204,7 +206,7 @@ class SettingsScreens:
         today, _ = self._s.today(principal)
         zone = account.timezone
         home = home_city_of(account, self._s.cities)
-        city = self._s.cities.get(account.moon_location) or self._s.cities.default
+        follow = moon_follow_of(account, self._s.cities)
         language = self._t.t(
             locale, "language-auto" if not account.locale_custom else f"language-{locale}"
         )
@@ -212,7 +214,7 @@ class SettingsScreens:
             self._t.t(locale, "settings-title"),
             self._t.t(locale, "settings-language-line", language=language),
             self._city_line(account, home, today),
-            self._t.t(locale, "settings-moon-line", city=city.name(locale)),
+            self._moon_line(locale, follow),
             day_off_line(self._t, locale, account.day_off.days),
             self._t.t(locale, "settings-ladies-line", shown="no" if account.hide_ladies else "yes"),
             self._t.t(
@@ -297,6 +299,13 @@ class SettingsScreens:
                 ]
             )
         return Screen("\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _moon_line(self, locale: Locale, follow: MoonFollow) -> str:
+        city = follow.city.name(locale)
+        if follow.source is MoonSource.TEACHER and follow.teacher is not None:
+            name = shown_name(follow.teacher.name) or self._t.t(locale, "link-no-name")
+            return self._t.t(locale, "settings-moon-line-teacher", city=city, name=name)
+        return self._t.t(locale, "settings-moon-line", city=city)
 
     def _city_line(self, account: Account, home: City | None, today: date) -> str:
         locale, zone = account.locale, account.timezone

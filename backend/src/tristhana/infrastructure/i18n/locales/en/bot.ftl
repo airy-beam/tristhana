@@ -232,6 +232,23 @@ moon-same-as-city = 📍 Same as my city ({ $city })
 moon-home-fyi = ℹ In 📍 { $city } it falls on { $date }
 # Full-width button: sets the account's time zone to the city's (only when unknown).
 moon-use-city-zone = 🕐 Time zone: 📍 { $city }
+
+## Moon calendar inheritance (MD-02). Names fall back to `link-no-name`.
+moon-source-teacher = 👥 Same as your main teacher, { $name }. You can choose another city.
+moon-source-teacher-none = 👥 { $name } hasn't chosen a city yet, so the dates are for 📍 { $city } for now.
+moon-follow-teacher = 👥 Follow my teacher ({ $name })
+moon-teacher-shared =
+    { $chosen ->
+        [yes] 👥 Students who haven't chosen a city follow yours: 📍 { $city }.
+        [follow] 👥 Your students' moon days are for 📍 { $city }. You can keep it or choose your city in /moon.
+       *[no] 👥 Your students' moon days are for 📍 { $city }, like yours. You can keep it or choose your city in /moon.
+    }
+moon-follow-changed = 🌙 Your moon days now follow { $name }: 📍 { $city }. You can change this in /moon.
+moon-follow-ended = 🌙 Your moon days are now for 📍 { $city }. You can change this in /moon.
+moon-teacher-own = 🌙 Now that you have students, your moon days follow your own setting: 📍 { $city }. To keep 📍 { $kept } (as with { $name }), tap below.
+moon-keep-city = Keep 📍 { $city }
+moon-kept = 🌙 Done: your moon days stay with 📍 { $city }. You can change this in /moon.
+moon-keep-already = 🌙 Your moon city is already chosen: 📍 { $city }. You can change it in /moon.
 # Toggle buttons, 3 per row; the screen text above already says "… before".
 moon-offset =
     { $n ->
@@ -314,6 +331,7 @@ settings-city-no-zone-line = 🏙 My city: not chosen yet. Reminders start once 
 settings-city-nudge = Pick your city if you like: times will then show its name.
 settings-city-not-now = Not now
 settings-moon-line = 🌙 Moon days: 📍 { $city }
+settings-moon-line-teacher = 🌙 Moon days: 📍 { $city } (as { $name })
 settings-quiet-line = 🔕 Quiet hours { $start }–{ $end } · { $n ->
         [one] at most { $n } message a day
        *[other] at most { $n } messages a day
@@ -655,6 +673,7 @@ invite-full = This link can't add a teacher right now.
 link-student-joined = 👥 { $name } is on your list of students now.
 link-students-open = 👥 My students
 invite-hint = Share this link or QR code. Each student confirms for themselves.
+invite-moon-hint = Students who haven't chosen a moon city will follow the city you choose in /moon.
 invite-share-text = My link to add me as your teacher in Tristhana. The bot shows what I'd see before you confirm.
 invite-new-ask = Get a new link? The old link and QR stop working. People already on your list stay.
 invite-qr-caption = Scan to add me as your teacher in Tristhana.

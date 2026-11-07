@@ -14,9 +14,16 @@ from tristhana.application.ports.notifications import (
 )
 from tristhana.application.ports.storage import Clock
 from tristhana.application.settings import PatchNotificationSettings, caller_today
-from tristhana.domain.accounts import Account, home_city_of
+from tristhana.domain.accounts import Account, home_city_of, moon_follow_of, moon_shared
 from tristhana.domain.days import check_range, local_today, provisional_zone
-from tristhana.domain.moon import Cities, City, MoonDay, home_dates
+from tristhana.domain.moon import (
+    FOLLOW_TEACHER,
+    Cities,
+    City,
+    MoonDay,
+    MoonFollow,
+    home_dates,
+)
 from tristhana.domain.notifications import (
     KEEP,
     NotificationPatch,
@@ -34,25 +41,23 @@ class UnknownLocation(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class MoonView:
-    city: City
-    explicit: bool  # False: the default city, never chosen
+    follow: MoonFollow  # MD-02: the effective city and where it comes from
+    explicit: bool  # a city or "Follow my teacher" was chosen
     today: date
     days: list[MoonDay]
     settings: NotificationSettings
     zone: str | None  # the account's own zone; reminders never use the provisional one
     home: City | None = None  # MD-04: the person's own city, when it isn't the followed one
     home_dates: dict[date, date] = field(default_factory=dict[date, date])  # followed → home
+    shared: bool | None = None  # None: no students; else whether students follow a choice
+
+    @property
+    def city(self) -> City:
+        return self.follow.city
 
     @property
     def zone_known(self) -> bool:
         return self.zone is not None
-
-
-def _city(cities: Cities, account: Account) -> tuple[City, bool]:
-    city = cities.get(account.moon_location)
-    if city is None:  # a city removed from the list: fall back, never fail
-        return cities.default, False
-    return city, account.moon_location is not None
 
 
 class GetMoonView:
@@ -75,7 +80,8 @@ class GetMoonView:
     ) -> MoonView:
         """Raises `InvalidRange`. Defaults to today … +60 days."""
         account = principal.account
-        city, explicit = _city(self._cities, account)
+        follow = moon_follow_of(account, self._cities)
+        city = follow.city
         zone = account.timezone or provisional_zone(account.locale)
         today = local_today(self._clock.now(), zone)
         start = start or today
@@ -95,7 +101,17 @@ class GetMoonView:
         settings = await self._notifications.settings(
             account.id, defaults_for(account.day_off.days)
         )
-        return MoonView(city, explicit, today, days, settings, account.timezone, home, pairs)
+        return MoonView(
+            follow,
+            follow.explicit,
+            today,
+            days,
+            settings,
+            account.timezone,
+            home,
+            pairs,
+            moon_shared(account, self._cities),
+        )
 
 
 class SetMoonLocation:
@@ -104,10 +120,35 @@ class SetMoonLocation:
 
     async def execute(self, principal: Principal, slug: str | None) -> Account:
         """Stores what was chosen, so an explicit Mysuru isn't mistaken for never choosing
-        (ID-04, for MD-02). `None` = back to the default. Raises `UnknownLocation`."""
-        if slug is not None and self._cities.get(slug) is None:
+        (ID-04). `None` = "Follow my teacher" (MD-02): nothing writes NULL any more. Raises
+        `UnknownLocation`."""
+        if slug is not None and self._cities.find(slug) is None:
             raise UnknownLocation(slug)
-        return await self._accounts.set_moon_location(principal.account.id, slug)
+        stored = FOLLOW_TEACHER if slug is None else slug
+        return await self._accounts.set_moon_location(principal.account.id, stored)
+
+
+@dataclass(frozen=True, slots=True)
+class KeepResult:
+    kept: bool  # False: a choice was made in the meantime, nothing written
+    follow: MoonFollow
+
+
+class KeepMoonCity:
+    """`[Keep 📍 …]` on the first-student note (MD-02, decision 3): the inherited city
+    becomes the person's own choice, only while they have none. Bot only."""
+
+    def __init__(self, cities: Cities, accounts: AccountRepository) -> None:
+        self._cities, self._accounts = cities, accounts
+
+    async def execute(self, principal: Principal, slug: str) -> KeepResult:
+        """Raises `UnknownLocation`."""
+        if self._cities.find(slug) is None:
+            raise UnknownLocation(slug)
+        saved = await self._accounts.set_moon_location_if_unset(principal.account.id, slug)
+        if saved is None:
+            return KeepResult(False, moon_follow_of(principal.account, self._cities))
+        return KeepResult(True, moon_follow_of(saved, self._cities))
 
 
 class UseCityTimezone:
@@ -118,7 +159,7 @@ class UseCityTimezone:
         self._cities, self._accounts = cities, accounts
 
     async def execute(self, principal: Principal, slug: str) -> Account:
-        city = self._cities.get(slug)
+        city = self._cities.find(slug)
         if city is None:
             raise UnknownLocation(slug)
         account = principal.account

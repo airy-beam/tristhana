@@ -7,6 +7,7 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import MoonFollow, TeacherMoon
 from tristhana.domain.teacher_links import Linked
 
 
@@ -47,6 +48,18 @@ class Accepted:
     teacher_name: str | None
     teacher_locale: Locale
     teacher_telegram_id: str | None
+    # MD-02, from the same statement: the teacher's own stored moon value, their student count
+    # before this link and their own main teacher (for the first-student Keep offer).
+    teacher_moon: str | None = None
+    teacher_students_before: int = 0
+    teacher_main: TeacherMoon | None = None
+    moon: MoonFollow | None = None  # set by `AcceptInvite`: the caller's new city, if it moved
+
+
+@dataclass(frozen=True, slots=True)
+class Unlinked:
+    removed: bool
+    main: TeacherMoon | None  # the student's main teacher after the removal
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,8 +93,8 @@ class TeacherLinkRepository(Protocol):
 
     async def rotate(self, me: UUID, new_code: str) -> str: ...
 
-    async def set_primary(self, me: UUID, teacher_id: UUID) -> bool:
-        """False: not linked, nothing changed. Raises `LinksChanged`."""
+    async def set_primary(self, me: UUID, teacher_id: UUID) -> TeacherMoon | None:
+        """The new main teacher; None: not linked, nothing changed. Raises `LinksChanged`."""
         ...
 
-    async def unlink(self, student: UUID, teacher: UUID) -> bool: ...
+    async def unlink(self, student: UUID, teacher: UUID) -> Unlinked: ...

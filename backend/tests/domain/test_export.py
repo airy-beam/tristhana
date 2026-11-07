@@ -35,6 +35,7 @@ from tristhana.domain.export import (
     to_json,
     to_tables,
 )
+from tristhana.domain.moon import MoonSource
 from tristhana.domain.notifications import DEFAULTS
 from tristhana.domain.practice import Practice, PracticeContext, PracticeLength
 from tristhana.domain.progression import EventKind, Position, Progression, ProgressionEvent
@@ -79,7 +80,7 @@ def _snapshot(**kw: object) -> Snapshot:
         identities=(ExportIdentity("telegram", "1234567", NOW - timedelta(days=300)),),
         settings=DEFAULTS,
         moon_city="mysuru",
-        moon_city_default=True,
+        moon_city_source=MoonSource.DEFAULT,
         catalog_version="cat-1",
         days=(),
         periods=(),
@@ -164,7 +165,7 @@ def test_account_keys_are_exactly_the_public_ones() -> None:
         "created_at",
         "last_seen_at",
     }
-    assert account["moon_city"] == {"slug": "mysuru", "default": True}
+    assert account["moon_city"] == {"slug": "mysuru", "default": True, "source": "default"}
     assert account["home_city"] == {"slug": None, "chosen": False}
 
 

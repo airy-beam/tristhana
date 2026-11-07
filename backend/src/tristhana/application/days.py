@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from tristhana.application.policies import Principal
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.storage import Clock
-from tristhana.domain.accounts import Account, home_city_of
+from tristhana.domain.accounts import Account, home_city_of, moon_follow_of
 from tristhana.domain.days import (
     MIN_LOG_DATE,
     DayLog,
@@ -104,7 +104,7 @@ class GetDays:
         end = end or today
         start = start or end - DEFAULT_WINDOW + timedelta(days=1)
         check_range(start, end)
-        city = self._cities.get(account.moon_location) or self._cities.default
+        city = moon_follow_of(account, self._cities).city
         view = await self._days.range_with_moon(account.id, start, end, city.slug)
         logged = {d.local_date for d in view.days}
         covered = covered_days(view.periods, start, end, today, logged)

@@ -5,7 +5,7 @@ changes need no stored schedule. Instants are UTC; send times are the recipient'
 clock in their IANA zone (ADR-0005). The provisional zone is never used here.
 """
 
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -210,11 +210,17 @@ def due_moon_reminders(now: datetime, c: Candidate) -> list[DueReminder]:
                 continue
             key = moon_key(day.date, k)
             send_at = send_instant(day.date - timedelta(days=k), settings.moon.at, c.zone)
-            if key in c.sent_keys or not send_at <= now < send_at + GRACE:
+            if _sent_near(day.date, k, c.sent_keys) or not send_at <= now < send_at + GRACE:
                 continue
             due.append(DueReminder(key, day, k, local_now.date()))
             room -= 1
     return due
+
+
+def _sent_near(day: date, k: int, sent: Collection[str]) -> bool:
+    """Sent for this date or a neighbouring one with the same k: a change of the followed
+    city (MD-02) can move the date by a day, and two moon days are never 2 days apart."""
+    return any(moon_key(day + timedelta(days=d), k) in sent for d in (-1, 0, 1))
 
 
 def sent_today_count(local_dates: Iterable[date], today: date) -> int:

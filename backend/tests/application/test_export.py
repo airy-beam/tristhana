@@ -239,7 +239,11 @@ async def test_readme_in_english_names_the_moon_city() -> None:
     assert "📍 Mysuru" in readme
     assert "Rest days are part of the practice." in readme
     assert "Keep this in mind before sharing the file." in readme  # Q56
-    assert data["account"]["moon_city"] == {"slug": "mysuru", "default": True}  # type: ignore[index]
+    assert data["account"]["moon_city"] == {  # type: ignore[index]
+        "slug": "mysuru",
+        "default": True,
+        "source": "default",  # MD-02
+    }
     assert data["catalog_version"] == "cat-v1"
 
 

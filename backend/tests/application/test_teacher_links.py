@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from tests.fakes import FakeNotifier, FixedClock, InMemoryAccounts
+from tests.fakes import FakeNotifier, FixedClock, InMemoryAccounts, cities
 from tests.teacher_link_fakes import FixedCodes, InMemoryTeacherLinks, add_person
 from tristhana.application.policies import (
     Principal,
@@ -74,7 +74,7 @@ class World:
         return account
 
     async def accept(self, student: Account, code: str = CODE) -> Accepted | None:
-        use_case = AcceptInvite(self.links, self.notifier, self.clock)
+        use_case = AcceptInvite(self.links, self.notifier, self.clock, cities())
         return await use_case.execute(Principal(student), code)
 
     async def accepted(self, student: Account, code: str = CODE) -> Accepted:
@@ -258,8 +258,8 @@ async def test_a_relink_is_a_fresh_row_with_a_new_linked_on(world: World) -> Non
     student = world.person("2", zone="UTC")
     await world.accept(student)
     first = world.links.rows[(student.id, teacher.id)]
-    await SetPrimaryTeacher(world.links).execute(Principal(student), teacher.id)
-    await RemoveTeacher(world.links).execute(Principal(student), teacher.id)
+    await SetPrimaryTeacher(world.links, cities()).execute(Principal(student), teacher.id)
+    await RemoveTeacher(world.links, cities()).execute(Principal(student), teacher.id)
 
     world.clock.instant = NOW + timedelta(days=3)
     await world.accept(student)
@@ -377,7 +377,7 @@ async def test_a_student_picks_their_main_teacher(world: World) -> None:
     world.links.add(student.id, first.id)
     world.links.add(student.id, second.id)
 
-    await SetPrimaryTeacher(world.links).execute(Principal(student), second.id)
+    await SetPrimaryTeacher(world.links, cities()).execute(Principal(student), second.id)
 
     links = await GetLinks(world.links).execute(Principal(student))
     assert effective_primary(links.teachers) == second.id
@@ -387,7 +387,7 @@ async def test_a_main_teacher_must_be_on_the_list(world: World) -> None:
     student, stranger = world.person("2"), world.person("9")
 
     with pytest.raises(NotLinked):
-        await SetPrimaryTeacher(world.links).execute(Principal(student), stranger.id)
+        await SetPrimaryTeacher(world.links, cities()).execute(Principal(student), stranger.id)
 
 
 async def test_losing_the_race_for_main_says_links_changed(world: World) -> None:
@@ -396,7 +396,7 @@ async def test_losing_the_race_for_main_says_links_changed(world: World) -> None
     world.links.lose_next_flip = True
 
     with pytest.raises(LinksChanged):
-        await SetPrimaryTeacher(world.links).execute(Principal(student), teacher.id)
+        await SetPrimaryTeacher(world.links, cities()).execute(Principal(student), teacher.id)
 
 
 async def test_either_side_removes_and_removing_twice_is_fine(world: World) -> None:
@@ -404,8 +404,8 @@ async def test_either_side_removes_and_removing_twice_is_fine(world: World) -> N
     world.links.add(student.id, teacher.id)
     world.links.add(other.id, teacher.id)
 
-    await RemoveTeacher(world.links).execute(Principal(student), teacher.id)
-    await RemoveTeacher(world.links).execute(Principal(student), teacher.id)
+    await RemoveTeacher(world.links, cities()).execute(Principal(student), teacher.id)
+    await RemoveTeacher(world.links, cities()).execute(Principal(student), teacher.id)
     await RemoveStudent(world.links).execute(Principal(teacher), other.id)
     await RemoveStudent(world.links).execute(Principal(teacher), other.id)
 
@@ -417,7 +417,7 @@ async def test_a_removal_is_keyed_on_the_caller(world: World) -> None:
     teacher, student, stranger = world.person("1"), world.person("2"), world.person("3")
     world.links.add(student.id, teacher.id)
 
-    await RemoveTeacher(world.links).execute(Principal(stranger), teacher.id)
+    await RemoveTeacher(world.links, cities()).execute(Principal(stranger), teacher.id)
     await RemoveStudent(world.links).execute(Principal(stranger), student.id)
 
     assert world.links.teachers_of(student.id) == [teacher.id]

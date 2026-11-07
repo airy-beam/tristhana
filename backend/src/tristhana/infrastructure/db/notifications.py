@@ -37,7 +37,7 @@ from tristhana.domain.notifications import (
     effective,
 )
 from tristhana.domain.rest_periods import MAX_PERIOD_DAYS
-from tristhana.infrastructure.db.accounts import from_mask
+from tristhana.infrastructure.db.accounts import MAIN_TEACHER_LOCATION, TEACHES, from_mask
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.tables import (
     account,
@@ -232,6 +232,8 @@ class SqlNotificationRepository:
                 account.c.locale,
                 account.c.timezone,
                 account.c.moon_location,
+                TEACHES,  # MD-02: the same inputs as the account load
+                MAIN_TEACHER_LOCATION,
                 account.c.day_off,
                 identity.c.provider_user_id,
                 _S.c.moon_intro_sent_at,
@@ -314,6 +316,8 @@ class SqlNotificationRepository:
                     had_moon_reminder=r.moon_intro_sent_at is not None,
                     logged=frozenset(logged_by.get(r.id, ())),
                     paused=frozenset(paused_by.get(r.id, set[date]()) - logged_by.get(r.id, set())),
+                    teaches=r.teaches,
+                    teacher_location=r.teacher_location,
                 )
             )
         return out

@@ -12,6 +12,7 @@ from tristhana.application.ports.notifications import (
     DeliveryResult,
     DeliveryStatus,
     ExportFile,
+    KeepOffer,
     MoonReminder,
     Notification,
     Recipient,
@@ -50,12 +51,14 @@ class TelegramNotifier:
             "reminder",
         )
 
-    async def tell_student_joined(self, recipient: Recipient, name: str | None) -> DeliveryResult:
+    async def tell_student_joined(
+        self, recipient: Recipient, name: str | None, keep: KeepOffer | None = None
+    ) -> DeliveryResult:
         """ID-04: always silent, so a room scanning a QR at once makes no noise and quiet
         hours need no zone maths. No word about who is main."""
         from tristhana.bots.telegram import teacher_links
 
-        screen = teacher_links.joined_screen(self._t, recipient.locale, name)
+        screen = teacher_links.joined_screen(self._t, recipient.locale, name, keep)
         return await _sent(
             self._runtime().bot.send_message(
                 chat_id=int(recipient.telegram_id),

@@ -71,7 +71,14 @@ def test_cities_are_public_and_cacheable(api: TestClient) -> None:
 def test_moon_days_default_to_mysuru(api: TestClient) -> None:
     body = api.get("/api/v1/me/moon-days", headers=_auth()).json()
 
-    assert body["location"] == {"slug": "mysuru", "explicit": False}
+    assert body["location"] == {  # MD-02: the source and the teacher it names
+        "slug": "mysuru",
+        "explicit": False,
+        "source": "default",
+        "follow_chosen": False,
+        "teacher": None,
+        "shared": None,
+    }
     assert [(d["kind"], d["phase"]) for d in body["days"]] == [
         ("purnima", "purnima"),
         ("kshaya_amavasya", "amavasya"),
@@ -83,9 +90,12 @@ def test_moon_location_round_trip(api: TestClient) -> None:
     unknown = api.put("/api/v1/me/moon-location", json={"slug": "atlantis"}, headers=_auth())
     back = api.put("/api/v1/me/moon-location", json={"slug": None}, headers=_auth())
 
-    assert chosen.json() == {"slug": "almaty", "explicit": True}
+    assert (chosen.json()["slug"], chosen.json()["explicit"]) == ("almaty", True)
+    assert chosen.json()["source"] == "chosen"
     assert (unknown.status_code, unknown.json()) == (422, {"code": "unknown_location"})
-    assert back.json() == {"slug": "mysuru", "explicit": False}
+    # MD-02: null = "Follow my teacher", explicit; with no teacher, Mysuru for now.
+    assert (back.json()["slug"], back.json()["explicit"]) == ("mysuru", True)
+    assert (back.json()["source"], back.json()["follow_chosen"]) == ("default", True)
 
 
 def test_notification_settings_round_trip(api: TestClient) -> None:
