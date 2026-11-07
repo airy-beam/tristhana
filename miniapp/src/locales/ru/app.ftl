@@ -513,6 +513,7 @@ delete-explain = Аккаунт и всё, что в нём, удалятся с
 delete-explain-chat = Сообщения в чате с ботом останутся, их можно удалить в Telegram.
 delete-explain-backups = Из резервных копий данные исчезнут в течение 30 дней.
 delete-explain-fresh = Если снова написать боту, всё начнётся с чистого листа.
+delete-explain-shalas = Шалы, которыми ты владеешь, удалятся для всех участников. Их личные журналы останутся.
 delete-export-first = ⬇️ Сначала скачать данные
 delete-confirm = Удалить всё
 delete-confirm-popup = Удалить аккаунт и все данные? Отменить нельзя.
@@ -547,6 +548,64 @@ day-label =
         [yesterday] Вчера, { $date }
        *[other] { $date }
     }
+
+## Шалы (SC-01, ADR-0033). Названия шал и имена — как есть, без склонения.
+moon-source-shala = 🏛 Как в шале: { $shala }. Можно выбрать другой город.
+moon-follow-shala = 🏛 Как в шале ({ $shala })
+links-shalas-title = 🏛 Шалы
+shala-create = 🏛 Создать шалу
+shala-name-label = Название
+shala-city-label = Город
+shala-online-only = 🌐 Только онлайн-занятия
+shala-my-roles = Мои роли в шале
+shala-create-submit = Создать
+shala-name-invalid = Шале нужно название, до 64 символов.
+shala-caps = Больше шал или ссылок для команды пока не получится: это предел.
+shala-save-failed = Не получилось сохранить. Попробуй ещё раз чуть позже.
+shala-load-failed = Не получилось загрузить шалу. Попробуй ещё раз чуть позже.
+shala-role =
+    { $role ->
+        [owner] Владелец
+        [admin] Управляющий
+        [teacher] Преподаватель
+        [assistant] Ассистент
+       *[office] Администратор
+    }
+shala-title = 🏛 { $shala }
+shala-person = { $name } · { $roles }
+shala-online = 🌐 Онлайн
+shala-place = 📍 { $city }
+shala-time = { $place } · время шалы: { $zone }
+shala-moon-line = 🌙 Лунные дни: 📍 { $city }
+shala-moon-city = Город для лунных дней шалы
+shala-moon-same = По городу шалы
+shala-moon-shared = 🌙 Сотрудники и участники, чей учитель преподаёт здесь, следуют этому календарю, если сами не выбрали город. Остальные — если город не выбран ни ими, ни их учителем.
+shala-staff-title = Преподаватели и сотрудники
+shala-edit = ✏️ Изменить шалу
+shala-roles-save = Сохранить
+shala-students =
+    { $n ->
+        [one] 👥 { $n } ученик
+        [few] 👥 { $n } ученика
+       *[many] 👥 { $n } учеников
+    }
+shala-no-students = В этой шале пока нет учеников.
+shala-invite-students = ➕ Пригласить учеников
+shala-invite-staff = ➕ Пригласить в команду
+shala-staff-pick = Выбери роль. Ссылка добавит одного человека с этой ролью.
+shala-staff-link-hint = Эта ссылка добавит одного человека. Роль: { $role }. Работает один раз, 7 дней.
+shala-join-hint = Поделись ссылкой или QR-кодом. Каждый ученик подтверждает сам.
+shala-share-text = Присоединяйся к шале { $shala } в Tristhana. Перед подтверждением бот покажет, кто что увидит.
+shala-qr-alt = QR-код ссылки шалы
+shala-remove = Убрать…
+shala-remove-ask = Убрать из шалы: { $name }? Сообщений никто не получит.
+shala-remove-yes = Убрать
+shala-leave = Выйти…
+shala-leave-ask = Выйти из шалы { $shala }? Сообщений никто не получит, журнал останется как есть.
+shala-leave-yes = Выйти
+shala-delete = Удалить шалу…
+shala-delete-ask = Удалить шалу { $shala } для всех участников? Журналы у всех останутся. Сообщений никто не получит. Отменить это нельзя.
+shala-delete-yes = Удалить
 
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 

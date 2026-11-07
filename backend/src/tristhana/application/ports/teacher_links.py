@@ -7,7 +7,7 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.locale import Locale
-from tristhana.domain.moon import MoonFollow, TeacherMoon
+from tristhana.domain.moon import MoonFollow, ShalaMoon, TeacherMoon
 from tristhana.domain.teacher_links import Linked
 
 
@@ -53,6 +53,7 @@ class Accepted:
     teacher_moon: str | None = None
     teacher_students_before: int = 0
     teacher_main: TeacherMoon | None = None
+    teacher_shala: ShalaMoon | None = None  # SC-01: the teacher's own main shala
     moon: MoonFollow | None = None  # set by `AcceptInvite`: the caller's new city, if it moved
 
 

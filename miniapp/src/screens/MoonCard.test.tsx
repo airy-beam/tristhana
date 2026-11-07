@@ -37,6 +37,7 @@ const MOON: MoonDays = {
     follow_chosen: false,
     teacher: null,
     shared: null,
+    shala: null,
   },
   today: TODAY,
   days: [

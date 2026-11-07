@@ -597,6 +597,7 @@ delete-explain =
     • Messages in this chat stay; you can clear the chat in Telegram.
     • Copies in our backups disappear within 30 days.
     • If you write to the bot again, it starts fresh.
+    • Shalas you own are deleted for everyone in them. Their own logs stay.
 delete-expired = This button is out of date. Here it is again.
 delete-done = Your account and data are deleted. Wishing you good practice 🙏 Send /start any time to begin fresh.
 
@@ -689,6 +690,7 @@ links-title = 👥 Teachers and students
 command-teachers = My teachers and students
 link-no-name = (no name)
 export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
+export-readme-shalas = shalas in data.json: the shalas you're in. side: "staff" or "student"; owner: the shala is yours; roles: your roles there ("admin" = manager, "office" = front desk). No one else's names.
 links-make-main = ⭐ Make main
 links-remove = Remove…
 links-invite-first = I teach: invite students
@@ -714,3 +716,69 @@ students-mark =
 students-day = { $date }: { $state }
 students-day-length = { $date }: { $state }, { $length }
 students-day-blank = { $date }: ·
+
+## Shalas (SC-01, ADR-0033). Shala and people names are plain text, never declined.
+shala-join-ask = 🏛 Join { $shala } (📍 { $city })?
+shala-join-consent =
+    If you join:
+    • The shala's teachers and staff see your name{ $me }. Nothing from your log.
+    • Your moon days follow the shala's calendar, unless you've chosen a city, or your teacher has. If your teacher teaches here, the shala's calendar comes first.
+    • You can leave any time in /teachers. No one gets a message.
+shala-know-them = Join only a shala you know: anyone can create one with any name.
+shala-join-yes = ✅ Join
+shala-staff-ask = 🏛 { $name } invites you to { $shala } as { $role }.
+shala-staff-consent =
+    If you confirm:
+    • Everyone in the shala, students included, sees your name{ $me } and role.
+    • You'll see the names of its students and staff, not their logs.
+    • You can leave any time in /teachers.
+shala-staff-yes = ✅ Confirm
+shala-staff-joined = 🏛 { $name } joined { $shala } as { $role }.
+shala-staff-link-hint = This link adds one person as { $role }. It works once, for 7 days.
+shala-staff-pick = Choose a role. The link adds one person with that role.
+shala-role =
+    { $role ->
+        [owner] Owner
+        [admin] Manager
+        [teacher] Teacher
+        [assistant] Assistant
+       *[office] Front desk
+    }
+shala-role-in-list =
+    { $role ->
+        [owner] owner
+        [admin] manager
+        [teacher] teacher
+        [assistant] assistant
+       *[office] front desk
+    }
+shala-moon-shared = 🌙 Staff, and members whose teacher works here, follow this calendar unless they chose a city. Other members follow it unless they or their teacher chose one.
+shala-invalid = This shala link no longer works. The person who shared it can send a new one.
+shala-already = You're already in { $shala }.
+shala-already-staff = You're already on the staff of { $shala }, so you don't need a student link.
+shala-full = This link can't add you to the shala right now.
+shala-joined = ✅ You're in { $shala }. Welcome 🙏
+shala-leave = Leave…
+shala-leave-ask = Leave { $shala }? No one gets a message, and your log stays as it is.
+shala-leave-yes = Leave
+shala-remove-ask = Remove { $name } from the shala? No one gets a message.
+shala-remove-yes = Remove
+shala-students = 👥 Students ({ $n })
+shala-no-students = No students in this shala yet.
+shala-staff-title = Teachers and staff: { $people }
+shala-invite-students = ➕ Invite students
+shala-invite-staff = ➕ Invite staff
+shala-join-hint = Share this link or QR code. Each student confirms for themselves.
+shala-share-text = Join { $shala } in Tristhana. Before you confirm, the bot shows who sees what.
+shala-qr-caption = Scan to join { $shala } in Tristhana.
+shala-create = 🏛 Create a shala
+shala-online = 🌐 Online
+shala-place = 📍 { $city }
+shala-time = { $place } · shala time: { $zone }
+shala-moon-line = 🌙 Moon days: 📍 { $city }
+shala-delete-ask = Delete { $shala } for everyone in it? Everyone's own logs stay. No one gets a message. This can't be undone.
+shala-name-invalid = The shala needs a name, up to 64 characters.
+shala-caps = No more shalas or staff links for now: that's the limit.
+moon-source-shala = 🏛 Same as your shala, { $shala }. You can choose another city.
+moon-follow-shala = 🏛 Follow my shala ({ $shala })
+settings-moon-line-shala = 🌙 Moon days: 📍 { $city } (as { $shala })

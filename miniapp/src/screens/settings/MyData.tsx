@@ -75,6 +75,9 @@ export function MyData() {
             <Localized id="delete-explain-fresh">
               <li />
             </Localized>
+            <Localized id="delete-explain-shalas">
+              <li />
+            </Localized>
           </ul>
           <Localized id="delete-export-first">
             <button

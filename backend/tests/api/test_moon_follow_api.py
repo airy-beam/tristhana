@@ -22,7 +22,7 @@ from tristhana.main import create_app
 from tristhana.settings import Settings
 
 TOKEN = "123456:TEST-token-for-unit-tests-only_xxxxxxxxxxx"
-KEYS = {"slug", "explicit", "source", "follow_chosen", "teacher", "shared"}
+KEYS = {"slug", "explicit", "source", "follow_chosen", "teacher", "shared", "shala"}
 
 
 def _auth(user_id: int = 42) -> dict[str, str]:
@@ -91,6 +91,7 @@ def test_never_chose_without_a_teacher_is_the_default(
         "follow_chosen": False,
         "teacher": None,
         "shared": None,
+        "shala": None,
     }
 
 
@@ -109,6 +110,7 @@ def test_never_chose_follows_the_main_teachers_city(
         "follow_chosen": False,
         "teacher": {"id": str(anna.id), "name": "Anna"},
         "shared": None,
+        "shala": None,
     }
     assert [d["date"] for d in body["days"]] == [
         (datetime.now(UTC).date() + timedelta(days=4)).isoformat()
@@ -140,6 +142,7 @@ def test_following_a_teacher_without_a_city_names_them_for_the_none_line(
         "follow_chosen": True,
         "teacher": {"id": str(anna.id), "name": "Anna"},
         "shared": None,
+        "shala": None,
     }
 
 
@@ -187,6 +190,7 @@ def test_put_null_stores_follow_my_teacher(api: TestClient, storage: InMemorySto
         "follow_chosen": True,
         "teacher": {"id": str(anna.id), "name": "Anna"},
         "shared": None,
+        "shala": None,
     }
     assert storage.repo.accounts[me.id].moon_location == FOLLOW_TEACHER
 

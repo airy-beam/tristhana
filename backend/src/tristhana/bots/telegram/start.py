@@ -20,9 +20,11 @@ from tristhana.bots.telegram.settings import client_profile
 from tristhana.bots.telegram.tour_callbacks import Origin, step
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.locale import LOCALES, Locale
+from tristhana.domain.shalas import parse_shala_invite
 from tristhana.domain.teacher_links import parse_invite
 
 if TYPE_CHECKING:
+    from tristhana.bots.telegram.shalas import ShalaScreens
     from tristhana.bots.telegram.teacher_links import LinkScreens
 
 PREFIX = "o1"
@@ -41,17 +43,24 @@ def encode(locale: Locale) -> str:
 
 
 def register_start(
-    router: Router, screens: "StartScreens", invites: "LinkScreens | None" = None
+    router: Router,
+    screens: "StartScreens",
+    invites: "LinkScreens | None" = None,
+    shalas: "ShalaScreens | None" = None,
 ) -> None:
-    # Only `t_<code>` (ID-04) means anything; no payload is ever logged.
+    # Only `t_<code>` (ID-04), `h_<code>` and `hs_<code>` (SC-01) mean anything; no payload
+    # is ever logged.
     @router.message(CommandStart())
     async def on_start(  # pyright: ignore[reportUnusedFunction]
         message: Message, account: Account, command: CommandObject
     ) -> SendMessage:
         principal = Principal(account)
         code = parse_invite(command.args)
+        shala = parse_shala_invite(command.args)
         if code is not None and invites is not None:
             screen = await invites.invited(principal, code)
+        elif shala is not None and shalas is not None:
+            screen = await shalas.invited(principal, shala)
         else:
             screen = await screens.start(principal)
         return message.answer(screen.text, reply_markup=screen.markup)

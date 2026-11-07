@@ -30,6 +30,7 @@ from tristhana.application.ports.notifications import (
     ReminderPatch,
 )
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
+from tristhana.domain.moon import ShalaMoon
 from tristhana.domain.notifications import (
     NotificationSettings,
     StoredSettings,
@@ -37,7 +38,13 @@ from tristhana.domain.notifications import (
     effective,
 )
 from tristhana.domain.rest_periods import MAX_PERIOD_DAYS
-from tristhana.infrastructure.db.accounts import MAIN_TEACHER_LOCATION, TEACHES, from_mask
+from tristhana.infrastructure.db.accounts import (
+    MAIN_SHALA,
+    MAIN_TEACHER_LOCATION,
+    TEACHES,
+    from_mask,
+    to_shala,
+)
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.tables import (
     account,
@@ -234,6 +241,7 @@ class SqlNotificationRepository:
                 account.c.moon_location,
                 TEACHES,  # MD-02: the same inputs as the account load
                 MAIN_TEACHER_LOCATION,
+                MAIN_SHALA,  # SC-01
                 account.c.day_off,
                 identity.c.provider_user_id,
                 _S.c.moon_intro_sent_at,
@@ -318,6 +326,7 @@ class SqlNotificationRepository:
                     paused=frozenset(paused_by.get(r.id, set[date]()) - logged_by.get(r.id, set())),
                     teaches=r.teaches,
                     teacher_location=r.teacher_location,
+                    **_shala_inputs(to_shala(r.main_shala)),
                 )
             )
         return out
@@ -370,3 +379,14 @@ class SqlNotificationRepository:
         stmt = delete(notification_delivery).where(notification_delivery.c.created_at < before)
         async with connection(self._engine) as conn:
             return (await conn.execute(stmt)).rowcount
+
+
+def _shala_inputs(shala: ShalaMoon | None) -> dict[str, Any]:
+    if shala is None:
+        return {}
+    return {
+        "shala_location": shala.moon_city,
+        "shala_staff": shala.staff,
+        "shala_teacher_on_staff": shala.teacher_on_staff,
+        "shala_city": shala.city,
+    }

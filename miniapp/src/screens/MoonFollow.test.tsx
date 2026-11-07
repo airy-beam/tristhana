@@ -95,6 +95,7 @@ function stubApi(loc: Location, links: unknown = WITH_ANNA): Request[] {
       if (path === "/api/v1/me/moon-days") return json({ location: loc, today: TODAY, days: [] });
       if (path === "/api/v1/moon/cities") return json(CITIES);
       if (path === "/api/v1/me/links") return json(links);
+      if (path === "/api/v1/me/shalas") return json([]); // SC-01
       if (path.startsWith("/api/v1/me/teachers/") && request.method === "PUT") return json(links);
       if (path.startsWith("/api/v1/me/teachers/") && request.method === "DELETE")
         return new Response(null, { status: 204 });

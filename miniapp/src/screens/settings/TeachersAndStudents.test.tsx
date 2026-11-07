@@ -137,6 +137,7 @@ function stubApi(links: () => LinksBody, answer: Answer = () => undefined): Requ
       if (custom) return custom;
       const path = new URL(request.url).pathname;
       if (path === "/api/v1/me/links") return json(links());
+      if (path === "/api/v1/me/shalas") return json([]); // SC-01
       if (path === "/api/v1/me/invite") return json({ url: URL_1, qr: QR_1 });
       if (request.method === "DELETE") return new Response(null, { status: 204 });
       return json(background(path));

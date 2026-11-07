@@ -27,6 +27,20 @@ from tristhana.application.ports.notifications import (
 from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.progression import ProgressionRepository
 from tristhana.application.ports.rest_periods import RestPeriodRepository
+from tristhana.application.ports.shalas import (
+    Guarded,
+    Joined,
+    MemberLookup,
+    MyShala,
+    NewShala,
+    ShalaCaps,
+    ShalaCard,
+    ShalaPreview,
+    StaffAccepted,
+    StaffInvite,
+    StaffPreview,
+    StudentsPage,
+)
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.ports.teacher_links import (
     Accepted,
@@ -50,11 +64,13 @@ from tristhana.domain.practice import Practice
 from tristhana.domain.progression import Change, Position
 from tristhana.domain.rest_days import DayOff
 from tristhana.domain.rest_periods import RestPeriod
+from tristhana.domain.shalas import ShalaPatch, ShalaRole
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from tristhana.infrastructure.db.days import Cipher
+    from tristhana.infrastructure.db.shalas import SqlShalaRepository
 
 log = logging.getLogger(__name__)
 
@@ -89,6 +105,7 @@ class PostgresStorage:
         self._export: ExportRepository | None = None
         self._teacher_links: TeacherLinkRepository | None = None
         self._teacher_view: TeacherViewRepository | None = None
+        self._shalas: SqlShalaRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -102,6 +119,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.practice import SqlPracticeRepository
         from tristhana.infrastructure.db.progression import SqlProgressionRepository
         from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
+        from tristhana.infrastructure.db.shalas import SqlShalaRepository
         from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
         from tristhana.infrastructure.db.teacher_view import SqlTeacherViewRepository
 
@@ -123,6 +141,7 @@ class PostgresStorage:
         self._export = SqlExportRepository(self._engine, self._cipher)
         self._teacher_links = SqlTeacherLinkRepository(self._engine)
         self._teacher_view = SqlTeacherViewRepository(self._engine)
+        self._shalas = SqlShalaRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -217,6 +236,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._teacher_view
 
+    @property
+    def shalas(self) -> SqlShalaRepository:
+        if self._shalas is None:
+            raise RuntimeError("storage not started")
+        return self._shalas
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -247,6 +272,10 @@ class UnconfiguredStorage:
     @property
     def teacher_view(self) -> TeacherViewRepository:
         return _UnavailableTeacherView()
+
+    @property
+    def shalas(self) -> _UnavailableShalas:
+        return _UnavailableShalas()
 
     @property
     def days(self) -> DayLogRepository:
@@ -540,4 +569,76 @@ class _UnavailableTeacherLinks:
         raise StorageUnavailable("not configured")
 
     async def unlink(self, student: UUID, teacher: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableShalas:
+    async def create(
+        self, me: UUID, new: NewShala, caps: ShalaCaps, joined_on: date
+    ) -> ShalaCard | None:
+        raise StorageUnavailable("not configured")
+
+    async def mine(self, me: UUID) -> tuple[MyShala, ...]:
+        raise StorageUnavailable("not configured")
+
+    async def card(self, shala: UUID, me: UUID) -> ShalaCard | None:
+        raise StorageUnavailable("not configured")
+
+    async def update(self, shala: UUID, me: UUID, patch: ShalaPatch) -> Guarded[ShalaCard]:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, shala: UUID, me: UUID) -> Guarded[None]:
+        raise StorageUnavailable("not configured")
+
+    async def students(
+        self, shala: UUID, me: UUID, offset: int, limit: int
+    ) -> Guarded[StudentsPage]:
+        raise StorageUnavailable("not configured")
+
+    async def member(self, shala: UUID, me: UUID, target: UUID) -> MemberLookup | None:
+        raise StorageUnavailable("not configured")
+
+    async def preview(self, code: str, me: UUID) -> ShalaPreview | None:
+        raise StorageUnavailable("not configured")
+
+    async def preview_staff(self, code: str, me: UUID) -> StaffPreview | None:
+        raise StorageUnavailable("not configured")
+
+    async def join(self, code: str, me: UUID, caps: ShalaCaps, joined_on: date) -> Joined | None:
+        raise StorageUnavailable("not configured")
+
+    async def invite_staff(
+        self,
+        shala: UUID,
+        me: UUID,
+        role: ShalaRole,
+        code: str,
+        expires_at: datetime,
+        caps: ShalaCaps,
+    ) -> Guarded[StaffInvite]:
+        raise StorageUnavailable("not configured")
+
+    async def accept_staff(
+        self, code: str, me: UUID, caps: ShalaCaps, joined_on: date
+    ) -> StaffAccepted | None:
+        raise StorageUnavailable("not configured")
+
+    async def set_roles(
+        self, shala: UUID, me: UUID, target: UUID, roles: frozenset[ShalaRole]
+    ) -> Guarded[ShalaCard]:
+        raise StorageUnavailable("not configured")
+
+    async def remove_staff(self, shala: UUID, me: UUID, target: UUID) -> Guarded[None]:
+        raise StorageUnavailable("not configured")
+
+    async def remove_student(self, shala: UUID, me: UUID, target: UUID) -> Guarded[None]:
+        raise StorageUnavailable("not configured")
+
+    async def join_link(self, shala: UUID, me: UUID) -> Guarded[str]:
+        raise StorageUnavailable("not configured")
+
+    async def rotate_join(self, shala: UUID, me: UUID, code: str) -> Guarded[str]:
+        raise StorageUnavailable("not configured")
+
+    async def prune_invites(self, now: datetime) -> int:
         raise StorageUnavailable("not configured")

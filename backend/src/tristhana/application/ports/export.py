@@ -15,6 +15,7 @@ from tristhana.domain.export import (
     ExportPeriod,
     ExportPractice,
     ExportReminder,
+    ExportShala,
 )
 from tristhana.domain.notifications import NotificationSettings
 from tristhana.domain.progression import Progression
@@ -42,6 +43,7 @@ class Owned:
     reminders: tuple[ExportReminder, ...]
     milestones: tuple[ExportMilestone, ...] = ()  # GM-01 part 2
     links: tuple[ExportLink, ...] = ()
+    shalas: tuple[ExportShala, ...] = ()
 
 
 class ExportRepository(Protocol):

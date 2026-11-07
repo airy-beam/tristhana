@@ -65,6 +65,25 @@ from tristhana.application.settings import (
     UpdateProfile,
     ZoneFromLocation,
 )
+from tristhana.application.shalas import (
+    AcceptStaffInvite,
+    CreateShala,
+    CreateStaffInvite,
+    DeleteShala,
+    GetJoinLink,
+    GetMyShalas,
+    GetShala,
+    GetShalaMember,
+    GetShalaStudents,
+    JoinShala,
+    PreviewShalaInvite,
+    RemoveShalaStudent,
+    RemoveStaff,
+    RotateJoinLink,
+    SetStaffRoles,
+    ShalaUseCases,
+    UpdateShala,
+)
 from tristhana.application.stats import GetYearStats
 from tristhana.application.teacher_links import (
     AcceptInvite,
@@ -325,6 +344,7 @@ class _Services:
             GeneratorMoonCalculator(),
             self._storage.notifications,
             self._notifier,
+            self._storage.shalas,
         )
         view = TeacherViewUseCases(
             GetStudents(self._storage.teacher_view, clock),
@@ -333,6 +353,28 @@ class _Services:
         app.state.teacher_view = view
         teacher_links = self._storage.teacher_links
         codes = SecretCodes()
+        shala_repo = self._storage.shalas
+        shalas = ShalaUseCases(
+            create=CreateShala(shala_repo, codes, clock, cities),
+            mine=GetMyShalas(shala_repo),
+            get=GetShala(shala_repo),
+            update=UpdateShala(shala_repo, cities),
+            delete=DeleteShala(shala_repo),
+            students=GetShalaStudents(shala_repo),
+            member=GetShalaMember(shala_repo),
+            join_link=GetJoinLink(shala_repo),
+            rotate=RotateJoinLink(shala_repo, codes),
+            invite_staff=CreateStaffInvite(shala_repo, codes, clock),
+            set_roles=SetStaffRoles(shala_repo),
+            remove_staff=RemoveStaff(shala_repo),
+            remove_student=RemoveShalaStudent(shala_repo),
+            preview=PreviewShalaInvite(shala_repo),
+            join=JoinShala(shala_repo, clock, cities),
+            accept_staff=AcceptStaffInvite(shala_repo, self._notifier, clock, cities),
+            cities=cities,
+            clock=clock,
+        )
+        app.state.shalas = shalas
         links = LinkUseCases(
             preview=PreviewInvite(teacher_links),
             accept=AcceptInvite(teacher_links, self._notifier, clock, cities),
@@ -346,6 +388,7 @@ class _Services:
             view=view,
             labels=PracticeLabels(translator, loaded.catalog, track),
             catalog=loaded.catalog,
+            shalas=shalas,
         )
         app.state.links = links
         self._bot.ensure_account = ensure

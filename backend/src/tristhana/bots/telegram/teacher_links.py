@@ -4,6 +4,7 @@ the callback, so a new person loses nothing and no pending row exists. The code 
 logged, and no exception carries it. A teacher never learns whether they are someone's main.
 """
 
+import asyncio
 from collections.abc import Awaitable
 from contextlib import suppress
 from datetime import date
@@ -20,6 +21,7 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
+    WebAppInfo,
 )
 
 from tristhana.application.policies import Principal
@@ -27,7 +29,7 @@ from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.notifications import KeepOffer
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
 from tristhana.application.teacher_links import LinkUseCases
-from tristhana.bots.telegram import moon_callbacks
+from tristhana.bots.telegram import moon_callbacks, shalas_callbacks
 from tristhana.bots.telegram import teacher_links_callbacks as cb
 from tristhana.bots.telegram.runtime import SettingsUseCases
 from tristhana.bots.telegram.screens import (
@@ -214,7 +216,10 @@ class LinkScreens:
 
     async def overview(self, principal: Principal, lead: str | None = None) -> Screen:
         locale = principal.account.locale
-        found = await self._links.get.execute(principal)
+        # SC-01: the shala rows load alongside the lists, not after them.
+        found, shala_rows = await asyncio.gather(
+            self._links.get.execute(principal), self._shala_rows(principal)
+        )
         several = len(found.teachers) >= 2
         main = effective_primary(found.teachers)
         lines = [lead] if lead else []
@@ -232,6 +237,7 @@ class LinkScreens:
                 key = "links-main-chosen" if teacher.chosen_primary else "links-main-auto"
                 lines.append(self._t.t(locale, key, name=_name(self._t, locale, teacher.name)))
                 lines.append(self._t.t(locale, "links-primary-hint"))
+        rows += shala_rows
         if found.students:
             count = self._t.t(locale, "links-students", count=len(found.students))
             rows.append([InlineKeyboardButton(text=count, callback_data=cb.students(0))])
@@ -242,6 +248,23 @@ class LinkScreens:
         if not found.students and self._username:  # a label, not a toggle; last on purpose
             rows.append([self._button(locale, "links-invite-first", cb.plain("i"))])
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    async def _shala_rows(self, principal: Principal) -> list[list[InlineKeyboardButton]]:
+        """SC-01: my shalas as `🏛 Name` rows, above [Open the app]."""
+        shalas = self._links.shalas
+        if shalas is None:
+            return []
+        return [
+            [
+                InlineKeyboardButton(
+                    text=f"🏛 {s.name}", callback_data=shalas_callbacks.on_shala("c", s.id)
+                )
+            ]
+            for s in await shalas.mine.execute(principal)
+        ]
+
+    def qr_png(self, url: str) -> bytes:
+        return self._links.qr.png(url)
 
     async def students(self, principal: Principal, page: int) -> Screen:
         locale = principal.account.locale
@@ -395,8 +418,16 @@ class LinkScreens:
             ],
             [self._button(locale, "invite-qr", cb.plain("q"))],
             [self._button(locale, "invite-new", cb.plain("w"))],
-            [self._button(locale, "log-back", cb.plain("o"))],
         ]
+        if self._app and self._links.shalas is not None:  # SC-01: the form is in the app
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=self._t.t(locale, "shala-create"), web_app=WebAppInfo(url=self._app)
+                    )
+                ]
+            )
+        rows.append([self._button(locale, "log-back", cb.plain("o"))])
         hints = (self._t.t(locale, "invite-hint"), self._t.t(locale, "invite-moon-hint"))
         text = "\n\n".join((url, *hints))
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))

@@ -23,13 +23,12 @@ def _table(name: str) -> Any:
     return table
 
 
-def test_0020_follows_0019_and_is_the_head() -> None:
+def test_0020_follows_0019() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0020")
 
     assert revision is not None
     assert revision.down_revision == "0019"
-    assert script.get_current_head() == "0020"
 
 
 def test_the_flag_is_a_not_null_boolean_defaulting_to_false() -> None:

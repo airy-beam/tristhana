@@ -20,6 +20,7 @@ from tristhana.application.ports.notifications import (
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.runtime import BotRuntime
+    from tristhana.domain.shalas import ShalaRole
 
 log = logging.getLogger(__name__)
 
@@ -68,6 +69,30 @@ class TelegramNotifier:
                 request_timeout=JOIN_NOTE_TIMEOUT_S,  # the student's ✅ is waiting
             ),
             "join note",
+        )
+
+    async def tell_staff_joined(
+        self, recipient: Recipient, name: str | None, shala: str, role: ShalaRole
+    ) -> DeliveryResult:
+        """SC-01 (Q105): one silent note when someone uses the inviter's staff link."""
+        from tristhana.domain.teacher_links import shown_name
+
+        locale = recipient.locale
+        text = self._t.t(
+            locale,
+            "shala-staff-joined",
+            name=shown_name(name) or self._t.t(locale, "link-no-name"),
+            shala=shala,
+            role=self._t.t(locale, "shala-role", role=role.value),
+        )
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=text,
+                disable_notification=True,
+                request_timeout=JOIN_NOTE_TIMEOUT_S,  # the invitee's ✅ is waiting
+            ),
+            "staff note",
         )
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:

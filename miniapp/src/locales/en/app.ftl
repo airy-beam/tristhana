@@ -501,6 +501,7 @@ delete-explain = This deletes your account and everything in it, right away: day
 delete-explain-chat = Messages in the bot's chat stay; you can clear the chat in Telegram.
 delete-explain-backups = Copies in our backups disappear within 30 days.
 delete-explain-fresh = If you write to the bot again, it starts fresh.
+delete-explain-shalas = Shalas you own are deleted for everyone in them. Their own logs stay.
 delete-export-first = ⬇️ Download my data first
 delete-confirm = Delete everything
 delete-confirm-popup = Delete your account and all data? This can't be undone.
@@ -535,6 +536,59 @@ day-label =
         [yesterday] Yesterday, { $date }
        *[other] { $date }
     }
+
+## Shalas (SC-01, ADR-0033). Shala and people names are plain text.
+moon-source-shala = 🏛 Same as your shala, { $shala }. You can choose another city.
+moon-follow-shala = 🏛 Follow my shala ({ $shala })
+links-shalas-title = 🏛 Shalas
+shala-create = 🏛 Create a shala
+shala-name-label = Name
+shala-city-label = City
+shala-online-only = 🌐 Online classes only
+shala-my-roles = My roles in the shala
+shala-create-submit = Create
+shala-name-invalid = The shala needs a name, up to 64 characters.
+shala-caps = No more shalas or staff links for now: that's the limit.
+shala-save-failed = Couldn't save. Try again in a moment.
+shala-load-failed = Couldn't load the shala. Try again in a moment.
+shala-role =
+    { $role ->
+        [owner] Owner
+        [admin] Manager
+        [teacher] Teacher
+        [assistant] Assistant
+       *[office] Front desk
+    }
+shala-title = 🏛 { $shala }
+shala-person = { $name } · { $roles }
+shala-online = 🌐 Online
+shala-place = 📍 { $city }
+shala-time = { $place } · shala time: { $zone }
+shala-moon-line = 🌙 Moon days: 📍 { $city }
+shala-moon-city = City for the shala's moon days
+shala-moon-same = Same as the shala's city
+shala-moon-shared = 🌙 Staff, and members whose teacher works here, follow this calendar unless they chose a city. Other members follow it unless they or their teacher chose one.
+shala-staff-title = Teachers and staff
+shala-edit = ✏️ Edit the shala
+shala-roles-save = Save
+shala-students = 👥 Students ({ $n })
+shala-no-students = No students in this shala yet.
+shala-invite-students = ➕ Invite students
+shala-invite-staff = ➕ Invite staff
+shala-staff-pick = Choose a role. The link adds one person with that role.
+shala-staff-link-hint = This link adds one person as { $role }. It works once, for 7 days.
+shala-join-hint = Share this link or QR code. Each student confirms for themselves.
+shala-share-text = Join { $shala } in Tristhana. Before you confirm, the bot shows who sees what.
+shala-qr-alt = QR code for the shala's link
+shala-remove = Remove…
+shala-remove-ask = Remove { $name } from the shala? No one gets a message.
+shala-remove-yes = Remove
+shala-leave = Leave…
+shala-leave-ask = Leave { $shala }? No one gets a message, and your log stays as it is.
+shala-leave-yes = Leave
+shala-delete = Delete the shala…
+shala-delete-ask = Delete { $shala } for everyone in it? Everyone's own logs stay. No one gets a message. This can't be undone.
+shala-delete-yes = Delete
 
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 

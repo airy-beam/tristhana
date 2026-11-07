@@ -79,13 +79,13 @@ def test_the_rule(
     shown: TeacherMoon | None,
     follow_chosen: bool,
 ) -> None:
-    got = moon_follow(own, teaches, teacher, cities())
+    got = moon_follow(own, teaches, teacher, None, cities())
 
     assert got == MoonFollow(_city(slug), source, shown, follow_chosen)
 
 
 def test_the_default_is_the_listed_default_city() -> None:
-    got = moon_follow(None, False, None, cities())
+    got = moon_follow(None, False, None, None, cities())
 
     assert got.city is cities().default
 
@@ -95,8 +95,8 @@ def test_a_cycle_of_two_teachers_who_never_chose_is_each_own_city() -> None:
     a = TeacherMoon(UUID(int=10), "A", None)
     b = TeacherMoon(UUID(int=11), "B", None)
 
-    of_a = moon_follow(None, True, b, cities())
-    of_b = moon_follow(None, True, a, cities())
+    of_a = moon_follow(None, True, b, None, cities())
+    of_b = moon_follow(None, True, a, None, cities())
 
     assert (of_a.source, of_a.city.slug) == (DEFAULT, "mysuru")
     assert (of_b.source, of_b.city.slug) == (DEFAULT, "mysuru")
@@ -106,8 +106,8 @@ def test_a_cycle_where_one_chose_gives_the_other_its_own_city() -> None:
     """A chose Almaty and teaches B; B never chose and teaches A: B uses its own (Mysuru)."""
     a = TeacherMoon(UUID(int=10), "A", "almaty")
 
-    assert moon_follow(None, True, a, cities()).source is DEFAULT
-    assert moon_follow(FOLLOW_TEACHER, True, a, cities()).city.slug == "almaty"
+    assert moon_follow(None, True, a, None, cities()).source is DEFAULT
+    assert moon_follow(FOLLOW_TEACHER, True, a, None, cities()).city.slug == "almaty"
 
 
 _OWN = (None, "almaty", "mysuru", "atlantis", FOLLOW_TEACHER)
@@ -120,7 +120,7 @@ _TEACHERS = (None, ANNA, NO_CITY, FOLLOWS, REMOVED, TeacherMoon(UUID(int=5), Non
 def test_every_combination_resolves_to_a_listed_city_and_never_further_than_one_hop(
     own: str | None, teaches: bool, teacher: TeacherMoon | None
 ) -> None:
-    got = moon_follow(own, teaches, teacher, cities())
+    got = moon_follow(own, teaches, teacher, None, cities())
 
     assert cities().find(got.city.slug) is got.city
     assert got.follow_chosen is (own == FOLLOW_TEACHER)
@@ -135,6 +135,8 @@ def test_every_combination_resolves_to_a_listed_city_and_never_further_than_one_
         case MoonSource.DEFAULT:
             assert got.city is cities().default
             assert got.teacher == (teacher if got.follow_chosen else None)
+        case MoonSource.SHALA:  # SC-01: never without a shala
+            raise AssertionError(got)
 
 
 def test_follow_teacher_is_never_a_city() -> None:
@@ -196,7 +198,7 @@ def test_moon_follow_of_reads_the_accounts_inputs(
 ) -> None:
     account = _account(moon_location=own, teaches=teaches, main_teacher=teacher)
 
-    assert moon_follow_of(account, cities()) == moon_follow(own, teaches, teacher, cities())
+    assert moon_follow_of(account, cities()) == moon_follow(own, teaches, teacher, None, cities())
 
 
 def test_home_city_is_never_the_own_city() -> None:

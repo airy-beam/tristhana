@@ -30,6 +30,7 @@ from tristhana.application.progression import (
 from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
+from tristhana.application.shalas import ShalaUseCases
 from tristhana.application.stats import GetYearStats
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.application.teacher_view import TeacherViewUseCases
@@ -227,6 +228,10 @@ def delete_my_account(request: Request) -> "DeleteMyAccount":
 
 def teacher_view(request: Request) -> TeacherViewUseCases:
     return cast(TeacherViewUseCases, request.app.state.teacher_view)
+
+
+def shalas(request: Request) -> ShalaUseCases:
+    return cast(ShalaUseCases, request.app.state.shalas)
 
 
 def links(request: Request) -> LinkUseCases:

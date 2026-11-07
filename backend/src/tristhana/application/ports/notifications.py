@@ -5,8 +5,9 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.locale import Locale
-from tristhana.domain.moon import City, MoonDay, TeacherMoon
+from tristhana.domain.moon import City, MoonDay, ShalaMoon, TeacherMoon
 from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
+from tristhana.domain.shalas import ShalaRole
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,11 @@ class ReminderCandidate:
     paused: frozenset[date] = frozenset()  # unlogged days covered by a rest period (WH-01)
     teaches: bool = False  # MD-02 inputs, as the account load carries them
     teacher_location: str | None = None  # the main teacher's own `moon_location`
+    # SC-01 inputs, as the account load carries them: the main shala's moon city, if any.
+    shala_location: str | None = None
+    shala_staff: bool = False
+    shala_teacher_on_staff: bool = False
+    shala_city: str | None = None  # Q111: the fallback for a removed moon city
 
     @property
     def teacher(self) -> TeacherMoon | None:
@@ -52,6 +58,20 @@ class ReminderCandidate:
         if self.teacher_location is None:
             return None
         return TeacherMoon(_NO_ID, None, self.teacher_location)
+
+    @property
+    def shala(self) -> ShalaMoon | None:
+        """Enough of the main shala for `moon_follow`: its city and the two flags."""
+        if self.shala_location is None:
+            return None
+        return ShalaMoon(
+            _NO_ID,
+            "",
+            self.shala_location,
+            self.shala_staff,
+            self.shala_teacher_on_staff,
+            self.shala_city,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,4 +227,10 @@ class Notifier(Protocol):
     ) -> DeliveryResult:
         """ID-04: one silent direct note, outside the ledger and the cap; no retry. `keep`:
         the MD-02 first-student offer."""
+        ...
+
+    async def tell_staff_joined(
+        self, recipient: Recipient, name: str | None, shala: str, role: ShalaRole
+    ) -> DeliveryResult:
+        """SC-01 (Q105): the inviter's one silent note when their staff link is used."""
         ...

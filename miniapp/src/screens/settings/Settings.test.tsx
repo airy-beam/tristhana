@@ -85,6 +85,7 @@ function stubApi(): Request[] {
         });
       }
       if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
+      if (path === "/api/v1/me/shalas") return json([]); // SC-01
       return json({});
     }),
   );

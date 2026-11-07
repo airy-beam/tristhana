@@ -15,8 +15,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from tristhana.application.ports.shalas import NewShala
 from tristhana.application.ports.teacher_links import Caps
 from tristhana.application.practice_patch import PracticePatch
+from tristhana.application.shalas import CAPS
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.export import MarkedBy
@@ -24,6 +26,7 @@ from tristhana.domain.notifications import DEFAULTS
 from tristhana.domain.practice import PracticeContext, PracticeLength
 from tristhana.domain.progression import Change, EventKind, Position, Progression
 from tristhana.domain.rest_periods import RestPeriod
+from tristhana.domain.shalas import ShalaRole
 from tristhana.infrastructure.crypto import FieldCipher
 from tristhana.infrastructure.db import migrate, tables
 from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -38,6 +41,7 @@ from tristhana.infrastructure.db.notifications import SqlNotificationRepository
 from tristhana.infrastructure.db.practice import SqlPracticeRepository
 from tristhana.infrastructure.db.progression import SqlProgressionRepository
 from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
+from tristhana.infrastructure.db.shalas import SqlShalaRepository
 from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
 from tristhana.infrastructure.invite_codes import SecretCodes
 
@@ -228,17 +232,38 @@ async def _counts(engine: AsyncEngine, account_id: UUID) -> dict[str, int]:
     found: dict[str, int] = {}
     async with engine.connect() as conn:
         for name in sorted(_account_tables()):
-            mine = (
-                "student_id = :a OR teacher_id = :a"
-                if name == "teacher_link"
-                else "account_id = :a"
-            )
+            mine = {
+                "teacher_link": "student_id = :a OR teacher_id = :a",
+                "shala": "owner_id = :a",  # SC-01
+                "shala_staff_invite": "created_by = :a",
+            }.get(name, "account_id = :a")
             n = await conn.execute(
                 text(f"SELECT count(*) FROM tristhana.{name} WHERE {mine}"),  # noqa: S608
                 {"a": account_id},
             )
             found[name] = n.scalar_one()
     return found
+
+
+async def _shalas(engine: AsyncEngine, me: UUID, teacher: UUID) -> None:
+    """SC-01: a shala I own with a pending staff link, and a student row in the teacher's."""
+    repo = SqlShalaRepository(engine)
+    codes = SecretCodes()
+    mine = await repo.create(
+        me, NewShala("Mine", "almaty", False, frozenset(), codes.new()), CAPS, MON
+    )
+    assert mine is not None
+    staff_invite = await repo.invite_staff(
+        mine.id, me, ShalaRole.TEACHER, codes.new(), datetime.now(UTC) + timedelta(days=7), CAPS
+    )
+    assert staff_invite.done
+    theirs = await repo.create(
+        teacher, NewShala("Theirs", "almaty", False, frozenset(), codes.new()), CAPS, MON
+    )
+    assert theirs is not None
+    link = await repo.join_link(theirs.id, teacher)
+    assert link.value is not None
+    assert await repo.join(link.value, me, CAPS, MON)
 
 
 async def _link(engine: AsyncEngine, student: UUID, teacher: UUID) -> None:
@@ -257,6 +282,8 @@ async def test_delete_removes_every_row_and_nothing_else(engine: AsyncEngine) ->
     await _fill(engine, other)
     await _link(engine, me, teacher)
     await _link(engine, other, teacher)
+    await _shalas(engine, me, teacher)
+    await _shalas(engine, other, teacher)
     before = await _counts(engine, me)
     assert all(before[t] > 0 for t in _account_tables())  # the fill covers every table
     others = await _counts(engine, other)

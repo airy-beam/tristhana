@@ -3,6 +3,7 @@ acts on the caller's own account (`Principal`)."""
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import Literal
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.accounts import AccountRepository
@@ -17,6 +18,7 @@ from tristhana.application.settings import PatchNotificationSettings, caller_tod
 from tristhana.domain.accounts import Account, home_city_of, moon_follow_of, moon_shared
 from tristhana.domain.days import check_range, local_today, provisional_zone
 from tristhana.domain.moon import (
+    FOLLOW_SHALA,
     FOLLOW_TEACHER,
     Cities,
     City,
@@ -37,6 +39,9 @@ _PAIRING = timedelta(days=1)  # MD-04: the home city's same phase within ±1 day
 
 class UnknownLocation(ValueError):
     pass
+
+
+_FOLLOWS = {"teacher": FOLLOW_TEACHER, "shala": FOLLOW_SHALA}
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,13 +123,18 @@ class SetMoonLocation:
     def __init__(self, cities: Cities, accounts: AccountRepository) -> None:
         self._cities, self._accounts = cities, accounts
 
-    async def execute(self, principal: Principal, slug: str | None) -> Account:
+    async def execute(
+        self,
+        principal: Principal,
+        slug: str | None,
+        follow: Literal["teacher", "shala"] = "teacher",
+    ) -> Account:
         """Stores what was chosen, so an explicit Mysuru isn't mistaken for never choosing
-        (ID-04). `None` = "Follow my teacher" (MD-02): nothing writes NULL any more. Raises
-        `UnknownLocation`."""
+        (ID-04). `None` = "Follow my teacher" (MD-02), or "Follow my shala" with `follow`
+        (SC-01): nothing writes NULL any more. Raises `UnknownLocation`."""
         if slug is not None and self._cities.find(slug) is None:
             raise UnknownLocation(slug)
-        stored = FOLLOW_TEACHER if slug is None else slug
+        stored = slug if slug is not None else _FOLLOWS[follow]
         return await self._accounts.set_moon_location(principal.account.id, stored)
 
 

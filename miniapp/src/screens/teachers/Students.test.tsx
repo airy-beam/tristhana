@@ -194,6 +194,7 @@ function stubApi({ rows = () => ROWS, total, card: found = () => card(), answer 
       if (custom) return custom;
       const url = new URL(request.url);
       const path = url.pathname;
+      if (path === "/api/v1/me/shalas") return json([]); // SC-01
       if (path === "/api/v1/me/links") {
         return json({ teachers: [], students: rows().map((r) => linked(r.id, r.name)) });
       }

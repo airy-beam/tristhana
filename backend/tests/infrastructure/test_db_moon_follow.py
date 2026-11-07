@@ -370,6 +370,7 @@ async def test_the_tick_candidates_resolve_as_the_account_load(engine: AsyncEngi
             TeacherMoon(UUID(int=0), None, cand.teacher_location)
             if cand.teacher_location
             else None,
+            None,
             cities(),
         )
         assert rule.city.slug == expected[account.id], account.display_name
