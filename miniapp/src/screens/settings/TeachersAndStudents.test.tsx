@@ -88,8 +88,14 @@ const TWO: LinksBody = { teachers: [lena(), boris()], students: [] };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+/** The account's language: `/me` wins over the launch locale, so the two must agree. */
+let accountLocale: "en" | "ru" = "en";
+
 function background(path: string): unknown {
-  if (path === "/api/v1/me") return ME;
+  // The device-timezone reply is the account too, and replaces it outside UTC.
+  if (path === "/api/v1/me" || path === "/api/v1/me/device-timezone") {
+    return { ...ME, locale: accountLocale };
+  }
   if (path === "/api/v1/health") return { version: "1", commit: "abcdef0" };
   if (path === "/api/v1/moon/cities") return [];
   if (path === "/api/v1/me/days") {
@@ -147,6 +153,7 @@ const calls = (seen: Request[], method: string, path: string) =>
 const homeLoaded = () => screen.findByRole("button", { name: /^⚙️ / });
 
 async function renderApp(locale: "en" | "ru" = "en") {
+  accountLocale = locale;
   vi.resetModules();
   const { App } = await import("../../App");
   render(<App locale={locale} firstName="Ash" inTelegram />);
