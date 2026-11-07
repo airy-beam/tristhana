@@ -8,6 +8,7 @@ from tristhana.api.v1 import (
     days,
     diary,
     health,
+    links,
     me,
     moon,
     practice,
@@ -28,3 +29,4 @@ router.include_router(diary.router)
 router.include_router(progression.router)
 router.include_router(moon.router)
 router.include_router(stats.router)
+router.include_router(links.router)

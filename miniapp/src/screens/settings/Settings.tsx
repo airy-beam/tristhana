@@ -34,13 +34,15 @@ interface Props {
   onBack: () => void;
   /** Opens the quick tour on Home (UI-02). */
   onTour: () => void;
+  /** Opens "Teachers and students" (ID-04). */
+  onLinks: () => void;
   /** Open scrolled to a section (the stats "Set your weekly day off" link). */
   focus?: "day-off" | undefined;
 }
 
 /** Everything in one place (ID-06): profile, time zone, moon days, reminders, privacy.
  * Loaded lazily, so Home stays light. */
-export default function Settings({ me, onBack, onTour, focus }: Props) {
+export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) {
   useBackButton(onBack);
   useEffect(() => {
     if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
@@ -64,6 +66,9 @@ export default function Settings({ me, onBack, onTour, focus }: Props) {
         place={placeFor(me.home_city, me.timezone, me.locale)}
       />
       <Quiet zone={me.timezone} />
+      <Localized id="links-title">
+        <button type="button" className="row-button" onClick={onLinks} />
+      </Localized>
       <Localized id="tour-open">
         <button type="button" className="row-button" onClick={onTour} />
       </Localized>

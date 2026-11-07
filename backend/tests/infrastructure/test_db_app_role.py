@@ -87,9 +87,10 @@ async def test_the_app_role_can_use_every_table_and_sequence(
         assert missing.scalars().all() == []
 
 
-async def _account(engine: AsyncEngine) -> UUID:
+async def _account(engine: AsyncEngine, telegram_id: str = "7777") -> UUID:
     account = await SqlAccountRepository(engine).create_with_identity(
-        IdentityKey(IdentityProvider.TELEGRAM, "7777"), NewAccount(display_name="A", locale="en")
+        IdentityKey(IdentityProvider.TELEGRAM, telegram_id),
+        NewAccount(display_name="A", locale="en"),
     )
     return account.id
 
@@ -142,3 +143,36 @@ async def test_export_and_delete_work_as_the_app_role(app_engine: AsyncEngine) -
     assert owned.days[0].status is DayStatus.LADIES
     await export.release(me)
     assert await SqlAccountRepository(app_engine).delete(me)
+
+
+async def test_teacher_link_writes_work_as_the_app_role(app_engine: AsyncEngine) -> None:
+    """ID-04: accept, set primary, rotate, unlink and the export read, as `tristhana_app`. The
+    0019 tables take their grants from the schema defaults (0001)."""
+    from datetime import UTC, datetime, timedelta
+
+    from tristhana.application.ports.teacher_links import Caps
+    from tristhana.domain.notifications import DEFAULTS
+    from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS
+    from tristhana.infrastructure.db.export import SqlExportRepository
+    from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
+
+    teacher, student = await _account(app_engine, "7001"), await _account(app_engine, "7002")
+    repo = SqlTeacherLinkRepository(app_engine)
+    caps = Caps(teachers=MAX_TEACHERS, students=MAX_STUDENTS)
+
+    code = await repo.invite(teacher, "aB3dE6gH9jK2mN5p")
+    accepted = await repo.accept(code, student, caps, ON)
+    assert accepted is not None
+    assert accepted.created
+    assert await repo.set_primary(student, teacher)
+    assert await repo.rotate(teacher, "Zy8xW7vU6tS5rQ4p") == "Zy8xW7vU6tS5rQ4p"
+
+    export = SqlExportRepository(app_engine, FieldCipher(KEYS))
+    now = datetime(2026, 10, 27, 12, tzinfo=UTC)
+    assert await export.claim(student, now, now - timedelta(minutes=10)) is None
+    owned = await export.snapshot(student, DEFAULTS, ON)
+    assert owned is not None
+    assert len(owned.links) == 1
+
+    assert await repo.unlink(student, teacher)
+    assert (await repo.overview(student)).teachers == ()

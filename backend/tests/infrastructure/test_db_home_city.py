@@ -30,12 +30,11 @@ KEY = IdentityKey(IdentityProvider.TELEGRAM, "42")
 TG = ExternalProfile(KEY, "A", "en")
 
 
-def test_0018_follows_0017_and_is_the_head() -> None:
+def test_0018_follows_0017() -> None:
     script = ScriptDirectory.from_config(migrate.alembic_config("postgresql://unused"))
     revision = script.get_revision("0018")
     assert revision is not None
     assert revision.down_revision == "0017"
-    assert script.get_current_head() == "0018"
 
 
 async def _account(engine: AsyncEngine, zone: str | None = None) -> Account:

@@ -824,6 +824,8 @@
           "invalid_progression",
           "progression_changed",
           "not_latest",
+          "not_linked",
+          "links_changed",
           "export_too_soon",
           "bot_unreachable",
           "export_too_large",
@@ -1085,6 +1087,37 @@
         "title": "HintOut",
         "type": "object"
       },
+      "InviteIn": {
+        "properties": {
+          "rotate": {
+            "default": false,
+            "description": "True: the old link and QR stop working",
+            "title": "Rotate",
+            "type": "boolean"
+          }
+        },
+        "title": "InviteIn",
+        "type": "object"
+      },
+      "InviteOut": {
+        "properties": {
+          "qr": {
+            "description": "A PNG data URI",
+            "title": "Qr",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "qr"
+        ],
+        "title": "InviteOut",
+        "type": "object"
+      },
       "KeepBody": {
         "properties": {
           "end": {
@@ -1152,6 +1185,30 @@
           "series"
         ],
         "title": "Length",
+        "type": "object"
+      },
+      "LinksOut": {
+        "properties": {
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/StudentOut"
+            },
+            "title": "Students",
+            "type": "array"
+          },
+          "teachers": {
+            "items": {
+              "$ref": "#/components/schemas/TeacherOut"
+            },
+            "title": "Teachers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "teachers",
+          "students"
+        ],
+        "title": "LinksOut",
         "type": "object"
       },
       "Locale": {
@@ -2583,6 +2640,39 @@
         "title": "StopOut",
         "type": "object"
       },
+      "StudentOut": {
+        "description": "No primary field: a teacher never learns whether they are someone's main teacher.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "linked_at": {
+            "format": "date-time",
+            "title": "Linked At",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "linked_at"
+        ],
+        "title": "StudentOut",
+        "type": "object"
+      },
       "SummaryOut": {
         "properties": {
           "auto": {
@@ -2648,6 +2738,50 @@
           "duration"
         ],
         "title": "SummaryOut",
+        "type": "object"
+      },
+      "TeacherOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "linked_at": {
+            "format": "date-time",
+            "title": "Linked At",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "primary": {
+            "description": "The main teacher: the chosen one, else the oldest link",
+            "title": "Primary",
+            "type": "boolean"
+          },
+          "primary_chosen": {
+            "description": "False: `primary` is the automatic default",
+            "title": "Primary Chosen",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "primary",
+          "primary_chosen",
+          "linked_at"
+        ],
+        "title": "TeacherOut",
         "type": "object"
       },
       "ValidationError": {
@@ -4004,6 +4138,118 @@
         ]
       }
     },
+    "/api/v1/me/invite": {
+      "post": {
+        "operationId": "post_invite_api_v1_me_invite_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Invite",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/links": {
+      "get": {
+        "operationId": "get_links_api_v1_me_links_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Links",
+        "tags": [
+          "links"
+        ]
+      }
+    },
     "/api/v1/me/moon-days": {
       "get": {
         "description": "Defaults to today … +60 days; at most 371 days per request.",
@@ -4825,6 +5071,216 @@
         "summary": "Get Stats",
         "tags": [
           "stats"
+        ]
+      }
+    },
+    "/api/v1/me/students/{id}": {
+      "delete": {
+        "operationId": "delete_student_api_v1_me_students__id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Student",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/teachers/{id}": {
+      "delete": {
+        "operationId": "delete_teacher_api_v1_me_teachers__id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Teacher",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/teachers/{id}/primary": {
+      "put": {
+        "operationId": "put_primary_api_v1_me_teachers__id__primary_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Primary",
+        "tags": [
+          "links"
         ]
       }
     },

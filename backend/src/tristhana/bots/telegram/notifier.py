@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 SEND_TIMEOUT_S = 10
+JOIN_NOTE_TIMEOUT_S = 3
 UPLOAD_TIMEOUT_S = 40  # the ST-09 export: up to 45 MB, within Cloud Run's 60 s request
 _GONE = ("chat not found", "user is deactivated", "bot was blocked")
 
@@ -47,6 +48,23 @@ class TelegramNotifier:
                 request_timeout=SEND_TIMEOUT_S,  # a stalled Telegram must not eat the tick
             ),
             "reminder",
+        )
+
+    async def tell_student_joined(self, recipient: Recipient, name: str | None) -> DeliveryResult:
+        """ID-04: always silent, so a room scanning a QR at once makes no noise and quiet
+        hours need no zone maths. No word about who is main."""
+        from tristhana.bots.telegram import teacher_links
+
+        screen = teacher_links.joined_screen(self._t, recipient.locale, name)
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                reply_markup=screen.markup,
+                disable_notification=True,
+                request_timeout=JOIN_NOTE_TIMEOUT_S,  # the student's ✅ is waiting
+            ),
+            "join note",
         )
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:

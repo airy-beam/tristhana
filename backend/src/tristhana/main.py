@@ -65,6 +65,17 @@ from tristhana.application.settings import (
     ZoneFromLocation,
 )
 from tristhana.application.stats import GetYearStats
+from tristhana.application.teacher_links import (
+    AcceptInvite,
+    GetInvite,
+    GetLinks,
+    LinkUseCases,
+    PreviewInvite,
+    RemoveStudent,
+    RemoveTeacher,
+    RotateInvite,
+    SetPrimaryTeacher,
+)
 from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
 from tristhana.bots.telegram.runtime import (
@@ -87,7 +98,9 @@ from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
 from tristhana.infrastructure.export_zip import ZipExportPacker
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
+from tristhana.infrastructure.invite_codes import SecretCodes
 from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
+from tristhana.infrastructure.qr import SegnoQrCodes
 from tristhana.infrastructure.seed.cities_yaml import load_cities
 from tristhana.infrastructure.seed.milestones_yaml import load_milestones
 from tristhana.infrastructure.seed.practice_catalog import load_practice_catalog
@@ -310,6 +323,20 @@ class _Services:
             self._storage.notifications,
             self._notifier,
         )
+        teacher_links = self._storage.teacher_links
+        codes = SecretCodes()
+        links = LinkUseCases(
+            preview=PreviewInvite(teacher_links),
+            accept=AcceptInvite(teacher_links, self._notifier, clock),
+            get=GetLinks(teacher_links),
+            invite=GetInvite(teacher_links, codes),
+            rotate=RotateInvite(teacher_links, codes),
+            primary=SetPrimaryTeacher(teacher_links),
+            remove_teacher=RemoveTeacher(teacher_links),
+            remove_student=RemoveStudent(teacher_links),
+            qr=SegnoQrCodes(),
+        )
+        app.state.links = links
         self._bot.ensure_account = ensure
         self._bot.days = days
         self._bot.practices = practices
@@ -320,6 +347,7 @@ class _Services:
         self._bot.diary = diary
         self._bot.progression = progression
         self._bot.data = account_data
+        self._bot.links = links
         self._bot.settings = SettingsUseCases(
             profile=app.state.update_profile,
             settings=notification_settings,
@@ -353,6 +381,7 @@ class _LazyBot:
         self.diary: DiaryUseCases | None = None
         self.progression: ProgressionUseCases | None = None
         self.data: DataUseCases | None = None
+        self.links: LinkUseCases | None = None
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -383,6 +412,8 @@ class _LazyBot:
                 self.diary,
                 self.progression,
                 self.data,
+                self.links,
+                self._settings.telegram_bot_username,
             )
         return self._runtime
 

@@ -569,7 +569,7 @@ def test_n_in_russian(client: TestClient, storage: InMemoryStorage, outbound: li
     assert "Сегодня, вт, 27 окт." in body["text"].split("\n")[0]
     assert (
         "Заметки за этот день нет. Можно записать что угодно: как прошла практика, что сказал "
-        "преподаватель, новая асана или просто мысль."
+        "учитель, новая асана или просто мысль."
     ) in " ".join(body["text"].split())
     assert "✏️ Написать" in _texts(body)
 

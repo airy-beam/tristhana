@@ -35,6 +35,8 @@ type ErrorCode = Literal[
     "invalid_progression",
     "progression_changed",
     "not_latest",
+    "not_linked",
+    "links_changed",
     "export_too_soon",
     "bot_unreachable",
     "export_too_large",

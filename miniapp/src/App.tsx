@@ -21,6 +21,7 @@ import { markReady, useSettingsButton } from "./telegram";
 const Stats = lazy(() => import("./screens/stats/Stats"));
 const Settings = lazy(() => import("./screens/settings/Settings"));
 const Progression = lazy(() => import("./screens/progression/Progression"));
+const Links = lazy(() => import("./screens/settings/Links"));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -34,9 +35,9 @@ interface AppProps {
 
 export function App({ locale, firstName, inTelegram }: AppProps) {
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
-  const [view, setView] = useState<"home" | "stats" | "settings" | "day-off" | "progression">(
-    "home",
-  );
+  const [view, setView] = useState<
+    "home" | "stats" | "settings" | "day-off" | "progression" | "links"
+  >("home");
   const home = useCallback(() => {
     setView("home");
   }, []);
@@ -50,6 +51,9 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
     setView("home");
     startTour();
   }, [startTour]);
+  const links = useCallback(() => {
+    setView("links");
+  }, []);
   const stats = useCallback(() => {
     setView("stats"); // back from the day off opened on the stats screen
   }, []);
@@ -90,12 +94,17 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Progression locale={me.locale} onBack={home} />
             </Suspense>
+          ) : me && view === "links" ? (
+            <Suspense fallback={<main className="screen" aria-busy="true" />}>
+              <Links onBack={settings} />
+            </Suspense>
           ) : me && (view === "settings" || view === "day-off") ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Settings
                 me={me}
                 onBack={view === "day-off" ? stats : home}
                 onTour={tour}
+                onLinks={links}
                 focus={view === "day-off" ? "day-off" : undefined}
               />
             </Suspense>

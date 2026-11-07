@@ -1,12 +1,18 @@
 """Authorization lives here, never in handlers or the UI (CLAUDE.md).
 
 A `Principal` is the authenticated caller. Today every operation acts on the caller's own
-account; reads across accounts (teachers, ST-06) get a named policy function here.
+account; reads across accounts (teachers, ST-06) get a named policy function here. A teacher
+link (ID-04) exposes names only: the `can_view_*` below stay owner-only until ST-06.
 """
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from tristhana.domain.accounts import Account
+
+
+class NotAllowed(Exception):
+    """A policy said no."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,3 +46,18 @@ def can_export(viewer: Account, owner: Account) -> bool:
 def can_delete_account(viewer: Account, owner: Account) -> bool:
     """Only the owner deletes an account (ST-09); no admin path today."""
     return viewer.id == owner.id
+
+
+def can_unlink(actor: Account, student_id: UUID, teacher_id: UUID) -> bool:
+    """Either side of a link can remove it (ID-04)."""
+    return actor.id in (student_id, teacher_id)
+
+
+def can_choose_primary(actor: Account, student_id: UUID) -> bool:
+    """The main teacher is the student's own choice; a teacher never learns of it (ID-04)."""
+    return actor.id == student_id
+
+
+def can_manage_invite(actor: Account, owner: Account) -> bool:
+    """An invite is its owner's to show and rotate (ID-04)."""
+    return actor.id == owner.id

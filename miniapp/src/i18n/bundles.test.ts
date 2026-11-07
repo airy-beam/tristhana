@@ -307,7 +307,7 @@ describe("PR-07 diary copy", () => {
     expect(format(en, "diary-add")).toBe("Add a note");
     expect(format(ru, "diary-add")).toBe("Добавить заметку");
     expect(format(en, "diary-private-hint")).toBe("Your diary is private: teachers don't see it.");
-    expect(format(ru, "diary-private-hint")).toBe("Дневник личный: преподаватели его не видят.");
+    expect(format(ru, "diary-private-hint")).toBe("Дневник личный: учителя его не видят.");
     expect(format(en, "diary-clear")).toBe("Remove note");
     expect(format(ru, "diary-clear")).toBe("Удалить заметку");
     expect(format(en, "diary-clear-confirm")).toBe("Remove this note?");

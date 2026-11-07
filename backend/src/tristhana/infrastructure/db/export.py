@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, exists, literal, or_, select, update
+from sqlalchemy import and_, case, exists, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tristhana.application.ports.export import Owned
@@ -17,6 +17,7 @@ from tristhana.domain.export import (
     ExportDay,
     ExportEvent,
     ExportIdentity,
+    ExportLink,
     ExportMilestone,
     ExportNote,
     ExportPeriod,
@@ -47,6 +48,7 @@ from tristhana.infrastructure.db.tables import (
     progression,
     progression_event,
     rest_period,
+    teacher_link,
 )
 
 # Tables with an FK to `account.id`: each is exported or excluded on purpose. A test fails
@@ -64,9 +66,12 @@ EXPORTED_TABLES = frozenset(
         "notification_settings",
         "notification_delivery",  # as `reminders` (category, date, status; 60 days)
         "practice_milestone",  # as `practice_milestones` (GM-01 part 2)
+        "teacher_link",  # as `teacher_links`, without the other person (ID-04)
     }
 )
-EXCLUDED_TABLES: dict[str, str] = {}  # table -> why it isn't exported
+EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
+    "teacher_invite": "a live credential, not personal content; an export may be shared",
+}
 
 
 class SqlExportRepository:
@@ -91,9 +96,20 @@ class SqlExportRepository:
                     (await conn.execute(stmt)).all()
                     for stmt in _statements(account_id, reminders_from)
                 ]
-        ids, settings, days, periods, practices, check_ins, notes, state, events, sent, passed = (
-            rows
-        )
+        (
+            ids,
+            settings,
+            days,
+            periods,
+            practices,
+            check_ins,
+            notes,
+            state,
+            events,
+            sent,
+            passed,
+            links,
+        ) = rows
         return Owned(
             account=to_account(row),
             identities=tuple(
@@ -133,6 +149,10 @@ class SqlExportRepository:
             reminders=tuple(ExportReminder(r.category, r.local_date, r.status) for r in sent),
             milestones=tuple(
                 ExportMilestone(r.threshold, r.reached_at, r.celebrated) for r in passed
+            ),
+            links=tuple(
+                ExportLink("teacher" if r.mine else "student", r.primary, r.created_at)
+                for r in links
             ),
         )
 
@@ -178,6 +198,15 @@ class SqlExportRepository:
 
 def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
     """In `snapshot`'s unpacking order; each a PK (or index) range of this account only."""
+    mine = teacher_link.c.student_id == account_id
+    main_first = func.row_number().over(
+        partition_by=teacher_link.c.student_id,
+        order_by=(
+            teacher_link.c.is_primary.desc(),
+            teacher_link.c.created_at,
+            teacher_link.c.teacher_id,
+        ),
+    )
     return [
         select(identity.c.provider, identity.c.provider_user_id, identity.c.created_at)
         .where(identity.c.account_id == account_id)
@@ -221,6 +250,13 @@ def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
         )
         .where(practice_milestone.c.account_id == account_id)
         .order_by(practice_milestone.c.threshold),
+        select(  # never the other person's id or name (ID-04)
+            mine.label("mine"),
+            case((mine, main_first == 1)).label("primary"),
+            teacher_link.c.created_at,
+        )
+        .where(or_(mine, teacher_link.c.teacher_id == account_id))
+        .order_by(teacher_link.c.created_at),
     ]
 
 

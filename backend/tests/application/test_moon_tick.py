@@ -92,7 +92,7 @@ async def test_choosing_a_city_and_its_zone(accounts: InMemoryAccounts) -> None:
 
     assert chosen.moon_location == "almaty"
     assert zoned.timezone == "Asia/Almaty"
-    assert back.moon_location is None  # the default is stored as "no choice"
+    assert back.moon_location == "mysuru"  # ID-04 §7: a choice, even of the default city
     with pytest.raises(UnknownLocation):
         await SetMoonLocation(CITIES, accounts).execute(Principal(me), "atlantis")
 

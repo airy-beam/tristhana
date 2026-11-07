@@ -70,6 +70,7 @@ def test_command_menu_is_localized_from_the_bot_ftl() -> None:
         "asanas",
         "remind",
         "moon",
+        "teachers",
         "settings",
         "help",
         "start",

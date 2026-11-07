@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "sqlalchemy[asyncio]>=2.0.40",
     "tzdata>=2026.5",
+    "segno>=1.6.6",
     "tzfpy>=2.1.1",
     "uvicorn>=0.54.0",
     "uvloop>=0.21",
@@ -215,3 +216,20 @@ source_modules = [
 ]
 forbidden_modules = ["tzfpy"]
 ignore_imports = ["tristhana.infrastructure.zone_lookup -> tzfpy"]
+
+[[tool.importlinter.contracts]]
+name = "segno is imported only in infrastructure.qr"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain",
+    "tristhana.application",
+    "tristhana.infrastructure",
+    "tristhana.api",
+    "tristhana.bots",
+    "tristhana.jobs",
+    "tristhana.moon",
+    "tristhana.main",
+]
+forbidden_modules = ["segno"]
+ignore_imports = ["tristhana.infrastructure.qr -> segno"]

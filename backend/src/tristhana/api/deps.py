@@ -31,6 +31,7 @@ from tristhana.application.rest_days import DismissDayOffQuestion, SetDayOff
 from tristhana.application.rest_periods import EndRestPeriod, RestoreRestPeriod, StartRestPeriod
 from tristhana.application.settings import PatchNotificationSettings, UpdateProfile
 from tristhana.application.stats import GetYearStats
+from tristhana.application.teacher_links import LinkUseCases
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
 from tristhana.domain.moon import Cities
 from tristhana.domain.practice import PracticeCatalog
@@ -221,3 +222,7 @@ def send_my_export(request: Request) -> "SendMyExport":
 
 def delete_my_account(request: Request) -> "DeleteMyAccount":
     return cast("DeleteMyAccount", request.app.state.account_data.delete)
+
+
+def links(request: Request) -> LinkUseCases:
+    return cast(LinkUseCases, request.app.state.links)
