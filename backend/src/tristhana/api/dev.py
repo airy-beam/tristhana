@@ -25,7 +25,13 @@ def make_dev_router(bot_token: str) -> APIRouter:
         user_id: Annotated[int, Query(ge=1)] = 1,
     ) -> DevInitData:
         user = {"id": user_id, "first_name": first_name, "language_code": lang}
-        fields = {"user": json.dumps(user, ensure_ascii=False), "auth_date": str(int(time.time()))}
+        fields = {
+            "user": json.dumps(user, ensure_ascii=False),
+            "auth_date": str(int(time.time())),
+            # The Telegram SDK requires `signature` (its Ed25519 third-party check, which the
+            # backend doesn't use); like Telegram's, it is covered by the hash.
+            "signature": "dev",
+        }
         return DevInitData(init_data=initdata.sign(fields, bot_token))
 
     return router

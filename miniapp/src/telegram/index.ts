@@ -28,6 +28,14 @@ export function isInTelegram(): boolean {
   return isTMA();
 }
 
+/** Whether a real Telegram client can receive our events: the native apps inject
+ * `TelegramWebviewProxy`, Telegram Web hosts the app in an iframe. Unlike `isTMA()`, this
+ * isn't fooled by launch params the SDK saved in sessionStorage, so a reloaded dev tab still
+ * gets the browser mock. */
+export function hasTelegramBridge(): boolean {
+  return "TelegramWebviewProxy" in window || window.self !== window.top;
+}
+
 /** Mounts the SDK components and binds theme/viewport CSS variables. Call once. */
 export function initTelegram(): void {
   init();
