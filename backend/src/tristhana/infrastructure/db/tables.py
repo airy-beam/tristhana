@@ -552,3 +552,18 @@ shala_swap = Table(
     UniqueConstraint("shala_id", "to_date", name="shala_swap_shala_id_to_date_key"),
     CheckConstraint("from_date <> to_date AND abs(to_date - from_date) <= 6", name="dates"),
 )
+
+# SC-06 (ADR-0036): one calendar subscription per account. The token is a capability: its
+# SHA-256 is the lookup key, the sealed copy (ADR-0016) lets the app show the link again.
+calendar_feed = Table(
+    "calendar_feed",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("token_hash", LargeBinary(), nullable=False),
+    Column("sealed_token", LargeBinary(), nullable=False),
+    _timestamp("created_at"),
+    Column("fetched_on", Date(), nullable=True),
+    PrimaryKeyConstraint("account_id"),
+    UniqueConstraint("token_hash"),
+    CheckConstraint("octet_length(token_hash) = 32", name="token_hash_length"),
+)

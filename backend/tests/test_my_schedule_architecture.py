@@ -99,7 +99,8 @@ def test_aiogram_stays_in_the_bot_adapter() -> None:
 def test_the_port_has_member_windows_instead_of_staff_windows() -> None:
     params = inspect.signature(ScheduleRepository.member_windows).parameters
 
-    assert list(params) == ["self", "me", "start", "end", "staff_only", "moon_city"]
+    # SC-06 (spec §3) appends `moon_end`; `test_calendar_feed_architecture.py` pins it.
+    assert list(params)[:6] == ["self", "me", "start", "end", "staff_only", "moon_city"]
     assert params["staff_only"].default is False
     assert params["moon_city"].default is None
     assert not hasattr(ScheduleRepository, "staff_windows")

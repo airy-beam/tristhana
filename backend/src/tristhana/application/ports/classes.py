@@ -7,13 +7,14 @@ The SQL guard mirrors `can_manage_schedule`.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, time
 from typing import Protocol
 from uuid import UUID
 
 from tristhana.application.ports.shalas import Guarded
 from tristhana.domain.classes import ClassType, Closure, MoonPolicy, Override, Swap
+from tristhana.domain.moon import MoonDayKind
 from tristhana.domain.rest_days import Weekdays
 from tristhana.domain.shalas import Membership
 
@@ -72,6 +73,9 @@ class MyWindows:
     windows: tuple[ScheduleWindow, ...]
     teachers: frozenset[UUID]  # my linked teachers (ID-04)
     my_moon: frozenset[date]  # moon dates of my effective moon city
+    my_moon_kinds: Mapping[date, MoonDayKind] = field(
+        default_factory=dict[date, MoonDayKind]
+    )  # the same dates with their kind (SC-06)
 
 
 class ScheduleRepository(Protocol):
@@ -86,10 +90,13 @@ class ScheduleRepository(Protocol):
         end: date,
         staff_only: bool = False,
         moon_city: str | None = None,
+        moon_end: date | None = None,
+        moon_start: date | None = None,
     ) -> MyWindows:
         """SC-03, one statement: a `window` per shala where `me` is a member (staff first, then
         by name; `staff_only`: staff seats only), my linked teacher ids, and the stored moon
-        dates of `moon_city` in [start, end]."""
+        dates of `moon_city` in [moon_start or start, moon_end or end] (SC-06 reads a wider
+        moon range than its classes)."""
         ...
 
     async def classes_of(self, shala: UUID, me: UUID) -> Guarded[tuple[StoredClass, ...]]: ...

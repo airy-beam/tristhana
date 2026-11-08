@@ -719,6 +719,28 @@ my-classes-covering = you're covering for { $name }
 page-prev = ◀
 page-next = ▶
 
+# Calendar subscription (SC-06): a personal ICS link for Google, Apple or Outlook.
+feed-open = 📅 Add to calendar
+feed-title = 📅 Calendar subscription
+feed-explain = Your classes and moon days in Google, Apple or Outlook Calendar. It updates by itself (Google can take up to a day).
+feed-moon-only = Join a shala to see its classes here too.
+feed-create = 📅 Create my link
+feed-copy = Copy link
+feed-copied = ✓ Copied
+feed-google = Add to Google Calendar
+feed-apple = Add to Apple / Outlook
+feed-private = 🔒 Anyone with this link sees your schedule. Don't share it; if it got out, make a new one.
+feed-checked = { $day ->
+        [none] Not used by a calendar yet
+       *[other] Last checked by a calendar: { $day }
+    }
+feed-rotate = 🔄 New link
+feed-rotate-confirm = The old link stops working. Calendars that use it need the new one.
+feed-off = Turn off
+feed-off-confirm = Your calendar apps will stop updating. Events already there stay until you remove the calendar.
+feed-failed = That didn't work. Try again in a moment.
+feed-off-done = Turned off.
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Quick tour

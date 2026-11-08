@@ -24,6 +24,7 @@ import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
 import { MyData } from "./MyData";
 import { deviceZone, labelOf, placeFor } from "./zones";
+import CalendarFeedCard from "../shalas/CalendarFeedCard";
 
 const OFFSETS = [7, 3, 1] as const;
 const MOON_TIMES = ["07:00", "12:00", "19:00", "21:00"] as const;
@@ -68,6 +69,7 @@ export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) 
         place={placeFor(me.home_city, me.timezone, me.locale)}
       />
       <Quiet zone={me.timezone} />
+      <CalendarFeedCard locale={me.locale} />
       <Localized id="links-title">
         <button type="button" className="row-button" onClick={onLinks} />
       </Localized>

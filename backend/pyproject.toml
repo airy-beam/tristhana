@@ -92,6 +92,7 @@ forbidden_modules = [
 [dependency-groups]
 dev = [
     "httpx2>=2.13.1",
+    "icalendar>=7.3.0",
     "import-linter>=2.15",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
@@ -115,6 +116,21 @@ forbidden_modules = [
     "tristhana.application.ports.rest_periods",
     "tristhana.application.ports.progression",
     "tristhana.application.moon",
+]
+
+[[tool.importlinter.contracts]]
+name = "The calendar feed reads no log, rest, check-in or teacher view (SC-06, ADR-0036)"
+type = "forbidden"
+# Direct imports, as the My schedule contract: `ports.storage` re-exports every port.
+allow_indirect_imports = true
+source_modules = ["tristhana.application.calendar_feed"]
+forbidden_modules = [
+    "tristhana.application.ports.practice",
+    "tristhana.application.ports.diary",
+    "tristhana.application.ports.check_in",
+    "tristhana.application.ports.rest_periods",
+    "tristhana.application.ports.progression",
+    "tristhana.application.ports.teacher_view",
 ]
 
 [[tool.importlinter.contracts]]

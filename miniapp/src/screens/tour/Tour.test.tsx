@@ -172,6 +172,11 @@ test("Tab stays inside the sheet", async () => {
   page(ALL);
   renderTour();
   await progress("1 of 5");
+  // The step moves focus to its text in an effect: let it land first, or it can take focus
+  // from "Done" mid-test on a slow runner (a CI flake).
+  await waitFor(() => {
+    expect(document.getElementById("tour-text")).toHaveFocus();
+  });
   const done = screen.getByRole("button", { name: "Done" });
   done.focus();
 

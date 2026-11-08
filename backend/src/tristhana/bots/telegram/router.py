@@ -14,9 +14,11 @@ from aiogram.types import (
 )
 
 from tristhana.application.accounts import EnsureAccount
+from tristhana.application.calendar_feed import CalendarFeedUseCases
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import days as day_screens
+from tristhana.bots.telegram.calendar_feed import FeedScreens
 from tristhana.bots.telegram.classes import ScheduleScreens, register_classes
 from tristhana.bots.telegram.data import register_data
 from tristhana.bots.telegram.diary import register_diary_reply
@@ -60,6 +62,7 @@ def build_router(
     data: DataUseCases | None = None,
     links: LinkUseCases | None = None,
     bot_username: str = "",
+    calendar: CalendarFeedUseCases | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -83,6 +86,11 @@ def build_router(
     if shalas is not None:
         register_shalas(router, shalas)
         if links is not None and links.shalas is not None and links.shalas.classes is not None:
+            feed = (
+                None
+                if calendar is None
+                else FeedScreens(calendar, links.shalas, translator)  # SC-06
+            )
             schedule = ScheduleScreens(
                 links.shalas.classes,
                 shalas,
@@ -90,14 +98,16 @@ def build_router(
                 translator,
                 links.shalas.cities,
                 links.shalas.clock,
+                feed,
             )
             register_classes(router, schedule)
     register_tour(router, start, translator, miniapp_url)
-    register_moon(router, moon, translator)
+    entry = calendar is not None and calendar.available  # SC-06: "📅 Add to calendar" rows
+    register_moon(router, moon, translator, entry)
     remind_screens = register_remind(router, remind, screens, translator, rest)
     if rest is not None:  # WH-01 rest periods (always wired by the app)
         register_rest(router, rest, remind, screens, remind_screens, translator)
-    register_settings(router, settings, translator, miniapp_url, data is not None)
+    register_settings(router, settings, translator, miniapp_url, data is not None, entry)
     if data is not None:  # ST-09: My data (export, delete)
         register_data(router, data, translator)
     if screens.diary is not None:  # after every command handler (PR-07 review)

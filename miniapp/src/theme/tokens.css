@@ -570,3 +570,10 @@ body {
   display: inline-block;
   max-width: 100%;
 }
+
+/* SC-06: the calendar link wraps anywhere at 320 px. */
+.feed-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+  user-select: all;
+}

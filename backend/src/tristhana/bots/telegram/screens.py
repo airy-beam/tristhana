@@ -11,6 +11,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    LinkPreviewOptions,
     Message,
     WebAppInfo,
 )
@@ -28,6 +29,8 @@ type Reply = SendMessage | EditMessageText
 class Screen:
     text: str
     markup: InlineKeyboardMarkup
+    # SC-06: a screen showing a secret link: Telegram's preview crawler must not fetch it.
+    no_preview: bool = False
 
 
 def button(
@@ -77,7 +80,15 @@ async def _answer(callback: CallbackQuery) -> None:
 
 def show(callback: CallbackQuery, screen: Screen) -> Reply:
     message = callback.message
+    preview = LinkPreviewOptions(is_disabled=True) if screen.no_preview else None
     if isinstance(message, Message):
-        return message.edit_text(screen.text, reply_markup=screen.markup)
+        return message.edit_text(
+            screen.text, reply_markup=screen.markup, link_preview_options=preview
+        )
     # Too old to edit (InaccessibleMessage): send the screen as a new message.
-    return SendMessage(chat_id=callback.from_user.id, text=screen.text, reply_markup=screen.markup)
+    return SendMessage(
+        chat_id=callback.from_user.id,
+        text=screen.text,
+        reply_markup=screen.markup,
+        link_preview_options=preview,
+    )

@@ -24,13 +24,12 @@ def _table(name: str) -> Any:
     return table
 
 
-def test_0022_follows_0021_and_is_the_head() -> None:
+def test_0022_follows_0021() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0022")
 
-    assert revision is not None
+    assert revision is not None  # the head is checked by the newest migration's test
     assert revision.down_revision == "0021"
-    assert script.get_current_head() == "0022"
 
 
 @pytest.mark.parametrize("name", NEW_TABLES)

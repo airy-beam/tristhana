@@ -993,6 +993,7 @@ class InMemoryStorage:
     view_repo: Any = None  # ST-06: tests/teacher_view_fakes.py, loaded on first use
     shala_repo: Any = None  # SC-01: tests/shala_fakes.py, loaded on first use
     schedule_repo: Any = None  # SC-02: tests/schedule_fakes.py, loaded on first use
+    feed_repo: Any = None  # SC-06: tests/calendar_feed_fakes.py, loaded on first use
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
@@ -1094,6 +1095,14 @@ class InMemoryStorage:
 
             self.schedule_repo = InMemorySchedule(self.shalas, self.moon_repo)
         return self.schedule_repo
+
+    @property
+    def calendar_feed(self) -> Any:  # SC-06
+        if self.feed_repo is None:
+            from tests.calendar_feed_fakes import InMemoryCalendarFeed
+
+            self.feed_repo = InMemoryCalendarFeed(self.repo)
+        return self.feed_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

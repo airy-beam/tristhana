@@ -17,7 +17,15 @@ from tristhana import __version__
 from tristhana.api import v1
 from tristhana.api.body_limit import NoteBodyLimit
 from tristhana.api.errors import install_error_handlers
+from tristhana.api.ical import NoCorsForFeed, make_ical_router
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.calendar_feed import (
+    CalendarFeedUseCases,
+    CreateFeedLink,
+    GetCalendarFeed,
+    GetFeedLink,
+    RevokeFeedLink,
+)
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.classes import (
     AddClosure,
@@ -135,7 +143,7 @@ from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
 from tristhana.infrastructure.export_zip import ZipExportPacker
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
-from tristhana.infrastructure.invite_codes import SecretCodes
+from tristhana.infrastructure.invite_codes import SecretCodes, SecretTokens
 from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
 from tristhana.infrastructure.qr import SegnoQrCodes
 from tristhana.infrastructure.seed.cities_yaml import load_cities
@@ -186,7 +194,9 @@ def create_app(
         )
     install_error_handlers(app)
     app.add_middleware(NoteBodyLimit)  # PR-07: before the body is read
+    app.add_middleware(NoCorsForFeed)  # SC-06: outside CORS, so the feed never gets its headers
     app.include_router(v1.router)
+    app.include_router(make_ical_router())
 
     token = settings.telegram_bot_token
     if settings.app_env == "dev" and settings.dev_init_data and token is not None:
@@ -387,6 +397,16 @@ class _Services:
             mine=GetMySchedule(schedule, clock, cities),
         )
         app.state.classes = classes
+        feeds = self._storage.calendar_feed
+        calendar_feed = CalendarFeedUseCases(
+            get=GetFeedLink(feeds),
+            create=CreateFeedLink(feeds, SecretTokens()),
+            revoke=RevokeFeedLink(feeds),
+            feed=GetCalendarFeed(feeds, schedule, clock, cities, translator),
+            public_url=self._settings.public_api_url,
+        )
+        app.state.calendar_feed = calendar_feed
+        self._bot.calendar_feed = calendar_feed
         shalas = ShalaUseCases(
             create=CreateShala(shala_repo, codes, clock, cities),
             mine=GetMyShalas(shala_repo),
@@ -459,6 +479,7 @@ class _LazyBot:
         self._settings = settings
         self._runtime: BotRuntime | None = None
         self.ensure_account: EnsureAccount | None = None  # set in the lifespan
+        self.calendar_feed: CalendarFeedUseCases | None = None  # SC-06
         self.days: DayUseCases | None = None
         self.practices: PracticeUseCases | None = None
         self.moon: MoonUseCases | None = None
@@ -502,6 +523,7 @@ class _LazyBot:
                 self.data,
                 self.links,
                 self._settings.telegram_bot_username,
+                self.calendar_feed,
             )
         return self._runtime
 
