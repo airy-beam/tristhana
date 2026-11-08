@@ -19,6 +19,7 @@ help-text =
     🧘 /asanas: my asanas, mark a new one
     🌙 /moon: upcoming moon days and reminders
     👥 /teachers: your teachers and students
+    🗓 /schedule: classes of all your shalas, in your time
     🧑‍🏫 /classes: the classes you teach this week
     ⚙️ /settings: language, city, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
@@ -829,8 +830,43 @@ class-caps = That's the limit for this shala for now.
 class-invalid = That change doesn't fit the schedule.
 # A teacher's own week (/classes), every shala where they're on the staff. Times in each shala's zone.
 command-classes = The classes I teach this week
-my-classes-title = 🧑‍🏫 Your classes, the next 7 days
-my-classes-empty = No classes of yours in the next 7 days. A class shows here once your shala names you as its teacher.
 my-classes-covered = { $name } is covering
 my-classes-covering = you're covering for { $name }
-my-classes-shala = 🗓 { $shala }: schedule
+
+## My schedule (SC-03): every shala I'm in, in my zone. { $zone } is "Almaty (UTC+5)".
+command-schedule = My schedule: classes of all my shalas
+my-schedule-open = 🗓 My schedule
+my-schedule-title = 🗓 My schedule, { $range }
+my-schedule-filter = { $f ->
+        [teachers] 👤 My teachers
+        [mine] 🧑‍🏫 I teach
+       *[all] All
+    }
+# After the date on a day row: a moon day of my own moon calendar.
+my-schedule-my-moon = 🌙
+my-schedule-teacher-mark = 👤
+schedule-held-moon = · 🌙
+schedule-swapped-from = 🔁 instead of { $day }
+schedule-swapped-inline = 🔁 { $day }
+schedule-covering-for = { $name } (for { $teacher })
+# $weekday: ISO 1-7 (Russian needs it in the genitive); $date: "15 November".
+schedule-shift = ⚠ From { $weekday ->
+        [1] Monday
+        [2] Tuesday
+        [3] Wednesday
+        [4] Thursday
+        [5] Friday
+        [6] Saturday
+       *[7] Sunday
+    }, { $date }, { $where } is { $hours } h { $dir ->
+        [earlier] earlier
+       *[later] later
+    } for you
+my-schedule-empty = { $f ->
+        [teachers] No classes with your teachers this week.
+        [mine] You teach no classes this week.
+       *[all] No classes this week.
+    }
+my-schedule-none = Your schedule shows the classes of the shalas you join. Ask your shala for its link.
+my-schedule-zone-unknown = Times are in { $zone }. Set your city to see your own time.
+my-schedule-more = The full week is in the app.

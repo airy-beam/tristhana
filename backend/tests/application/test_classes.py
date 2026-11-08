@@ -16,7 +16,6 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
-from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -31,13 +30,11 @@ from tristhana.application.classes import (
     ClearOverride,
     CreateClass,
     DeleteClass,
-    GetMyClasses,
     GetSchedule,
     ListClasses,
     RemoveClosure,
     RemoveSwap,
     SetOverride,
-    Teaching,
     UpdateClass,
 )
 from tristhana.application.moon import UnknownLocation
@@ -149,9 +146,6 @@ class World:
 
     def swap(self) -> AddSwap:
         return AddSwap(self.schedule, self.clock)
-
-    def mine(self) -> GetMyClasses:
-        return GetMyClasses(self.schedule, self.clock, cities())
 
     def adopt(self) -> AdoptShalaDayOff:
         return AdoptShalaDayOff(self.shalas, SetDayOff(self.accounts, self.clock))
@@ -730,77 +724,7 @@ def test_no_class_use_case_reads_a_log() -> None:
     assert not any(name.startswith("dateutil") for name in imported)
 
 
-# GetMyClasses: the teacher's own week across their shalas
-
-
-async def test_my_classes_are_the_next_week_of_mine_in_one_read(world: World, cast: Cast) -> None:
-    world.schedule.add_class(cast.shala, teacher_id=cast.teacher.id)
-    world.schedule.add_class(cast.shala, type=ClassType.LED, teacher_id=cast.assistant.id)
-    world.schedule.reads.clear()
-
-    out = await world.mine().execute(world.me(cast.teacher))
-
-    assert world.schedule.reads == ["staff_windows"]
-    [shala] = out
-    assert (shala.shala_id, shala.zone, shala.today) == (cast.shala, "Asia/Almaty", TODAY)
-    assert [c.occurrence.on for c in shala.classes] == [NOV[d] for d in (9, 10, 11, 12, 13)]
-    assert {c.occurrence.type for c in shala.classes} == {ClassType.MYSORE}
-    assert {c.role for c in shala.classes} == {Teaching.TEACHING}
-
-
-async def test_a_substitute_covers_and_the_usual_teacher_sees_it(world: World, cast: Cast) -> None:
-    mysore = world.schedule.add_class(cast.shala, teacher_id=cast.teacher.id)
-    world.schedule.add_override(mysore.id, _ov(NOV[10], teacher_id=cast.office.id))
-
-    teacher = await world.mine().execute(world.me(cast.teacher))
-    office = await world.mine().execute(world.me(cast.office))
-
-    roles = {c.occurrence.on: c.role for c in teacher[0].classes}
-    assert roles[NOV[10]] is Teaching.COVERED
-    assert roles[NOV[9]] is Teaching.TEACHING
-    [covering] = office[0].classes
-    assert (covering.occurrence.on, covering.role) == (NOV[10], Teaching.COVERING)
-    assert office[0].staff[cast.teacher.id] == "Teacher"
-
-
-async def test_cancelled_classes_stay_with_their_reason(world: World, cast: Cast) -> None:
-    world.moon_days("almaty", NOV[11])
-    world.schedule.add_class(cast.shala, teacher_id=cast.teacher.id)
-
-    [shala] = await world.mine().execute(world.me(cast.teacher))
-
-    cancelled = {c.occurrence.on: c.occurrence.cancelled for c in shala.classes}
-    assert cancelled[NOV[11]] is Reason.MOON
-    assert cancelled[NOV[10]] is None
-
-
-async def test_no_classes_of_mine_and_no_staff_seat_read_as_nothing(
-    world: World, cast: Cast
-) -> None:
-    world.schedule.add_class(cast.shala, teacher_id=cast.teacher.id)
-
-    assert await world.mine().execute(world.me(cast.assistant)) == ()
-    assert await world.mine().execute(world.me(cast.student)) == ()
-    assert await world.mine().execute(world.me(cast.stranger)) == ()
-
-
-async def test_every_staff_shala_is_read_by_name_in_its_own_today(world: World) -> None:
-    teacher = world.person("30", "Tara")
-    owner = world.person("31", "Olga")
-    west = world.shala(owner, city="los-angeles", name="B Los Angeles")
-    almaty = world.shala(owner, name="A Almaty")
-    for shala in (west, almaty):
-        world.shalas.add_staff(shala, teacher.id, TEACHER)
-        world.schedule.add_class(
-            shala, teacher_id=teacher.id, weekdays=frozenset(range(1, 8)), starts_on=NOV[1]
-        )
-
-    out = await world.mine().execute(world.me(teacher))
-
-    assert [s.shala_id for s in out] == [almaty, west]
-    assert [s.today for s in out] == [NOV[7], NOV[6]]  # 06:00 UTC: still Friday in Los Angeles
-    assert out[1].classes[0].occurrence.on == NOV[6]
-    assert len(out[0].classes) == 7
+# A substitute on a held moon day (SC-02; SC-03 moves "My classes" to test_my_schedule.py)
 
 
 async def test_a_substitute_on_a_held_moon_day_keeps_the_hold(world: World, cast: Cast) -> None:
@@ -822,19 +746,3 @@ async def test_a_substitute_on_a_held_moon_day_keeps_the_hold(world: World, cast
         cast.assistant.id,
         True,
     )
-
-
-async def test_my_week_is_the_shalas_dates_for_an_online_class_elsewhere(
-    world: World, cast: Cast
-) -> None:
-    # 20:00 in Los Angeles: the next morning in Almaty (UTC+5 vs UTC-8).
-    world.schedule.add_class(
-        cast.shala, teacher_id=cast.teacher.id, online=True, city="los-angeles",
-        start=time(20, 0), minutes=60, weekdays=frozenset(range(1, 8)), starts_on=NOV[1],
-    )  # fmt: skip
-
-    [shala] = await world.mine().execute(world.me(cast.teacher))
-
-    local = [c.occurrence.starts_at.astimezone(ZoneInfo("Asia/Almaty")) for c in shala.classes]
-    assert [d.date() for d in local] == [NOV[d] for d in range(7, 14)]
-    assert {d.hour for d in local} == {9}

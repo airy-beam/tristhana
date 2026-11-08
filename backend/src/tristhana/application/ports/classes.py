@@ -67,13 +67,29 @@ class ScheduleWindow:
     staff: Mapping[UUID, str | None]
 
 
+@dataclass(frozen=True, slots=True)
+class MyWindows:
+    windows: tuple[ScheduleWindow, ...]
+    teachers: frozenset[UUID]  # my linked teachers (ID-04)
+    my_moon: frozenset[date]  # moon dates of my effective moon city
+
+
 class ScheduleRepository(Protocol):
     async def window(self, shala: UUID, me: UUID, start: date, end: date) -> ScheduleWindow | None:
         """None: no such shala, or not a member."""
         ...
 
-    async def staff_windows(self, me: UUID, start: date, end: date) -> tuple[ScheduleWindow, ...]:
-        """One `window` per shala where `me` is on the staff (at most 10), by name."""
+    async def member_windows(
+        self,
+        me: UUID,
+        start: date,
+        end: date,
+        staff_only: bool = False,
+        moon_city: str | None = None,
+    ) -> MyWindows:
+        """SC-03, one statement: a `window` per shala where `me` is a member (staff first, then
+        by name; `staff_only`: staff seats only), my linked teacher ids, and the stored moon
+        dates of `moon_city` in [start, end]."""
         ...
 
     async def classes_of(self, shala: UUID, me: UUID) -> Guarded[tuple[StoredClass, ...]]: ...

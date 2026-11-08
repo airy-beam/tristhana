@@ -40,10 +40,10 @@ const WEEKS = 4;
  * it once); a day whose offset differs (a DST week) names it again. Staff who manage classes
  * open an occurrence to cancel, hold anyway or restore it, and add classes, closures and
  * swaps. Silent: no one gets a message (Q122). */
-export default function ShalaSchedule({ shala }: { shala: Shala }) {
+export default function ShalaSchedule({ shala, week: first = 0 }: { shala: Shala; week?: number }) {
   const me = useMe().data;
   const locale: Locale = me?.locale ?? "en";
-  const [week, setWeek] = useState(0);
+  const [week, setWeek] = useState(Math.min(Math.max(first, 0), WEEKS - 1));
   const [adding, setAdding] = useState(false);
   const from = addDays(todayIn(shala.zone), week * WEEK);
   const query = useSchedule(shala.id, from, WEEK);
@@ -122,9 +122,10 @@ export const lengthOf = (o: Occurrence) =>
 
 /** "06:00–09:30 Mysore · Anna" in `zone` (the shala's); a cancelled one with its reason.
  * `teacher` names the other teacher instead (a teacher's own week). */
-export function useOccurrenceText(zone: string, viewer: string | null) {
+export function useOccurrenceText(zone: string, viewer: string | null, locale: Locale = "en") {
   const { l10n } = useLocalization();
   const typeName = useTypeName();
+  const marked = useRowMarks(locale);
   return (o: Occurrence, teacher?: string) => {
     const start = timeIn(o.starts_at, zone);
     const end = hmOf(minutesOf(start) + lengthOf(o));
@@ -141,11 +142,23 @@ export function useOccurrenceText(zone: string, viewer: string | null) {
       if (mine && viewer !== zone && mine !== timeIn(o.starts_at, zone))
         text += ` ${plain(l10n.getString("schedule-your-time", { time: mine }))}`;
     }
-    if (o.cancelled) {
-      const reason = plain(l10n.getString("schedule-reason", { reason: o.cancelled }));
-      text = `❌ ${text} (${reason})`;
-    }
-    return text;
+    return marked(o, text);
+  };
+}
+
+/** The row marks (SC-03, expert items 1, 3, 4), shared by the shala's week and My schedule:
+ * 🌙 leads a moon cancellation and ❌ a closure or a manual cancel; a class held on its moon
+ * day ends with " · 🌙"; a cancelled original names where it went. */
+export function useRowMarks(locale: Locale) {
+  const { l10n } = useLocalization();
+  return (o: Occurrence, text: string) => {
+    if (!o.cancelled)
+      return o.moon ? `${text} ${plain(l10n.getString("schedule-held-moon"))}` : text;
+    const reason = plain(l10n.getString("schedule-reason", { reason: o.cancelled }));
+    let out = `${o.cancelled === "moon" ? "🌙" : "❌"} ${text} (${reason})`;
+    if (o.swapped_to)
+      out += ` · ${plain(l10n.getString("schedule-swapped-inline", { day: dayName(o.swapped_to, locale) }))}`;
+    return out;
   };
 }
 
@@ -175,7 +188,7 @@ function Week({
       d.swap_from ||
       schedule.occurrences.some((o) => localDay(o) === d.date),
   );
-  const row = useOccurrenceText(schedule.zone, viewer);
+  const row = useOccurrenceText(schedule.zone, viewer, locale);
   if (shown.length === 0)
     return (
       <Localized id="schedule-empty">

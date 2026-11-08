@@ -664,7 +664,14 @@ class _UnavailableSchedule:
     async def window(self, shala: UUID, me: UUID, start: date, end: date) -> NoReturn:
         raise StorageUnavailable("not configured")
 
-    async def staff_windows(self, me: UUID, start: date, end: date) -> NoReturn:
+    async def member_windows(
+        self,
+        me: UUID,
+        start: date,
+        end: date,
+        staff_only: bool = False,
+        moon_city: str | None = None,
+    ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
     async def classes_of(self, shala: UUID, me: UUID) -> NoReturn:

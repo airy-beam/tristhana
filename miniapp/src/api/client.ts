@@ -1314,24 +1314,27 @@ export function useShalaStaffInvite(id: string) {
 // Shala classes (SC-02, ADR-0034). Every write refreshes the shala's schedule.
 
 export type Schedule = components["schemas"]["ScheduleOut"];
-export type Occurrence = components["schemas"]["OccurrenceOut"];
+export type Occurrence = components["schemas"]["ScheduleOccurrenceOut"];
 export type ClassType = components["schemas"]["ClassIn"]["type"];
 export type NewClass = components["schemas"]["ClassIn"];
 export type OccurrenceChange = components["schemas"]["OccurrenceIn"];
 export type MoonPolicy = components["schemas"]["ShalaOut"]["moon_policy"];
-export type MyShalaClasses = components["schemas"]["MyShalaClassesOut"];
-export type MyClass = components["schemas"]["MyClassOut"];
+export type MySchedule = components["schemas"]["MyScheduleOut"];
+export type MyRow = components["schemas"]["MyRowOut"];
 
 const scheduleKey = (id: string) => [...SHALAS_KEY, id, "schedule"];
-const MY_CLASSES_KEY = [...SHALAS_KEY, "my-classes"];
+const MY_SCHEDULE_KEY = [...SHALAS_KEY, "my-schedule"];
 
-/** The next 7 days of the classes I teach, cover or have covered, per staff shala. */
-export function useMyClasses() {
+/** "My schedule" (SC-03): a week of every shala I'm in, in my zone; `from` null = my today.
+ * Filters are applied on the client to the same answer. */
+export function useMySchedule(from: string | null) {
   return useQuery({
     staleTime: 60_000,
-    queryKey: MY_CLASSES_KEY,
-    queryFn: async (): Promise<MyShalaClasses[]> => {
-      const { data, error, response } = await api.GET("/api/v1/me/classes");
+    queryKey: [...MY_SCHEDULE_KEY, from],
+    queryFn: async (): Promise<MySchedule> => {
+      const { data, error, response } = await api.GET("/api/v1/me/schedule", {
+        params: { query: from ? { from, days: 7 } : { days: 7 } },
+      });
       if (!data) fail(response, error);
       return data;
     },
@@ -1360,7 +1363,7 @@ function useScheduleWrite<T, R>(id: string, write: (vars: T) => Promise<R>) {
     onSuccess: () =>
       Promise.all([
         client.invalidateQueries({ queryKey: scheduleKey(id) }),
-        client.invalidateQueries({ queryKey: MY_CLASSES_KEY }),
+        client.invalidateQueries({ queryKey: MY_SCHEDULE_KEY }),
       ]),
   });
 }

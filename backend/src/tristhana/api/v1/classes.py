@@ -15,8 +15,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from tristhana.api.deps import CurrentPrincipal, shalas
 from tristhana.api.errors import ApiError, ErrorCode, error_responses
-from tristhana.application.classes import BadWindow, ClassUseCases, MyClass, Schedule
-from tristhana.application.moon import UnknownLocation
+from tristhana.application.classes import (
+    MY_DAYS,
+    BadWindow,
+    ClassUseCases,
+    MyRow,
+    MySchedule,
+    Only,
+    Schedule,
+    Teaching,
+)
 from tristhana.application.policies import NotAllowed, NotFound, Principal
 from tristhana.application.ports.classes import ClassDraft, StoredClass
 from tristhana.application.ports.shalas import CapReached
@@ -32,6 +40,7 @@ from tristhana.domain.classes import (
     OverrideStatus,
     to_rrule,
 )
+from tristhana.domain.moon import UnknownLocation
 
 router = APIRouter(tags=["classes"], responses=error_responses(401, 503))
 
@@ -82,6 +91,14 @@ class OccurrenceOut(BaseModel):
     usual_teacher: ClassTeacherOut | None = Field(description="The class's own teacher")
 
 
+class ScheduleOccurrenceOut(OccurrenceOut):
+    moon: bool = Field(description="On a moon date of its shala's calendar, whatever the policy")
+    swapped_to: date | None = Field(
+        description="Cancelled here, held on this date instead (My schedule only; null on a"
+        " shala's schedule, whose day rows name the swap)"
+    )
+
+
 class MyClassOut(OccurrenceOut):
     role: Literal["teaching", "covering", "covered"] = Field(
         description="Mine as planned; I substitute (`usual_teacher` is whose); someone"
@@ -103,8 +120,51 @@ class ScheduleOut(BaseModel):
     moon_policy: Literal["closed", "pranayama", "open"]
     days_off: list[int] | None
     days: list[ScheduleDayOut]
-    occurrences: list[OccurrenceOut]
+    occurrences: list[ScheduleOccurrenceOut]
     closures: list["ClosureOut"] = Field(description="Closures touching the window")
+
+
+class MyRowOut(ScheduleOccurrenceOut):
+    shala_id: UUID
+    zone: str = Field(description="The class's IANA zone (the second label)")
+    city: str = Field(description="The class's city slug")
+    role: Literal["teaching", "covering", "covered"] | None
+    my_teacher: bool = Field(description="One of my linked teachers teaches it, or is covered")
+    planned: str | None = Field(description='HH:MM: the rule\'s start, for "moved from …"')
+
+
+class MyDayOut(BaseModel):
+    date: date
+    my_moon: bool = Field(description="A moon day of my own moon calendar")
+
+
+class ScheduleShalaOut(BaseModel):
+    id: UUID
+    name: str
+    city: str
+    zone: str
+    staff: bool
+
+
+class ShiftOut(BaseModel):
+    zone: str
+    city: str
+    shala_ids: list[UUID]
+    on: date
+    minutes: int = Field(description="> 0: the class is that much earlier for me; < 0: later")
+
+
+class MyScheduleOut(BaseModel):
+    zone: str = Field(description="The zone times are shown in: mine, or my first shala's")
+    zone_known: bool
+    today: date
+    moon_city: str
+    days: list[MyDayOut]
+    shalas: list[ScheduleShalaOut]
+    has_teachers: bool
+    is_staff: bool
+    shifts: list[ShiftOut]
+    occurrences: list[MyRowOut]
 
 
 class ClassIn(BaseModel):
@@ -213,12 +273,41 @@ def _teacher(staff: Mapping[UUID, str | None], id: UUID | None) -> ClassTeacherO
     return None if id is None else ClassTeacherOut(id=id, name=staff.get(id))
 
 
-def _occurrence(s: Schedule, o: Occurrence) -> OccurrenceOut:
-    return OccurrenceOut(**_occurrence_fields(s.staff, o))
+def _occurrence(s: Schedule, o: Occurrence) -> ScheduleOccurrenceOut:
+    return ScheduleOccurrenceOut(
+        **_occurrence_fields(s.staff, o), moon=o.moon, swapped_to=o.swapped_to
+    )
 
 
-def _my_class(staff: Mapping[UUID, str | None], c: MyClass) -> MyClassOut:
-    return MyClassOut(**_occurrence_fields(staff, c.occurrence), role=c.role.value)
+def _my_class(staff: Mapping[UUID, str | None], r: MyRow, role: Teaching) -> MyClassOut:
+    return MyClassOut(**_occurrence_fields(staff, r.occurrence), role=role.value)
+
+
+def _my_row(s: MySchedule, r: MyRow) -> MyRowOut:
+    o = r.occurrence
+    return MyRowOut(
+        **_occurrence_fields(s.staff.get(r.shala_id, {}), o),
+        moon=o.moon,
+        swapped_to=o.swapped_to,
+        shala_id=r.shala_id,
+        zone=r.zone,
+        city=r.city,
+        role=None if r.role is None else r.role.value,
+        my_teacher=r.my_teacher,
+        planned=None if o.planned is None else _hm(o.planned),
+    )
+
+
+def _shifts(s: MySchedule) -> list[ShiftOut]:
+    out: list[ShiftOut] = []
+    for shift in s.shifts:
+        rows = [r for r in s.rows if r.zone == shift.zone]
+        ids = list(dict.fromkeys(r.shala_id for r in rows))
+        city = rows[0].city if rows else ""
+        out.append(
+            ShiftOut(zone=shift.zone, city=city, shala_ids=ids, on=shift.on, minutes=shift.minutes)
+        )
+    return out
 
 
 def _occurrence_fields(staff: Mapping[UUID, str | None], o: Occurrence) -> dict[str, Any]:
@@ -318,22 +407,56 @@ async def get_schedule(
     )
 
 
-@router.get("/me/classes")
+@router.get("/me/schedule", responses=error_responses(422))
+async def get_my_schedule(
+    principal: CurrentPrincipal,
+    use_cases: UseCases,
+    response: Response,
+    from_date: Annotated[
+        date | None, Query(alias="from", description="My date; default my today")
+    ] = None,
+    days: Annotated[int, Query(ge=1, le=MY_DAYS)] = MY_DAYS,
+    only: Only = Only.ALL,
+) -> MyScheduleOut:
+    """SC-03: every shala where I am a member, in my zone (ADR-0035)."""
+    response.headers.update(_NO_STORE)
+    s = await _run(use_cases.mine.execute(principal, from_date, days, only=only))
+    return MyScheduleOut(
+        zone=s.zone,
+        zone_known=s.zone_known,
+        today=s.today,
+        moon_city=s.moon_city,
+        days=[MyDayOut(date=d.date, my_moon=d.my_moon) for d in s.days],
+        shalas=[
+            ScheduleShalaOut(id=x.id, name=x.name, city=x.city, zone=x.zone, staff=x.staff)
+            for x in s.shalas
+        ],
+        has_teachers=s.has_teachers,
+        is_staff=s.is_staff,
+        shifts=_shifts(s),
+        occurrences=[_my_row(s, r) for r in s.rows],
+    )
+
+
+@router.get("/me/classes", deprecated=True)
 async def get_my_classes(
     principal: CurrentPrincipal, use_cases: UseCases, response: Response
 ) -> list[MyShalaClassesOut]:
-    """The next 7 days of the classes I teach, cover, or have covered, in every shala where I
-    am on the staff (by name; shalas with none are left out). Times as the schedule's."""
+    """Deprecated (Q137): use `/me/schedule?only=mine`. The next 7 days of the classes I teach,
+    cover, or have covered, grouped per shala (shalas with none left out), from my today."""
     response.headers.update(_NO_STORE)
+    s = await _run(use_cases.mine.execute(principal, None, only=Only.MINE))
     return [
         MyShalaClassesOut(
-            shala_id=s.shala_id,
-            name=s.name,
-            zone=s.zone,
+            shala_id=x.id,
+            name=x.name,
+            zone=x.zone,
             today=s.today,
-            classes=[_my_class(s.staff, c) for c in s.classes],
+            classes=[_my_class(s.staff[x.id], r, r.role) for r in rows if r.role is not None],
         )
-        for s in await _run(use_cases.mine.execute(principal))
+        for x in s.shalas
+        # SC-02's shape: no kept original of a swapped class (that is My schedule's mark)
+        if (rows := [r for r in s.rows if r.shala_id == x.id and r.occurrence.swapped_to is None])
     ]
 
 
@@ -417,7 +540,7 @@ async def put_occurrence(
     principal: CurrentPrincipal,
     use_cases: UseCases,
     response: Response,
-) -> OccurrenceOut:
+) -> ScheduleOccurrenceOut:
     """`key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,
     or name a substitute; silent (Q122)."""
     response.headers.update(_NO_STORE)

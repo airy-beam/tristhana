@@ -54,7 +54,19 @@ function respond(path: string) {
   if (path === "/api/v1/moon/cities") return [];
   if (path === "/api/v1/me/links") return { teachers: [], students: [] };
   if (path === "/api/v1/me/shalas") return myShalas;
-  if (path === "/api/v1/me/classes") return [];
+  if (path === "/api/v1/me/schedule")
+    return {
+      zone: "Asia/Almaty",
+      zone_known: true,
+      today: "2026-11-07",
+      moon_city: "almaty",
+      days: [],
+      shalas: [],
+      has_teachers: false,
+      is_staff: false,
+      shifts: [],
+      occurrences: [],
+    };
   if (path === "/api/v1/me/days") {
     return {
       today: TODAY,
@@ -136,23 +148,23 @@ test("Telegram's ⋯ Settings closes the tour, and it doesn't come back on Home"
   await screen.findByRole("button", { name: "🧭 Quick tour" });
 });
 
-test("My classes is on Home for shala staff only, and opens the week", async () => {
-  myShalas = [myShala("staff")];
+test("My schedule is on Home for any shala member, and opens the week", async () => {
+  myShalas = [myShala("student")];
   vi.resetModules(); // App's query cache is module-wide: a fresh one, not the earlier tests'
   const { App: Fresh } = await import("./App");
   render(<Fresh locale="en" firstName="Ash" inTelegram />);
 
-  fireEvent.click(await screen.findByRole("button", { name: "🧑‍🏫 My classes" }));
+  fireEvent.click(await screen.findByRole("button", { name: "🗓 My schedule" }));
 
-  expect(await screen.findByRole("heading", { name: "🧑‍🏫 My classes" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "🗓 My schedule" })).toBeInTheDocument();
 });
 
-test("a student sees no My classes row", async () => {
-  myShalas = [myShala("student")];
+test("someone in no shala sees no My schedule row", async () => {
+  myShalas = [];
   vi.resetModules();
   const { App: Fresh } = await import("./App");
   render(<Fresh locale="en" firstName="Ash" inTelegram />);
   await screen.findByText(OFFER);
 
-  expect(screen.queryByRole("button", { name: "🧑‍🏫 My classes" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "🗓 My schedule" })).toBeNull();
 });

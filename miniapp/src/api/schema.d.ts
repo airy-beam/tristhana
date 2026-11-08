@@ -76,8 +76,9 @@ export interface paths {
         };
         /**
          * Get My Classes
-         * @description The next 7 days of the classes I teach, cover, or have covered, in every shala where I
-         *     am on the staff (by name; shalas with none are left out). Times as the schedule's.
+         * @deprecated
+         * @description Deprecated (Q137): use `/me/schedule?only=mine`. The next 7 days of the classes I teach,
+         *     cover, or have covered, grouped per shala (shalas with none left out), from my today.
          */
         get: operations["get_my_classes_api_v1_me_classes_get"];
         put?: never;
@@ -531,6 +532,26 @@ export interface paths {
          *     stay). Idempotent.
          */
         post: operations["end_rest_period_early_api_v1_me_rest_periods__start__end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Schedule
+         * @description SC-03: every shala where I am a member, in my zone (ADR-0035).
+         */
+        get: operations["get_my_schedule_api_v1_me_schedule_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1914,6 +1935,137 @@ export interface components {
             /** @description The class's own teacher */
             usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
         };
+        /** MyDayOut */
+        MyDayOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * My Moon
+             * @description A moon day of my own moon calendar
+             */
+            my_moon: boolean;
+        };
+        /** MyRowOut */
+        MyRowOut: {
+            /** Cancelled */
+            cancelled: ("moon" | "closure" | "cancelled") | null;
+            /**
+             * City
+             * @description The class's city slug
+             */
+            city: string;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** End */
+            end: string;
+            /**
+             * Held
+             * @description Staff chose hold anyway: send `held` with a later change
+             */
+            held: boolean;
+            /**
+             * Key
+             * Format: date
+             * @description The rule's date: the occurrence's id within its class
+             */
+            key: string;
+            /**
+             * Moon
+             * @description On a moon date of its shala's calendar, whatever the policy
+             */
+            moon: boolean;
+            /** Moved */
+            moved: boolean;
+            /**
+             * My Teacher
+             * @description One of my linked teachers teaches it, or is covered
+             */
+            my_teacher: boolean;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** Online */
+            online: boolean;
+            /**
+             * Planned
+             * @description HH:MM: the rule's start, for "moved from …"
+             */
+            planned: string | null;
+            /** Role */
+            role: ("teaching" | "covering" | "covered") | null;
+            /**
+             * Shala Id
+             * Format: uuid
+             */
+            shala_id: string;
+            /**
+             * Start
+             * @description HH:MM in the class zone
+             */
+            start: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Substitute */
+            substitute: boolean;
+            /** Swapped From */
+            swapped_from: string | null;
+            /**
+             * Swapped To
+             * @description Cancelled here, held on this date instead (My schedule only; null on a shala's schedule, whose day rows name the swap)
+             */
+            swapped_to: string | null;
+            teacher: components["schemas"]["ClassTeacherOut"] | null;
+            /** Title */
+            title: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /** @description The class's own teacher */
+            usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
+            /**
+             * Zone
+             * @description The class's IANA zone (the second label)
+             */
+            zone: string;
+        };
+        /** MyScheduleOut */
+        MyScheduleOut: {
+            /** Days */
+            days: components["schemas"]["MyDayOut"][];
+            /** Has Teachers */
+            has_teachers: boolean;
+            /** Is Staff */
+            is_staff: boolean;
+            /** Moon City */
+            moon_city: string;
+            /** Occurrences */
+            occurrences: components["schemas"]["MyRowOut"][];
+            /** Shalas */
+            shalas: components["schemas"]["ScheduleShalaOut"][];
+            /** Shifts */
+            shifts: components["schemas"]["ShiftOut"][];
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /**
+             * Zone
+             * @description The zone times are shown in: mine, or my first shala's
+             */
+            zone: string;
+            /** Zone Known */
+            zone_known: boolean;
+        };
         /** MyShalaClassesOut */
         MyShalaClassesOut: {
             /** Classes */
@@ -2004,58 +2156,12 @@ export interface components {
              */
             teacher_id?: string | null;
         };
-        /** OccurrenceOut */
-        OccurrenceOut: {
-            /** Cancelled */
-            cancelled: ("moon" | "closure" | "cancelled") | null;
-            /**
-             * Class Id
-             * Format: uuid
-             */
-            class_id: string;
-            /** End */
-            end: string;
-            /**
-             * Held
-             * @description Staff chose hold anyway: send `held` with a later change
-             */
-            held: boolean;
-            /**
-             * Key
-             * Format: date
-             * @description The rule's date: the occurrence's id within its class
-             */
-            key: string;
-            /** Moved */
-            moved: boolean;
-            /**
-             * On
-             * Format: date
-             */
-            on: string;
-            /** Online */
-            online: boolean;
-            /**
-             * Start
-             * @description HH:MM in the class zone
-             */
-            start: string;
-            /**
-             * Starts At
-             * Format: date-time
-             */
-            starts_at: string;
-            /** Substitute */
-            substitute: boolean;
-            /** Swapped From */
-            swapped_from: string | null;
-            teacher: components["schemas"]["ClassTeacherOut"] | null;
-            /** Title */
-            title: string | null;
-            type: components["schemas"]["ClassTypeName"];
-            /** @description The class's own teacher */
-            usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
-        };
+        /**
+         * Only
+         * @description The "My schedule" filters (Q138).
+         * @enum {string}
+         */
+        Only: "all" | "teachers" | "mine";
         /**
          * PauseOfferOut
          * @description "For how many days?" after 🌸 / 🤒 / ✈️ on today or yesterday (WH-01).
@@ -2334,6 +2440,68 @@ export interface components {
              */
             swap_from: string | null;
         };
+        /** ScheduleOccurrenceOut */
+        ScheduleOccurrenceOut: {
+            /** Cancelled */
+            cancelled: ("moon" | "closure" | "cancelled") | null;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** End */
+            end: string;
+            /**
+             * Held
+             * @description Staff chose hold anyway: send `held` with a later change
+             */
+            held: boolean;
+            /**
+             * Key
+             * Format: date
+             * @description The rule's date: the occurrence's id within its class
+             */
+            key: string;
+            /**
+             * Moon
+             * @description On a moon date of its shala's calendar, whatever the policy
+             */
+            moon: boolean;
+            /** Moved */
+            moved: boolean;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** Online */
+            online: boolean;
+            /**
+             * Start
+             * @description HH:MM in the class zone
+             */
+            start: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Substitute */
+            substitute: boolean;
+            /** Swapped From */
+            swapped_from: string | null;
+            /**
+             * Swapped To
+             * @description Cancelled here, held on this date instead (My schedule only; null on a shala's schedule, whose day rows name the swap)
+             */
+            swapped_to: string | null;
+            teacher: components["schemas"]["ClassTeacherOut"] | null;
+            /** Title */
+            title: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /** @description The class's own teacher */
+            usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
+        };
         /** ScheduleOut */
         ScheduleOut: {
             /** City */
@@ -2353,11 +2521,27 @@ export interface components {
              */
             moon_policy: "closed" | "pranayama" | "open";
             /** Occurrences */
-            occurrences: components["schemas"]["OccurrenceOut"][];
+            occurrences: components["schemas"]["ScheduleOccurrenceOut"][];
             /**
              * Zone
              * @description The shala's IANA zone
              */
+            zone: string;
+        };
+        /** ScheduleShalaOut */
+        ScheduleShalaOut: {
+            /** City */
+            city: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Staff */
+            staff: boolean;
+            /** Zone */
             zone: string;
         };
         /** SeriesCount */
@@ -2581,6 +2765,25 @@ export interface components {
          * @enum {string}
          */
         SharedDay: "practiced" | "rest";
+        /** ShiftOut */
+        ShiftOut: {
+            /** City */
+            city: string;
+            /**
+             * Minutes
+             * @description > 0: the class is that much earlier for me; < 0: later
+             */
+            minutes: number;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** Shala Ids */
+            shala_ids: string[];
+            /** Zone */
+            zone: string;
+        };
         /** StartBody */
         StartBody: {
             /**
@@ -4407,6 +4610,58 @@ export interface operations {
             };
         };
     };
+    get_my_schedule_api_v1_me_schedule_get: {
+        parameters: {
+            query?: {
+                /** @description My date; default my today */
+                from?: string | null;
+                days?: number;
+                only?: components["schemas"]["Only"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyScheduleOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     get_my_shalas_api_v1_me_shalas_get: {
         parameters: {
             query?: never;
@@ -5364,7 +5619,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OccurrenceOut"];
+                    "application/json": components["schemas"]["ScheduleOccurrenceOut"];
                 };
             };
             /** @description Unauthorized */

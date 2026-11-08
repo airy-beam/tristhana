@@ -67,3 +67,46 @@ def test_the_longest_is_59_bytes() -> None:
 )
 def test_malformed_data_is_none(data: str | None) -> None:
     assert decode(data) is None
+
+
+# SC-03: My schedule, `c1:m:<week>:<a|t|m>` (spec §5), 8 bytes
+
+
+@pytest.mark.parametrize("data", [f"c1:m:{w}:{f}" for w in range(4) for f in "atm"])
+def test_every_my_schedule_tap_decodes_and_is_8_bytes(data: str) -> None:
+    assert decode(data) is not None
+    assert len(data.encode()) == 8
+
+
+def test_my_schedule_taps_are_distinct() -> None:
+    taps = [decode(f"c1:m:{w}:{f}") for w in range(4) for f in "atm"]
+
+    assert len(set(taps)) == 12
+
+
+def test_a_my_schedule_tap_is_not_a_shala_week() -> None:
+    from tristhana.bots.telegram.classes_callbacks import Week
+
+    assert not isinstance(decode("c1:m:0:a"), Week)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        "c1:m",
+        "c1:m:",
+        "c1:m:0",
+        "c1:m:0:",
+        "c1:m:4:a",  # weeks 0-3
+        "c1:m:-1:a",
+        "c1:m:9:z",
+        "c1:m:0:x",
+        "c1:m:0:all",
+        "c1:m:0:A",
+        "c1:m:00:a",
+        "c1:m:0:a:extra",
+        f"c1:m:{short_id(MAX)}:a",
+    ],
+)
+def test_malformed_my_schedule_data_is_none(data: str) -> None:
+    assert decode(data) is None

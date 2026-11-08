@@ -25,15 +25,16 @@ from sqlalchemy import (
     true,
     update,
 )
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy.types import Date, Integer, SmallInteger, Text, Time
+from sqlalchemy.types import Date, Integer, SmallInteger, Text, Time, Uuid
 
 from tristhana.application.policies import can_manage_schedule
 from tristhana.application.ports.classes import (
     ClassCaps,
     ClassDraft,
+    MyWindows,
     ScheduleWindow,
     StoredClass,
 )
@@ -62,11 +63,14 @@ from tristhana.infrastructure.db.tables import (
     shala_class,
     shala_closure,
     shala_staff,
+    shala_student,
     shala_swap,
+    teacher_link,
 )
 from tristhana.infrastructure.db.tables import shala as _S
 from tristhana.infrastructure.db.tables import shala_class_override as _O
 
+_UUIDS = ARRAY(Uuid())
 _MARGIN = timedelta(days=13)  # a move (±6) then a swap (±6), as the domain
 _CHANGES = ("moved_to", "start_time", "minutes", "teacher_id")  # an override's changes
 _C = shala_class
@@ -309,13 +313,52 @@ class SqlScheduleRepository:
             return None
         return _window(row, m)
 
-    async def staff_windows(self, me: UUID, start: date, end: date) -> tuple[ScheduleWindow, ...]:
+    async def member_windows(
+        self,
+        me: UUID,
+        start: date,
+        end: date,
+        staff_only: bool = False,
+        moon_city: str | None = None,
+    ) -> MyWindows:
+        """One statement: a base row of my teacher ids and my moon dates, the windows of my
+        shalas joined to it (none: one row of NULLs)."""
         staff = exists().where(shala_staff.c.shala_id == _S.c.id, shala_staff.c.account_id == me)
-        stmt = _window_stmt(me, start, end).where(staff).order_by(_S.c.name, _S.c.id)
+        member = staff
+        if not staff_only:
+            member = or_(
+                staff,
+                exists().where(
+                    shala_student.c.shala_id == _S.c.id, shala_student.c.account_id == me
+                ),
+            )
+        windows = _window_stmt(me, start, end).where(member).subquery("w")
+        teachers = (
+            select(func.coalesce(func.array_agg(teacher_link.c.teacher_id), cast([], _UUIDS)))
+            .where(teacher_link.c.student_id == me)
+            .scalar_subquery()
+        )
+        moon = (
+            select(func.coalesce(func.array_agg(moon_day.c.date), cast([], ARRAY(Date))))
+            .where(moon_day.c.location == moon_city, moon_day.c.date.between(start, end))
+            .scalar_subquery()
+        )
+        base = select(teachers.label("my_teachers"), moon.label("my_moon")).subquery("base")
+        stmt = (
+            select(base, windows)
+            .select_from(base)
+            .outerjoin(windows, true())
+            .order_by(windows.c.me_roles.is_(None), windows.c.name, windows.c.id)
+        )
         async with connection(self._engine) as conn:
             rows = (await conn.execute(stmt)).all()
-        found = ((r, _me(r, r.id, me)) for r in rows)
-        return tuple(_window(r, m) for r, m in found if m is not None)
+        found = ((r, _me(r, r.id, me)) for r in rows if r.id is not None)
+        first = rows[0]
+        return MyWindows(
+            windows=tuple(_window(r, m) for r, m in found if m is not None),
+            teachers=frozenset(first.my_teachers or ()),
+            my_moon=frozenset(first.my_moon or ()),
+        )
 
     async def classes_of(self, shala: UUID, me: UUID) -> Guarded[tuple[StoredClass, ...]]:
         cur = _cur(shala, me)

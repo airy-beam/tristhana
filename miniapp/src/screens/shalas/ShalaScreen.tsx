@@ -56,11 +56,12 @@ const short = (name: string) =>
 interface Props {
   id: string;
   onBack: () => void;
+  week?: number; // the schedule's first week shown (0-3), from My schedule
 }
 
 /** The shala card (SC-01): the place, its zone, its moon city and its staff for every member;
  * students, links, roles and delete per role. Students never see other students. */
-export default function ShalaScreen({ id, onBack }: Props) {
+export default function ShalaScreen({ id, onBack, week }: Props) {
   useBackButton(onBack);
   const { l10n } = useLocalization();
   const query = useShala(id);
@@ -85,7 +86,7 @@ export default function ShalaScreen({ id, onBack }: Props) {
           <Place shala={shala} locale={locale} />
           <DayOffOffer shala={shala} />
           {manages(shala.me) && <Edit shala={shala} locale={locale} />}
-          <ShalaSchedule shala={shala} />
+          <ShalaSchedule shala={shala} week={week ?? 0} />
           <Staff shala={shala} />
           {isStaff(shala.me) && <Students shala={shala} />}
           {isStaff(shala.me) && <JoinLink shala={shala} />}

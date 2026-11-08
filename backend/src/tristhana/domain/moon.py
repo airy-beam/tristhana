@@ -8,6 +8,10 @@ from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
+class UnknownLocation(ValueError):
+    """A city slug that isn't in the list."""
+
+
 class MoonPhase(StrEnum):
     PURNIMA = "purnima"  # full moon, tithi 15
     AMAVASYA = "amavasya"  # new moon, tithi 30

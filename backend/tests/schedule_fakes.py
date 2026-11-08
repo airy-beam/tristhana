@@ -19,6 +19,11 @@ The port shapes the spec leaves open are assumed here, and are the ones to adjus
   override, an unknown class (`NotFound`). `add_swap` raises `InvalidClass` from `check_swap`
   with the data read in the same statement.
 
+SC-03 (spec §3, ADR-0035) adds `member_windows(me, start, end, staff_only=False,
+moon_city=None) -> MyWindows(windows, teachers, my_moon)`: the windows of every shala where `me`
+is a member (staff first, then by name), my linked teacher ids, and the moon dates of
+`moon_city` within [start, end]. It replaces `staff_windows`.
+
 The guards call `application/policies.py` themselves; `test_db_classes.py` pins the SQL to the
 same matrix.
 """
@@ -71,6 +76,10 @@ class InMemorySchedule:
     swaps: dict[tuple[UUID, date], Swap] = field(default_factory=dict[tuple[UUID, date], Swap])
     reads: list[str] = field(default_factory=list[str])
     writes: list[str] = field(default_factory=list[str])
+    # SC-03: `member_windows` arguments, (me, start, end, staff_only, moon_city).
+    member_calls: list[tuple[UUID, date, date, bool, str | None]] = field(
+        default_factory=list[tuple[UUID, date, date, bool, str | None]]
+    )
 
     # Seeding (not part of the port).
 
@@ -111,10 +120,44 @@ class InMemorySchedule:
         return self._read(shala, me, start, end)
 
     async def staff_windows(self, me: UUID, start: date, end: date) -> tuple[ScheduleWindow, ...]:
+        """SC-02's read; SC-03 replaces it with `member_windows(staff_only=True)`."""
         self._call("staff_windows")
         ids = [s for (s, a) in self.shalas.staff if a == me]
         found = (self._read(s, me, start, end) for s in ids)
         return tuple(sorted((w for w in found if w), key=lambda w: (w.name, str(w.shala_id))))
+
+    async def member_windows(
+        self,
+        me: UUID,
+        start: date,
+        end: date,
+        staff_only: bool = False,
+        moon_city: str | None = None,
+    ) -> Any:
+        """SC-03 (spec §3): one `window` per shala where `me` is a member (staff first, then
+        by name), my linked teacher ids, and the moon dates of `moon_city` in [start, end].
+        `MyWindows` is imported here so the suites keep collecting before SC-03 exists."""
+        from tristhana.application.ports.classes import MyWindows
+
+        self._call("member_windows")
+        self.member_calls.append((me, start, end, staff_only, moon_city))
+
+        def by_name(ids: list[UUID]) -> list[ScheduleWindow]:
+            found = (self._read(s, me, start, end) for s in ids)
+            return sorted((w for w in found if w), key=lambda w: (w.name, str(w.shala_id)))
+
+        staff = by_name([s for (s, a) in self.shalas.staff if a == me])
+        students = (
+            [] if staff_only else by_name([s for (s, a) in self.shalas.students_rows if a == me])
+        )
+        links = self.shalas.links
+        teachers = frozenset(links.teachers_of(me)) if links is not None else frozenset[UUID]()
+        my_moon = frozenset(
+            d.date
+            for d in self.moon.days_by_location.get(moon_city or "", [])
+            if start <= d.date <= end
+        )
+        return MyWindows(windows=(*staff, *students), teachers=teachers, my_moon=my_moon)
 
     def _read(self, shala: UUID, me: UUID, start: date, end: date) -> ScheduleWindow | None:
         m = self.shalas.membership(shala, me)
