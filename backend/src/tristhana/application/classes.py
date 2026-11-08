@@ -11,9 +11,7 @@ from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from enum import StrEnum
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
-from tristhana.application.moon import UnknownLocation
 from tristhana.application.policies import (
     NotAllowed,
     NotFound,
@@ -24,6 +22,7 @@ from tristhana.application.policies import (
 from tristhana.application.ports.classes import (
     ClassCaps,
     ClassDraft,
+    MyWindows,
     ScheduleRepository,
     ScheduleWindow,
     StoredClass,
@@ -32,6 +31,7 @@ from tristhana.application.ports.shalas import CapReached, Guarded, ShalaReposit
 from tristhana.application.ports.storage import Clock
 from tristhana.application.rest_days import DayOffSaved, SetDayOff
 from tristhana.application.settings import caller_today
+from tristhana.domain.accounts import moon_follow_of
 from tristhana.domain.classes import (
     CLOSURE_MAX,
     HORIZON,
@@ -51,19 +51,23 @@ from tristhana.domain.classes import (
     Override,
     OverrideStatus,
     Reason,
+    Shift,
     Swap,
     check_series,
     check_swap,
     expand,
+    local_date,
+    shifts,
 )
 from tristhana.domain.days import local_today
-from tristhana.domain.moon import Cities
+from tristhana.domain.moon import Cities, UnknownLocation
 from tristhana.domain.rest_days import Weekdays
 
 DAY_MINUTES = 24 * 60
 CAPS = ClassCaps(classes=MAX_CLASSES, closures=MAX_FUTURE_CLOSURES, swaps=MAX_FUTURE_SWAPS)
 BACK = timedelta(days=7)  # how far back a schedule may start
-MY_DAYS = 7  # "My classes": the next week from each shala's today
+MY_DAYS = 7  # "My schedule": a page is a week at most (Q139)
+_READ = timedelta(days=2)  # offsets span -12..+14: a class on my date is within 2 of its own
 _DAY = timedelta(days=1)
 AHEAD = timedelta(days=1)  # how far the caller's date may run ahead of the shala's
 
@@ -133,7 +137,11 @@ def _series(window: ScheduleWindow, cities: Cities | None) -> list[ClassSeries]:
 
 
 def _expand(
-    window: ScheduleWindow, cities: Cities | None, start: date, end: date
+    window: ScheduleWindow,
+    cities: Cities | None,
+    start: date,
+    end: date,
+    keep_swapped: bool = False,
 ) -> list[Occurrence]:
     return expand(
         _series(window, cities),
@@ -145,6 +153,7 @@ def _expand(
         start,
         end,
         can_view_private_classes(window.me),
+        keep_swapped=keep_swapped,
     )
 
 
@@ -236,23 +245,6 @@ class Teaching(StrEnum):
     COVERED = "covered"  # someone substitutes for me
 
 
-@dataclass(frozen=True, slots=True)
-class MyClass:
-    occurrence: Occurrence
-    role: Teaching
-
-
-@dataclass(frozen=True, slots=True)
-class ShalaClasses:
-    shala_id: UUID
-    name: str
-    zone: str  # the shala's IANA zone
-    city: str
-    today: date  # the shala's
-    classes: tuple[MyClass, ...]
-    staff: dict[UUID, str | None]
-
-
 def _role(o: Occurrence, me: UUID) -> Teaching | None:
     if o.teacher_id == me:
         return Teaching.COVERING if o.substitute else Teaching.TEACHING
@@ -261,43 +253,144 @@ def _role(o: Occurrence, me: UUID) -> Teaching | None:
     return None
 
 
-class GetMyClasses:
+class Only(StrEnum):
+    """The "My schedule" filters (Q138)."""
+
+    ALL = "all"
+    TEACHERS = "teachers"  # rows my linked teachers teach, or are covered for
+    MINE = "mine"  # rows I teach, cover or have covered ("I teach")
+
+
+@dataclass(frozen=True, slots=True)
+class MyRow:
+    shala_id: UUID
+    occurrence: Occurrence
+    zone: str  # the class's IANA zone (the second label)
+    city: str  # the class's city slug
+    role: Teaching | None
+    my_teacher: bool  # one of my linked teachers teaches it that date, or is covered on it
+
+
+@dataclass(frozen=True, slots=True)
+class MyDay:
+    date: _dt.date
+    my_moon: bool  # a moon day of my own effective calendar (MD-02)
+
+
+@dataclass(frozen=True, slots=True)
+class ShalaRef:
+    id: UUID
+    name: str
+    city: str
+    zone: str
+    staff: bool  # I am on its staff
+
+
+@dataclass(frozen=True, slots=True)
+class MySchedule:
+    zone: str  # mine, or my first shala's when `zone_known` is False (Q141)
+    zone_known: bool
+    today: date  # in `zone`
+    moon_city: str  # my effective moon city
+    days: tuple[MyDay, ...]
+    shalas: tuple[ShalaRef, ...]  # staff first, then by name
+    has_teachers: bool
+    is_staff: bool
+    rows: tuple[MyRow, ...]
+    shifts: tuple[Shift, ...]
+    staff: dict[UUID, dict[UUID, str | None]]  # teacher names per shala
+
+
+class GetMySchedule:
+    """SC-03 (ADR-0035): every shala where I am a member, in my zone. One read; my moon city
+    comes from the loaded account (`moon_follow_of`), so no log, rest or 🌸 data is read."""
+
     def __init__(self, schedule: ScheduleRepository, clock: Clock, cities: Cities) -> None:
         self._schedule, self._clock, self._cities = schedule, clock, cities
 
-    async def execute(self, principal: Principal) -> tuple[ShalaClasses, ...]:
-        """The next week of the classes the caller teaches, covers, or has covered, in every
-        shala where they are on the staff; shalas with none are left out. Cancelled ones stay
-        (with their reason). One read."""
-        me, now = principal.account.id, self._clock.now()
-        lo = now.date() - timedelta(days=1)  # a day either side of the UTC date: every today
-        hi = lo + timedelta(days=MY_DAYS + 1)
-        out: list[ShalaClasses] = []
-        for window in await self._schedule.staff_windows(me, lo, hi):
-            zone = _zone(self._cities, window.city)
-            today = local_today(now, zone)
-            end = today + timedelta(days=MY_DAYS - 1)
-            here = ZoneInfo(zone)  # the week is the shala's dates: an online class elsewhere
-            around = _expand(window, self._cities, today - _DAY, end + _DAY)  # may be a day off
-            mine = tuple(
-                MyClass(o, role)
-                for o in around
-                if today <= o.starts_at.astimezone(here).date() <= end
-                and (role := _role(o, me)) is not None
+    async def execute(
+        self,
+        principal: Principal,
+        start: date | None,
+        days: int = MY_DAYS,
+        skip: int = 0,
+        only: Only = Only.ALL,
+    ) -> MySchedule:
+        """`start` None: my today plus `skip` days. Raises `BadWindow`."""
+        if not 1 <= days <= MY_DAYS:
+            raise BadWindow(str(days))
+        account, now = principal.account, self._clock.now()
+        me = account.id
+        moon_city = moon_follow_of(account, self._cities).city.slug
+        known = account.timezone
+        if known is not None:
+            base = _first(start, skip, local_today(now, known))  # a bad window reads nothing
+            lo, hi = base - _READ, base + timedelta(days=days - 1) + _READ
+        else:  # every zone's today is within a day of the UTC date
+            base = now.date() + timedelta(days=skip) if start is None else start
+            lo, hi = base - _DAY - _READ, base + timedelta(days=days) + _READ
+        found: MyWindows = await self._schedule.member_windows(me, lo, hi, moon_city=moon_city)
+        windows = found.windows
+        zone: str = known or (_zone(self._cities, windows[0].city) if windows else "UTC")
+        today = local_today(now, zone)
+        first = _first(start, skip, today)
+        end = first + timedelta(days=days - 1)
+        rows: list[MyRow] = []
+        refs: list[ShalaRef] = []
+        names: dict[UUID, dict[UUID, str | None]] = {}
+        for w in windows:
+            refs.append(
+                ShalaRef(w.shala_id, w.name, w.city, _zone(self._cities, w.city), w.me.staff)
             )
-            if mine:
-                out.append(
-                    ShalaClasses(
-                        window.shala_id,
-                        window.name,
-                        zone,
-                        window.city,
-                        today,
-                        mine,
-                        dict(window.staff),
-                    )
+            names[w.shala_id] = dict(w.staff)
+            cities = {c.id: c.city or w.city for c in w.classes}
+            zones = {c: _zone(self._cities, slug) for c, slug in cities.items()}
+            for o in _expand(w, self._cities, first - _READ, end + _READ, keep_swapped=True):
+                if not first <= local_date(o, zone) <= end:
+                    continue
+                mine = o.teacher_id in found.teachers or (
+                    o.substitute and o.planned_teacher in found.teachers
                 )
-        return tuple(out)
+                row = MyRow(
+                    w.shala_id,
+                    o,
+                    zones[o.class_id],
+                    cities[o.class_id],
+                    _role(o, me),
+                    mine,
+                )
+                if only is Only.TEACHERS and not row.my_teacher:
+                    continue
+                if only is Only.MINE and row.role is None:
+                    continue
+                rows.append(row)
+        rows.sort(
+            key=lambda r: (r.occurrence.starts_at, str(r.shala_id), str(r.occurrence.class_id))
+        )
+        return MySchedule(
+            zone=zone,
+            zone_known=known is not None,
+            today=today,
+            moon_city=moon_city,
+            days=tuple(
+                MyDay(d, d in found.my_moon)
+                for d in (first + timedelta(days=i) for i in range(days))
+            ),
+            shalas=tuple(refs),
+            has_teachers=bool(found.teachers),
+            is_staff=any(r.staff for r in refs),
+            rows=tuple(rows),
+            shifts=shifts({r.zone for r in rows}, zone, first, end),
+            staff=names,
+        )
+
+
+def _first(start: date | None, skip: int, today: date) -> date:
+    """The window's first day: `start`, or `today` plus `skip`; within [today - 7, today + 365]."""
+    first = today + timedelta(days=skip) if start is None else start
+    if not today - BACK <= first <= today + timedelta(days=HORIZON):
+        raise BadWindow(first.isoformat())
+    return first
 
 
 class ListClasses:
@@ -504,4 +597,4 @@ class ClassUseCases:
     add_swap: AddSwap
     remove_swap: RemoveSwap
     adopt: AdoptShalaDayOff
-    mine: GetMyClasses
+    mine: GetMySchedule

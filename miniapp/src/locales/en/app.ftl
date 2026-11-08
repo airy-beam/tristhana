@@ -675,12 +675,43 @@ swap-add = ➕ Add the swap
 swap-remove = 🗑 Undo the swap
 swap-hint = Only classes cancelled for the moon day or a closure move; the rest stay put. Pick the day off or a day without the same class, up to 6 days away.
 swap-failed = That swap doesn't fit: pick the day off or a day without these classes, within 6 days, not a moon day or a closed day.
-# A teacher's own week (SC-02): every shala where they're on the staff, each in its zone.
-my-classes-open = 🧑‍🏫 My classes
-my-classes-title = 🧑‍🏫 My classes
-my-classes-subtitle = The next 7 days, in each shala's time.
-my-classes-empty = No classes of yours in the next 7 days. A class shows here once your shala names you as its teacher.
-my-classes-load-failed = Couldn't load your classes. Try again in a moment.
+# My schedule (SC-03): every shala I'm in, a week at a time, in my zone. { $zone } is "Almaty (UTC+5)".
+my-schedule-open = 🗓 My schedule
+my-schedule-title = 🗓 My schedule, { $range }
+my-schedule-filter = { $f ->
+        [teachers] 👤 My teachers
+        [mine] 🧑‍🏫 I teach
+       *[all] All
+    }
+schedule-zone = Times: { $zone }
+my-schedule-my-moon = 🌙
+my-schedule-my-moon-label = your moon day
+my-schedule-teacher-mark = 👤
+schedule-held-moon = · 🌙
+schedule-moved = ↪ moved from { $day } { $time }
+schedule-swapped-from = 🔁 instead of { $day }
+schedule-swapped-inline = 🔁 { $day }
+schedule-covering-for = { $name } (for { $teacher })
+schedule-shift = ⚠ From { $weekday ->
+        [1] Monday
+        [2] Tuesday
+        [3] Wednesday
+        [4] Thursday
+        [5] Friday
+        [6] Saturday
+       *[7] Sunday
+    }, { $date }, { $where } is { $hours } h { $dir ->
+        [earlier] earlier
+       *[later] later
+    } for you
+my-schedule-empty = { $f ->
+        [teachers] No classes with your teachers this week.
+        [mine] You teach no classes this week.
+       *[all] No classes this week.
+    }
+my-schedule-zone-unknown = Times are in { $zone }. Set your city to see your own time.
+my-schedule-load-failed = Couldn't load your schedule. Try again in a moment.
+# Rows I teach (shown in My schedule with "I teach").
 my-classes-covered = { $name } is covering
 my-classes-covering = you're covering for { $name }
 

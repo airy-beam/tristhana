@@ -8,7 +8,7 @@ dates are the stored observed dates (kshaya included): nothing is recomputed her
 """
 
 from collections.abc import Iterator, Mapping, Sequence, Set
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 from uuid import UUID
@@ -140,6 +140,8 @@ class Occurrence:
     swap_reason: Reason | None = None  # why it left `swapped_from` (moon or closure)
     planned_teacher: UUID | None = None  # the rule's teacher, for "covered by …"
     held: bool = False  # staff chose "hold anyway" (Q126): a later change must keep it
+    moon: bool = False  # `on` is a moon date of the shala's calendar, whatever the policy (SC-03)
+    swapped_to: date | None = None  # kept original on A of a swap: where it went (SC-03)
 
 
 def check_series(series: ClassSeries) -> ClassSeries:
@@ -222,8 +224,10 @@ def expand(
     start: date,
     end: date,
     staff_only: bool,
+    keep_swapped: bool = False,
 ) -> list[Occurrence]:
-    """`staff_only`: whether the viewer may see 1:1 classes (staff do, Q121)."""
+    """`staff_only`: whether the viewer may see 1:1 classes (staff do, Q121). `keep_swapped`
+    (SC-03): also return the auto-cancelled original on a swap's A, naming B in `swapped_to`."""
     swap_to = {s.from_date: s.to_date for s in swaps}
     held = HELD_ON_MOON[policy]
 
@@ -259,34 +263,85 @@ def expand(
                 cancelled = None
             else:
                 cancelled = auto_reason(s, on)
-            swapped_from = swap_reason = None
-            if cancelled in _AUTO and on in swap_to:
-                swapped_from, swap_reason, on = on, cancelled, swap_to[on]
-                cancelled = auto_reason(s, on)  # a safety net: B was checked at creation
-            if not start <= on <= end:
-                continue
-            ends = datetime.combine(on, at) + timedelta(minutes=minutes)
-            out.append(
-                Occurrence(
-                    class_id=s.id,
-                    key=key,
-                    on=on,
-                    start=at,
-                    end=ends.time(),
-                    starts_at=wall_to_utc(on, at, s.zone),
-                    type=s.type,
-                    title=s.title,
-                    online=s.online,
-                    teacher_id=teacher,
-                    substitute=teacher != s.teacher_id,
-                    cancelled=cancelled,
-                    moved=moved,
-                    swapped_from=swapped_from,
-                    planned=s.start,
-                    swap_reason=swap_reason,
-                    planned_teacher=s.teacher_id,
-                    held=status is OverrideStatus.HELD,
-                )
+            target = swap_to.get(on) if cancelled in _AUTO else None
+            keep_a = target is not None and keep_swapped and start <= on <= end
+            if not keep_a and not start <= (on if target is None else target) <= end:
+                continue  # only the window's dates are built (the margin is wide)
+            base = Occurrence(
+                class_id=s.id,
+                key=key,
+                on=on,
+                start=at,
+                end=(datetime.combine(on, at) + timedelta(minutes=minutes)).time(),
+                starts_at=wall_to_utc(on, at, s.zone),
+                type=s.type,
+                title=s.title,
+                online=s.online,
+                teacher_id=teacher,
+                substitute=teacher != s.teacher_id,
+                cancelled=cancelled,
+                moved=moved,
+                swapped_from=None,
+                planned=s.start,
+                planned_teacher=s.teacher_id,
+                held=status is OverrideStatus.HELD,
+                moon=on in moon,
             )
+            if target is None:
+                out.append(base)
+                continue
+            if keep_a:
+                out.append(replace(base, swapped_to=target))
+            if start <= target <= end:
+                out.append(
+                    replace(
+                        base,
+                        on=target,
+                        starts_at=wall_to_utc(target, at, s.zone),
+                        # a safety net: B was checked at creation
+                        cancelled=auto_reason(s, target),
+                        swapped_from=on,
+                        swap_reason=cancelled,
+                        moon=target in moon,
+                    )
+                )
     out.sort(key=lambda o: (o.starts_at, str(o.class_id)))
     return out
+
+
+@dataclass(frozen=True, slots=True)
+class Shift:
+    """A change of (class offset - viewer offset) on `on` (SC-03, Q140). `minutes` > 0: the
+    class comes earlier for the viewer; < 0: later."""
+
+    zone: str
+    on: date
+    minutes: int
+
+
+def offset_gap(zone: str, viewer: str, day: date) -> timedelta:
+    """Class offset - viewer offset at the viewer's local noon of `day`."""
+    noon = datetime.combine(day, time(12), ZoneInfo(viewer))
+    here = noon.utcoffset() or timedelta(0)
+    there = noon.astimezone(ZoneInfo(zone)).utcoffset() or timedelta(0)
+    return there - here
+
+
+def shifts(zones: Set[str], viewer: str, start: date, end: date) -> tuple[Shift, ...]:
+    """Day d against d - 1 for d in [start, end]; both sides moving together gives nothing."""
+    out: list[Shift] = []
+    for zone in sorted(zones):
+        before = offset_gap(zone, viewer, start - timedelta(days=1))
+        day = start
+        while day <= end:
+            gap = offset_gap(zone, viewer, day)
+            if gap != before:
+                out.append(Shift(zone, day, int((gap - before).total_seconds()) // 60))
+            before, day = gap, day + timedelta(days=1)
+    out.sort(key=lambda s: (s.on, s.zone))
+    return tuple(out)
+
+
+def local_date(o: Occurrence, zone: str) -> date:
+    """The date of `o.starts_at` in `zone` (rows sit under the viewer's date)."""
+    return o.starts_at.astimezone(ZoneInfo(zone)).date()

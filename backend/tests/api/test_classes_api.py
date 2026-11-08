@@ -37,7 +37,7 @@ TODAY = date(2026, 11, 7)
 MON, FRI, SAT = date(2026, 11, 9), date(2026, 11, 13), date(2026, 11, 14)
 SCHEDULE_KEYS = {"zone", "city", "moon_policy", "days_off", "days", "occurrences", "closures"}
 DAY_KEYS = {"date", "moon", "day_off", "swap_from"}
-OCCURRENCE_KEYS = {
+SC02_OCCURRENCE_KEYS = {
     "class_id",
     "key",
     "on",
@@ -55,6 +55,9 @@ OCCURRENCE_KEYS = {
     "held",
     "usual_teacher",
 }
+# SC-03 (spec §4): the shala schedule gains `moon` and `swapped_to`; `/me/classes` keeps the
+# SC-02 shape while it is deprecated.
+OCCURRENCE_KEYS = SC02_OCCURRENCE_KEYS | {"moon", "swapped_to"}
 CLASS_KEYS = {
     "id",
     "type",
@@ -537,7 +540,7 @@ def test_my_classes_name_whose_and_who_covers(api: TestClient, storage: InMemory
         "2026-11-07",
     )
     rows = {(c["on"], c["type"]): c for c in one["classes"]}
-    assert set(next(iter(rows.values()))) == OCCURRENCE_KEYS | {"role"}
+    assert set(next(iter(rows.values()))) == SC02_OCCURRENCE_KEYS | {"role"}
     monday = rows[("2026-11-09", "mysore")]
     assert (monday["role"], monday["teacher"]["name"]) == ("covered", "Anna")
     tuesday = rows[("2026-11-10", "led")]

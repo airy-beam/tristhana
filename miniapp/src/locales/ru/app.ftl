@@ -694,12 +694,48 @@ swap-add = ➕ Добавить перенос
 swap-remove = 🗑 Отменить перенос
 swap-hint = Переносятся только занятия, отменённые из-за лунного дня или закрытия, остальные остаются на месте. Выбери выходной или день без такого же занятия, не дальше 6 дней.
 swap-failed = Такой перенос не подходит: выбери выходной или день без таких же занятий в пределах 6 дней, не лунный и не закрытый.
-# Своя неделя учителя (SC-02): все шалы, где он в команде, каждая в своём поясе.
-my-classes-open = 🧑‍🏫 Мои занятия
-my-classes-title = 🧑‍🏫 Мои занятия
-my-classes-subtitle = Ближайшие 7 дней, по времени каждой шалы.
-my-classes-empty = На ближайшие 7 дней твоих занятий нет. Занятие появится здесь, когда шала назначит тебя его учителем.
-my-classes-load-failed = Не получилось загрузить твои занятия. Попробуй чуть позже.
+# Моё расписание (SC-03): все мои шалы по неделям, в моём поясе. { $zone } — «Алматы (UTC+5)».
+my-schedule-open = 🗓 Моё расписание
+my-schedule-title = 🗓 Моё расписание, { $range }
+my-schedule-filter = { $f ->
+        [teachers] 👤 Мои учителя
+        [mine] 🧑‍🏫 Веду
+       *[all] Все
+    }
+schedule-zone = Время: { $zone }
+my-schedule-my-moon = 🌙
+my-schedule-my-moon-label = твой лунный день
+my-schedule-teacher-mark = 👤
+schedule-held-moon = · 🌙
+schedule-moved = ↪ перенесено с { $day } { $time }
+schedule-swapped-from = 🔁 вместо { $day }
+schedule-swapped-inline = 🔁 { $day }
+schedule-covering-for = { $name } (за { $teacher })
+# $hours: 1 час, 2 часа, 5 часов; дробное (0,5, 1,5) — «other» → «часа».
+schedule-shift = ⚠ С { $weekday ->
+        [1] понедельника
+        [2] вторника
+        [3] среды
+        [4] четверга
+        [5] пятницы
+        [6] субботы
+       *[7] воскресенья
+    }, { $date }, { $where } на { $hours } { $hours ->
+        [one] час
+        [few] часа
+        [many] часов
+       *[other] часа
+    } { $dir ->
+        [earlier] раньше
+       *[later] позже
+    } по твоему времени
+my-schedule-empty = { $f ->
+        [teachers] На этой неделе занятий с твоими учителями нет.
+        [mine] На этой неделе ты не ведёшь занятий.
+       *[all] На этой неделе занятий нет.
+    }
+my-schedule-zone-unknown = Время указано по { $zone }. Укажи свой город, чтобы видеть своё время.
+my-schedule-load-failed = Не получилось загрузить расписание. Попробуй чуть позже.
 my-classes-covered = тебя заменяет { $name }
 my-classes-covering = ты заменяешь { $name }
 

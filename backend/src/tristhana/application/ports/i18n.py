@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import date, time
-from typing import Protocol
+from typing import Literal, Protocol
 
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
@@ -13,6 +13,7 @@ class DateArg:
 
     day: date
     with_year: bool = False
+    style: Literal["short", "long"] = "short"  # long: "15 November", "15 ноября" (genitive)
 
 
 @dataclass(frozen=True, slots=True)

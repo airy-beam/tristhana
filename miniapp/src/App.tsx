@@ -23,7 +23,7 @@ const Settings = lazy(() => import("./screens/settings/Settings"));
 const Progression = lazy(() => import("./screens/progression/Progression"));
 const Links = lazy(() => import("./screens/settings/Links"));
 const Students = lazy(() => import("./screens/teachers/Students"));
-const MyClasses = lazy(() => import("./screens/shalas/MyClasses"));
+const MySchedule = lazy(() => import("./screens/shalas/MySchedule"));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -45,12 +45,12 @@ function StudentsRow({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-/** Staff of any shala (SC-02): their own week of classes. */
-function MyClassesRow({ onOpen }: { onOpen: () => void }) {
+/** Anyone in a shala (SC-03): every shala's week, in my zone. */
+function MyScheduleRow({ onOpen }: { onOpen: () => void }) {
   const { data } = useMyShalas();
-  if (!data?.some((s) => s.side === "staff")) return null;
+  if (!data?.length) return null;
   return (
-    <Localized id="my-classes-open">
+    <Localized id="my-schedule-open">
       <button type="button" className="row-button" onClick={onOpen} />
     </Localized>
   );
@@ -67,7 +67,7 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
     | "links"
     | "students"
     | "links-students"
-    | "my-classes"
+    | "my-schedule"
   >("home");
   const home = useCallback(() => {
     setView("home");
@@ -138,9 +138,9 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Students locale={me.locale} onBack={view === "students" ? home : links} />
             </Suspense>
-          ) : me && view === "my-classes" ? (
+          ) : me && view === "my-schedule" ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
-              <MyClasses locale={me.locale} onBack={home} />
+              <MySchedule locale={me.locale} onBack={home} />
             </Suspense>
           ) : me && (view === "settings" || view === "day-off") ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
@@ -198,10 +198,10 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
                 />
               )}
               {me && (
-                <MyClassesRow
+                <MyScheduleRow
                   onOpen={() => {
                     closeTour();
-                    setView("my-classes");
+                    setView("my-schedule");
                   }}
                 />
               )}

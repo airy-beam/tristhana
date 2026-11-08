@@ -1,5 +1,6 @@
 """Shala classes in the bot (SC-02, ADR-0034): a member's read-only week (0-3 from the shala's
-today), a teacher's own next week across their shalas (`/classes`), and the staff quick actions
+today), "My schedule" across every shala in my zone (`/schedule`, `/classes` with *I teach*;
+SC-03, ADR-0035), and the staff quick actions
 on the next 48 h: cancel (after an ask), restore, hold anyway. Silent: no one gets a message
 (Q122). Forms live in the Mini App (Q103). Plain text, no `parse_mode`: titles are user text.
 """
@@ -19,16 +20,17 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from tristhana.application.classes import (
     BadWindow,
     ClassUseCases,
-    MyClass,
+    MyRow,
+    MySchedule,
+    Only,
     Schedule,
-    ShalaClasses,
     Teaching,
 )
 from tristhana.application.policies import NotAllowed, NotFound, Principal
-from tristhana.application.ports.i18n import DateArg, Translator
+from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.storage import Clock
 from tristhana.bots.telegram import classes_callbacks as cb
-from tristhana.bots.telegram import shalas_callbacks
+from tristhana.bots.telegram import settings_callbacks, shalas_callbacks
 from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show, zone_label
 from tristhana.domain.accounts import Account
 from tristhana.domain.classes import (
@@ -40,7 +42,7 @@ from tristhana.domain.classes import (
     Reason,
 )
 from tristhana.domain.locale import Locale
-from tristhana.domain.moon import Cities
+from tristhana.domain.moon import Cities, City
 from tristhana.domain.teacher_links import shown_name
 
 if TYPE_CHECKING:
@@ -52,6 +54,9 @@ PICK_HOURS = 48
 BUDGET = 3800  # characters, under Telegram's 4096 with the note on top
 DASH = "\u2013"  # en dash: 06:00-09:30
 _CONTEXT = {ClassType.MYSORE: "mysore", ClassType.LED: "led", ClassType.PRIVATE: "private"}
+_ONLY: dict[cb.Filter, Only] = {"a": Only.ALL, "t": Only.TEACHERS, "m": Only.MINE}
+_FILTER_KEY = {Only.ALL: "all", Only.TEACHERS: "teachers", Only.MINE: "mine"}
+MAX_SHIFTS = 3
 
 
 def type_name(t: Translator, locale: Locale, type: ClassType) -> str:
@@ -60,6 +65,12 @@ def type_name(t: Translator, locale: Locale, type: ClassType) -> str:
     if context is not None:
         return t.t(locale, f"context-{context}")
     return t.t(locale, "class-type", type=type.value)
+
+
+def _decimal(value: float, locale: Locale) -> str:
+    """A half-hour shift: "0.5" / «0,5» (Fluent selects the plural from the string's default)."""
+    text = f"{value:g}"
+    return text.replace(".", ",") if locale == "ru" else text
 
 
 def _hm(at: datetime) -> str:
@@ -86,7 +97,7 @@ class ScheduleScreens:
     def _day(self, locale: Locale, day: date) -> str:
         return self._t.t(locale, "day-label", rel="other", date=DateArg(day))
 
-    def _zone(self, locale: Locale, s: Schedule | ShalaClasses, day: date) -> str:
+    def _zone(self, locale: Locale, s: Schedule, day: date) -> str:
         return zone_label(self._t, locale, s.zone, day, self._cities.find(s.city))
 
     def _class(self, locale: Locale, o: Occurrence) -> str:
@@ -100,12 +111,10 @@ class ScheduleScreens:
     def _row(
         self,
         principal: Principal,
-        s: Schedule | ShalaClasses,
+        s: Schedule,
         o: Occurrence,
-        role: Teaching | None = None,
     ) -> str:
-        """`06:00-09:30 Mysore · Anna` in the shala's zone; a cancelled one with its reason.
-        `role`: a row of the caller's own week, which names the other teacher instead."""
+        """`06:00-09:30 Mysore · Anna` in the shala's zone; a cancelled one with its reason."""
         locale = principal.account.locale
         here = ZoneInfo(s.zone)
         start = o.starts_at.astimezone(here)
@@ -113,20 +122,11 @@ class ScheduleScreens:
         if length < timedelta(0):  # ends at midnight
             length += timedelta(days=1)
         text = f"{_hm(start)}{DASH}{_hm(start + length)} {self._class(locale, o)}"
-        match role:
-            case None if o.teacher_id is not None:
-                name = self._name(locale, s.staff, o.teacher_id)
-                if o.substitute:
-                    name = self._t.t(locale, "schedule-substitute", name=name)
-                text += f" · {name}"
-            case Teaching.COVERED:
-                name = self._name(locale, s.staff, o.teacher_id)
-                text += " · " + self._t.t(locale, "my-classes-covered", name=name)
-            case Teaching.COVERING if o.planned_teacher is not None:
-                name = self._name(locale, s.staff, o.planned_teacher)
-                text += " · " + self._t.t(locale, "my-classes-covering", name=name)
-            case _:
-                pass
+        if o.teacher_id is not None:
+            name = self._name(locale, s.staff, o.teacher_id)
+            if o.substitute:
+                name = self._t.t(locale, "schedule-substitute", name=name)
+            text += f" · {name}"
         if o.online:
             text += " 🌐"
             mine = principal.account.timezone
@@ -138,9 +138,21 @@ class ScheduleScreens:
                 locale, "schedule-moved", day=self._day(locale, o.key), time=f"{o.planned:%H:%M}"
             )
             text += f" · {moved}"
-        if o.cancelled is not None:
-            reason = self._t.t(locale, "schedule-reason", reason=o.cancelled.value)
-            text = f"❌ {text} ({reason})"
+        return self._marked(locale, o, text)
+
+    def _marked(self, locale: Locale, o: Occurrence, text: str) -> str:
+        """The row marks (expert items 1, 3, 4): 🌙 leads a moon cancellation, ❌ a closure or
+        a manual cancel; a class held on its moon day ends with ` · 🌙`."""
+        if o.cancelled is None:
+            if o.moon:
+                text += " " + self._t.t(locale, "schedule-held-moon")
+            return text
+        reason = self._t.t(locale, "schedule-reason", reason=o.cancelled.value)
+        lead = "🌙" if o.cancelled is Reason.MOON else "❌"
+        text = f"{lead} {text} ({reason})"
+        if o.swapped_to is not None:
+            target = self._day(locale, o.swapped_to)
+            text += " · " + self._t.t(locale, "schedule-swapped-inline", day=target)
         return text
 
     # The week
@@ -225,42 +237,173 @@ class ScheduleScreens:
         rows.append([self._button(locale, "log-back", back)])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
-    # A teacher's own week
+    # My schedule (SC-03)
 
-    async def mine(self, principal: Principal) -> Screen:
-        """`/classes`: the next 7 days of mine in every shala, each in its zone; a button per
-        shala opens its schedule."""
-        locale = principal.account.locale
-        shalas = await self._c.mine.execute(principal)
-        lines = [self._t.t(locale, "my-classes-title")]
-        rows: list[list[InlineKeyboardButton]] = []
-        for s in shalas:
-            lines += ["", f"{s.name} · {self._zone(locale, s, s.today)}"]
-            lines += self._my_days(principal, s, s.classes)
-            rows.append(
-                [self._button(locale, "my-classes-shala", cb.week(s.shala_id, 0), shala=s.name)]
+    async def my(self, principal: Principal, n: int, only: cb.Filter) -> Screen:
+        """Week `n` (0-3) from my today, every shala I'm in, in my zone; memberships, links and
+        my moon city are re-read on every tap."""
+        s = await self._c.mine.execute(principal, None, WEEK, skip=WEEK * n, only=_ONLY[only])
+        return self._my(principal, s, n, only)
+
+    def _my(self, principal: Principal, s: MySchedule, n: int, only: cb.Filter) -> Screen:
+        account = principal.account
+        locale = account.locale
+        if not s.shalas:
+            return Screen(
+                self._t.t(locale, "my-schedule-none"), InlineKeyboardMarkup(inline_keyboard=[])
             )
-        if not shalas:
-            lines.append(self._t.t(locale, "my-classes-empty"))
-        text = "\n".join(lines)
-        if len(text) > BUDGET:  # ten shalas at most: cut at a line, the rest is in the Mini App
-            text = text[: text.rfind("\n", 0, BUDGET)] + "\n…"
-        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
-
-    def _my_days(
-        self, principal: Principal, s: ShalaClasses, mine: tuple[MyClass, ...]
-    ) -> list[str]:
-        locale = principal.account.locale
+        first, last = s.days[0].date, s.days[-1].date
+        span = f"{self._day(locale, first)} {DASH} {self._day(locale, last)}"
+        home = self._cities.find(account.home_city if s.zone_known else s.shalas[0].city)
+        header = zone_label(self._t, locale, s.zone, first, home)
+        lines = [self._t.t(locale, "my-schedule-title", range=span)]
+        if s.zone_known:
+            lines.append(self._t.t(locale, "schedule-zone", zone=header))
+        else:
+            lines.append(self._t.t(locale, "my-schedule-zone-unknown", zone=header))
+        names = {x.id: x.name for x in s.shalas}
+        lines += self._shift_lines(locale, s, names)
+        shift_days = {x.on for x in s.shifts}
+        more = self._t.t(locale, "my-schedule-more")
         here = ZoneInfo(s.zone)
-        lines: list[str] = []
-        day: date | None = None
-        for c in mine:
-            on = c.occurrence.starts_at.astimezone(here).date()
-            if on != day:
-                day = on
-                lines.append(self._day(locale, on))
-            lines.append(f"  {self._row(principal, s, c.occurrence, c.role)}")
-        return lines
+        named = len({r.shala_id for r in s.rows}) > 1
+        for day in s.days:
+            marks = [self._day(locale, day.date)]
+            if day.my_moon:
+                marks.append(self._t.t(locale, "my-schedule-my-moon"))
+            if day.date in shift_days:
+                marks.append("⚠")
+            label = zone_label(self._t, locale, s.zone, day.date, home)
+            if label != header:  # my own DST change inside the week
+                marks.append(f"· {label}")
+            entries = [
+                self._my_row(locale, s, r, named, home)
+                for r in s.rows
+                if r.occurrence.starts_at.astimezone(here).date() == day.date
+            ]
+            if not entries and len(marks) == 1:
+                continue
+            block = [" ".join(marks), *(f"  {e}" for e in entries)]
+            if sum(len(x) + 1 for x in (*lines, *block)) > BUDGET - len(more) - 3:
+                lines += ["…", more]  # the full week is in the Mini App
+                break
+            lines += block
+        if not s.rows:
+            lines.append(self._t.t(locale, "my-schedule-empty", f=_FILTER_KEY[_ONLY[only]]))
+        return Screen("\n".join(lines), self._my_buttons(principal, s, n, only))
+
+    def _shift_lines(self, locale: Locale, s: MySchedule, names: Mapping[UUID, str]) -> list[str]:
+        out: list[str] = []
+        for shift in s.shifts[:MAX_SHIFTS]:
+            rows = [r for r in s.rows if r.zone == shift.zone]
+            shalas = list(dict.fromkeys(r.shala_id for r in rows))
+            if len(shalas) == 1:
+                where = names[shalas[0]]
+            else:
+                where = zone_label(self._t, locale, shift.zone, shift.on, None).split(" (")[0]
+            hours = abs(shift.minutes) / 60
+            out.append(
+                self._t.t(
+                    locale,
+                    "schedule-shift",
+                    weekday=shift.on.isoweekday(),
+                    date=DateArg(shift.on, style="long"),
+                    where=where,
+                    hours=int(hours) if hours.is_integer() else _decimal(hours, locale),
+                    dir="earlier" if shift.minutes > 0 else "later",
+                )
+            )
+        if len(s.shifts) > MAX_SHIFTS:
+            out.append("…")
+        return out
+
+    def _my_row(
+        self, locale: Locale, s: MySchedule, r: MyRow, named: bool, home: City | None
+    ) -> str:
+        """`06:00-09:30 Mysore · Anna 👤 · Ashtanga Almaty · 17:30 Berlin (UTC+1)` in my zone."""
+        o, staff = r.occurrence, s.staff.get(r.shala_id, {})
+        mine = ZoneInfo(s.zone)
+        start = o.starts_at.astimezone(mine)
+        length = datetime.combine(o.on, o.end) - datetime.combine(o.on, o.start)
+        if length < timedelta(0):  # ends at midnight
+            length += timedelta(days=1)
+        text = f"{_hm(start)}{DASH}{_hm(start + length)} {self._class(locale, o)}"
+        match r.role:
+            case Teaching.COVERED:
+                name = self._name(locale, staff, o.teacher_id)
+                text += " · " + self._t.t(locale, "my-classes-covered", name=name)
+            case Teaching.COVERING if o.planned_teacher is not None:
+                name = self._name(locale, staff, o.planned_teacher)
+                text += " · " + self._t.t(locale, "my-classes-covering", name=name)
+            case Teaching.TEACHING | Teaching.COVERING:
+                pass
+            case None if o.teacher_id is not None:
+                name = self._name(locale, staff, o.teacher_id)
+                if o.substitute and o.planned_teacher is not None:
+                    planned = self._name(locale, staff, o.planned_teacher)
+                    name = self._t.t(locale, "schedule-covering-for", name=name, teacher=planned)
+                elif o.substitute:
+                    name = self._t.t(locale, "schedule-substitute", name=name)
+                if r.my_teacher:
+                    name += " " + self._t.t(locale, "my-schedule-teacher-mark")
+                text += f" · {name}"
+            case None:
+                pass
+        if o.online:
+            text += " 🌐"
+        if named:
+            text += f" · {next(x.name for x in s.shalas if x.id == r.shala_id)}"
+        there = o.starts_at.astimezone(ZoneInfo(r.zone))
+        if there.utcoffset() != start.utcoffset():
+            # The class's own wall clock with the offset at that instant (a change night too).
+            at = TimeArg(there.date(), there.time(), r.zone, self._cities.find(r.city))
+            text += " · " + self._t.t(locale, "time-label", time=at)
+        if o.moved and o.on != o.key and o.planned is not None:
+            moved = self._t.t(
+                locale, "schedule-moved", day=self._day(locale, o.key), time=f"{o.planned:%H:%M}"
+            )
+            text += f" · {moved}"
+        if o.swapped_from is not None:
+            text += " · " + self._t.t(
+                locale, "schedule-swapped-from", day=self._day(locale, o.swapped_from)
+            )
+        return self._marked(locale, o, text)
+
+    def _my_buttons(
+        self, principal: Principal, s: MySchedule, n: int, only: cb.Filter
+    ) -> InlineKeyboardMarkup:
+        locale = principal.account.locale
+        shown: list[cb.Filter] = ["a"]
+        if s.has_teachers:
+            shown.append("t")
+        if s.is_staff:
+            shown.append("m")
+        if only not in shown:
+            shown.append(only)
+        filters = [
+            InlineKeyboardButton(
+                text=self._t.t(locale, "my-schedule-filter", f=_FILTER_KEY[_ONLY[f]])
+                + (" ✓" if f == only else ""),
+                callback_data=cb.my_week(n, f),
+            )
+            for f in shown
+        ]
+        rows: list[list[InlineKeyboardButton]] = [filters]
+        nav: list[InlineKeyboardButton] = []
+        if n > 0:
+            nav.append(self._button(locale, "page-prev", cb.my_week(n - 1, only)))
+        if n < cb.WEEKS - 1:
+            nav.append(self._button(locale, "page-next", cb.my_week(n + 1, only)))
+        if nav:
+            rows.append(nav)
+        shalas = [
+            InlineKeyboardButton(text=x.name, callback_data=cb.week(x.id, 0)) for x in s.shalas
+        ]
+        rows += [shalas[i : i + 2] for i in range(0, len(shalas), 2)]
+        if not s.zone_known:
+            city = settings_callbacks.encode(settings_callbacks.SettingsCallback("cities"))
+            rows.append([self._button(locale, "settings-city-button", city)])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _button(self, locale: Locale, key: str, data: str, **args: str) -> InlineKeyboardButton:
         return InlineKeyboardButton(text=self._t.t(locale, key, **args), callback_data=data)
@@ -388,12 +531,20 @@ class ScheduleScreens:
                 return self.change(principal, tap)
             case cb.AdoptDayOff(shala):
                 return self.adopt(principal, shala)
+            case cb.MyWeek(n, only):
+                return self.my(principal, n, only)
 
 
 def register_classes(router: Router, screens: ScheduleScreens) -> None:
+    @router.message(Command("schedule"))
+    async def on_schedule(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
+        screen = await screens.my(Principal(account), 0, "a")
+        return message.answer(screen.text, reply_markup=screen.markup)
+
     @router.message(Command("classes"))
     async def on_classes(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        screen = await screens.mine(Principal(account))
+        """Q137: My schedule with *I teach*."""
+        screen = await screens.my(Principal(account), 0, "m")
         return message.answer(screen.text, reply_markup=screen.markup)
 
     @router.callback_query(F.data.startswith(f"{cb.PREFIX}:"))

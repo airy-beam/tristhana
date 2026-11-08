@@ -2407,6 +2407,306 @@
         "title": "MyClassOut",
         "type": "object"
       },
+      "MyDayOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "my_moon": {
+            "description": "A moon day of my own moon calendar",
+            "title": "My Moon",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "my_moon"
+        ],
+        "title": "MyDayOut",
+        "type": "object"
+      },
+      "MyRowOut": {
+        "properties": {
+          "cancelled": {
+            "anyOf": [
+              {
+                "enum": [
+                  "moon",
+                  "closure",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled"
+          },
+          "city": {
+            "description": "The class's city slug",
+            "title": "City",
+            "type": "string"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "held": {
+            "description": "Staff chose hold anyway: send `held` with a later change",
+            "title": "Held",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "The rule's date: the occurrence's id within its class",
+            "format": "date",
+            "title": "Key",
+            "type": "string"
+          },
+          "moon": {
+            "description": "On a moon date of its shala's calendar, whatever the policy",
+            "title": "Moon",
+            "type": "boolean"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "my_teacher": {
+            "description": "One of my linked teachers teaches it, or is covered",
+            "title": "My Teacher",
+            "type": "boolean"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "planned": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HH:MM: the rule's start, for \"moved from …\"",
+            "title": "Planned"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "teaching",
+                  "covering",
+                  "covered"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "shala_id": {
+            "format": "uuid",
+            "title": "Shala Id",
+            "type": "string"
+          },
+          "start": {
+            "description": "HH:MM in the class zone",
+            "title": "Start",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "substitute": {
+            "title": "Substitute",
+            "type": "boolean"
+          },
+          "swapped_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swapped From"
+          },
+          "swapped_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cancelled here, held on this date instead (My schedule only; null on a shala's schedule, whose day rows name the swap)",
+            "title": "Swapped To"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "usual_teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The class's own teacher"
+          },
+          "zone": {
+            "description": "The class's IANA zone (the second label)",
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_id",
+          "key",
+          "on",
+          "start",
+          "end",
+          "starts_at",
+          "type",
+          "title",
+          "online",
+          "teacher",
+          "substitute",
+          "cancelled",
+          "moved",
+          "swapped_from",
+          "held",
+          "usual_teacher",
+          "moon",
+          "swapped_to",
+          "shala_id",
+          "zone",
+          "city",
+          "role",
+          "my_teacher",
+          "planned"
+        ],
+        "title": "MyRowOut",
+        "type": "object"
+      },
+      "MyScheduleOut": {
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/MyDayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "has_teachers": {
+            "title": "Has Teachers",
+            "type": "boolean"
+          },
+          "is_staff": {
+            "title": "Is Staff",
+            "type": "boolean"
+          },
+          "moon_city": {
+            "title": "Moon City",
+            "type": "string"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/MyRowOut"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "shalas": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleShalaOut"
+            },
+            "title": "Shalas",
+            "type": "array"
+          },
+          "shifts": {
+            "items": {
+              "$ref": "#/components/schemas/ShiftOut"
+            },
+            "title": "Shifts",
+            "type": "array"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "zone": {
+            "description": "The zone times are shown in: mine, or my first shala's",
+            "title": "Zone",
+            "type": "string"
+          },
+          "zone_known": {
+            "title": "Zone Known",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "zone",
+          "zone_known",
+          "today",
+          "moon_city",
+          "days",
+          "shalas",
+          "has_teachers",
+          "is_staff",
+          "shifts",
+          "occurrences"
+        ],
+        "title": "MyScheduleOut",
+        "type": "object"
+      },
       "MyShalaClassesOut": {
         "properties": {
           "classes": {
@@ -2669,139 +2969,15 @@
         "title": "OccurrenceIn",
         "type": "object"
       },
-      "OccurrenceOut": {
-        "properties": {
-          "cancelled": {
-            "anyOf": [
-              {
-                "enum": [
-                  "moon",
-                  "closure",
-                  "cancelled"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cancelled"
-          },
-          "class_id": {
-            "format": "uuid",
-            "title": "Class Id",
-            "type": "string"
-          },
-          "end": {
-            "title": "End",
-            "type": "string"
-          },
-          "held": {
-            "description": "Staff chose hold anyway: send `held` with a later change",
-            "title": "Held",
-            "type": "boolean"
-          },
-          "key": {
-            "description": "The rule's date: the occurrence's id within its class",
-            "format": "date",
-            "title": "Key",
-            "type": "string"
-          },
-          "moved": {
-            "title": "Moved",
-            "type": "boolean"
-          },
-          "on": {
-            "format": "date",
-            "title": "On",
-            "type": "string"
-          },
-          "online": {
-            "title": "Online",
-            "type": "boolean"
-          },
-          "start": {
-            "description": "HH:MM in the class zone",
-            "title": "Start",
-            "type": "string"
-          },
-          "starts_at": {
-            "format": "date-time",
-            "title": "Starts At",
-            "type": "string"
-          },
-          "substitute": {
-            "title": "Substitute",
-            "type": "boolean"
-          },
-          "swapped_from": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Swapped From"
-          },
-          "teacher": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ClassTeacherOut"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ClassTypeName"
-          },
-          "usual_teacher": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ClassTeacherOut"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The class's own teacher"
-          }
-        },
-        "required": [
-          "class_id",
-          "key",
-          "on",
-          "start",
-          "end",
-          "starts_at",
-          "type",
-          "title",
-          "online",
-          "teacher",
-          "substitute",
-          "cancelled",
-          "moved",
-          "swapped_from",
-          "held",
-          "usual_teacher"
+      "Only": {
+        "description": "The \"My schedule\" filters (Q138).",
+        "enum": [
+          "all",
+          "teachers",
+          "mine"
         ],
-        "title": "OccurrenceOut",
-        "type": "object"
+        "title": "Only",
+        "type": "string"
       },
       "PauseOfferOut": {
         "description": "\"For how many days?\" after 🌸 / 🤒 / ✈️ on today or yesterday (WH-01).",
@@ -3522,6 +3698,160 @@
         "title": "ScheduleDayOut",
         "type": "object"
       },
+      "ScheduleOccurrenceOut": {
+        "properties": {
+          "cancelled": {
+            "anyOf": [
+              {
+                "enum": [
+                  "moon",
+                  "closure",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "held": {
+            "description": "Staff chose hold anyway: send `held` with a later change",
+            "title": "Held",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "The rule's date: the occurrence's id within its class",
+            "format": "date",
+            "title": "Key",
+            "type": "string"
+          },
+          "moon": {
+            "description": "On a moon date of its shala's calendar, whatever the policy",
+            "title": "Moon",
+            "type": "boolean"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "start": {
+            "description": "HH:MM in the class zone",
+            "title": "Start",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "substitute": {
+            "title": "Substitute",
+            "type": "boolean"
+          },
+          "swapped_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swapped From"
+          },
+          "swapped_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cancelled here, held on this date instead (My schedule only; null on a shala's schedule, whose day rows name the swap)",
+            "title": "Swapped To"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "usual_teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The class's own teacher"
+          }
+        },
+        "required": [
+          "class_id",
+          "key",
+          "on",
+          "start",
+          "end",
+          "starts_at",
+          "type",
+          "title",
+          "online",
+          "teacher",
+          "substitute",
+          "cancelled",
+          "moved",
+          "swapped_from",
+          "held",
+          "usual_teacher",
+          "moon",
+          "swapped_to"
+        ],
+        "title": "ScheduleOccurrenceOut",
+        "type": "object"
+      },
       "ScheduleOut": {
         "properties": {
           "city": {
@@ -3568,7 +3898,7 @@
           },
           "occurrences": {
             "items": {
-              "$ref": "#/components/schemas/OccurrenceOut"
+              "$ref": "#/components/schemas/ScheduleOccurrenceOut"
             },
             "title": "Occurrences",
             "type": "array"
@@ -3589,6 +3919,40 @@
           "closures"
         ],
         "title": "ScheduleOut",
+        "type": "object"
+      },
+      "ScheduleShalaOut": {
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "staff": {
+            "title": "Staff",
+            "type": "boolean"
+          },
+          "zone": {
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "city",
+          "zone",
+          "staff"
+        ],
+        "title": "ScheduleShalaOut",
         "type": "object"
       },
       "SeriesCount": {
@@ -4129,6 +4493,45 @@
         ],
         "title": "SharedDay",
         "type": "string"
+      },
+      "ShiftOut": {
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "minutes": {
+            "description": "> 0: the class is that much earlier for me; < 0: later",
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "shala_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Shala Ids",
+            "type": "array"
+          },
+          "zone": {
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone",
+          "city",
+          "shala_ids",
+          "on",
+          "minutes"
+        ],
+        "title": "ShiftOut",
+        "type": "object"
       },
       "StartBody": {
         "properties": {
@@ -4865,7 +5268,8 @@
     },
     "/api/v1/me/classes": {
       "get": {
-        "description": "The next 7 days of the classes I teach, cover, or have covered, in every shala where I\nam on the staff (by name; shalas with none are left out). Times as the schedule's.",
+        "deprecated": true,
+        "description": "Deprecated (Q137): use `/me/schedule?only=mine`. The next 7 days of the classes I teach,\ncover, or have covered, grouped per shala (shalas with none left out), from my today.",
         "operationId": "get_my_classes_api_v1_me_classes_get",
         "responses": {
           "200": {
@@ -6821,6 +7225,105 @@
         ]
       }
     },
+    "/api/v1/me/schedule": {
+      "get": {
+        "description": "SC-03: every shala where I am a member, in my zone (ADR-0035).",
+        "operationId": "get_my_schedule_api_v1_me_schedule_get",
+        "parameters": [
+          {
+            "description": "My date; default my today",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "My date; default my today",
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 7,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Only",
+              "default": "all"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get My Schedule",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
     "/api/v1/me/shalas": {
       "get": {
         "operationId": "get_my_shalas_api_v1_me_shalas_get",
@@ -8250,7 +8753,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OccurrenceOut"
+                  "$ref": "#/components/schemas/ScheduleOccurrenceOut"
                 }
               }
             },

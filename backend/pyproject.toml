@@ -102,6 +102,22 @@ dev = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "My schedule reads no log, rest, check-in or moon use case (SC-03, ADR-0035)"
+type = "forbidden"
+# Direct imports: `ports.storage` (the Clock) re-exports every port, so indirect paths exist
+# without any read; the port shape (`member_windows`) is what keeps the data out.
+allow_indirect_imports = true
+source_modules = ["tristhana.application.classes"]
+forbidden_modules = [
+    "tristhana.application.ports.practice",
+    "tristhana.application.ports.diary",
+    "tristhana.application.ports.check_in",
+    "tristhana.application.ports.rest_periods",
+    "tristhana.application.ports.progression",
+    "tristhana.application.moon",
+]
+
+[[tool.importlinter.contracts]]
 name = "The teacher view holds no key"
 type = "forbidden"
 allow_indirect_imports = true

@@ -24,6 +24,7 @@ from tristhana.domain.moon import (
     City,
     MoonDay,
     MoonFollow,
+    UnknownLocation,
     home_dates,
 )
 from tristhana.domain.notifications import (
@@ -35,10 +36,6 @@ from tristhana.domain.notifications import (
 
 DEFAULT_WINDOW = timedelta(days=60)
 _PAIRING = timedelta(days=1)  # MD-04: the home city's same phase within ±1 day
-
-
-class UnknownLocation(ValueError):
-    pass
 
 
 _FOLLOWS = {"teacher": FOLLOW_TEACHER, "shala": FOLLOW_SHALA}
