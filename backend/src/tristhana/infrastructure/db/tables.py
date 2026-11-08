@@ -21,6 +21,7 @@ from sqlalchemy import (
     Table,
     Text,
     Time,
+    UniqueConstraint,
     Uuid,
     func,
     text,
@@ -406,6 +407,11 @@ shala = Table(
     CheckConstraint("moon_city ~ '^[a-z][a-z-]{0,23}$'", name="moon_city"),
     CheckConstraint("join_code ~ '^[A-Za-z0-9]{16}$'", name="join_code"),
     Index("shala_owner_id_idx", "owner_id"),
+    # SC-02: ISO weekday bitmask as `account.day_off` (NULL = not set); the moon policy (Q117).
+    Column("days_off", SmallInteger()),
+    Column("moon_policy", Text(), nullable=False, server_default=text("'closed'")),
+    CheckConstraint("days_off BETWEEN 0 AND 127", name="days_off"),
+    CheckConstraint("moon_policy IN ('closed', 'pranayama', 'open')", name="moon_policy"),
 )
 
 shala_staff = Table(
@@ -444,4 +450,105 @@ shala_staff_invite = Table(
     CheckConstraint("code ~ '^[A-Za-z0-9]{16}$'", name="code"),
     CheckConstraint(f"role = ANY ({_ROLES})", name="role"),
     Index("shala_staff_invite_shala_id_idx", "shala_id"),
+)
+
+# SC-02 (ADR-0034): a weekly rule as columns, expanded at read time. The teacher is a staff row
+# of the same shala; removing them (or deleting their account) leaves the class untaught:
+# `ON DELETE SET NULL (teacher_id)` (Postgres >= 15) keeps `shala_id`. No account FK.
+_CLASS_TYPES = "'mysore', 'led', 'private', 'conference', 'pranayama', 'chanting', 'workshop'"
+
+
+def _teacher_fk(table: str) -> ForeignKeyConstraint:
+    return ForeignKeyConstraint(
+        ["shala_id", "teacher_id"],
+        [shala_staff.c.shala_id, shala_staff.c.account_id],
+        name=f"{table}_teacher_id_fkey",
+        ondelete="SET NULL (teacher_id)",
+    )
+
+
+shala_class = Table(
+    "shala_class",
+    metadata,
+    Column("id", Uuid(), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("type", Text(), nullable=False),
+    Column("title", Text()),
+    Column("online", Boolean(), nullable=False, server_default=text("false")),
+    Column("city", Text()),  # NULL = the shala's; only an online class names one (Q124)
+    Column("teacher_id", Uuid()),
+    Column("start_time", Time(), nullable=False),  # wall clock in the class zone
+    Column("minutes", SmallInteger(), nullable=False),
+    Column("weekdays", SmallInteger(), nullable=False),  # ISO bitmask; 0 = one date
+    Column("every", SmallInteger(), nullable=False, server_default=text("1")),  # weeks
+    Column("starts_on", Date(), nullable=False),
+    Column("ends_on", Date()),
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    _teacher_fk("shala_class"),
+    CheckConstraint(f"type IN ({_CLASS_TYPES})", name="type"),
+    CheckConstraint("char_length(title) BETWEEN 1 AND 48", name="title"),
+    CheckConstraint("city IS NULL OR (city ~ '^[a-z][a-z-]{0,23}$' AND online)", name="city"),
+    CheckConstraint(
+        "minutes BETWEEN 15 AND 480 AND extract(epoch FROM start_time) / 60 + minutes <= 1440",
+        name="minutes",
+    ),
+    CheckConstraint("weekdays BETWEEN 0 AND 127", name="weekdays"),
+    CheckConstraint("every BETWEEN 1 AND 4", name="every"),
+    CheckConstraint("ends_on IS NULL OR (ends_on >= starts_on AND weekdays > 0)", name="ends_on"),
+    Index("shala_class_shala_id_starts_on_idx", "shala_id", "starts_on"),
+)
+
+# One row per (class, rule date): cancelled, held anyway (Q126), or changed (move, time,
+# length, substitute). `shala_id` is denormalised for the window read and the teacher FK.
+shala_class_override = Table(
+    "shala_class_override",
+    metadata,
+    Column("class_id", Uuid(), ForeignKey(shala_class.c.id, ondelete="CASCADE"), nullable=False),
+    Column("on_date", Date(), nullable=False),
+    Column("shala_id", Uuid(), nullable=False),
+    Column("status", Text()),
+    Column("moved_to", Date()),
+    Column("start_time", Time()),
+    Column("minutes", SmallInteger()),
+    Column("teacher_id", Uuid()),
+    _timestamp("updated_at"),
+    PrimaryKeyConstraint("class_id", "on_date"),
+    _teacher_fk("shala_class_override"),
+    CheckConstraint("status IN ('cancelled', 'held')", name="status"),
+    CheckConstraint("abs(moved_to - on_date) <= 6", name="moved_to"),
+    CheckConstraint(
+        "minutes BETWEEN 15 AND 480 AND (start_time IS NULL OR "
+        "extract(epoch FROM start_time) / 60 + minutes <= 1440)",
+        name="minutes",
+    ),
+    CheckConstraint(
+        "status IS DISTINCT FROM 'cancelled' OR (moved_to IS NULL AND start_time IS NULL "
+        "AND minutes IS NULL AND teacher_id IS NULL)",
+        name="cancelled",
+    ),
+    Index("shala_class_override_shala_id_on_date_idx", "shala_id", "on_date"),
+)
+
+shala_closure = Table(
+    "shala_closure",
+    metadata,
+    Column("id", Uuid(), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("start_date", Date(), nullable=False),
+    Column("end_date", Date(), nullable=False),  # inclusive
+    CheckConstraint("end_date >= start_date AND end_date - start_date <= 91", name="dates"),
+    Index("shala_closure_shala_id_end_date_idx", "shala_id", "end_date"),
+)
+
+# Q125: A's auto-cancelled classes are held on B.
+shala_swap = Table(
+    "shala_swap",
+    metadata,
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("from_date", Date(), nullable=False),
+    Column("to_date", Date(), nullable=False),
+    PrimaryKeyConstraint("shala_id", "from_date"),
+    UniqueConstraint("shala_id", "to_date", name="shala_swap_shala_id_to_date_key"),
+    CheckConstraint("from_date <> to_date AND abs(to_date - from_date) <= 6", name="dates"),
 )

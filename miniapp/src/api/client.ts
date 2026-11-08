@@ -1310,3 +1310,125 @@ export function useShalaStaffInvite(id: string) {
     },
   });
 }
+
+// Shala classes (SC-02, ADR-0034). Every write refreshes the shala's schedule.
+
+export type Schedule = components["schemas"]["ScheduleOut"];
+export type Occurrence = components["schemas"]["OccurrenceOut"];
+export type ClassType = components["schemas"]["ClassIn"]["type"];
+export type NewClass = components["schemas"]["ClassIn"];
+export type OccurrenceChange = components["schemas"]["OccurrenceIn"];
+export type MoonPolicy = components["schemas"]["ShalaOut"]["moon_policy"];
+
+const scheduleKey = (id: string) => [...SHALAS_KEY, id, "schedule"];
+
+export function useSchedule(id: string, from: string, days: number, enabled = true) {
+  return useQuery({
+    enabled,
+    staleTime: 60_000,
+    queryKey: [...scheduleKey(id), from, days],
+    queryFn: async (): Promise<Schedule> => {
+      const { data, error, response } = await api.GET("/api/v1/shalas/{id}/schedule", {
+        params: { path: { id }, query: { from, days } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+function useScheduleWrite<T, R>(id: string, write: (vars: T) => Promise<R>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: write,
+    onSuccess: () => client.invalidateQueries({ queryKey: scheduleKey(id) }),
+  });
+}
+
+export function useCreateClass(id: string) {
+  return useScheduleWrite(id, async (body: NewClass) => {
+    const { data, error, response } = await api.POST("/api/v1/shalas/{id}/classes", {
+      params: { path: { id } },
+      body,
+    });
+    if (!data) fail(response, error);
+    return data;
+  });
+}
+
+/** The whole series, every date (hard delete; its exceptions go with it). */
+export function useDeleteClass(id: string) {
+  return useScheduleWrite(id, async (classId: string) => {
+    const { error, response } = await api.DELETE("/api/v1/shalas/{id}/classes/{class_id}", {
+      params: { path: { id, class_id: classId } },
+    });
+    if (!response.ok) fail(response, error);
+  });
+}
+
+/** Cancel, hold anyway (Q126), move or substitute one occurrence; `key` is the rule's date. */
+export function useSetOccurrence(id: string) {
+  return useScheduleWrite(
+    id,
+    async ({ classId, key, body }: { classId: string; key: string; body: OccurrenceChange }) => {
+      const { data, error, response } = await api.PUT(
+        "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}",
+        { params: { path: { id, class_id: classId, key } }, body },
+      );
+      if (!data) fail(response, error);
+      return data;
+    },
+  );
+}
+
+/** Restore: the occurrence follows its rule again. */
+export function useClearOccurrence(id: string) {
+  return useScheduleWrite(id, async ({ classId, key }: { classId: string; key: string }) => {
+    const { error, response } = await api.DELETE(
+      "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}",
+      { params: { path: { id, class_id: classId, key } } },
+    );
+    if (!response.ok) fail(response, error);
+  });
+}
+
+export function useAddClosure(id: string) {
+  return useScheduleWrite(id, async (body: { start: string; end: string }) => {
+    const { data, error, response } = await api.POST("/api/v1/shalas/{id}/closures", {
+      params: { path: { id } },
+      body,
+    });
+    if (!data) fail(response, error);
+    return data;
+  });
+}
+
+export function useRemoveClosure(id: string) {
+  return useScheduleWrite(id, async (closureId: string) => {
+    const { error, response } = await api.DELETE("/api/v1/shalas/{id}/closures/{closure_id}", {
+      params: { path: { id, closure_id: closureId } },
+    });
+    if (!response.ok) fail(response, error);
+  });
+}
+
+/** Q125: hold `from`'s moon-day (or closure) classes on `to`. */
+export function useAddSwap(id: string) {
+  return useScheduleWrite(id, async (body: { from: string; to: string }) => {
+    const { data, error, response } = await api.POST("/api/v1/shalas/{id}/swaps", {
+      params: { path: { id } },
+      body,
+    });
+    if (!data) fail(response, error);
+    return data;
+  });
+}
+
+export function useRemoveSwap(id: string) {
+  return useScheduleWrite(id, async (from: string) => {
+    const { error, response } = await api.DELETE("/api/v1/shalas/{id}/swaps/{from}", {
+      params: { path: { id, from } },
+    });
+    if (!response.ok) fail(response, error);
+  });
+}

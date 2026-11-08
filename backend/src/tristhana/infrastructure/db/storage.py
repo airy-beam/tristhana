@@ -15,6 +15,7 @@ from uuid import UUID
 from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.check_in import CheckInRepository
+from tristhana.application.ports.classes import ClassCaps, ClassDraft
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
 from tristhana.application.ports.export import ExportRepository, Owned
@@ -57,6 +58,7 @@ from tristhana.application.ports.teacher_view import (
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.domain.accounts import IdentityKey, NewAccount, ProfileChange, ProfileUpdate
 from tristhana.domain.check_in import CheckInTag
+from tristhana.domain.classes import Override, Swap
 from tristhana.domain.days import DayLog
 from tristhana.domain.moon import MoonDay
 from tristhana.domain.notifications import NotificationSettings, StoredSettings
@@ -69,6 +71,7 @@ from tristhana.domain.shalas import ShalaPatch, ShalaRole
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
+    from tristhana.infrastructure.db.classes import SqlScheduleRepository
     from tristhana.infrastructure.db.days import Cipher
     from tristhana.infrastructure.db.shalas import SqlShalaRepository
 
@@ -106,10 +109,12 @@ class PostgresStorage:
         self._teacher_links: TeacherLinkRepository | None = None
         self._teacher_view: TeacherViewRepository | None = None
         self._shalas: SqlShalaRepository | None = None
+        self._schedule: SqlScheduleRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
         from tristhana.infrastructure.db.check_in import SqlCheckInRepository
+        from tristhana.infrastructure.db.classes import SqlScheduleRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.diary import SqlDiaryRepository
         from tristhana.infrastructure.db.engine import build_engine
@@ -142,6 +147,7 @@ class PostgresStorage:
         self._teacher_links = SqlTeacherLinkRepository(self._engine)
         self._teacher_view = SqlTeacherViewRepository(self._engine)
         self._shalas = SqlShalaRepository(self._engine)
+        self._schedule = SqlScheduleRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -242,6 +248,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._shalas
 
+    @property
+    def schedule(self) -> SqlScheduleRepository:
+        if self._schedule is None:
+            raise RuntimeError("storage not started")
+        return self._schedule
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -276,6 +288,10 @@ class UnconfiguredStorage:
     @property
     def shalas(self) -> _UnavailableShalas:
         return _UnavailableShalas()
+
+    @property
+    def schedule(self) -> _UnavailableSchedule:
+        return _UnavailableSchedule()
 
     @property
     def days(self) -> DayLogRepository:
@@ -641,4 +657,51 @@ class _UnavailableShalas:
         raise StorageUnavailable("not configured")
 
     async def prune_invites(self, now: datetime) -> int:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableSchedule:
+    async def window(self, shala: UUID, me: UUID, start: date, end: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def classes_of(self, shala: UUID, me: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def create(
+        self, shala: UUID, me: UUID, draft: ClassDraft, caps: ClassCaps, today: date
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def update(
+        self, shala: UUID, me: UUID, class_id: UUID, draft: ClassDraft, from_date: date | None
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, shala: UUID, me: UUID, class_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def set_override(
+        self, shala: UUID, me: UUID, class_id: UUID, override: Override
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def clear_override(
+        self, shala: UUID, me: UUID, class_id: UUID, on_date: date
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def add_closure(
+        self, shala: UUID, me: UUID, start: date, end: date, caps: ClassCaps, today: date
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def remove_closure(self, shala: UUID, me: UUID, closure: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def add_swap(
+        self, shala: UUID, me: UUID, swap: Swap, caps: ClassCaps, today: date
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def remove_swap(self, shala: UUID, me: UUID, from_date: date) -> NoReturn:
         raise StorageUnavailable("not configured")

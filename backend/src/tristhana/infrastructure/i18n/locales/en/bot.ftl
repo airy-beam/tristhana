@@ -782,3 +782,47 @@ shala-caps = No more shalas or staff links for now: that's the limit.
 moon-source-shala = 🏛 Same as your shala, { $shala }. You can choose another city.
 moon-follow-shala = 🏛 Follow my shala ({ $shala })
 settings-moon-line-shala = 🌙 Moon days: 📍 { $city } (as { $shala })
+
+## Shala classes (SC-02). Times are wall clock in the shala's zone; { $zone } is "Almaty (UTC+5)".
+## { $day } arrives formatted ("Fri, Nov 13"). No one gets a message about a change (Q122).
+class-type = { $type ->
+        [conference] Conference
+        [pranayama] Pranayama
+        [chanting] Chanting
+       *[workshop] Workshop
+    }
+class-led-hint = Often Friday or Sunday
+schedule-open = 🗓 Schedule
+schedule-title = 🗓 { $shala }: schedule, { $range }
+schedule-zone = Times: { $zone }
+schedule-your-time = ({ $time } your time)
+schedule-moon-day = 🌙 Moon day
+schedule-reason = { $reason ->
+        [moon] moon day
+        [closure] shala closed
+       *[cancelled] cancelled
+    }
+schedule-swap = 🔁 Instead of { $day }
+schedule-swapped-to = 🔁 { $class }: moved to { $day } ({ $reason })
+schedule-moved = ↪ moved from { $day } { $time }
+schedule-substitute = { $name } (substitute)
+schedule-day-off = 😌 Shala day off
+schedule-empty = No classes these days.
+shala-moon-policy = { $p ->
+        [pranayama] 🌙 Moon days: pranayama, chanting and talks only
+        [open] 🌙 Moon days: classes as usual
+       *[closed] 🌙 Moon days: the shala is closed
+    }
+shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use Hold anyway or Cancel.
+shala-day-off-line = 😌 Day off: { $days }
+shala-day-off-adopt = 😌 Make { $days } my day off too
+class-cancel-ask = Cancel { $class } on { $day }? It shows on the schedule. No one gets a message.
+class-cancel = ❌ Cancel this class
+class-restore = ↩ Restore
+class-hold = ✅ Hold anyway
+class-cancel-pick = ❌ Cancel a class…
+class-pick-title = Which class? The next 48 hours:
+class-pick-empty = No classes in the next 48 hours.
+class-gone = This class has just changed. Here's the current schedule.
+class-caps = That's the limit for this shala for now.
+class-invalid = That change doesn't fit the schedule.

@@ -22,13 +22,12 @@ def _table(name: str) -> Any:
     return table
 
 
-def test_0021_follows_0020_and_is_the_head() -> None:
+def test_0021_follows_0020() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0021")
 
     assert revision is not None
     assert revision.down_revision == "0020"
-    assert script.get_current_head() == "0021"
 
 
 @pytest.mark.parametrize("name", NEW_TABLES)
@@ -49,6 +48,8 @@ def test_the_shala_columns() -> None:
         "join_code",
         "created_at",
         "updated_at",
+        "days_off",  # SC-02 (0022)
+        "moon_policy",
     }
     assert [c.name for c in shala.primary_key.columns] == ["id"]
     assert shala.c.moon_city.nullable is True

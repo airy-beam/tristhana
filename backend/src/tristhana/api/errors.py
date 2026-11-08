@@ -31,6 +31,8 @@ type ErrorCode = Literal[
     "unknown_city",
     "invalid_settings",
     "invalid_day_off",
+    "class_caps",
+    "invalid_class",
     "invalid_rest_period",
     "invalid_progression",
     "progression_changed",

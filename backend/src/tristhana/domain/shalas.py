@@ -12,6 +12,7 @@ from enum import StrEnum
 from uuid import UUID
 
 from tristhana.domain.accounts import normalize_display_name
+from tristhana.domain.classes import MoonPolicy
 from tristhana.domain.moon import ShalaMoon
 from tristhana.domain.teacher_links import CODE_LENGTH
 
@@ -64,6 +65,8 @@ class ShalaPatch:
     city: str | _Keep = KEEP
     online: bool | _Keep = KEEP
     moon_city: str | _Keep | None = KEEP
+    days_off: frozenset[int] | _Keep | None = KEEP  # SC-02: None = not set
+    moon_policy: MoonPolicy | _Keep = KEEP  # SC-02 (Q117)
 
 
 @dataclass(frozen=True, slots=True)

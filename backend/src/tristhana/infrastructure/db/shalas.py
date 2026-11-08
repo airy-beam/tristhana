@@ -62,8 +62,10 @@ from tristhana.application.ports.shalas import (
     StaffPreview,
     StudentsPage,
 )
+from tristhana.domain.classes import MoonPolicy
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES
 from tristhana.domain.shalas import KEEP, JoinState, Membership, ShalaPatch, ShalaRole
+from tristhana.infrastructure.db.accounts import from_mask, to_mask
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.tables import (
     account,
@@ -183,6 +185,8 @@ def _card_columns() -> tuple[Any, ...]:
         _S.c.moon_city,
         _S.c.online,
         _S.c.owner_id,
+        _S.c.days_off,
+        _S.c.moon_policy,
         _ordered_staff(_S.c.id).label("staff"),
         _student_count(_S.c.id).label("students_total"),
     )
@@ -238,6 +242,8 @@ def _card(row: Row[Any], me: Membership, staff: tuple[StaffMember, ...] | None =
         staff=_staff_members(row.staff, row.owner_id) if staff is None else staff,
         students_total=row.students_total,
         me=me,
+        days_off=from_mask(row.days_off) or None,
+        moon_policy=MoonPolicy(row.moon_policy),
     )
 
 
@@ -393,14 +399,18 @@ class SqlShalaRepository:
         )
         values: dict[str, Any] = {
             name: value
-            for name in ("name", "city", "online", "moon_city")
+            for name in ("name", "city", "online", "moon_city", "moon_policy")
             if (value := getattr(patch, name)) is not KEEP
         }
+        if patch.days_off is None or isinstance(patch.days_off, frozenset):
+            values["days_off"] = to_mask(patch.days_off or None)
         changed = (
             update(_S)
             .where(_S.c.id == shala, _if(cur, cur.c.me_code.in_(_allowed(can_edit_shala))))
             .values(**values, updated_at=func.now())
-            .returning(_S.c.name, _S.c.city, _S.c.moon_city, _S.c.online)
+            .returning(
+                _S.c.name, _S.c.city, _S.c.moon_city, _S.c.online, _S.c.days_off, _S.c.moon_policy
+            )
             .cte("changed")
         )
         stmt = select(
@@ -409,6 +419,8 @@ class SqlShalaRepository:
             changed.c.city.label("new_city"),
             changed.c.moon_city.label("new_moon_city"),
             changed.c.online.label("new_online"),
+            changed.c.days_off.label("new_days_off"),
+            changed.c.moon_policy.label("new_moon_policy"),
             exists(select(changed.c.name)).label("done"),
         ).outerjoin_from(cur, changed, true())
         row = await self._one(stmt)
@@ -423,6 +435,8 @@ class SqlShalaRepository:
             city=row.new_city,
             moon_city=row.new_moon_city,
             online=row.new_online,
+            days_off=from_mask(row.new_days_off) or None,
+            moon_policy=MoonPolicy(row.new_moon_policy),
         )
         return Guarded(membership, True, new)
 
@@ -916,3 +930,11 @@ class SqlShalaRepository:
         )
         async with connection(self._engine) as conn:
             return len((await conn.execute(stmt)).all())
+
+
+# For the SC-02 schedule repository: the same membership code and guards.
+member_columns = _member
+membership_of = _membership
+allowed_codes = _allowed
+guard = _if
+staff_json = _ordered_staff

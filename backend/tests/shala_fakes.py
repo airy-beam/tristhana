@@ -30,7 +30,7 @@ port (`tristhana.application.ports.shalas`):
 """
 
 import asyncio
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -112,6 +112,8 @@ class ShalaRow:
     owner_id: UUID
     join_code: str
     created_at: datetime
+    days_off: frozenset[int] | None = None  # SC-02: None = not set
+    moon_policy: str = "closed"  # SC-02 (Q117)
 
 
 @dataclass
@@ -158,8 +160,21 @@ class InMemoryShalas:
         online: bool = False,
         code: str = "J0inC0deJ0inC0de",
         roles: frozenset[ShalaRole] = frozenset({ShalaRole.TEACHER}),
+        days_off: frozenset[int] | None = None,
+        moon_policy: str = "closed",
     ) -> ShalaRow:
-        row = ShalaRow(uuid4(), name, city, moon_city, online, owner, code, self._next_instant())
+        row = ShalaRow(
+            uuid4(),
+            name,
+            city,
+            moon_city,
+            online,
+            owner,
+            code,
+            self._next_instant(),
+            days_off,
+            moon_policy,
+        )
         self.shalas[row.id] = row
         self.staff[(row.id, owner)] = MemberRow(roles, JOINED_ON, row.created_at)
         return row
@@ -257,9 +272,13 @@ class InMemoryShalas:
         if m is None or not can_edit_shala(m):
             return Guarded(m, False)
         row = self.shalas[shala]
-        for name in ("name", "city", "online", "moon_city"):
-            value = getattr(patch, name)
-            if repr(value) != "KEEP":
+        for name in ("name", "city", "online", "moon_city", "days_off", "moon_policy"):
+            value = getattr(patch, name, "KEEP")  # SC-02's fields exist once it does
+            if repr(value) != "KEEP" and value != "KEEP":
+                if name == "moon_policy" and value is not None:
+                    value = str(value)
+                if name == "days_off" and value is not None:
+                    value = frozenset(value)
                 setattr(row, name, value)
         self.writes.append("update")
         return Guarded(m, True, self._card(shala, me))
@@ -487,6 +506,9 @@ class InMemoryShalas:
             )
             for a in self.staff_of(shala)
         )
+        sc02: dict[str, Any] = {}
+        if "days_off" in {f.name for f in fields(ShalaCard)}:  # SC-02's card fields
+            sc02 = {"days_off": row.days_off, "moon_policy": row.moon_policy}
         return ShalaCard(
             id=row.id,
             name=row.name,
@@ -497,6 +519,7 @@ class InMemoryShalas:
             staff=staff,
             students_total=len(self.students_of(shala)),
             me=m,
+            **sc02,
         )
 
     def _drop(self, shala: UUID) -> None:

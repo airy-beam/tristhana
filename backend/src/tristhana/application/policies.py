@@ -112,6 +112,27 @@ def can_edit_shala(actor: Membership | None) -> bool:
     return _manages(actor)
 
 
+_SCHEDULE_ROLES = frozenset({ShalaRole.ADMIN, ShalaRole.TEACHER, ShalaRole.OFFICE})
+
+
+def can_view_schedule(actor: Membership | None) -> bool:
+    """SC-02: any member reads the schedule."""
+    return actor is not None
+
+
+def can_view_private_classes(actor: Membership | None) -> bool:
+    """1:1 classes are for staff only (Q121): their titles may name a person."""
+    return actor is not None and actor.staff
+
+
+def can_manage_schedule(actor: Membership | None) -> bool:
+    """Classes, exceptions, closures and swaps (Q118); the day off and the moon policy stay
+    with `can_edit_shala`."""
+    return (
+        actor is not None and actor.staff and (actor.owner or bool(actor.roles & _SCHEDULE_ROLES))
+    )
+
+
 def can_rotate_join_link(actor: Membership | None) -> bool:
     return _manages(actor)
 

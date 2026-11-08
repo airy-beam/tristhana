@@ -7,6 +7,7 @@ import {
   useMe,
   useMoonCities,
   useRemoveShalaMember,
+  useSetDayOff,
   useSetStaffRoles,
   useShala,
   useShalaJoinLink,
@@ -14,6 +15,7 @@ import {
   useShalaStudents,
   useUpdateShala,
   SHALA_STUDENTS_PAGE,
+  type MoonPolicy,
   type Shala,
   type ShalaLink,
   type ShalaRole,
@@ -28,6 +30,8 @@ import {
 } from "../../telegram";
 import { cityName } from "../MoonCard";
 import { labelOf } from "../settings/zones";
+import ShalaSchedule from "./ShalaSchedule";
+import { WEEKDAYS } from "./scheduleText";
 
 const ROLES: ShalaRole[] = ["teacher", "assistant", "office", "admin"];
 type Me = Shala["me"];
@@ -79,7 +83,9 @@ export default function ShalaScreen({ id, onBack }: Props) {
         <>
           <h1>{l10n.getString("shala-title", { shala: shala.name })}</h1>
           <Place shala={shala} locale={locale} />
+          <DayOffOffer shala={shala} />
           {manages(shala.me) && <Edit shala={shala} locale={locale} />}
+          <ShalaSchedule shala={shala} />
           <Staff shala={shala} />
           {isStaff(shala.me) && <Students shala={shala} />}
           {isStaff(shala.me) && <JoinLink shala={shala} />}
@@ -102,10 +108,13 @@ function Place({ shala, locale }: { shala: Shala; locale: Locale }) {
     ? l10n.getString("shala-online")
     : l10n.getString("shala-place", { city: shala.city.name });
   const zone = labelOf(shala.zone, shala.city.name);
+  const days = useDaysOff()(shala.days_off);
   return (
     <section className="card">
       <p>{l10n.getString("shala-time", { place, zone })}</p>
       <p>{l10n.getString("shala-moon-line", { city: moonName })}</p>
+      <p>{l10n.getString("shala-moon-policy", { p: shala.moon_policy })}</p>
+      {days && <p>{plain(l10n.getString("shala-day-off-line", { days }))}</p>}
       {manages(shala.me) && (
         <Localized id="shala-moon-shared">
           <p className="hint small" />
@@ -114,6 +123,41 @@ function Place({ shala, locale }: { shala: Shala; locale: Locale }) {
     </section>
   );
 }
+
+/** "Saturday", "Saturday, Sunday"; null when the shala has no day off. */
+function useDaysOff() {
+  const { l10n } = useLocalization();
+  return (days: number[] | null) =>
+    days && days.length > 0
+      ? days.map((d) => l10n.getString("day-off-weekday", { d })).join(", ")
+      : null;
+}
+
+/** Q109, Q119: no silent inheritance; one tap for a member who never chose a day off. */
+function DayOffOffer({ shala }: { shala: Shala }) {
+  const { l10n } = useLocalization();
+  const me = useMe().data;
+  const setDayOff = useSetDayOff();
+  const days = useDaysOff()(shala.days_off);
+  if (!me || me.day_off !== null || !days || !shala.days_off) return null;
+  const off = shala.days_off;
+  return (
+    <button
+      type="button"
+      className="row-button"
+      disabled={setDayOff.isPending}
+      onClick={() => {
+        haptics.impact("light");
+        setDayOff.mutate(off);
+      }}
+    >
+      {plain(l10n.getString("shala-day-off-adopt", { days }))}
+    </button>
+  );
+}
+
+const MOON_POLICIES: MoonPolicy[] = ["closed", "pranayama", "open"];
+const DAYS_OFF_MAX = 2;
 
 const NAME_MAX = 64;
 const SAME = ""; // the moon select's "same as the shala's city"
@@ -128,7 +172,18 @@ function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
   const [city, setCity] = useState(shala.city.slug);
   const [online, setOnline] = useState(shala.online);
   const [moon, setMoon] = useState(shala.moon_city ?? SAME);
+  const [policy, setPolicy] = useState<MoonPolicy>(shala.moon_policy);
+  const [daysOff, setDaysOff] = useState<number[]>(shala.days_off ?? []);
   const [blank, setBlank] = useState(false);
+  const toggleDay = (d: number) => {
+    setDaysOff((now) =>
+      now.includes(d)
+        ? now.filter((x) => x !== d)
+        : now.length < DAYS_OFF_MAX
+          ? [...now, d].sort((a, b) => a - b)
+          : now,
+    );
+  };
   const submit = (e: SyntheticEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -138,7 +193,14 @@ function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
     setBlank(false);
     haptics.impact("light");
     update.mutate(
-      { name, city, online, moon_city: moon === SAME ? null : moon },
+      {
+        name,
+        city,
+        online,
+        moon_city: moon === SAME ? null : moon,
+        moon_policy: policy,
+        days_off: daysOff,
+      },
       {
         onSuccess: () => {
           setOpen(false);
@@ -223,6 +285,43 @@ function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
           ))}
         </select>
       </label>
+      <label className="label">
+        <Localized id="shala-moon-policy-label">
+          <span />
+        </Localized>
+        <select
+          value={policy}
+          onChange={(e) => {
+            setPolicy(e.target.value as MoonPolicy);
+          }}
+        >
+          {MOON_POLICIES.map((p) => (
+            <option key={p} value={p}>
+              {l10n.getString("shala-moon-policy-option", { p })}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Localized id="shala-moon-policy-note">
+        <p className="hint small" />
+      </Localized>
+      <fieldset className="weekdays">
+        <Localized id="shala-day-off-label">
+          <legend className="label" />
+        </Localized>
+        {WEEKDAYS.map((d) => (
+          <label key={d} className="toggle">
+            <input
+              type="checkbox"
+              checked={daysOff.includes(d)}
+              onChange={() => {
+                toggleDay(d);
+              }}
+            />
+            {l10n.getString("day-off-weekday", { d })}
+          </label>
+        ))}
+      </fieldset>
       <Localized id="shala-roles-save">
         <button type="submit" className="row-button" disabled={update.isPending} />
       </Localized>

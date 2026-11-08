@@ -43,8 +43,11 @@ SHALA_KEYS = {
     "staff",
     "students_total",
     "me",
+    "days_off",  # SC-02
+    "moon_policy",
 }
 TEACHER, ASSISTANT, OFFICE, ADMIN = "teacher", "assistant", "office", "admin"
+SC02_PARAMETERS = {"class_id", "key", "closure_id", "from", "days"}  # SC-02 schedule routes
 
 
 def _routes(shala: UUID, account: UUID) -> list[tuple[str, str, dict[str, Any] | None]]:
@@ -131,7 +134,7 @@ def test_create_returns_201_with_the_card(api: TestClient, storage: InMemoryStor
     assert body["city"] == {"slug": "almaty", "name": "Almaty"}
     assert body["zone"] == "Asia/Almaty"  # IANA; the client builds the label
     assert (body["online"], body["moon_city"]) == (False, None)
-    assert body["me"] == {"owner": True, "roles": [TEACHER], "student": False}
+    assert body["me"] == {"owner": True, "roles": [TEACHER], "student": False, "schedule": True}
     assert body["staff"] == [{"id": str(me), "name": "Ash", "owner": True, "roles": [TEACHER]}]
     assert body["students_total"] == 0
 
@@ -205,7 +208,12 @@ def test_a_student_sees_staff_but_no_students(api: TestClient, storage: InMemory
 
     assert card.status_code == 200
     assert card.json()["students_total"] is None
-    assert card.json()["me"] == {"owner": False, "roles": [], "student": True}
+    assert card.json()["me"] == {
+        "owner": False,
+        "roles": [],
+        "student": True,
+        "schedule": False,
+    }
     assert [s["name"] for s in card.json()["staff"]] == ["Anna"]
     assert "Bea" not in card.text
     assert (students.status_code, students.json()) == (403, {"code": "not_allowed"})
@@ -545,7 +553,14 @@ def test_no_shala_route_takes_a_code(api: TestClient) -> None:
         assert "join" not in path.lower() or path.endswith("/join-link"), path
         for operation in paths[path].values():
             names = {p["name"] for p in operation.get("parameters", [])}
-            assert names <= {"id", "account_id", "Authorization", "offset", "limit"}, (
+            assert names <= {
+                "id",
+                "account_id",
+                "Authorization",
+                "offset",
+                "limit",
+                *SC02_PARAMETERS,
+            }, (
                 path,
                 names,
             )

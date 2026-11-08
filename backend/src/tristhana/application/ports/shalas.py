@@ -10,6 +10,7 @@ from datetime import date, datetime
 from typing import Protocol
 from uuid import UUID
 
+from tristhana.domain.classes import MoonPolicy
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonFollow
 from tristhana.domain.shalas import JoinState, Membership, ShalaPatch, ShalaRole
@@ -59,6 +60,8 @@ class ShalaCard:
     staff: tuple[StaffMember, ...]  # oldest first, at most MAX_STAFF
     students_total: int | None
     me: Membership
+    days_off: frozenset[int] | None = None  # SC-02: None = not set
+    moon_policy: MoonPolicy = MoonPolicy.CLOSED  # SC-02 (Q117)
 
 
 @dataclass(frozen=True, slots=True)
