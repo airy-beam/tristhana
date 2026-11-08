@@ -377,6 +377,452 @@
         "title": "CityOut",
         "type": "object"
       },
+      "ClassIn": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Online classes only; null = the shala's",
+            "title": "City"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "every": {
+            "default": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Every",
+            "type": "integer"
+          },
+          "minutes": {
+            "maximum": 480.0,
+            "minimum": 15.0,
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "online": {
+            "default": false,
+            "title": "Online",
+            "type": "boolean"
+          },
+          "start": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "teacher_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 48,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "weekdays": {
+            "description": "ISO, Monday = 1; empty = one date",
+            "items": {
+              "$ref": "#/components/schemas/Weekday"
+            },
+            "title": "Weekdays",
+            "type": "array"
+          }
+        },
+        "required": [
+          "type",
+          "start",
+          "minutes",
+          "weekdays",
+          "starts_on"
+        ],
+        "title": "ClassIn",
+        "type": "object"
+      },
+      "ClassOut": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "every": {
+            "title": "Every",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "rrule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "RFC 5545 RRULE (weekly), null for one date",
+            "title": "Rrule"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "teacher_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Weekdays",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "online",
+          "city",
+          "teacher_id",
+          "start",
+          "minutes",
+          "weekdays",
+          "every",
+          "starts_on",
+          "ends_on",
+          "rrule"
+        ],
+        "title": "ClassOut",
+        "type": "object"
+      },
+      "ClassPatchIn": {
+        "description": "Fields not sent stay. `from`: the change applies from that date (a new series).",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "every": {
+            "anyOf": [
+              {
+                "maximum": 4.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "maximum": 480.0,
+                "minimum": 15.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "online": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Online"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HourMinute"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          },
+          "teacher_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 48,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTypeName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "weekdays": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Weekday"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekdays"
+          }
+        },
+        "title": "ClassPatchIn",
+        "type": "object"
+      },
+      "ClassTeacherOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ClassTeacherOut",
+        "type": "object"
+      },
+      "ClassTypeName": {
+        "enum": [
+          "mysore",
+          "led",
+          "private",
+          "conference",
+          "pranayama",
+          "chanting",
+          "workshop"
+        ],
+        "type": "string"
+      },
+      "ClosureIn": {
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "ClosureIn",
+        "type": "object"
+      },
+      "ClosureOut": {
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "id"
+        ],
+        "title": "ClosureOut",
+        "type": "object"
+      },
       "ContextCounts": {
         "properties": {
           "led": {
@@ -856,6 +1302,8 @@
           "unknown_city",
           "invalid_settings",
           "invalid_day_off",
+          "class_caps",
+          "invalid_class",
           "invalid_rest_period",
           "invalid_progression",
           "progression_changed",
@@ -1126,6 +1574,10 @@
         ],
         "title": "HintOut",
         "type": "object"
+      },
+      "HourMinute": {
+        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+        "type": "string"
       },
       "InviteIn": {
         "properties": {
@@ -1714,6 +2166,14 @@
         "title": "MoonPatchBody",
         "type": "object"
       },
+      "MoonPolicyName": {
+        "enum": [
+          "closed",
+          "pranayama",
+          "open"
+        ],
+        "type": "string"
+      },
       "MoonSettings": {
         "properties": {
           "at": {
@@ -1800,6 +2260,191 @@
           "name"
         ],
         "title": "MoonTeacher",
+        "type": "object"
+      },
+      "MyClassOut": {
+        "properties": {
+          "cancelled": {
+            "anyOf": [
+              {
+                "enum": [
+                  "moon",
+                  "closure",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "held": {
+            "description": "Staff chose hold anyway: send `held` with a later change",
+            "title": "Held",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "The rule's date: the occurrence's id within its class",
+            "format": "date",
+            "title": "Key",
+            "type": "string"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "role": {
+            "description": "Mine as planned; I substitute (`usual_teacher` is whose); someone substitutes for me (`teacher` is who)",
+            "enum": [
+              "teaching",
+              "covering",
+              "covered"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "start": {
+            "description": "HH:MM in the class zone",
+            "title": "Start",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "substitute": {
+            "title": "Substitute",
+            "type": "boolean"
+          },
+          "swapped_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swapped From"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "usual_teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The class's own teacher"
+          }
+        },
+        "required": [
+          "class_id",
+          "key",
+          "on",
+          "start",
+          "end",
+          "starts_at",
+          "type",
+          "title",
+          "online",
+          "teacher",
+          "substitute",
+          "cancelled",
+          "moved",
+          "swapped_from",
+          "held",
+          "usual_teacher",
+          "role"
+        ],
+        "title": "MyClassOut",
+        "type": "object"
+      },
+      "MyShalaClassesOut": {
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/MyClassOut"
+            },
+            "title": "Classes",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shala_id": {
+            "format": "uuid",
+            "title": "Shala Id",
+            "type": "string"
+          },
+          "today": {
+            "description": "The shala's",
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "zone": {
+            "description": "The shala's IANA zone",
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shala_id",
+          "name",
+          "zone",
+          "today",
+          "classes"
+        ],
+        "title": "MyShalaClassesOut",
         "type": "object"
       },
       "MyShalaOut": {
@@ -1952,6 +2597,210 @@
           }
         },
         "title": "NotificationSettingsPatch",
+        "type": "object"
+      },
+      "OccurrenceIn": {
+        "properties": {
+          "minutes": {
+            "anyOf": [
+              {
+                "maximum": 480.0,
+                "minimum": 15.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Move to this date (±6 days)",
+            "title": "On"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HourMinute"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cancelled",
+                  "held"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "teacher_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A substitute",
+            "title": "Teacher Id"
+          }
+        },
+        "title": "OccurrenceIn",
+        "type": "object"
+      },
+      "OccurrenceOut": {
+        "properties": {
+          "cancelled": {
+            "anyOf": [
+              {
+                "enum": [
+                  "moon",
+                  "closure",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "held": {
+            "description": "Staff chose hold anyway: send `held` with a later change",
+            "title": "Held",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "The rule's date: the occurrence's id within its class",
+            "format": "date",
+            "title": "Key",
+            "type": "string"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "start": {
+            "description": "HH:MM in the class zone",
+            "title": "Start",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "substitute": {
+            "title": "Substitute",
+            "type": "boolean"
+          },
+          "swapped_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swapped From"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "usual_teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The class's own teacher"
+          }
+        },
+        "required": [
+          "class_id",
+          "key",
+          "on",
+          "start",
+          "end",
+          "starts_at",
+          "type",
+          "title",
+          "online",
+          "teacher",
+          "substitute",
+          "cancelled",
+          "moved",
+          "swapped_from",
+          "held",
+          "usual_teacher"
+        ],
+        "title": "OccurrenceOut",
         "type": "object"
       },
       "PauseOfferOut": {
@@ -2634,6 +3483,114 @@
         "title": "Runs",
         "type": "object"
       },
+      "ScheduleDayOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "day_off": {
+            "title": "Day Off",
+            "type": "boolean"
+          },
+          "moon": {
+            "description": "🌙 shows under every moon policy",
+            "title": "Moon",
+            "type": "boolean"
+          },
+          "swap_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "This day holds that date's moon-day classes",
+            "title": "Swap From"
+          }
+        },
+        "required": [
+          "date",
+          "moon",
+          "day_off",
+          "swap_from"
+        ],
+        "title": "ScheduleDayOut",
+        "type": "object"
+      },
+      "ScheduleOut": {
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "closures": {
+            "description": "Closures touching the window",
+            "items": {
+              "$ref": "#/components/schemas/ClosureOut"
+            },
+            "title": "Closures",
+            "type": "array"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleDayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "days_off": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Off"
+          },
+          "moon_policy": {
+            "enum": [
+              "closed",
+              "pranayama",
+              "open"
+            ],
+            "title": "Moon Policy",
+            "type": "string"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceOut"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "zone": {
+            "description": "The shala's IANA zone",
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone",
+          "city",
+          "moon_policy",
+          "days_off",
+          "days",
+          "occurrences",
+          "closures"
+        ],
+        "title": "ScheduleOut",
+        "type": "object"
+      },
       "SeriesCount": {
         "properties": {
           "number": {
@@ -2834,6 +3791,11 @@
             "title": "Roles",
             "type": "array"
           },
+          "schedule": {
+            "description": "May manage classes (SC-02, Q118)",
+            "title": "Schedule",
+            "type": "boolean"
+          },
           "student": {
             "title": "Student",
             "type": "boolean"
@@ -2842,7 +3804,8 @@
         "required": [
           "owner",
           "roles",
-          "student"
+          "student",
+          "schedule"
         ],
         "title": "ShalaMeOut",
         "type": "object"
@@ -2851,6 +3814,21 @@
         "properties": {
           "city": {
             "$ref": "#/components/schemas/ShalaCityOut"
+          },
+          "days_off": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ISO weekdays; null = not set (SC-02)",
+            "title": "Days Off"
           },
           "id": {
             "format": "uuid",
@@ -2871,6 +3849,9 @@
             ],
             "description": "null = the same as the city",
             "title": "Moon City"
+          },
+          "moon_policy": {
+            "$ref": "#/components/schemas/MoonPolicyName"
           },
           "name": {
             "title": "Name",
@@ -2915,7 +3896,9 @@
           "moon_city",
           "staff",
           "students_total",
-          "me"
+          "me",
+          "days_off",
+          "moon_policy"
         ],
         "title": "ShalaOut",
         "type": "object"
@@ -2933,6 +3916,23 @@
             ],
             "title": "City"
           },
+          "days_off": {
+            "anyOf": [
+              {
+                "items": {
+                  "maximum": 7.0,
+                  "minimum": 1.0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "At most 2; null or [] = not set",
+            "title": "Days Off"
+          },
           "moon_city": {
             "anyOf": [
               {
@@ -2944,6 +3944,16 @@
             ],
             "description": "null = the same as the city",
             "title": "Moon City"
+          },
+          "moon_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoonPolicyName"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "anyOf": [
@@ -3458,6 +4468,46 @@
         "title": "SummaryOut",
         "type": "object"
       },
+      "SwapIn": {
+        "properties": {
+          "from": {
+            "format": "date",
+            "title": "From",
+            "type": "string"
+          },
+          "to": {
+            "format": "date",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "SwapIn",
+        "type": "object"
+      },
+      "SwapOut": {
+        "properties": {
+          "from": {
+            "format": "date",
+            "title": "From",
+            "type": "string"
+          },
+          "to": {
+            "format": "date",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "SwapOut",
+        "type": "object"
+      },
       "TeacherOut": {
         "properties": {
           "id": {
@@ -3541,6 +4591,11 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "Weekday": {
+        "maximum": 7.0,
+        "minimum": 1.0,
+        "type": "integer"
       }
     },
     "securitySchemes": {
@@ -3805,6 +4860,57 @@
         "summary": "Patch Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/classes": {
+      "get": {
+        "description": "The next 7 days of the classes I teach, cover, or have covered, in every shala where I\nam on the staff (by name; shalas with none are left out). Times as the schedule's.",
+        "operationId": "get_my_classes_api_v1_me_classes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyShalaClassesOut"
+                  },
+                  "title": "Response Get My Classes Api V1 Me Classes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get My Classes",
+        "tags": [
+          "classes"
         ]
       }
     },
@@ -6596,6 +7702,821 @@
         ]
       }
     },
+    "/api/v1/shalas/{id}/classes": {
+      "get": {
+        "operationId": "get_classes_api_v1_shalas__id__classes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClassOut"
+                  },
+                  "title": "Response Get Classes Api V1 Shalas  Id  Classes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Classes",
+        "tags": [
+          "classes"
+        ]
+      },
+      "post": {
+        "operationId": "post_class_api_v1_shalas__id__classes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/classes/{class_id}": {
+      "delete": {
+        "description": "Idempotent; hard. Its exceptions go with it.",
+        "operationId": "delete_class_api_v1_shalas__id__classes__class_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Class",
+        "tags": [
+          "classes"
+        ]
+      },
+      "patch": {
+        "description": "A new id after a split with `from`.",
+        "operationId": "patch_class_api_v1_shalas__id__classes__class_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassPatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Patch Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}": {
+      "delete": {
+        "description": "Restore: the occurrence follows its rule again. Idempotent.",
+        "operationId": "delete_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Occurrence",
+        "tags": [
+          "classes"
+        ]
+      },
+      "put": {
+        "description": "`key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,\nor name a substitute; silent (Q122).",
+        "operationId": "put_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OccurrenceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OccurrenceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Occurrence",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/closures": {
+      "post": {
+        "operationId": "post_closure_api_v1_shalas__id__closures_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClosureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClosureOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Closure",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/closures/{closure_id}": {
+      "delete": {
+        "operationId": "delete_closure_api_v1_shalas__id__closures__closure_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "closure_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Closure Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Closure",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
     "/api/v1/shalas/{id}/join-link": {
       "post": {
         "operationId": "post_join_link_api_v1_shalas__id__join_link_post",
@@ -6691,6 +8612,108 @@
         "summary": "Post Join Link",
         "tags": [
           "shalas"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/schedule": {
+      "get": {
+        "operationId": "get_schedule_api_v1_shalas__id__schedule_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Shala-local date",
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "description": "Shala-local date",
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 31,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Schedule",
+        "tags": [
+          "classes"
         ]
       }
     },
@@ -7201,6 +9224,206 @@
         "summary": "Delete Student",
         "tags": [
           "shalas"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/swaps": {
+      "post": {
+        "description": "Q125: hold the auto-cancelled classes of `from` on `to` (the day off, or a day without\na class of the same type; not a moon day, not closed; ±6 days).",
+        "operationId": "post_swap_api_v1_shalas__id__swaps_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwapIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Swap",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/swaps/{from}": {
+      "delete": {
+        "operationId": "delete_swap_api_v1_shalas__id__swaps__from__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Swap",
+        "tags": [
+          "classes"
         ]
       }
     }

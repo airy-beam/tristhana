@@ -3,6 +3,7 @@ from typing import Protocol
 
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.check_in import CheckInRepository
+from tristhana.application.ports.classes import ScheduleRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
 from tristhana.application.ports.export import ExportRepository
@@ -73,6 +74,9 @@ class Storage(Protocol):
 
     @property
     def shalas(self) -> ShalaRepository: ...
+
+    @property
+    def schedule(self) -> ScheduleRepository: ...
 
 
 class Clock(Protocol):

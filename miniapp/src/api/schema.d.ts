@@ -67,6 +67,27 @@ export interface paths {
         patch: operations["patch_me_api_v1_me_patch"];
         trace?: never;
     };
+    "/api/v1/me/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Classes
+         * @description The next 7 days of the classes I teach, cover, or have covered, in every shala where I
+         *     am on the staff (by name; shalas with none are left out). Times as the schedule's.
+         */
+        get: operations["get_my_classes_api_v1_me_classes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/day-off": {
         parameters: {
             query?: never;
@@ -679,6 +700,107 @@ export interface paths {
         patch: operations["patch_shala_api_v1_shalas__id__patch"];
         trace?: never;
     };
+    "/api/v1/shalas/{id}/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Classes */
+        get: operations["get_classes_api_v1_shalas__id__classes_get"];
+        put?: never;
+        /** Post Class */
+        post: operations["post_class_api_v1_shalas__id__classes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shalas/{id}/classes/{class_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Class
+         * @description Idempotent; hard. Its exceptions go with it.
+         */
+        delete: operations["delete_class_api_v1_shalas__id__classes__class_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Class
+         * @description A new id after a split with `from`.
+         */
+        patch: operations["patch_class_api_v1_shalas__id__classes__class_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Occurrence
+         * @description `key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,
+         *     or name a substitute; silent (Q122).
+         */
+        put: operations["put_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__put"];
+        post?: never;
+        /**
+         * Delete Occurrence
+         * @description Restore: the occurrence follows its rule again. Idempotent.
+         */
+        delete: operations["delete_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shalas/{id}/closures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Closure */
+        post: operations["post_closure_api_v1_shalas__id__closures_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shalas/{id}/closures/{closure_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Closure */
+        delete: operations["delete_closure_api_v1_shalas__id__closures__closure_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shalas/{id}/join-link": {
         parameters: {
             query?: never;
@@ -690,6 +812,23 @@ export interface paths {
         put?: never;
         /** Post Join Link */
         post: operations["post_join_link_api_v1_shalas__id__join_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shalas/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Schedule */
+        get: operations["get_schedule_api_v1_shalas__id__schedule_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -766,6 +905,44 @@ export interface paths {
          * @description Idempotent; the caller's own id is leaving.
          */
         delete: operations["delete_student_api_v1_shalas__id__students__account_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shalas/{id}/swaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Swap
+         * @description Q125: hold the auto-cancelled classes of `from` on `to` (the day off, or a day without
+         *     a class of the same type; not a moon day, not closed; ±6 days).
+         */
+        post: operations["post_swap_api_v1_shalas__id__swaps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shalas/{id}/swaps/{from}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Swap */
+        delete: operations["delete_swap_api_v1_shalas__id__swaps__from__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -928,6 +1105,152 @@ export interface components {
             slug: string;
             /** Timezone */
             timezone: string;
+        };
+        /** ClassIn */
+        ClassIn: {
+            /**
+             * City
+             * @description Online classes only; null = the shala's
+             */
+            city?: string | null;
+            /** Ends On */
+            ends_on?: string | null;
+            /**
+             * Every
+             * @default 1
+             */
+            every: number;
+            /** Minutes */
+            minutes: number;
+            /**
+             * Online
+             * @default false
+             */
+            online: boolean;
+            start: components["schemas"]["HourMinute"];
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /** Teacher Id */
+            teacher_id?: string | null;
+            /** Title */
+            title?: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /**
+             * Weekdays
+             * @description ISO, Monday = 1; empty = one date
+             */
+            weekdays: components["schemas"]["Weekday"][];
+        };
+        /** ClassOut */
+        ClassOut: {
+            /** City */
+            city: string | null;
+            /** Ends On */
+            ends_on: string | null;
+            /** Every */
+            every: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Minutes */
+            minutes: number;
+            /** Online */
+            online: boolean;
+            /**
+             * Rrule
+             * @description RFC 5545 RRULE (weekly), null for one date
+             */
+            rrule: string | null;
+            /** Start */
+            start: string;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /** Teacher Id */
+            teacher_id: string | null;
+            /** Title */
+            title: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /** Weekdays */
+            weekdays: number[];
+        };
+        /**
+         * ClassPatchIn
+         * @description Fields not sent stay. `from`: the change applies from that date (a new series).
+         */
+        ClassPatchIn: {
+            /** City */
+            city?: string | null;
+            /** Ends On */
+            ends_on?: string | null;
+            /** Every */
+            every?: number | null;
+            /** From */
+            from?: string | null;
+            /** Minutes */
+            minutes?: number | null;
+            /** Online */
+            online?: boolean | null;
+            start?: components["schemas"]["HourMinute"] | null;
+            /** Starts On */
+            starts_on?: string | null;
+            /** Teacher Id */
+            teacher_id?: string | null;
+            /** Title */
+            title?: string | null;
+            type?: components["schemas"]["ClassTypeName"] | null;
+            /** Weekdays */
+            weekdays?: components["schemas"]["Weekday"][] | null;
+        };
+        /** ClassTeacherOut */
+        ClassTeacherOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string | null;
+        };
+        /** @enum {string} */
+        ClassTypeName: "mysore" | "led" | "private" | "conference" | "pranayama" | "chanting" | "workshop";
+        /** ClosureIn */
+        ClosureIn: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** ClosureOut */
+        ClosureOut: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
         };
         /** ContextCounts */
         ContextCounts: {
@@ -1152,7 +1475,7 @@ export interface components {
             retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -1245,6 +1568,7 @@ export interface components {
             /** Series */
             series: string;
         };
+        HourMinute: string;
         /** InviteIn */
         InviteIn: {
             /**
@@ -1488,6 +1812,8 @@ export interface components {
             /** Offsets */
             offsets?: (1 | 3 | 7)[] | null;
         };
+        /** @enum {string} */
+        MoonPolicyName: "closed" | "pranayama" | "open";
         /** MoonSettings */
         MoonSettings: {
             /**
@@ -1529,6 +1855,87 @@ export interface components {
             id: string;
             /** Name */
             name: string | null;
+        };
+        /** MyClassOut */
+        MyClassOut: {
+            /** Cancelled */
+            cancelled: ("moon" | "closure" | "cancelled") | null;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** End */
+            end: string;
+            /**
+             * Held
+             * @description Staff chose hold anyway: send `held` with a later change
+             */
+            held: boolean;
+            /**
+             * Key
+             * Format: date
+             * @description The rule's date: the occurrence's id within its class
+             */
+            key: string;
+            /** Moved */
+            moved: boolean;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** Online */
+            online: boolean;
+            /**
+             * Role
+             * @description Mine as planned; I substitute (`usual_teacher` is whose); someone substitutes for me (`teacher` is who)
+             * @enum {string}
+             */
+            role: "teaching" | "covering" | "covered";
+            /**
+             * Start
+             * @description HH:MM in the class zone
+             */
+            start: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Substitute */
+            substitute: boolean;
+            /** Swapped From */
+            swapped_from: string | null;
+            teacher: components["schemas"]["ClassTeacherOut"] | null;
+            /** Title */
+            title: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /** @description The class's own teacher */
+            usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
+        };
+        /** MyShalaClassesOut */
+        MyShalaClassesOut: {
+            /** Classes */
+            classes: components["schemas"]["MyClassOut"][];
+            /** Name */
+            name: string;
+            /**
+             * Shala Id
+             * Format: uuid
+             */
+            shala_id: string;
+            /**
+             * Today
+             * Format: date
+             * @description The shala's
+             */
+            today: string;
+            /**
+             * Zone
+             * @description The shala's IANA zone
+             */
+            zone: string;
         };
         /** MyShalaOut */
         MyShalaOut: {
@@ -1578,6 +1985,76 @@ export interface components {
             moon?: components["schemas"]["MoonPatchBody"] | null;
             practice?: components["schemas"]["PracticePatchBody"] | null;
             quiet?: components["schemas"]["Quiet"] | null;
+        };
+        /** OccurrenceIn */
+        OccurrenceIn: {
+            /** Minutes */
+            minutes?: number | null;
+            /**
+             * On
+             * @description Move to this date (±6 days)
+             */
+            on?: string | null;
+            start?: components["schemas"]["HourMinute"] | null;
+            /** Status */
+            status?: ("cancelled" | "held") | null;
+            /**
+             * Teacher Id
+             * @description A substitute
+             */
+            teacher_id?: string | null;
+        };
+        /** OccurrenceOut */
+        OccurrenceOut: {
+            /** Cancelled */
+            cancelled: ("moon" | "closure" | "cancelled") | null;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** End */
+            end: string;
+            /**
+             * Held
+             * @description Staff chose hold anyway: send `held` with a later change
+             */
+            held: boolean;
+            /**
+             * Key
+             * Format: date
+             * @description The rule's date: the occurrence's id within its class
+             */
+            key: string;
+            /** Moved */
+            moved: boolean;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** Online */
+            online: boolean;
+            /**
+             * Start
+             * @description HH:MM in the class zone
+             */
+            start: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Substitute */
+            substitute: boolean;
+            /** Swapped From */
+            swapped_from: string | null;
+            teacher: components["schemas"]["ClassTeacherOut"] | null;
+            /** Title */
+            title: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /** @description The class's own teacher */
+            usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
         };
         /**
          * PauseOfferOut
@@ -1837,6 +2314,52 @@ export interface components {
              */
             longest: number;
         };
+        /** ScheduleDayOut */
+        ScheduleDayOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Day Off */
+            day_off: boolean;
+            /**
+             * Moon
+             * @description 🌙 shows under every moon policy
+             */
+            moon: boolean;
+            /**
+             * Swap From
+             * @description This day holds that date's moon-day classes
+             */
+            swap_from: string | null;
+        };
+        /** ScheduleOut */
+        ScheduleOut: {
+            /** City */
+            city: string;
+            /**
+             * Closures
+             * @description Closures touching the window
+             */
+            closures: components["schemas"]["ClosureOut"][];
+            /** Days */
+            days: components["schemas"]["ScheduleDayOut"][];
+            /** Days Off */
+            days_off: number[] | null;
+            /**
+             * Moon Policy
+             * @enum {string}
+             */
+            moon_policy: "closed" | "pranayama" | "open";
+            /** Occurrences */
+            occurrences: components["schemas"]["OccurrenceOut"][];
+            /**
+             * Zone
+             * @description The shala's IANA zone
+             */
+            zone: string;
+        };
         /** SeriesCount */
         SeriesCount: {
             /**
@@ -1929,12 +2452,22 @@ export interface components {
             owner: boolean;
             /** Roles */
             roles: components["schemas"]["Role"][];
+            /**
+             * Schedule
+             * @description May manage classes (SC-02, Q118)
+             */
+            schedule: boolean;
             /** Student */
             student: boolean;
         };
         /** ShalaOut */
         ShalaOut: {
             city: components["schemas"]["ShalaCityOut"];
+            /**
+             * Days Off
+             * @description ISO weekdays; null = not set (SC-02)
+             */
+            days_off: number[] | null;
             /**
              * Id
              * Format: uuid
@@ -1946,6 +2479,7 @@ export interface components {
              * @description null = the same as the city
              */
             moon_city: string | null;
+            moon_policy: components["schemas"]["MoonPolicyName"];
             /** Name */
             name: string;
             /** Online */
@@ -1971,10 +2505,16 @@ export interface components {
             /** City */
             city?: string | null;
             /**
+             * Days Off
+             * @description At most 2; null or [] = not set
+             */
+            days_off?: number[] | null;
+            /**
              * Moon City
              * @description null = the same as the city
              */
             moon_city?: string | null;
+            moon_policy?: components["schemas"]["MoonPolicyName"] | null;
             /** Name */
             name?: string | null;
             /** Online */
@@ -2185,6 +2725,32 @@ export interface components {
              */
             unspecified: number;
         };
+        /** SwapIn */
+        SwapIn: {
+            /**
+             * From
+             * Format: date
+             */
+            from: string;
+            /**
+             * To
+             * Format: date
+             */
+            to: string;
+        };
+        /** SwapOut */
+        SwapOut: {
+            /**
+             * From
+             * Format: date
+             */
+            from: string;
+            /**
+             * To
+             * Format: date
+             */
+            to: string;
+        };
         /** TeacherOut */
         TeacherOut: {
             /**
@@ -2223,6 +2789,7 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        Weekday: number;
     };
     responses: never;
     parameters: never;
@@ -2410,6 +2977,44 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_classes_api_v1_me_classes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyShalaClassesOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4451,6 +5056,577 @@ export interface operations {
             };
         };
     };
+    get_classes_api_v1_shalas__id__classes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_class_api_v1_shalas__id__classes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_class_api_v1_shalas__id__classes__class_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patch_class_api_v1_shalas__id__classes__class_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                class_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OccurrenceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OccurrenceOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                class_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_closure_api_v1_shalas__id__closures_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosureIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClosureOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_closure_api_v1_shalas__id__closures__closure_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                closure_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     post_join_link_api_v1_shalas__id__join_link_post: {
         parameters: {
             query?: never;
@@ -4509,6 +5685,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_schedule_api_v1_shalas__id__schedule_get: {
+        parameters: {
+            query: {
+                /** @description Shala-local date */
+                from: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Service Unavailable */
@@ -4817,6 +6055,152 @@ export interface operations {
             path: {
                 id: string;
                 account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_swap_api_v1_shalas__id__swaps_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwapIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwapOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_swap_api_v1_shalas__id__swaps__from__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                from: string;
             };
             cookie?: never;
         };

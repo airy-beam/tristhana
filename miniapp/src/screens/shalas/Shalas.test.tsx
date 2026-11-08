@@ -53,6 +53,7 @@ interface MeIn {
   owner: boolean;
   roles: Role[];
   student: boolean;
+  schedule?: boolean; // SC-02
 }
 const STAFF = [
   { id: ANNA, name: "Anna", owner: true, roles: ["teacher"] as Role[] },
@@ -67,7 +68,9 @@ const shalaOut = (me: MeIn, over: Record<string, unknown> = {}) => ({
   moon_city: null,
   staff: STAFF,
   students_total: me.student ? null : 34,
-  me,
+  days_off: null, // SC-02
+  moon_policy: "closed",
+  me: { schedule: false, ...me },
   ...over,
 });
 const OWNER: MeIn = { owner: true, roles: ["teacher"], student: false };
@@ -114,6 +117,16 @@ function stubApi(stub: Stub = {}): Request[] {
       if (path.startsWith(`/api/v1/shalas/${SHALA}/staff/`) && request.method === "PUT")
         return json(stub.card ?? shalaOut(OWNER));
       if (path === `/api/v1/shalas/${SHALA}`) return json(stub.card ?? shalaOut(OWNER));
+      if (path === `/api/v1/shalas/${SHALA}/schedule`)
+        return json({
+          zone: "Asia/Almaty",
+          city: "almaty",
+          moon_policy: "closed",
+          days_off: null,
+          days: [],
+          occurrences: [],
+          closures: [],
+        }); // SC-02
       if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
       if (path === "/api/v1/me/invite") return json({ url: "https://t.me/x?start=t_a", qr: "" });
       if (path === "/api/v1/moon/cities") return json(CITIES);

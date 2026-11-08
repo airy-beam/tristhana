@@ -94,6 +94,11 @@ EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
     "teacher_invite": "a live credential, not personal content; an export may be shared",
     "shala_staff_invite": "a live credential, not personal content; an export may be shared",
     "shala": "an owner's rows hold the join code; my memberships carry the shala's name",
+    # SC-02: the shala's schedule, not a person's; it goes with the shala (spec §7).
+    "shala_class": "the shala's schedule, not personal content",
+    "shala_class_override": "the shala's schedule, not personal content",
+    "shala_closure": "the shala's schedule, not personal content",
+    "shala_swap": "the shala's schedule, not personal content",
 }
 
 

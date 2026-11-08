@@ -992,6 +992,7 @@ class InMemoryStorage:
     link_repo: Any = None  # ID-04: tests/teacher_link_fakes.py, loaded on first use
     view_repo: Any = None  # ST-06: tests/teacher_view_fakes.py, loaded on first use
     shala_repo: Any = None  # SC-01: tests/shala_fakes.py, loaded on first use
+    schedule_repo: Any = None  # SC-02: tests/schedule_fakes.py, loaded on first use
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
@@ -1085,6 +1086,14 @@ class InMemoryStorage:
 
             self.shala_repo = InMemoryShalas(self.repo, self.teacher_links)  # pyright: ignore[reportArgumentType]
         return self.shala_repo
+
+    @property
+    def schedule(self) -> Any:  # SC-02
+        if self.schedule_repo is None:
+            from tests.schedule_fakes import InMemorySchedule
+
+            self.schedule_repo = InMemorySchedule(self.shalas, self.moon_repo)
+        return self.schedule_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

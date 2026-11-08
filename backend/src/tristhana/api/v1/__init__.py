@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from tristhana.api.v1 import (
     account_data,
     check_in,
+    classes,
     days,
     diary,
     health,
@@ -32,3 +33,4 @@ router.include_router(moon.router)
 router.include_router(stats.router)
 router.include_router(links.router)
 router.include_router(shalas.router)
+router.include_router(classes.router)

@@ -16,10 +16,12 @@ from pydantic import BaseModel, Field, StringConstraints
 from tristhana.api.deps import CurrentPrincipal, app_settings, links, shalas
 from tristhana.api.errors import ApiError, ErrorCode, error_responses
 from tristhana.application.moon import UnknownLocation
-from tristhana.application.policies import NotAllowed, NotFound
+from tristhana.application.policies import NotAllowed, NotFound, can_manage_schedule
 from tristhana.application.ports.shalas import CapReached, MyShala, ShalaCard
 from tristhana.application.shalas import ShalaUseCases
 from tristhana.application.teacher_links import LinkUseCases
+from tristhana.domain.classes import MoonPolicy
+from tristhana.domain.rest_days import InvalidDayOff
 from tristhana.domain.shalas import (
     KEEP,
     InvalidShalaName,
@@ -36,6 +38,7 @@ UseCases = Annotated[ShalaUseCases, Depends(shalas)]
 _NO_STORE = {"Cache-Control": "no-store"}
 _PAGE_MAX = 50
 type Role = Literal["admin", "teacher", "assistant", "office"]  # never "owner"
+type MoonPolicyName = Literal["closed", "pranayama", "open"]  # Q117
 
 
 class ShalaCityOut(BaseModel):
@@ -47,6 +50,7 @@ class ShalaMeOut(BaseModel):
     owner: bool
     roles: list[Role]
     student: bool
+    schedule: bool = Field(description="May manage classes (SC-02, Q118)")
 
 
 class ShalaStaffOut(BaseModel):
@@ -66,6 +70,8 @@ class ShalaOut(BaseModel):
     staff: list[ShalaStaffOut] = Field(description="Oldest first")
     students_total: int | None = Field(description="null for a student (Q106)")
     me: ShalaMeOut
+    days_off: list[int] | None = Field(description="ISO weekdays; null = not set (SC-02)")
+    moon_policy: MoonPolicyName
 
 
 class MyShalaOut(BaseModel):
@@ -100,6 +106,10 @@ class ShalaPatchIn(BaseModel):
     city: str | None = None
     online: bool | None = None
     moon_city: str | None = Field(default=None, description="null = the same as the city")
+    days_off: list[Annotated[int, Field(ge=1, le=7)]] | None = Field(
+        default=None, description="At most 2; null or [] = not set"
+    )
+    moon_policy: MoonPolicyName | None = None
 
 
 class ShalaJoinLinkIn(BaseModel):
@@ -144,6 +154,8 @@ async def _run[T](work: Awaitable[T]) -> T:
         raise _fail(422, "invalid_shala_name") from None
     except UnknownLocation:
         raise _fail(422, "unknown_location") from None
+    except InvalidDayOff:
+        raise _fail(422, "invalid_day_off") from None
 
 
 def _out(card: ShalaCard, use_cases: ShalaUseCases, locale: str) -> ShalaOut:
@@ -160,7 +172,14 @@ def _out(card: ShalaCard, use_cases: ShalaUseCases, locale: str) -> ShalaOut:
             for s in card.staff
         ],
         students_total=card.students_total,
-        me=ShalaMeOut(owner=card.me.owner, roles=_roles(card.me.roles), student=card.me.student),
+        me=ShalaMeOut(
+            owner=card.me.owner,
+            roles=_roles(card.me.roles),
+            student=card.me.student,
+            schedule=can_manage_schedule(card.me),
+        ),
+        days_off=None if card.days_off is None else sorted(card.days_off),
+        moon_policy=MoonPolicy(card.moon_policy).value,
     )
 
 
@@ -227,6 +246,12 @@ async def patch_shala(
         city=body.city if "city" in sent and body.city is not None else KEEP,
         online=body.online if "online" in sent and body.online is not None else KEEP,
         moon_city=body.moon_city if "moon_city" in sent else KEEP,
+        days_off=frozenset(body.days_off or ()) if "days_off" in sent else KEEP,
+        moon_policy=(
+            MoonPolicy(body.moon_policy)
+            if "moon_policy" in sent and body.moon_policy is not None
+            else KEEP
+        ),
     )
     card = await _run(use_cases.update.execute(principal, id, patch))
     response.headers.update(_NO_STORE)

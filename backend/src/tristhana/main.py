@@ -19,6 +19,22 @@ from tristhana.api.body_limit import NoteBodyLimit
 from tristhana.api.errors import install_error_handlers
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
+from tristhana.application.classes import (
+    AddClosure,
+    AddSwap,
+    AdoptShalaDayOff,
+    ClassUseCases,
+    ClearOverride,
+    CreateClass,
+    DeleteClass,
+    GetMyClasses,
+    GetSchedule,
+    ListClasses,
+    RemoveClosure,
+    RemoveSwap,
+    SetOverride,
+    UpdateClass,
+)
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
 from tristhana.application.export import DeleteMyAccount, SendMyExport
@@ -354,6 +370,23 @@ class _Services:
         teacher_links = self._storage.teacher_links
         codes = SecretCodes()
         shala_repo = self._storage.shalas
+        schedule = self._storage.schedule
+        classes = ClassUseCases(
+            schedule=GetSchedule(schedule, clock, cities),
+            classes=ListClasses(schedule),
+            create=CreateClass(schedule, clock, cities),
+            update=UpdateClass(schedule, clock, cities),
+            delete=DeleteClass(schedule),
+            override=SetOverride(schedule, clock),
+            clear=ClearOverride(schedule),
+            add_closure=AddClosure(schedule, clock),
+            remove_closure=RemoveClosure(schedule),
+            add_swap=AddSwap(schedule, clock),
+            remove_swap=RemoveSwap(schedule),
+            adopt=AdoptShalaDayOff(shala_repo, remind.day_off),
+            mine=GetMyClasses(schedule, clock, cities),
+        )
+        app.state.classes = classes
         shalas = ShalaUseCases(
             create=CreateShala(shala_repo, codes, clock, cities),
             mine=GetMyShalas(shala_repo),
@@ -373,6 +406,7 @@ class _Services:
             accept_staff=AcceptStaffInvite(shala_repo, self._notifier, clock, cities),
             cities=cities,
             clock=clock,
+            classes=classes,
         )
         app.state.shalas = shalas
         links = LinkUseCases(

@@ -17,6 +17,7 @@ from tristhana.application.accounts import EnsureAccount
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import days as day_screens
+from tristhana.bots.telegram.classes import ScheduleScreens, register_classes
 from tristhana.bots.telegram.data import register_data
 from tristhana.bots.telegram.diary import register_diary_reply
 from tristhana.bots.telegram.middleware import AccountMiddleware
@@ -81,6 +82,16 @@ def build_router(
         register_links(router, invites)
     if shalas is not None:
         register_shalas(router, shalas)
+        if links is not None and links.shalas is not None and links.shalas.classes is not None:
+            schedule = ScheduleScreens(
+                links.shalas.classes,
+                shalas,
+                invites,  # type: ignore[arg-type]  # set with shalas
+                translator,
+                links.shalas.cities,
+                links.shalas.clock,
+            )
+            register_classes(router, schedule)
     register_tour(router, start, translator, miniapp_url)
     register_moon(router, moon, translator)
     remind_screens = register_remind(router, remind, screens, translator, rest)

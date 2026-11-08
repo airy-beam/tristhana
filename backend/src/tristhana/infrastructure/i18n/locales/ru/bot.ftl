@@ -19,6 +19,7 @@ help-text =
     🧘 /asanas: мои асаны, отметить новую
     🌙 /moon: ближайшие лунные дни и напоминания
     👥 /teachers: твои учителя и ученики
+    🧑‍🏫 /classes: занятия, которые ты ведёшь на этой неделе
     ⚙️ /settings: язык, город, напоминания
     📊 Журнал практики и статистика — в приложении (кнопка рядом с полем ввода).
 
@@ -798,3 +799,54 @@ shala-caps = Больше шал или ссылок для команды по�
 moon-source-shala = 🏛 Как в шале: { $shala }. Можно выбрать другой город.
 moon-follow-shala = 🏛 Как в шале ({ $shala })
 settings-moon-line-shala = 🌙 Лунные дни: 📍 { $city } (как в шале: { $shala })
+
+## Занятия шалы (SC-02). Время по часам шалы; { $zone } = «Алматы (UTC+5)».
+## { $day } приходит готовым («пт, 13 нояб.»). Об изменениях никто не получает сообщений (Q122).
+class-type = { $type ->
+        [conference] Конференция
+        [pranayama] Пранаяма
+        [chanting] Чантинг
+       *[workshop] Семинар
+    }
+class-led-hint = Часто в пятницу или воскресенье
+schedule-open = 🗓 Расписание
+schedule-title = 🗓 { $shala }: расписание, { $range }
+schedule-zone = Время: { $zone }
+schedule-your-time = ({ $time } по твоему времени)
+schedule-moon-day = 🌙 Лунный день
+schedule-reason = { $reason ->
+        [moon] лунный день
+        [closure] шала закрыта
+       *[cancelled] отменено
+    }
+schedule-swap = 🔁 Вместо { $day }
+schedule-swapped-to = 🔁 { $class }: перенесено на { $day } ({ $reason })
+schedule-moved = ↪ перенесено с { $day } { $time }
+schedule-substitute = { $name } (замена)
+schedule-day-off = 😌 Выходной в шале
+schedule-empty = В эти дни занятий нет.
+shala-moon-policy = { $p ->
+        [pranayama] 🌙 В лунные дни только пранаяма, чантинг и конференции
+        [open] 🌙 В лунные дни занятия как обычно
+       *[closed] 🌙 В лунные дни шала закрыта
+    }
+shala-moon-policy-note = Даты считаются по лунному городу шалы (лунный день на восходе). Если в шале отмечают другой день, используй «Всё равно провести» или «Отменить».
+shala-day-off-line = 😌 Выходной: { $days }
+shala-day-off-adopt = 😌 Мой выходной тоже: { $days }
+class-cancel-ask = Отменить { $class } { $day }? Отмена будет видна в расписании. Сообщений никто не получит.
+class-cancel = ❌ Отменить
+class-restore = ↩ Вернуть
+class-hold = ✅ Всё равно провести
+class-cancel-pick = ❌ Отменить занятие…
+class-pick-title = Какое занятие? Ближайшие 48 часов:
+class-pick-empty = В ближайшие 48 часов занятий нет.
+class-gone = Это занятие уже изменилось. Вот актуальное расписание.
+class-caps = Для этой шалы это пока предел.
+class-invalid = Такое изменение не вписывается в расписание.
+# Своя неделя учителя (/classes): все шалы, где он в команде. Время в поясе каждой шалы.
+command-classes = Мои занятия на этой неделе
+my-classes-title = 🧑‍🏫 Твои занятия на ближайшие 7 дней
+my-classes-empty = На ближайшие 7 дней твоих занятий нет. Занятие появится здесь, когда шала назначит тебя его учителем.
+my-classes-covered = тебя заменяет { $name }
+my-classes-covering = ты заменяешь { $name }
+my-classes-shala = 🗓 { $shala }: расписание

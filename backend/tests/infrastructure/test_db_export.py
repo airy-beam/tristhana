@@ -15,11 +15,13 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from tristhana.application.ports.classes import ClassCaps, ClassDraft
 from tristhana.application.ports.shalas import NewShala
 from tristhana.application.ports.teacher_links import Caps
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.application.shalas import CAPS
 from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
+from tristhana.domain.classes import ClassType, Override, OverrideStatus, Swap
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.export import MarkedBy
 from tristhana.domain.notifications import DEFAULTS
@@ -30,6 +32,7 @@ from tristhana.domain.shalas import ShalaRole
 from tristhana.infrastructure.crypto import FieldCipher
 from tristhana.infrastructure.db import migrate, tables
 from tristhana.infrastructure.db.accounts import SqlAccountRepository
+from tristhana.infrastructure.db.classes import SqlScheduleRepository
 from tristhana.infrastructure.db.days import SqlDayLogRepository
 from tristhana.infrastructure.db.diary import SqlDiaryRepository
 from tristhana.infrastructure.db.export import (
@@ -236,6 +239,7 @@ async def _counts(engine: AsyncEngine, account_id: UUID) -> dict[str, int]:
                 "teacher_link": "student_id = :a OR teacher_id = :a",
                 "shala": "owner_id = :a",  # SC-01
                 "shala_staff_invite": "created_by = :a",
+                **dict.fromkeys(_SCHEDULE_TABLES, _OWNED_SHALA),  # SC-02: with my shala
             }.get(name, "account_id = :a")
             n = await conn.execute(
                 text(f"SELECT count(*) FROM tristhana.{name} WHERE {mine}"),  # noqa: S608
@@ -245,8 +249,29 @@ async def _counts(engine: AsyncEngine, account_id: UUID) -> dict[str, int]:
     return found
 
 
+_SCHEDULE_TABLES = ("shala_class", "shala_class_override", "shala_closure", "shala_swap")
+_OWNED_SHALA = "shala_id IN (SELECT id FROM tristhana.shala WHERE owner_id = :a)"
+
+
+async def _schedule(engine: AsyncEngine, shala: UUID, me: UUID) -> None:
+    """SC-02: a class with a cancelled date, a closure and a swap in my shala."""
+    repo = SqlScheduleRepository(engine)
+    caps = ClassCaps(classes=40, closures=20, swaps=20)
+    draft = ClassDraft(
+        ClassType.MYSORE, None, False, None, None, time(6), 210, frozenset({1}), 1, MON, None
+    )
+    created = await repo.create(shala, me, draft, caps, MON)
+    assert created.value is not None
+    cancel = Override(MON, OverrideStatus.CANCELLED)
+    assert (await repo.set_override(shala, me, created.value.id, cancel)).value
+    assert (await repo.add_closure(shala, me, MON, MON, caps, MON)).value is not None
+    swap = Swap(MON + timedelta(days=1), MON + timedelta(days=2))
+    assert (await repo.add_swap(shala, me, swap, caps, MON)).value is not None
+
+
 async def _shalas(engine: AsyncEngine, me: UUID, teacher: UUID) -> None:
-    """SC-01: a shala I own with a pending staff link, and a student row in the teacher's."""
+    """SC-01: a shala I own with a pending staff link (and SC-02 classes), and a student row
+    in the teacher's."""
     repo = SqlShalaRepository(engine)
     codes = SecretCodes()
     mine = await repo.create(
@@ -257,6 +282,7 @@ async def _shalas(engine: AsyncEngine, me: UUID, teacher: UUID) -> None:
         mine.id, me, ShalaRole.TEACHER, codes.new(), datetime.now(UTC) + timedelta(days=7), CAPS
     )
     assert staff_invite.done
+    await _schedule(engine, mine.id, me)
     theirs = await repo.create(
         teacher, NewShala("Theirs", "almaty", False, frozenset(), codes.new()), CAPS, MON
     )
@@ -350,7 +376,9 @@ def test_every_fk_to_an_account_table_cascades_or_nulls() -> None:
     for t in tables.metadata.sorted_tables:
         for fk in t.foreign_keys:
             if fk.column.table.name in owned:
-                assert (fk.ondelete or "").upper() in {"CASCADE", "SET NULL"}, t.name
+                # SC-02: `SET NULL (teacher_id)` nulls one column of a composite FK.
+                action = (fk.ondelete or "").upper().split(" (")[0]
+                assert action in {"CASCADE", "SET NULL"}, t.name
 
 
 def test_0016_follows_0015() -> None:

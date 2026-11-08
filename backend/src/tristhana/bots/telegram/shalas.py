@@ -33,6 +33,7 @@ from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.shalas import CapReached, ShalaCard
 from tristhana.application.settings import caller_today
 from tristhana.application.shalas import ShalaUseCases
+from tristhana.bots.telegram import classes_callbacks as classes_cb
 from tristhana.bots.telegram import moon_callbacks
 from tristhana.bots.telegram import shalas_callbacks as cb
 from tristhana.bots.telegram.runtime import SettingsUseCases
@@ -233,6 +234,9 @@ class ShalaScreens:
         if moon is not None:
             lines.append(self._t.t(locale, "shala-moon-line", city=moon.name(locale)))
         lines.append(self._t.t(locale, "shala-staff-title", people=people))
+        days_off = self._days_off(locale, card.days_off)
+        if days_off is not None:
+            lines.append(self._t.t(locale, "shala-day-off-line", days=days_off))
         me = card.me
         if can_edit_shala(me):
             lines.append(self._t.t(locale, "shala-moon-shared"))
@@ -240,6 +244,11 @@ class ShalaScreens:
         if note:
             text = f"{text}\n\n{note}"
         rows: list[list[InlineKeyboardButton]] = []
+        if self._h.classes is not None:  # SC-02
+            rows.append([self._button(locale, "schedule-open", classes_cb.week(card.id, 0))])
+            if days_off is not None and principal.account.day_off.days is None:  # Q119
+                adopt = classes_cb.adopt_day_off(card.id)
+                rows.append([self._button(locale, "shala-day-off-adopt", adopt, days=days_off)])
         if can_view_shala_students(me) and card.students_total is not None:
             rows.append(
                 [
@@ -259,6 +268,11 @@ class ShalaScreens:
             rows.append([self._button(locale, "shala-leave", cb.on_shala("k", card.id))])
         rows.append([self._button(locale, "log-back", "t1:o")])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _days_off(self, locale: Locale, days: frozenset[int] | None) -> str | None:
+        if not days:
+            return None
+        return ", ".join(self._t.t(locale, "day-off-weekday", d=d) for d in sorted(days))
 
     def _roles_of(self, locale: Locale, owner: bool, roles: frozenset[ShalaRole]) -> list[str]:
         names = ["owner"] if owner else []

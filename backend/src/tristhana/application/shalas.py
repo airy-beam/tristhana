@@ -8,6 +8,7 @@ caller's membership in its own statement (`Guarded`).
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from tristhana.application.moon import UnknownLocation
@@ -32,6 +33,7 @@ from tristhana.application.ports.teacher_links import CodeSource
 from tristhana.application.settings import caller_today
 from tristhana.domain.accounts import Account, moon_follow_of
 from tristhana.domain.moon import Cities, City, MoonFollow, MoonSource, ShalaMoon, moon_follow
+from tristhana.domain.rest_days import check_day_off
 from tristhana.domain.shalas import (
     MAX_OWNED,
     MAX_PENDING_STAFF_INVITES,
@@ -49,6 +51,9 @@ from tristhana.domain.shalas import (
     main_shala,
     normalize_shala_name,
 )
+
+if TYPE_CHECKING:
+    from tristhana.application.classes import ClassUseCases
 
 CAPS = ShalaCaps(
     owned=MAX_OWNED,
@@ -177,7 +182,10 @@ class UpdateShala:
         self._cities = cities
 
     async def execute(self, principal: Principal, shala: UUID, patch: ShalaPatch) -> ShalaCard:
-        """Raises `InvalidShalaName`, `UnknownLocation`, `NotFound`, `NotAllowed`."""
+        """Raises `InvalidShalaName`, `UnknownLocation`, `InvalidDayOff`, `NotFound`,
+        `NotAllowed`."""
+        if isinstance(patch.days_off, frozenset):
+            patch = replace(patch, days_off=check_day_off(patch.days_off) or None)
         if isinstance(patch.name, str):
             clean = normalize_shala_name(patch.name)
             if clean is None:
@@ -403,3 +411,4 @@ class ShalaUseCases:
     accept_staff: AcceptStaffInvite
     cities: Cities
     clock: Clock
+    classes: "ClassUseCases | None" = None  # SC-02

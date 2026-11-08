@@ -607,6 +607,106 @@ shala-delete = Удалить шалу…
 shala-delete-ask = Удалить шалу { $shala } для всех участников? Журналы у всех останутся. Сообщений никто не получит. Отменить это нельзя.
 shala-delete-yes = Удалить
 
+## Занятия шалы (SC-02). Время по часам шалы; { $zone } = «Алматы (UTC+5)».
+schedule-title = 🗓 Расписание
+schedule-load-failed = Не получилось загрузить расписание. Попробуй чуть позже.
+schedule-moon-day = 🌙 Лунный день
+schedule-day-off = 😌 Выходной в шале
+schedule-empty = В эти дни занятий нет.
+schedule-your-time = ({ $time } по твоему времени)
+schedule-reason = { $reason ->
+        [moon] лунный день
+        [closure] шала закрыта
+       *[cancelled] отменено
+    }
+schedule-swap = 🔁 Вместо { $day }
+schedule-substitute = { $name } (замена)
+schedule-add-class = ➕ Добавить занятие
+class-type = { $type ->
+        [conference] Конференция
+        [pranayama] Пранаяма
+        [chanting] Чантинг
+       *[workshop] Семинар
+    }
+class-led-hint = Часто в пятницу или воскресенье
+class-form-type = Тип
+class-form-title = Название (по желанию)
+class-form-teacher = Преподаватель
+class-form-no-teacher = —
+class-form-start = Начало, { $zone }
+class-form-until = Окончание
+class-form-length = Длительность, мин
+class-form-days = Дни (не выбраны — одна дата)
+class-form-every = Повтор
+class-form-every-n = { $n ->
+        [1] каждую неделю
+        [one] каждую { $n } неделю
+        [few] каждые { $n } недели
+       *[many] каждые { $n } недель
+    }
+class-form-from = Первая дата
+class-form-end = Последняя дата (по желанию)
+class-form-online = 🌐 Онлайн
+class-form-zone = Часовой пояс
+class-form-applies = Для каких дат
+class-form-day-off-warning = Один из выбранных дней — выходной в шале.
+class-form-window-invalid = Занятие должно закончиться после начала и не позже полуночи.
+class-form-save = Сохранить занятие
+class-form-cancel = Отмена
+class-form-failed = Не получилось сохранить занятие. Проверь время и попробуй ещё раз.
+class-form-caps = Для этой шалы это пока предел.
+shala-moon-policy-label = 🌙 В лунные дни
+shala-moon-policy = { $p ->
+        [pranayama] 🌙 В лунные дни только пранаяма, чантинг и конференции
+        [open] 🌙 В лунные дни занятия как обычно
+       *[closed] 🌙 В лунные дни шала закрыта
+    }
+shala-moon-policy-option = { $p ->
+        [pranayama] Только пранаяма, чантинг и конференции
+        [open] Занятия как обычно
+       *[closed] Шала закрыта
+    }
+shala-moon-policy-note = Даты считаются по лунному городу шалы (лунный день на восходе). Если в шале отмечают другой день, используй «Всё равно провести» или «Отменить».
+shala-day-off-label = 😌 Выходной (до двух дней)
+shala-day-off-line = 😌 Выходной: { $days }
+shala-day-off-adopt = 😌 Мой выходной тоже: { $days }
+occurrence-cancel = ❌ Отменить
+occurrence-hold = ✅ Всё равно провести
+occurrence-restore = ↩ Вернуть
+occurrence-note = Сообщений никто не получит. Изменение будет видно в расписании.
+occurrence-failed = Не получилось изменить занятие. Попробуй чуть позже.
+occurrence-delete = 🗑 Удалить занятие (все даты)…
+occurrence-delete-ask = Удалить это занятие во все даты? Оно пропадёт из расписания. Сообщений никто не получит.
+occurrence-delete-yes = Удалить
+occurrence-teacher = Учитель в этот день
+occurrence-usual-teacher = Обычный учитель ({ $name })
+closure-title = 🏖 Шала закрыта
+closure-start = Первый день
+closure-end = Последний день
+closure-add = ➕ Добавить закрытые дни
+closure-line = { $start } – { $end }
+closure-remove = 🗑 Убрать
+closure-failed = Не получилось сохранить даты: до 92 дней подряд, начиная с сегодня.
+swap-title = 🔁 Перенос лунного дня
+swap-from = Лунный день
+swap-to = Перенести занятия на
+swap-add = ➕ Добавить перенос
+swap-remove = 🗑 Отменить перенос
+swap-hint = Переносятся только занятия, отменённые из-за лунного дня или закрытия, остальные остаются на месте. Выбери выходной или день без такого же занятия, не дальше 6 дней.
+swap-failed = Такой перенос не подходит: выбери выходной или день без таких же занятий в пределах 6 дней, не лунный и не закрытый.
+# Своя неделя учителя (SC-02): все шалы, где он в команде, каждая в своём поясе.
+my-classes-open = 🧑‍🏫 Мои занятия
+my-classes-title = 🧑‍🏫 Мои занятия
+my-classes-subtitle = Ближайшие 7 дней, по времени каждой шалы.
+my-classes-empty = На ближайшие 7 дней твоих занятий нет. Занятие появится здесь, когда шала назначит тебя его учителем.
+my-classes-load-failed = Не получилось загрузить твои занятия. Попробуй чуть позже.
+my-classes-covered = тебя заменяет { $name }
+my-classes-covering = ты заменяешь { $name }
+
+# Paging (shala students, SC-01; schedule weeks, SC-02).
+page-prev = ◀
+page-next = ▶
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Знакомство

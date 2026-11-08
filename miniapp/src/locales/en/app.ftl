@@ -590,6 +590,104 @@ shala-delete = Delete the shala…
 shala-delete-ask = Delete { $shala } for everyone in it? Everyone's own logs stay. No one gets a message. This can't be undone.
 shala-delete-yes = Delete
 
+## Shala classes (SC-02). Times are wall clock in the shala's zone; { $zone } is "Almaty (UTC+5)".
+schedule-title = 🗓 Schedule
+schedule-load-failed = Couldn't load the schedule. Try again in a moment.
+schedule-moon-day = 🌙 Moon day
+schedule-day-off = 😌 Shala day off
+schedule-empty = No classes these days.
+schedule-your-time = ({ $time } your time)
+schedule-reason = { $reason ->
+        [moon] moon day
+        [closure] shala closed
+       *[cancelled] cancelled
+    }
+schedule-swap = 🔁 Instead of { $day }
+schedule-substitute = { $name } (substitute)
+schedule-add-class = ➕ Add a class
+class-type = { $type ->
+        [conference] Conference
+        [pranayama] Pranayama
+        [chanting] Chanting
+       *[workshop] Workshop
+    }
+class-led-hint = Often Friday or Sunday
+class-form-type = Type
+class-form-title = Title (optional)
+class-form-teacher = Teacher
+class-form-no-teacher = —
+class-form-start = Start, { $zone }
+class-form-until = Until
+class-form-length = Length, minutes
+class-form-days = Days (none: a single date)
+class-form-every = Repeats
+class-form-every-n = { $n ->
+        [1] every week
+       *[other] every { $n } weeks
+    }
+class-form-from = First date
+class-form-end = Last date (optional)
+class-form-online = 🌐 Online
+class-form-zone = Times in
+class-form-applies = Applies to
+class-form-day-off-warning = One of the chosen days is the shala's day off.
+class-form-window-invalid = The class needs to end after it starts, and by midnight.
+class-form-save = Save the class
+class-form-cancel = Cancel
+class-form-failed = Couldn't save the class. Check the times and try again.
+class-form-caps = That's the limit for this shala for now.
+shala-moon-policy-label = 🌙 On moon days
+shala-moon-policy = { $p ->
+        [pranayama] 🌙 Moon days: pranayama, chanting and talks only
+        [open] 🌙 Moon days: classes as usual
+       *[closed] 🌙 Moon days: the shala is closed
+    }
+shala-moon-policy-option = { $p ->
+        [pranayama] Pranayama, chanting and talks only
+        [open] Classes as usual
+       *[closed] The shala is closed
+    }
+shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use Hold anyway or Cancel.
+shala-day-off-label = 😌 Day off (up to two)
+shala-day-off-line = 😌 Day off: { $days }
+shala-day-off-adopt = 😌 Make { $days } my day off too
+occurrence-cancel = ❌ Cancel this class
+occurrence-hold = ✅ Hold anyway
+occurrence-restore = ↩ Restore
+occurrence-note = No one gets a message. The change shows on the schedule.
+occurrence-failed = Couldn't change the class. Try again in a moment.
+occurrence-delete = 🗑 Delete this class (all dates)…
+occurrence-delete-ask = Delete this class on every date? It goes from the schedule. No one gets a message.
+occurrence-delete-yes = Delete
+occurrence-teacher = Teacher on this date
+occurrence-usual-teacher = Usual teacher ({ $name })
+closure-title = 🏖 Shala closed
+closure-start = First day
+closure-end = Last day
+closure-add = ➕ Add closed days
+closure-line = { $start } – { $end }
+closure-remove = 🗑 Remove
+closure-failed = Couldn't save the dates: up to 92 days in a row, from today on.
+swap-title = 🔁 Swap a moon day
+swap-from = Moon day
+swap-to = Hold its classes on
+swap-add = ➕ Add the swap
+swap-remove = 🗑 Undo the swap
+swap-hint = Only classes cancelled for the moon day or a closure move; the rest stay put. Pick the day off or a day without the same class, up to 6 days away.
+swap-failed = That swap doesn't fit: pick the day off or a day without these classes, within 6 days, not a moon day or a closed day.
+# A teacher's own week (SC-02): every shala where they're on the staff, each in its zone.
+my-classes-open = 🧑‍🏫 My classes
+my-classes-title = 🧑‍🏫 My classes
+my-classes-subtitle = The next 7 days, in each shala's time.
+my-classes-empty = No classes of yours in the next 7 days. A class shows here once your shala names you as its teacher.
+my-classes-load-failed = Couldn't load your classes. Try again in a moment.
+my-classes-covered = { $name } is covering
+my-classes-covering = you're covering for { $name }
+
+# Paging (shala students, SC-01; schedule weeks, SC-02).
+page-prev = ◀
+page-next = ▶
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Quick tour
