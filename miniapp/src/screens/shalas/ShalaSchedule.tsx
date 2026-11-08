@@ -12,6 +12,7 @@ import {
   useSchedule,
   useSetOccurrence,
   type Occurrence,
+  type OccurrenceChange,
   type Schedule,
   type Shala,
 } from "../../api/client";
@@ -115,6 +116,39 @@ export default function ShalaSchedule({ shala }: { shala: Shala }) {
   );
 }
 
+/** The occurrence's length in minutes (a class may end at midnight). */
+export const lengthOf = (o: Occurrence) =>
+  (minutesOf(o.end) - minutesOf(o.start) + 24 * 60) % (24 * 60) || 24 * 60;
+
+/** "06:00–09:30 Mysore · Anna" in `zone` (the shala's); a cancelled one with its reason.
+ * `teacher` names the other teacher instead (a teacher's own week). */
+export function useOccurrenceText(zone: string, viewer: string | null) {
+  const { l10n } = useLocalization();
+  const typeName = useTypeName();
+  return (o: Occurrence, teacher?: string) => {
+    const start = timeIn(o.starts_at, zone);
+    const end = hmOf(minutesOf(start) + lengthOf(o));
+    let text = `${start}${DASH}${end} ${typeName(o.type)}${o.title ? ` ${o.title}` : ""}`;
+    if (teacher !== undefined) {
+      if (teacher) text += ` · ${teacher}`;
+    } else if (o.teacher) {
+      const name = o.teacher.name ?? l10n.getString("link-no-name");
+      text += ` · ${o.substitute ? plain(l10n.getString("schedule-substitute", { name })) : name}`;
+    }
+    if (o.online) {
+      text += " 🌐";
+      const mine = viewer ? timeIn(o.starts_at, viewer) : null;
+      if (mine && viewer !== zone && mine !== timeIn(o.starts_at, zone))
+        text += ` ${plain(l10n.getString("schedule-your-time", { time: mine }))}`;
+    }
+    if (o.cancelled) {
+      const reason = plain(l10n.getString("schedule-reason", { reason: o.cancelled }));
+      text = `❌ ${text} (${reason})`;
+    }
+    return text;
+  };
+}
+
 function Week({
   shala,
   schedule,
@@ -127,7 +161,6 @@ function Week({
   viewer: string | null;
 }) {
   const { l10n } = useLocalization();
-  const typeName = useTypeName();
   const [open, setOpen] = useState<string | null>(null);
   const removeSwap = useRemoveSwap(shala.id);
   const first = schedule.days[0]?.date ?? todayIn(schedule.zone);
@@ -142,27 +175,7 @@ function Week({
       d.swap_from ||
       schedule.occurrences.some((o) => localDay(o) === d.date),
   );
-  const row = (o: Occurrence) => {
-    const start = timeIn(o.starts_at, schedule.zone);
-    const length = (minutesOf(o.end) - minutesOf(o.start) + 24 * 60) % (24 * 60) || 24 * 60;
-    const end = hmOf(minutesOf(start) + length);
-    let text = `${start}${DASH}${end} ${typeName(o.type)}${o.title ? ` ${o.title}` : ""}`;
-    if (o.teacher) {
-      const name = o.teacher.name ?? l10n.getString("link-no-name");
-      text += ` · ${o.substitute ? plain(l10n.getString("schedule-substitute", { name })) : name}`;
-    }
-    if (o.online) {
-      text += " 🌐";
-      const mine = viewer ? timeIn(o.starts_at, viewer) : null;
-      if (mine && viewer !== schedule.zone && mine !== timeIn(o.starts_at, schedule.zone))
-        text += ` ${plain(l10n.getString("schedule-your-time", { time: mine }))}`;
-    }
-    if (o.cancelled) {
-      const reason = plain(l10n.getString("schedule-reason", { reason: o.cancelled }));
-      text = `❌ ${text} (${reason})`;
-    }
-    return text;
-  };
+  const row = useOccurrenceText(schedule.zone, viewer);
   if (shown.length === 0)
     return (
       <Localized id="schedule-empty">
@@ -262,17 +275,64 @@ function Sheet({
     remove.mutate(o.class_id, { onSuccess: onDone });
   };
   const target = { classId: o.class_id, key: o.key };
+  // A write replaces the date's changes: send its move, substitute and hold again (Q126). A
+  // swapped date's own move ends on `swapped_from`, not on the swap's day.
+  const kept = (): OccurrenceChange => ({
+    status: o.held ? "held" : null,
+    teacher_id: o.substitute && o.teacher ? o.teacher.id : null,
+    ...(o.moved ? { on: o.swapped_from ?? o.on, start: o.start, minutes: lengthOf(o) } : {}),
+  });
   const change = (status: "cancelled" | "held") => {
     haptics.impact("light");
-    set.mutate({ ...target, body: { status } }, { onSuccess: onDone });
+    const body = status === "held" ? { ...kept(), status } : { status };
+    set.mutate({ ...target, body }, { onSuccess: onDone });
   };
   const restore = () => {
     haptics.impact("light");
     clear.mutate(target, { onSuccess: onDone });
   };
+  // "Usual teacher" names no one for the date: it follows the class's teacher.
+  const substitute = (teacher: string) => {
+    haptics.impact("light");
+    const body = { ...kept(), teacher_id: teacher || null };
+    set.mutate({ ...target, body }, { onSuccess: onDone });
+  };
+  const named = o.substitute && o.teacher ? o.teacher : null;
   const pending = set.isPending || clear.isPending || remove.isPending;
   return (
     <div className="role-editor">
+      {o.cancelled === null && (
+        <label className="label">
+          <Localized id="occurrence-teacher">
+            <span />
+          </Localized>
+          <select
+            value={named?.id ?? ""}
+            disabled={pending}
+            onChange={(e) => {
+              substitute(e.target.value);
+            }}
+          >
+            <option value="">
+              {plain(
+                l10n.getString("occurrence-usual-teacher", {
+                  name: o.usual_teacher?.name ?? l10n.getString("class-form-no-teacher"),
+                }),
+              )}
+            </option>
+            {named && !shala.staff.some((s) => s.id === named.id) && (
+              <option value={named.id}>{named.name ?? l10n.getString("link-no-name")}</option>
+            )}
+            {shala.staff
+              .filter((s) => s.id !== o.usual_teacher?.id)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name ?? l10n.getString("link-no-name")}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
       {o.cancelled === null && (
         <Localized id="occurrence-cancel">
           <button

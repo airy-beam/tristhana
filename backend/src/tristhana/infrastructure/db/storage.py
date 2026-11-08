@@ -664,6 +664,9 @@ class _UnavailableSchedule:
     async def window(self, shala: UUID, me: UUID, start: date, end: date) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def staff_windows(self, me: UUID, start: date, end: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def classes_of(self, shala: UUID, me: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 
@@ -681,7 +684,7 @@ class _UnavailableSchedule:
         raise StorageUnavailable("not configured")
 
     async def set_override(
-        self, shala: UUID, me: UUID, class_id: UUID, override: Override
+        self, shala: UUID, me: UUID, class_id: UUID, override: Override, keep: bool = False
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 

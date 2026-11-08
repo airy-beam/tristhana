@@ -659,6 +659,8 @@ occurrence-failed = Couldn't change the class. Try again in a moment.
 occurrence-delete = 🗑 Delete this class (all dates)…
 occurrence-delete-ask = Delete this class on every date? It goes from the schedule. No one gets a message.
 occurrence-delete-yes = Delete
+occurrence-teacher = Teacher on this date
+occurrence-usual-teacher = Usual teacher ({ $name })
 closure-title = 🏖 Shala closed
 closure-start = First day
 closure-end = Last day
@@ -673,6 +675,14 @@ swap-add = ➕ Add the swap
 swap-remove = 🗑 Undo the swap
 swap-hint = Only classes cancelled for the moon day or a closure move; the rest stay put. Pick the day off or a day without the same class, up to 6 days away.
 swap-failed = That swap doesn't fit: pick the day off or a day without these classes, within 6 days, not a moon day or a closed day.
+# A teacher's own week (SC-02): every shala where they're on the staff, each in its zone.
+my-classes-open = 🧑‍🏫 My classes
+my-classes-title = 🧑‍🏫 My classes
+my-classes-subtitle = The next 7 days, in each shala's time.
+my-classes-empty = No classes of yours in the next 7 days. A class shows here once your shala names you as its teacher.
+my-classes-load-failed = Couldn't load your classes. Try again in a moment.
+my-classes-covered = { $name } is covering
+my-classes-covering = you're covering for { $name }
 
 # Paging (shala students, SC-01; schedule weeks, SC-02).
 page-prev = ◀

@@ -19,6 +19,7 @@ help-text =
     🧘 /asanas: my asanas, mark a new one
     🌙 /moon: upcoming moon days and reminders
     👥 /teachers: your teachers and students
+    🧑‍🏫 /classes: the classes you teach this week
     ⚙️ /settings: language, city, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
 
@@ -826,3 +827,10 @@ class-pick-empty = No classes in the next 48 hours.
 class-gone = This class has just changed. Here's the current schedule.
 class-caps = That's the limit for this shala for now.
 class-invalid = That change doesn't fit the schedule.
+# A teacher's own week (/classes), every shala where they're on the staff. Times in each shala's zone.
+command-classes = The classes I teach this week
+my-classes-title = 🧑‍🏫 Your classes, the next 7 days
+my-classes-empty = No classes of yours in the next 7 days. A class shows here once your shala names you as its teacher.
+my-classes-covered = { $name } is covering
+my-classes-covering = you're covering for { $name }
+my-classes-shala = 🗓 { $shala }: schedule

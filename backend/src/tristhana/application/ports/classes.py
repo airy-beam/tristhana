@@ -72,6 +72,10 @@ class ScheduleRepository(Protocol):
         """None: no such shala, or not a member."""
         ...
 
+    async def staff_windows(self, me: UUID, start: date, end: date) -> tuple[ScheduleWindow, ...]:
+        """One `window` per shala where `me` is on the staff (at most 10), by name."""
+        ...
+
     async def classes_of(self, shala: UUID, me: UUID) -> Guarded[tuple[StoredClass, ...]]: ...
 
     async def create(
@@ -91,9 +95,10 @@ class ScheduleRepository(Protocol):
         ...
 
     async def set_override(
-        self, shala: UUID, me: UUID, class_id: UUID, override: Override
+        self, shala: UUID, me: UUID, class_id: UUID, override: Override, keep: bool = False
     ) -> Guarded[bool]:
-        """Upserts by (class, rule date). Value False: no such class in this shala."""
+        """Upserts by (class, rule date), replacing the date's changes; `keep`: the status
+        only, an existing move, time and substitute stay. Value False: no such class."""
         ...
 
     async def clear_override(

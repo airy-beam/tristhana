@@ -71,6 +71,7 @@ def test_command_menu_is_localized_from_the_bot_ftl() -> None:
         "remind",
         "moon",
         "teachers",
+        "classes",
         "settings",
         "help",
         "start",

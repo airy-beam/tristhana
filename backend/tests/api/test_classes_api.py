@@ -52,6 +52,8 @@ OCCURRENCE_KEYS = {
     "cancelled",
     "moved",
     "swapped_from",
+    "held",
+    "usual_teacher",
 }
 CLASS_KEYS = {
     "id",
@@ -510,6 +512,54 @@ def test_a_substitute_shows_on_the_schedule(api: TestClient, storage: InMemorySt
     assert (o["teacher"], o["substitute"]) == ({"id": str(dana.id), "name": "Dana"}, True)
 
 
+# My classes
+
+
+def test_my_classes_name_whose_and_who_covers(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, "teacher", name="Ashtanga Almaty")
+    anna = storage.shalas.shalas[shala].owner_id  # on the staff as a teacher
+    mine = storage.schedule.add_class(shala, teacher_id=me).id
+    storage.schedule.add_class(shala, type=ClassType.LED, teacher_id=anna, weekdays={2})
+    covered = Override(MON, None, teacher_id=anna)
+    storage.schedule.add_override(mine, covered)
+    led = next(c for _, c in storage.schedule.classes.values() if c.type is ClassType.LED)
+    storage.schedule.add_override(led.id, Override(date(2026, 11, 10), None, teacher_id=me))
+
+    response = api.get("/api/v1/me/classes", headers=_auth())
+
+    assert response.status_code == 200
+    [one] = response.json()
+    assert set(one) == {"shala_id", "name", "zone", "today", "classes"}
+    assert (one["name"], one["zone"], one["today"]) == (
+        "Ashtanga Almaty",
+        "Asia/Almaty",
+        "2026-11-07",
+    )
+    rows = {(c["on"], c["type"]): c for c in one["classes"]}
+    assert set(next(iter(rows.values()))) == OCCURRENCE_KEYS | {"role"}
+    monday = rows[("2026-11-09", "mysore")]
+    assert (monday["role"], monday["teacher"]["name"]) == ("covered", "Anna")
+    tuesday = rows[("2026-11-10", "led")]
+    assert (tuesday["role"], tuesday["usual_teacher"]["name"]) == ("covering", "Anna")
+    assert rows[("2026-11-10", "mysore")]["role"] == "teaching"
+
+
+def test_my_classes_need_auth_and_are_no_store(api: TestClient, storage: InMemoryStorage) -> None:
+    assert api.get("/api/v1/me/classes").status_code == 401
+    _me(api, storage)
+
+    assert api.get("/api/v1/me/classes", headers=_auth()).headers["cache-control"] == "no-store"
+
+
+def test_my_classes_for_a_student_are_empty(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, None)
+    storage.schedule.add_class(shala)
+
+    assert api.get("/api/v1/me/classes", headers=_auth()).json() == []
+
+
 # Closures and swaps
 
 
@@ -672,4 +722,5 @@ def test_the_mini_apps_contract_has_the_routes() -> None:
         "/api/v1/shalas/{id}/closures/{closure_id}",
         "/api/v1/shalas/{id}/swaps",
         "/api/v1/shalas/{id}/swaps/{from}",
+        "/api/v1/me/classes",
     } <= paths.keys()

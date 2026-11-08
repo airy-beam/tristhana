@@ -138,6 +138,8 @@ class Occurrence:
     swapped_from: date | None
     planned: time | None = None  # the rule's start, for "moved from …"
     swap_reason: Reason | None = None  # why it left `swapped_from` (moon or closure)
+    planned_teacher: UUID | None = None  # the rule's teacher, for "covered by …"
+    held: bool = False  # staff chose "hold anyway" (Q126): a later change must keep it
 
 
 def check_series(series: ClassSeries) -> ClassSeries:
@@ -282,6 +284,8 @@ def expand(
                     swapped_from=swapped_from,
                     planned=s.start,
                     swap_reason=swap_reason,
+                    planned_teacher=s.teacher_id,
+                    held=status is OverrideStatus.HELD,
                 )
             )
     out.sort(key=lambda o: (o.starts_at, str(o.class_id)))

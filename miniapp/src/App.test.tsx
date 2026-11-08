@@ -34,6 +34,16 @@ const ME = {
   day_off: null,
 };
 const OFFER = "Want a quick look around? It takes a minute.";
+let myShalas: unknown[] = [];
+const myShala = (side: "staff" | "student") => ({
+  id: "00000000-0000-0000-0000-0000000000c1",
+  name: "Ashtanga Almaty",
+  city: "almaty",
+  online: false,
+  side,
+  owner: false,
+  roles: side === "staff" ? ["teacher"] : [],
+});
 
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
@@ -43,6 +53,8 @@ function respond(path: string) {
   if (path === "/api/v1/health") return { version: "1", commit: "abcdef0" };
   if (path === "/api/v1/moon/cities") return [];
   if (path === "/api/v1/me/links") return { teachers: [], students: [] };
+  if (path === "/api/v1/me/shalas") return myShalas;
+  if (path === "/api/v1/me/classes") return [];
   if (path === "/api/v1/me/days") {
     return {
       today: TODAY,
@@ -71,6 +83,7 @@ function respond(path: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  myShalas = [];
   vi.stubGlobal(
     "fetch",
     vi.fn((request: Request) => Promise.resolve(json(respond(new URL(request.url).pathname)))),
@@ -121,4 +134,25 @@ test("Telegram's ⋯ Settings closes the tour, and it doesn't come back on Home"
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
   await screen.findByRole("button", { name: "🧭 Quick tour" });
+});
+
+test("My classes is on Home for shala staff only, and opens the week", async () => {
+  myShalas = [myShala("staff")];
+  vi.resetModules(); // App's query cache is module-wide: a fresh one, not the earlier tests'
+  const { App: Fresh } = await import("./App");
+  render(<Fresh locale="en" firstName="Ash" inTelegram />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "🧑‍🏫 My classes" }));
+
+  expect(await screen.findByRole("heading", { name: "🧑‍🏫 My classes" })).toBeInTheDocument();
+});
+
+test("a student sees no My classes row", async () => {
+  myShalas = [myShala("student")];
+  vi.resetModules();
+  const { App: Fresh } = await import("./App");
+  render(<Fresh locale="en" firstName="Ash" inTelegram />);
+  await screen.findByText(OFFER);
+
+  expect(screen.queryByRole("button", { name: "🧑‍🏫 My classes" })).toBeNull();
 });

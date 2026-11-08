@@ -9,7 +9,9 @@ here reads a log: a class is never a log entry.
 import datetime as _dt
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
+from enum import StrEnum
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from tristhana.application.moon import UnknownLocation
 from tristhana.application.policies import (
@@ -61,6 +63,8 @@ from tristhana.domain.rest_days import Weekdays
 DAY_MINUTES = 24 * 60
 CAPS = ClassCaps(classes=MAX_CLASSES, closures=MAX_FUTURE_CLOSURES, swaps=MAX_FUTURE_SWAPS)
 BACK = timedelta(days=7)  # how far back a schedule may start
+MY_DAYS = 7  # "My classes": the next week from each shala's today
+_DAY = timedelta(days=1)
 AHEAD = timedelta(days=1)  # how far the caller's date may run ahead of the shala's
 
 
@@ -226,6 +230,76 @@ class GetSchedule:
         )
 
 
+class Teaching(StrEnum):
+    TEACHING = "teaching"  # mine, as planned
+    COVERING = "covering"  # I substitute for someone
+    COVERED = "covered"  # someone substitutes for me
+
+
+@dataclass(frozen=True, slots=True)
+class MyClass:
+    occurrence: Occurrence
+    role: Teaching
+
+
+@dataclass(frozen=True, slots=True)
+class ShalaClasses:
+    shala_id: UUID
+    name: str
+    zone: str  # the shala's IANA zone
+    city: str
+    today: date  # the shala's
+    classes: tuple[MyClass, ...]
+    staff: dict[UUID, str | None]
+
+
+def _role(o: Occurrence, me: UUID) -> Teaching | None:
+    if o.teacher_id == me:
+        return Teaching.COVERING if o.substitute else Teaching.TEACHING
+    if o.substitute and o.planned_teacher == me:
+        return Teaching.COVERED
+    return None
+
+
+class GetMyClasses:
+    def __init__(self, schedule: ScheduleRepository, clock: Clock, cities: Cities) -> None:
+        self._schedule, self._clock, self._cities = schedule, clock, cities
+
+    async def execute(self, principal: Principal) -> tuple[ShalaClasses, ...]:
+        """The next week of the classes the caller teaches, covers, or has covered, in every
+        shala where they are on the staff; shalas with none are left out. Cancelled ones stay
+        (with their reason). One read."""
+        me, now = principal.account.id, self._clock.now()
+        lo = now.date() - timedelta(days=1)  # a day either side of the UTC date: every today
+        hi = lo + timedelta(days=MY_DAYS + 1)
+        out: list[ShalaClasses] = []
+        for window in await self._schedule.staff_windows(me, lo, hi):
+            zone = _zone(self._cities, window.city)
+            today = local_today(now, zone)
+            end = today + timedelta(days=MY_DAYS - 1)
+            here = ZoneInfo(zone)  # the week is the shala's dates: an online class elsewhere
+            around = _expand(window, self._cities, today - _DAY, end + _DAY)  # may be a day off
+            mine = tuple(
+                MyClass(o, role)
+                for o in around
+                if today <= o.starts_at.astimezone(here).date() <= end
+                and (role := _role(o, me)) is not None
+            )
+            if mine:
+                out.append(
+                    ShalaClasses(
+                        window.shala_id,
+                        window.name,
+                        zone,
+                        window.city,
+                        today,
+                        mine,
+                        dict(window.staff),
+                    )
+                )
+        return tuple(out)
+
+
 class ListClasses:
     def __init__(self, schedule: ScheduleRepository) -> None:
         self._schedule = schedule
@@ -291,9 +365,17 @@ class SetOverride:
         self._schedule, self._clock = schedule, clock
 
     async def execute(
-        self, principal: Principal, shala: UUID, class_id: UUID, key: date, override: Override
+        self,
+        principal: Principal,
+        shala: UUID,
+        class_id: UUID,
+        key: date,
+        override: Override,
+        keep: bool = False,
     ) -> None:
-        """`key` = the rule's date. Raises `InvalidClass`, `NotFound`, `NotAllowed`."""
+        """`key` = the rule's date. The override replaces the date's changes; `keep` (the
+        bot's quick hold or cancel) sets the status only. Raises `InvalidClass`, `NotFound`,
+        `NotAllowed`."""
         _within(key, caller_today(principal, self._clock))
         o = replace(override, on_date=key)
         changes = (o.moved_to, o.start, o.minutes, o.teacher_id)
@@ -310,7 +392,10 @@ class SetOverride:
         )
         if ends is not None and ends > DAY_MINUTES:
             raise InvalidClass("past midnight")
-        if not _unwrap(await self._schedule.set_override(shala, principal.account.id, class_id, o)):
+        if keep and o.status is OverrideStatus.CANCELLED:
+            keep = False  # a cancelled class has no changes
+        written = await self._schedule.set_override(shala, principal.account.id, class_id, o, keep)
+        if not _unwrap(written):
             raise NotFound
 
 
@@ -419,3 +504,4 @@ class ClassUseCases:
     add_swap: AddSwap
     remove_swap: RemoveSwap
     adopt: AdoptShalaDayOff
+    mine: GetMyClasses

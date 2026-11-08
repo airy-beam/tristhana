@@ -26,6 +26,7 @@ vi.mock("../../telegram", () => ({
 const SHALA = "00000000-0000-0000-0000-0000000000c1";
 const CLASS = "00000000-0000-0000-0000-0000000000d1";
 const ANNA = "00000000-0000-0000-0000-0000000000a1";
+const DANA = "00000000-0000-0000-0000-0000000000a2";
 const CITIES = [
   { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
   { slug: "almaty", name_en: "Almaty", name_ru: "Алматы", timezone: "Asia/Almaty" },
@@ -73,6 +74,8 @@ const occurrence = (over: Record<string, unknown> = {}) => ({
   cancelled: null,
   moved: false,
   swapped_from: null,
+  held: false,
+  usual_teacher: { id: ANNA, name: "Anna" },
   ...over,
 });
 
@@ -320,6 +323,119 @@ describe("the occurrence sheet", () => {
     const rows = await screen.findAllByText(/06:00–09:30/);
     fireEvent.click(rows[1] as HTMLElement);
     expect(await screen.findByRole("button", { name: "✅ Hold anyway" })).toBeInTheDocument();
+  });
+
+  const STAFF = [
+    { id: ANNA, name: "Anna", owner: true, roles: ["teacher"] },
+    { id: DANA, name: "Dana", owner: false, roles: ["office"] },
+  ];
+  const putPath = `/api/v1/shalas/${SHALA}/classes/${CLASS}/occurrences/2026-11-09`;
+
+  it("names any staff member as the substitute for one date", async () => {
+    const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }) });
+    renderWith(card());
+
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    const picker = await screen.findByLabelText("Teacher on this date");
+    expect(
+      within(picker)
+        .getAllByRole("option")
+        .map((o) => plain(o.textContent)),
+    ).toEqual(["Usual teacher (Anna)", "Dana"]);
+    fireEvent.change(picker, { target: { value: DANA } });
+
+    await waitFor(() => {
+      expect(calls(seen, "PUT", putPath)).toHaveLength(1);
+    });
+    const body: unknown = await calls(seen, "PUT", putPath)[0]?.json();
+    expect(body).toEqual({ status: null, teacher_id: DANA });
+  });
+
+  it("names no one for the usual teacher, in one request", async () => {
+    const covered = occurrence({ teacher: { id: DANA, name: "Dana" }, substitute: true });
+    const schedule = { ...SCHEDULE, occurrences: [covered] };
+    const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }), schedule });
+    renderWith(card());
+
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.change(await screen.findByLabelText("Teacher on this date"), {
+      target: { value: "" },
+    });
+
+    await waitFor(() => {
+      expect(calls(seen, "PUT", putPath)).toHaveLength(1);
+    });
+    expect(calls(seen, "DELETE", putPath)).toHaveLength(0);
+    const body: unknown = await calls(seen, "PUT", putPath)[0]?.json();
+    expect(body).toEqual({ status: null, teacher_id: null });
+  });
+
+  it("re-sends a swapped date's own move, not the swap's day", async () => {
+    const swapped = occurrence({
+      on: "2026-11-14",
+      starts_at: "2026-11-14T01:00:00Z",
+      moved: true,
+      swapped_from: "2026-11-13",
+    });
+    const schedule = {
+      ...SCHEDULE,
+      days: [day("2026-11-14", { day_off: true, swap_from: "2026-11-13" })],
+      occurrences: [swapped],
+    };
+    const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }), schedule });
+    renderWith(card());
+
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.change(await screen.findByLabelText("Teacher on this date"), {
+      target: { value: DANA },
+    });
+
+    await waitFor(() => {
+      expect(calls(seen, "PUT", putPath)).toHaveLength(1);
+    });
+    const body: unknown = await calls(seen, "PUT", putPath)[0]?.json();
+    expect(body).toMatchObject({ on: "2026-11-13", teacher_id: DANA });
+  });
+
+  it("keeps a hold and a move when the substitute goes back to the usual teacher", async () => {
+    const moved = occurrence({
+      teacher: { id: DANA, name: "Dana" },
+      substitute: true,
+      held: true,
+      moved: true,
+      start: "07:00",
+      end: "08:30",
+      starts_at: "2026-11-09T02:00:00Z",
+    });
+    const schedule = { ...SCHEDULE, occurrences: [moved] };
+    const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }), schedule });
+    renderWith(card());
+
+    fireEvent.click((await screen.findAllByText(/07:00–08:30/))[0] as HTMLElement);
+    const picker = await screen.findByLabelText("Teacher on this date");
+    expect((picker as HTMLSelectElement).value).toBe(DANA);
+    fireEvent.change(picker, { target: { value: "" } });
+
+    await waitFor(() => {
+      expect(calls(seen, "PUT", putPath)).toHaveLength(1);
+    });
+    const body: unknown = await calls(seen, "PUT", putPath)[0]?.json();
+    expect(body).toEqual({
+      status: "held",
+      on: "2026-11-09",
+      start: "07:00",
+      minutes: 90,
+      teacher_id: null,
+    });
+  });
+
+  it("offers no substitute on a cancelled date", async () => {
+    stubApi({ card: shalaOut(TEACHER, { staff: STAFF }) });
+    renderWith(card());
+
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[1] as HTMLElement);
+    await screen.findByRole("button", { name: "✅ Hold anyway" });
+    expect(screen.queryByLabelText("Teacher on this date")).toBeNull();
   });
 });
 

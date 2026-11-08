@@ -27,6 +27,7 @@ from tristhana.application.classes import (
     ClearOverride,
     CreateClass,
     DeleteClass,
+    GetMyClasses,
     GetSchedule,
     ListClasses,
     RemoveClosure,
@@ -383,6 +384,7 @@ class _Services:
             add_swap=AddSwap(schedule, clock),
             remove_swap=RemoveSwap(schedule),
             adopt=AdoptShalaDayOff(shala_repo, remind.day_off),
+            mine=GetMyClasses(schedule, clock, cities),
         )
         app.state.classes = classes
         shalas = ShalaUseCases(

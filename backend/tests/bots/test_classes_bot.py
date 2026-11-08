@@ -602,3 +602,69 @@ def test_an_online_class_elsewhere_shows_in_the_shalas_time_and_day(
 
     tuesday = lines.index(next(line for line in lines if line.startswith("Tue")))
     assert lines[tuesday + 1].startswith("02:00–03:00 Led")
+
+
+# /classes: a teacher's own week
+
+
+def test_classes_lists_mine_with_who_covers(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+    shala, anna = _shala(storage, me, "teacher")
+    mine = storage.schedule.add_class(shala, teacher_id=me.id)
+    led = storage.schedule.add_class(
+        shala, type=ClassType.LED, teacher_id=anna.id, weekdays=frozenset({2}), start=time(7, 0),
+        minutes=90,
+    )  # fmt: skip
+    nov = {d: date(2026, 11, d) for d in (9, 10)}
+    storage.schedule.add_override(mine.id, Override(nov[9], None, teacher_id=anna.id))
+    storage.schedule.add_override(led.id, Override(nov[10], None, teacher_id=me.id))
+
+    body = _command(client, "/classes")
+
+    assert body["method"] == "sendMessage"
+    assert body.get("parse_mode") is None
+    lines = _lines(body)
+    assert lines[0] == "🧑‍🏫 Your classes, the next 7 days"
+    assert "Ashtanga Almaty · Almaty (UTC+5)" in lines
+    assert "06:00–09:30 Mysore · Anna is covering" in lines
+    assert "07:00–08:30 Led · you're covering for Anna" in lines
+    assert sum(line == "06:00–09:30 Mysore" for line in lines) == 4  # Tue-Fri, mine as planned
+    assert _data(body, "Ashtanga Almaty: schedule") == _week(shala)
+
+
+def test_classes_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage, "ru")
+    shala, anna = _shala(storage, me, "teacher")
+    mine = storage.schedule.add_class(shala, teacher_id=me.id)
+    storage.schedule.add_override(mine.id, Override(date(2026, 11, 9), None, teacher_id=anna.id))
+
+    lines = _lines(_command(client, "/classes", "ru"))
+
+    assert lines[0] == "🧑‍🏫 Твои занятия на ближайшие 7 дней"
+    assert "06:00–09:30 Майсор · тебя заменяет Anna" in lines
+
+
+def test_classes_with_none_of_mine(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+    shala, anna = _shala(storage, me, None)
+    storage.schedule.add_class(shala, teacher_id=anna.id)
+
+    body = _command(client, "/classes")
+
+    assert _lines(body)[1].startswith("No classes of yours in the next 7 days.")
+    assert _buttons(body) == []
+
+
+def test_classes_is_in_help_and_the_command_menu(client: TestClient) -> None:
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[3] / "tools" / "telegram" / "set_webhook.py"
+    spec = importlib.util.spec_from_file_location("set_webhook", path)
+    assert spec is not None
+    assert spec.loader is not None
+    tool = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tool)
+
+    assert "classes" in tool.COMMANDS
+    assert "🧑‍🏫 /classes: the classes you teach this week" in _command(client, "/help")["text"]

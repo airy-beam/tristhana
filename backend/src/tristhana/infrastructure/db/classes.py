@@ -13,7 +13,6 @@ from uuid import UUID
 from sqlalchemy import (
     Row,
     and_,
-    case,
     cast,
     delete,
     exists,
@@ -58,11 +57,18 @@ from tristhana.infrastructure.db.shalas import (
     membership_of,
     staff_json,
 )
-from tristhana.infrastructure.db.tables import moon_day, shala_class, shala_closure, shala_swap
+from tristhana.infrastructure.db.tables import (
+    moon_day,
+    shala_class,
+    shala_closure,
+    shala_staff,
+    shala_swap,
+)
 from tristhana.infrastructure.db.tables import shala as _S
 from tristhana.infrastructure.db.tables import shala_class_override as _O
 
 _MARGIN = timedelta(days=13)  # a move (±6) then a swap (±6), as the domain
+_CHANGES = ("moved_to", "start_time", "minutes", "teacher_id")  # an override's changes
 _C = shala_class
 
 
@@ -191,6 +197,100 @@ def _invalid(e: IntegrityError) -> InvalidClass:
     return InvalidClass(type(e.orig).__name__ if e.orig is not None else "integrity")
 
 
+def _window_stmt(me: UUID, start: date, end: date) -> Any:
+    """Every row that shapes [start-13, end+13] for a shala, the caller's side included; the
+    caller adds the shala filter."""
+    lo, hi = start - _MARGIN, end + _MARGIN
+    overrides = (
+        select(
+            _agg(
+                "class_id", _O.c.class_id,
+                "on_date", _O.c.on_date,
+                "status", _O.c.status,
+                "moved_to", _O.c.moved_to,
+                "start_time", _O.c.start_time,
+                "minutes", _O.c.minutes,
+                "teacher_id", _O.c.teacher_id,
+            )
+        )
+        .where(_O.c.shala_id == _S.c.id, _O.c.on_date.between(lo, hi))
+        .scalar_subquery()
+    )  # fmt: skip
+    closures = (
+        select(
+            _agg(
+                "id", shala_closure.c.id,
+                "start", shala_closure.c.start_date,
+                "end", shala_closure.c.end_date,
+            )
+        )
+        .where(
+            shala_closure.c.shala_id == _S.c.id,
+            shala_closure.c.end_date >= lo,
+            shala_closure.c.start_date <= hi,
+        )
+        .scalar_subquery()
+    )  # fmt: skip
+    swaps = (
+        select(_agg("from", shala_swap.c.from_date, "to", shala_swap.c.to_date))
+        .where(
+            shala_swap.c.shala_id == _S.c.id,
+            or_(shala_swap.c.from_date.between(lo, hi), shala_swap.c.to_date.between(lo, hi)),
+        )
+        .scalar_subquery()
+    )
+    moon = (
+        select(func.coalesce(func.jsonb_agg(moon_day.c.date), func.jsonb_build_array()))
+        .where(
+            moon_day.c.location == func.coalesce(_S.c.moon_city, _S.c.city),
+            moon_day.c.date.between(lo, hi),
+        )
+        .scalar_subquery()
+    )
+    return select(
+        _S.c.id,
+        _S.c.owner_id,
+        _S.c.name,
+        _S.c.city,
+        _S.c.moon_city,
+        _S.c.moon_policy,
+        _S.c.days_off,
+        *member_columns(_S.c.id, me, "me"),
+        _classes_json(_S.c.id, lo, hi).label("classes"),
+        overrides.label("overrides"),
+        closures.label("closures"),
+        swaps.label("swaps"),
+        moon.label("moon"),
+        staff_json(_S.c.id).label("staff"),
+    )
+
+
+def _window(row: Row[Any], m: Membership) -> ScheduleWindow:
+    return ScheduleWindow(
+        me=m,
+        shala_id=row.id,
+        name=row.name,
+        city=row.city,
+        moon_city=row.moon_city,
+        moon_policy=MoonPolicy(row.moon_policy),
+        days_off=from_mask(row.days_off) or None,
+        classes=tuple(_stored(c) for c in row.classes),
+        overrides={
+            (UUID(o["class_id"]), date.fromisoformat(o["on_date"])): _override(o)
+            for o in row.overrides
+        },
+        closures=tuple(
+            Closure(UUID(c["id"]), date.fromisoformat(c["start"]), date.fromisoformat(c["end"]))
+            for c in row.closures
+        ),
+        swaps=tuple(
+            Swap(date.fromisoformat(s["from"]), date.fromisoformat(s["to"])) for s in row.swaps
+        ),
+        moon=frozenset(date.fromisoformat(d) for d in row.moon),
+        staff={UUID(s["id"]): s["name"] for s in row.staff},
+    )
+
+
 class SqlScheduleRepository:
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
@@ -203,96 +303,19 @@ class SqlScheduleRepository:
             raise _invalid(e) from e
 
     async def window(self, shala: UUID, me: UUID, start: date, end: date) -> ScheduleWindow | None:
-        lo, hi = start - _MARGIN, end + _MARGIN
-        overrides = (
-            select(
-                _agg(
-                    "class_id", _O.c.class_id,
-                    "on_date", _O.c.on_date,
-                    "status", _O.c.status,
-                    "moved_to", _O.c.moved_to,
-                    "start_time", _O.c.start_time,
-                    "minutes", _O.c.minutes,
-                    "teacher_id", _O.c.teacher_id,
-                )
-            )
-            .where(_O.c.shala_id == _S.c.id, _O.c.on_date.between(lo, hi))
-            .scalar_subquery()
-        )  # fmt: skip
-        closures = (
-            select(
-                _agg(
-                    "id", shala_closure.c.id,
-                    "start", shala_closure.c.start_date,
-                    "end", shala_closure.c.end_date,
-                )
-            )
-            .where(
-                shala_closure.c.shala_id == _S.c.id,
-                shala_closure.c.end_date >= lo,
-                shala_closure.c.start_date <= hi,
-            )
-            .scalar_subquery()
-        )  # fmt: skip
-        swaps = (
-            select(_agg("from", shala_swap.c.from_date, "to", shala_swap.c.to_date))
-            .where(
-                shala_swap.c.shala_id == _S.c.id,
-                or_(shala_swap.c.from_date.between(lo, hi), shala_swap.c.to_date.between(lo, hi)),
-            )
-            .scalar_subquery()
-        )
-        moon = (
-            select(func.coalesce(func.jsonb_agg(moon_day.c.date), func.jsonb_build_array()))
-            .where(
-                moon_day.c.location == func.coalesce(_S.c.moon_city, _S.c.city),
-                moon_day.c.date.between(lo, hi),
-            )
-            .scalar_subquery()
-        )
-        stmt = select(
-            _S.c.id,
-            _S.c.owner_id,
-            _S.c.name,
-            _S.c.city,
-            _S.c.moon_city,
-            _S.c.moon_policy,
-            _S.c.days_off,
-            *member_columns(_S.c.id, me, "me"),
-            _classes_json(_S.c.id, lo, hi).label("classes"),
-            overrides.label("overrides"),
-            closures.label("closures"),
-            swaps.label("swaps"),
-            moon.label("moon"),
-            staff_json(_S.c.id).label("staff"),
-        ).where(_S.c.id == shala)
-        row = await self._one(stmt)
+        row = await self._one(_window_stmt(me, start, end).where(_S.c.id == shala))
         m = _me(row, shala, me)
         if row is None or m is None:
             return None
-        return ScheduleWindow(
-            me=m,
-            shala_id=row.id,
-            name=row.name,
-            city=row.city,
-            moon_city=row.moon_city,
-            moon_policy=MoonPolicy(row.moon_policy),
-            days_off=from_mask(row.days_off) or None,
-            classes=tuple(_stored(c) for c in row.classes),
-            overrides={
-                (UUID(o["class_id"]), date.fromisoformat(o["on_date"])): _override(o)
-                for o in row.overrides
-            },
-            closures=tuple(
-                Closure(UUID(c["id"]), date.fromisoformat(c["start"]), date.fromisoformat(c["end"]))
-                for c in row.closures
-            ),
-            swaps=tuple(
-                Swap(date.fromisoformat(s["from"]), date.fromisoformat(s["to"])) for s in row.swaps
-            ),
-            moon=frozenset(date.fromisoformat(d) for d in row.moon),
-            staff={UUID(s["id"]): s["name"] for s in row.staff},
-        )
+        return _window(row, m)
+
+    async def staff_windows(self, me: UUID, start: date, end: date) -> tuple[ScheduleWindow, ...]:
+        staff = exists().where(shala_staff.c.shala_id == _S.c.id, shala_staff.c.account_id == me)
+        stmt = _window_stmt(me, start, end).where(staff).order_by(_S.c.name, _S.c.id)
+        async with connection(self._engine) as conn:
+            rows = (await conn.execute(stmt)).all()
+        found = ((r, _me(r, r.id, me)) for r in rows)
+        return tuple(_window(r, m) for r, m in found if m is not None)
 
     async def classes_of(self, shala: UUID, me: UUID) -> Guarded[tuple[StoredClass, ...]]:
         cur = _cur(shala, me)
@@ -456,7 +479,7 @@ class SqlScheduleRepository:
         return Guarded(m, done)
 
     async def set_override(
-        self, shala: UUID, me: UUID, class_id: UUID, override: Override
+        self, shala: UUID, me: UUID, class_id: UUID, override: Override, keep: bool = False
     ) -> Guarded[bool]:
         cur = _cur(shala, me)
         o = override
@@ -485,14 +508,8 @@ class SqlScheduleRepository:
                 index_elements=[_O.c.class_id, _O.c.on_date],
                 set_={
                     "status": stmt_insert.excluded.status,
-                    # Hold anyway keeps a move, a time and a substitute (review fix).
-                    **{
-                        k: case(
-                            (stmt_insert.excluded.status == "held", _O.c[k]),
-                            else_=stmt_insert.excluded[k],
-                        )
-                        for k in ("moved_to", "start_time", "minutes", "teacher_id")
-                    },
+                    # `keep` (the bot's quick hold) leaves a move, a time and a substitute.
+                    **({} if keep else {k: stmt_insert.excluded[k] for k in _CHANGES}),
                     "updated_at": func.now(),
                 },
             )

@@ -5,9 +5,9 @@ formats "your time"). 1:1 classes reach staff only (Q121).
 """
 
 import datetime as dt
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from datetime import date, datetime, time, timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Response
@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from tristhana.api.deps import CurrentPrincipal, shalas
 from tristhana.api.errors import ApiError, ErrorCode, error_responses
-from tristhana.application.classes import BadWindow, ClassUseCases, Schedule
+from tristhana.application.classes import BadWindow, ClassUseCases, MyClass, Schedule
 from tristhana.application.moon import UnknownLocation
 from tristhana.application.policies import NotAllowed, NotFound, Principal
 from tristhana.application.ports.classes import ClassDraft, StoredClass
@@ -78,6 +78,23 @@ class OccurrenceOut(BaseModel):
     cancelled: Literal["moon", "closure", "cancelled"] | None
     moved: bool
     swapped_from: date | None
+    held: bool = Field(description="Staff chose hold anyway: send `held` with a later change")
+    usual_teacher: ClassTeacherOut | None = Field(description="The class's own teacher")
+
+
+class MyClassOut(OccurrenceOut):
+    role: Literal["teaching", "covering", "covered"] = Field(
+        description="Mine as planned; I substitute (`usual_teacher` is whose); someone"
+        " substitutes for me (`teacher` is who)"
+    )
+
+
+class MyShalaClassesOut(BaseModel):
+    shala_id: UUID
+    name: str
+    zone: str = Field(description="The shala's IANA zone")
+    today: date = Field(description="The shala's")
+    classes: list[MyClassOut]
 
 
 class ScheduleOut(BaseModel):
@@ -192,13 +209,20 @@ def _hm(at: time) -> str:
     return f"{at:%H:%M}"
 
 
+def _teacher(staff: Mapping[UUID, str | None], id: UUID | None) -> ClassTeacherOut | None:
+    return None if id is None else ClassTeacherOut(id=id, name=staff.get(id))
+
+
 def _occurrence(s: Schedule, o: Occurrence) -> OccurrenceOut:
-    teacher = (
-        None
-        if o.teacher_id is None
-        else ClassTeacherOut(id=o.teacher_id, name=s.staff.get(o.teacher_id))
-    )
-    return OccurrenceOut(
+    return OccurrenceOut(**_occurrence_fields(s.staff, o))
+
+
+def _my_class(staff: Mapping[UUID, str | None], c: MyClass) -> MyClassOut:
+    return MyClassOut(**_occurrence_fields(staff, c.occurrence), role=c.role.value)
+
+
+def _occurrence_fields(staff: Mapping[UUID, str | None], o: Occurrence) -> dict[str, Any]:
+    return dict(
         class_id=o.class_id,
         key=o.key,
         on=o.on,
@@ -208,11 +232,13 @@ def _occurrence(s: Schedule, o: Occurrence) -> OccurrenceOut:
         type=o.type.value,
         title=o.title,
         online=o.online,
-        teacher=teacher,
+        teacher=_teacher(staff, o.teacher_id),
         substitute=o.substitute,
         cancelled=None if o.cancelled is None else o.cancelled.value,
         moved=o.moved,
         swapped_from=o.swapped_from,
+        held=o.held,
+        usual_teacher=_teacher(staff, o.planned_teacher),
     )
 
 
@@ -290,6 +316,25 @@ async def get_schedule(
         occurrences=[_occurrence(s, o) for o in s.occurrences],
         closures=[ClosureOut(id=c.id, start=c.start, end=c.end) for c in s.closures],
     )
+
+
+@router.get("/me/classes")
+async def get_my_classes(
+    principal: CurrentPrincipal, use_cases: UseCases, response: Response
+) -> list[MyShalaClassesOut]:
+    """The next 7 days of the classes I teach, cover, or have covered, in every shala where I
+    am on the staff (by name; shalas with none are left out). Times as the schedule's."""
+    response.headers.update(_NO_STORE)
+    return [
+        MyShalaClassesOut(
+            shala_id=s.shala_id,
+            name=s.name,
+            zone=s.zone,
+            today=s.today,
+            classes=[_my_class(s.staff, c) for c in s.classes],
+        )
+        for s in await _run(use_cases.mine.execute(principal))
+    ]
 
 
 @router.get("/shalas/{id}/classes", responses=error_responses(403, 404))

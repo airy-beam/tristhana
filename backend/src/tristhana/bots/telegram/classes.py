@@ -1,20 +1,29 @@
 """Shala classes in the bot (SC-02, ADR-0034): a member's read-only week (0-3 from the shala's
-today), and the staff quick actions on the next 48 h: cancel (after an ask), restore, hold
-anyway. Silent: no one gets a message (Q122). Forms live in the Mini App (Q103). Plain text,
-no `parse_mode`: titles are user text.
+today), a teacher's own next week across their shalas (`/classes`), and the staff quick actions
+on the next 48 h: cancel (after an ask), restore, hold anyway. Silent: no one gets a message
+(Q122). Forms live in the Mini App (Q103). Plain text, no `parse_mode`: titles are user text.
 """
 
 import asyncio
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.filters import Command
+from aiogram.methods import SendMessage
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from tristhana.application.classes import BadWindow, ClassUseCases, Schedule
+from tristhana.application.classes import (
+    BadWindow,
+    ClassUseCases,
+    MyClass,
+    Schedule,
+    ShalaClasses,
+    Teaching,
+)
 from tristhana.application.policies import NotAllowed, NotFound, Principal
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.application.ports.storage import Clock
@@ -77,15 +86,26 @@ class ScheduleScreens:
     def _day(self, locale: Locale, day: date) -> str:
         return self._t.t(locale, "day-label", rel="other", date=DateArg(day))
 
-    def _zone(self, locale: Locale, s: Schedule, day: date) -> str:
+    def _zone(self, locale: Locale, s: Schedule | ShalaClasses, day: date) -> str:
         return zone_label(self._t, locale, s.zone, day, self._cities.find(s.city))
 
     def _class(self, locale: Locale, o: Occurrence) -> str:
         name = type_name(self._t, locale, o.type)
         return f"{name} {o.title}" if o.title else name
 
-    def _row(self, principal: Principal, s: Schedule, o: Occurrence) -> str:
-        """`06:00-09:30 Mysore · Anna` in the shala's zone; a cancelled one with its reason."""
+    def _name(self, locale: Locale, staff: Mapping[UUID, str | None], id: UUID | None) -> str:
+        found = None if id is None else staff.get(id)
+        return shown_name(found) or self._t.t(locale, "link-no-name")
+
+    def _row(
+        self,
+        principal: Principal,
+        s: Schedule | ShalaClasses,
+        o: Occurrence,
+        role: Teaching | None = None,
+    ) -> str:
+        """`06:00-09:30 Mysore · Anna` in the shala's zone; a cancelled one with its reason.
+        `role`: a row of the caller's own week, which names the other teacher instead."""
         locale = principal.account.locale
         here = ZoneInfo(s.zone)
         start = o.starts_at.astimezone(here)
@@ -93,11 +113,20 @@ class ScheduleScreens:
         if length < timedelta(0):  # ends at midnight
             length += timedelta(days=1)
         text = f"{_hm(start)}{DASH}{_hm(start + length)} {self._class(locale, o)}"
-        if o.teacher_id is not None:
-            name = shown_name(s.staff.get(o.teacher_id)) or self._t.t(locale, "link-no-name")
-            if o.substitute:
-                name = self._t.t(locale, "schedule-substitute", name=name)
-            text += f" · {name}"
+        match role:
+            case None if o.teacher_id is not None:
+                name = self._name(locale, s.staff, o.teacher_id)
+                if o.substitute:
+                    name = self._t.t(locale, "schedule-substitute", name=name)
+                text += f" · {name}"
+            case Teaching.COVERED:
+                name = self._name(locale, s.staff, o.teacher_id)
+                text += " · " + self._t.t(locale, "my-classes-covered", name=name)
+            case Teaching.COVERING if o.planned_teacher is not None:
+                name = self._name(locale, s.staff, o.planned_teacher)
+                text += " · " + self._t.t(locale, "my-classes-covering", name=name)
+            case _:
+                pass
         if o.online:
             text += " 🌐"
             mine = principal.account.timezone
@@ -196,6 +225,43 @@ class ScheduleScreens:
         rows.append([self._button(locale, "log-back", back)])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
+    # A teacher's own week
+
+    async def mine(self, principal: Principal) -> Screen:
+        """`/classes`: the next 7 days of mine in every shala, each in its zone; a button per
+        shala opens its schedule."""
+        locale = principal.account.locale
+        shalas = await self._c.mine.execute(principal)
+        lines = [self._t.t(locale, "my-classes-title")]
+        rows: list[list[InlineKeyboardButton]] = []
+        for s in shalas:
+            lines += ["", f"{s.name} · {self._zone(locale, s, s.today)}"]
+            lines += self._my_days(principal, s, s.classes)
+            rows.append(
+                [self._button(locale, "my-classes-shala", cb.week(s.shala_id, 0), shala=s.name)]
+            )
+        if not shalas:
+            lines.append(self._t.t(locale, "my-classes-empty"))
+        text = "\n".join(lines)
+        if len(text) > BUDGET:  # ten shalas at most: cut at a line, the rest is in the Mini App
+            text = text[: text.rfind("\n", 0, BUDGET)] + "\n…"
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _my_days(
+        self, principal: Principal, s: ShalaClasses, mine: tuple[MyClass, ...]
+    ) -> list[str]:
+        locale = principal.account.locale
+        here = ZoneInfo(s.zone)
+        lines: list[str] = []
+        day: date | None = None
+        for c in mine:
+            on = c.occurrence.starts_at.astimezone(here).date()
+            if on != day:
+                day = on
+                lines.append(self._day(locale, on))
+            lines.append(f"  {self._row(principal, s, c.occurrence, c.role)}")
+        return lines
+
     def _button(self, locale: Locale, key: str, data: str, **args: str) -> InlineKeyboardButton:
         return InlineKeyboardButton(text=self._t.t(locale, key, **args), callback_data=data)
 
@@ -292,7 +358,7 @@ class ScheduleScreens:
                 status = OverrideStatus.CANCELLED if tap.action == "x" else OverrideStatus.HELD
                 override = Override(on_date=tap.key, status=status)
                 await self._c.override.execute(
-                    principal, tap.shala, tap.class_id, tap.key, override
+                    principal, tap.shala, tap.class_id, tap.key, override, keep=True
                 )
         except NotFound:
             note = self._t.t(locale, "class-gone")
@@ -325,6 +391,11 @@ class ScheduleScreens:
 
 
 def register_classes(router: Router, screens: ScheduleScreens) -> None:
+    @router.message(Command("classes"))
+    async def on_classes(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
+        screen = await screens.mine(Principal(account))
+        return message.answer(screen.text, reply_markup=screen.markup)
+
     @router.callback_query(F.data.startswith(f"{cb.PREFIX}:"))
     async def on_class(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         tap = cb.decode(callback.data)

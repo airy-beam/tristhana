@@ -2262,6 +2262,191 @@
         "title": "MoonTeacher",
         "type": "object"
       },
+      "MyClassOut": {
+        "properties": {
+          "cancelled": {
+            "anyOf": [
+              {
+                "enum": [
+                  "moon",
+                  "closure",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "held": {
+            "description": "Staff chose hold anyway: send `held` with a later change",
+            "title": "Held",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "The rule's date: the occurrence's id within its class",
+            "format": "date",
+            "title": "Key",
+            "type": "string"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "role": {
+            "description": "Mine as planned; I substitute (`usual_teacher` is whose); someone substitutes for me (`teacher` is who)",
+            "enum": [
+              "teaching",
+              "covering",
+              "covered"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "start": {
+            "description": "HH:MM in the class zone",
+            "title": "Start",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "substitute": {
+            "title": "Substitute",
+            "type": "boolean"
+          },
+          "swapped_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swapped From"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "usual_teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The class's own teacher"
+          }
+        },
+        "required": [
+          "class_id",
+          "key",
+          "on",
+          "start",
+          "end",
+          "starts_at",
+          "type",
+          "title",
+          "online",
+          "teacher",
+          "substitute",
+          "cancelled",
+          "moved",
+          "swapped_from",
+          "held",
+          "usual_teacher",
+          "role"
+        ],
+        "title": "MyClassOut",
+        "type": "object"
+      },
+      "MyShalaClassesOut": {
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/MyClassOut"
+            },
+            "title": "Classes",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "shala_id": {
+            "format": "uuid",
+            "title": "Shala Id",
+            "type": "string"
+          },
+          "today": {
+            "description": "The shala's",
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "zone": {
+            "description": "The shala's IANA zone",
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shala_id",
+          "name",
+          "zone",
+          "today",
+          "classes"
+        ],
+        "title": "MyShalaClassesOut",
+        "type": "object"
+      },
       "MyShalaOut": {
         "properties": {
           "city": {
@@ -2511,6 +2696,11 @@
             "title": "End",
             "type": "string"
           },
+          "held": {
+            "description": "Staff chose hold anyway: send `held` with a later change",
+            "title": "Held",
+            "type": "boolean"
+          },
           "key": {
             "description": "The rule's date: the occurrence's id within its class",
             "format": "date",
@@ -2579,6 +2769,17 @@
           },
           "type": {
             "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "usual_teacher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassTeacherOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The class's own teacher"
           }
         },
         "required": [
@@ -2595,7 +2796,9 @@
           "substitute",
           "cancelled",
           "moved",
-          "swapped_from"
+          "swapped_from",
+          "held",
+          "usual_teacher"
         ],
         "title": "OccurrenceOut",
         "type": "object"
@@ -4657,6 +4860,57 @@
         "summary": "Patch Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/classes": {
+      "get": {
+        "description": "The next 7 days of the classes I teach, cover, or have covered, in every shala where I\nam on the staff (by name; shalas with none are left out). Times as the schedule's.",
+        "operationId": "get_my_classes_api_v1_me_classes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyShalaClassesOut"
+                  },
+                  "title": "Response Get My Classes Api V1 Me Classes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get My Classes",
+        "tags": [
+          "classes"
         ]
       }
     },

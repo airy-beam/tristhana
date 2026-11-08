@@ -657,7 +657,7 @@ async def test_hold_anyway_keeps_a_move_and_a_substitute(engine: AsyncEngine) ->
     moved = Override(NOV[10], None, NOV[13], time(7), 90, None)
     await repo.set_override(shala, owner, cls, moved)
 
-    await repo.set_override(shala, owner, cls, Override(NOV[10], OverrideStatus.HELD))
+    await repo.set_override(shala, owner, cls, Override(NOV[10], OverrideStatus.HELD), keep=True)
 
     row = (
         await _sql(
@@ -668,3 +668,47 @@ async def test_hold_anyway_keeps_a_move_and_a_substitute(engine: AsyncEngine) ->
         )
     ).one()
     assert tuple(row) == ("held", NOV[13], time(7), 90)
+
+
+async def test_staff_windows_read_every_staff_shala_in_one_statement(engine: AsyncEngine) -> None:
+    owner, shala = await _owned(engine)
+    other = await _shala(engine, owner, name="A Second Shala")
+    teacher, _ = await _person(engine, "Tara")
+    student, _ = await _person(engine, "Sam")
+    for s in (shala, other):
+        await _staff(engine, s, owner, teacher.id, ShalaRole.TEACHER)
+    await _student(engine, shala, owner, student.id)
+    cls = await _class(engine, shala, owner, teacher_id=teacher.id)
+    await _seed_mix(SqlScheduleRepository(engine), shala, owner)
+    repo = SqlScheduleRepository(engine)
+
+    with _statements(engine) as seen:
+        windows = await repo.staff_windows(teacher.id, NOV[9], NOV[15])
+
+    assert len(seen) == 1
+    assert [w.shala_id for w in windows] == [other, shala]  # by name
+    one = await repo.window(shala, teacher.id, NOV[9], NOV[15])
+    assert windows[1] == one
+    assert cls in {c.id for c in windows[1].classes}
+    assert windows[1].me.roles == frozenset({ShalaRole.TEACHER})
+    assert await repo.staff_windows(student.id, NOV[9], NOV[15]) == ()
+
+
+async def test_a_held_write_replaces_unless_it_keeps(engine: AsyncEngine) -> None:
+    owner, shala = await _owned(engine)
+    teacher, _ = await _person(engine, "Tara")
+    await _staff(engine, shala, owner, teacher.id, ShalaRole.TEACHER)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner)
+    await repo.set_override(shala, owner, cls, Override(NOV[10], OverrideStatus.HELD))
+
+    sub = Override(NOV[10], OverrideStatus.HELD, teacher_id=teacher.id)
+    query = "SELECT status, teacher_id FROM tristhana.shala_class_override WHERE class_id = :c"
+    await repo.set_override(shala, owner, cls, sub)
+    await repo.set_override(shala, owner, cls, Override(NOV[10], OverrideStatus.HELD), keep=True)
+    kept = (await _sql(engine, query, c=cls)).one()
+    await repo.set_override(shala, owner, cls, Override(NOV[10], OverrideStatus.HELD))
+    replaced = (await _sql(engine, query, c=cls)).one()
+
+    assert tuple(kept) == ("held", teacher.id)
+    assert tuple(replaced) == ("held", None)

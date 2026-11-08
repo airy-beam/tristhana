@@ -44,7 +44,6 @@ from tristhana.domain.classes import (
     Closure,
     MoonPolicy,
     Override,
-    OverrideStatus,
     Reason,
     Swap,
     check_swap,
@@ -109,6 +108,15 @@ class InMemorySchedule:
 
     async def window(self, shala: UUID, me: UUID, start: date, end: date) -> ScheduleWindow | None:
         self._call("window")
+        return self._read(shala, me, start, end)
+
+    async def staff_windows(self, me: UUID, start: date, end: date) -> tuple[ScheduleWindow, ...]:
+        self._call("staff_windows")
+        ids = [s for (s, a) in self.shalas.staff if a == me]
+        found = (self._read(s, me, start, end) for s in ids)
+        return tuple(sorted((w for w in found if w), key=lambda w: (w.name, str(w.shala_id))))
+
+    def _read(self, shala: UUID, me: UUID, start: date, end: date) -> ScheduleWindow | None:
         m = self.shalas.membership(shala, me)
         if m is None:
             return None
@@ -216,7 +224,7 @@ class InMemorySchedule:
         return Guarded(m, True)
 
     async def set_override(
-        self, shala: UUID, me: UUID, class_id: UUID, override: Override
+        self, shala: UUID, me: UUID, class_id: UUID, override: Override, keep: bool = False
     ) -> Guarded[bool]:
         self._call("set_override")
         m = self._manager(shala, me)
@@ -226,8 +234,8 @@ class InMemorySchedule:
         if found is None or found[0] != shala:
             return Guarded(m, True, False)
         old = self.overrides.get((class_id, override.on_date))
-        if old is not None and override.status is OverrideStatus.HELD:
-            override = replace(old, status=OverrideStatus.HELD)  # keeps a move and a substitute
+        if old is not None and keep:
+            override = replace(old, status=override.status)  # keeps a move and a substitute
         self.overrides[(class_id, override.on_date)] = override
         self.writes.append("set_override")
         return Guarded(m, True, True)

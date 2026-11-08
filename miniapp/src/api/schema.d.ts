@@ -67,6 +67,27 @@ export interface paths {
         patch: operations["patch_me_api_v1_me_patch"];
         trace?: never;
     };
+    "/api/v1/me/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Classes
+         * @description The next 7 days of the classes I teach, cover, or have covered, in every shala where I
+         *     am on the staff (by name; shalas with none are left out). Times as the schedule's.
+         */
+        get: operations["get_my_classes_api_v1_me_classes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/day-off": {
         parameters: {
             query?: never;
@@ -1835,6 +1856,87 @@ export interface components {
             /** Name */
             name: string | null;
         };
+        /** MyClassOut */
+        MyClassOut: {
+            /** Cancelled */
+            cancelled: ("moon" | "closure" | "cancelled") | null;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** End */
+            end: string;
+            /**
+             * Held
+             * @description Staff chose hold anyway: send `held` with a later change
+             */
+            held: boolean;
+            /**
+             * Key
+             * Format: date
+             * @description The rule's date: the occurrence's id within its class
+             */
+            key: string;
+            /** Moved */
+            moved: boolean;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** Online */
+            online: boolean;
+            /**
+             * Role
+             * @description Mine as planned; I substitute (`usual_teacher` is whose); someone substitutes for me (`teacher` is who)
+             * @enum {string}
+             */
+            role: "teaching" | "covering" | "covered";
+            /**
+             * Start
+             * @description HH:MM in the class zone
+             */
+            start: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Substitute */
+            substitute: boolean;
+            /** Swapped From */
+            swapped_from: string | null;
+            teacher: components["schemas"]["ClassTeacherOut"] | null;
+            /** Title */
+            title: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /** @description The class's own teacher */
+            usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
+        };
+        /** MyShalaClassesOut */
+        MyShalaClassesOut: {
+            /** Classes */
+            classes: components["schemas"]["MyClassOut"][];
+            /** Name */
+            name: string;
+            /**
+             * Shala Id
+             * Format: uuid
+             */
+            shala_id: string;
+            /**
+             * Today
+             * Format: date
+             * @description The shala's
+             */
+            today: string;
+            /**
+             * Zone
+             * @description The shala's IANA zone
+             */
+            zone: string;
+        };
         /** MyShalaOut */
         MyShalaOut: {
             /** City */
@@ -1914,6 +2016,11 @@ export interface components {
             /** End */
             end: string;
             /**
+             * Held
+             * @description Staff chose hold anyway: send `held` with a later change
+             */
+            held: boolean;
+            /**
              * Key
              * Format: date
              * @description The rule's date: the occurrence's id within its class
@@ -1946,6 +2053,8 @@ export interface components {
             /** Title */
             title: string | null;
             type: components["schemas"]["ClassTypeName"];
+            /** @description The class's own teacher */
+            usual_teacher: components["schemas"]["ClassTeacherOut"] | null;
         };
         /**
          * PauseOfferOut
@@ -2868,6 +2977,44 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_classes_api_v1_me_classes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyShalaClassesOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

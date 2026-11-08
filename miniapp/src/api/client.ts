@@ -1319,8 +1319,24 @@ export type ClassType = components["schemas"]["ClassIn"]["type"];
 export type NewClass = components["schemas"]["ClassIn"];
 export type OccurrenceChange = components["schemas"]["OccurrenceIn"];
 export type MoonPolicy = components["schemas"]["ShalaOut"]["moon_policy"];
+export type MyShalaClasses = components["schemas"]["MyShalaClassesOut"];
+export type MyClass = components["schemas"]["MyClassOut"];
 
 const scheduleKey = (id: string) => [...SHALAS_KEY, id, "schedule"];
+const MY_CLASSES_KEY = [...SHALAS_KEY, "my-classes"];
+
+/** The next 7 days of the classes I teach, cover or have covered, per staff shala. */
+export function useMyClasses() {
+  return useQuery({
+    staleTime: 60_000,
+    queryKey: MY_CLASSES_KEY,
+    queryFn: async (): Promise<MyShalaClasses[]> => {
+      const { data, error, response } = await api.GET("/api/v1/me/classes");
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
 
 export function useSchedule(id: string, from: string, days: number, enabled = true) {
   return useQuery({
@@ -1341,7 +1357,11 @@ function useScheduleWrite<T, R>(id: string, write: (vars: T) => Promise<R>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: write,
-    onSuccess: () => client.invalidateQueries({ queryKey: scheduleKey(id) }),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: scheduleKey(id) }),
+        client.invalidateQueries({ queryKey: MY_CLASSES_KEY }),
+      ]),
   });
 }
 
