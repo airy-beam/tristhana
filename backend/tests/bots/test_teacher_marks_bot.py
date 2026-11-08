@@ -38,6 +38,12 @@ ME_TG = 42
 NOW = datetime(2026, 11, 8, 12, 0, tzinfo=UTC)
 TODAY = date(2026, 11, 8)
 LINKED = date(2026, 6, 1)
+UNSET_EN = "No last asana set yet. Once they set it in My asanas, you can mark new ones here."
+UNSET_RU = (
+    "Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, "
+    "здесь можно будет "
+    "отмечать новые."
+)
 KAPOTASANA_B = Position("intermediate", "kapotasana-b")
 SUPTA_VAJRASANA = Position("intermediate", "supta-vajrasana")
 BAKASANA_B = Position("intermediate", "bakasana-b")
@@ -268,7 +274,7 @@ def test_an_unset_card_has_the_neutral_line_and_no_button(
 
     body = _card(client, student)
 
-    assert _lines(body)[:2] == ["Anna", "Anna hasn't set their practice yet."]
+    assert _lines(body)[:2] == ["Anna", UNSET_EN]
     assert _texts(body) == ["Remove…", "‹ Back"]
 
 
@@ -280,7 +286,7 @@ def test_the_unset_line_in_russian(
 
     body = _card(client, student, lang="ru")
 
-    assert _lines(body)[1] == "Anna: практика пока не указана."
+    assert _lines(body)[1] == UNSET_RU
 
 
 def test_at_the_end_of_the_confirmed_series_there_is_no_button(

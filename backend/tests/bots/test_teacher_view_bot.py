@@ -608,7 +608,11 @@ def test_a_null_position_omits_the_line(client: TestClient, storage: InMemorySto
     body = _card(client, student)
     lines = _lines(body)
 
-    assert lines[:3] == ["Anna", "Anna hasn't set their practice yet.", "Last 7 days"]
+    assert lines[:3] == [
+        "Anna",
+        "No last asana set yet. Once they set it in My asanas, you can mark new ones here.",
+        "Last 7 days",
+    ]
     assert not any("as marked in their log" in line.lower() for line in lines)
     assert _texts(body) == ["Remove…", "‹ Back"]
 

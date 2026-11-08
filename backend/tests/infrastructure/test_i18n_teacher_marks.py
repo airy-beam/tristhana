@@ -122,9 +122,11 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
     ),
     (
         "students-give-unset",
-        {"name": "Anna"},
-        "Anna hasn't set their practice yet.",
-        "Anna: практика пока не указана.",
+        {},
+        "No last asana set yet. Once they set it in My asanas, you can mark new ones here.",
+        "Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, "
+        "здесь можно будет "
+        "отмечать новые.",
     ),
     (
         "mark-received",

@@ -375,7 +375,7 @@ class LinkScreens:
         if card.last_asana is not None:
             head.append(self._asana(locale, card.last_asana))
         else:  # PR-08 Phase 3: nothing to mark from, and no button
-            head.append(self._t.t(locale, "students-give-unset", name=name))
+            head.append(self._t.t(locale, "students-give-unset"))
         week = [self._t.t(locale, "students-week")]
         week += [self._day(locale, d, today) for d in reversed(card.days)]
         week.append(self._t.t(locale, "students-blank-note"))
