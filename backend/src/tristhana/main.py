@@ -120,6 +120,7 @@ from tristhana.application.teacher_links import (
     RotateInvite,
     SetPrimaryTeacher,
 )
+from tristhana.application.teacher_marks import MarkForStudent
 from tristhana.application.teacher_view import GetStudent, GetStudents, TeacherViewUseCases
 from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
@@ -374,9 +375,11 @@ class _Services:
         )
         view = TeacherViewUseCases(
             GetStudents(self._storage.teacher_view, clock),
-            GetStudent(self._storage.teacher_view, clock),
+            GetStudent(self._storage.teacher_view, clock, track),
         )
         app.state.teacher_view = view
+        mark = MarkForStudent(repo, track, clock, self._notifier)
+        app.state.mark_for_student = mark
         teacher_links = self._storage.teacher_links
         codes = SecretCodes()
         shala_repo = self._storage.shalas
@@ -442,6 +445,7 @@ class _Services:
             view=view,
             labels=PracticeLabels(translator, loaded.catalog, track),
             catalog=loaded.catalog,
+            mark=mark,
             shalas=shalas,
         )
         app.state.links = links

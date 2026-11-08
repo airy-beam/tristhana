@@ -393,7 +393,8 @@ def test_the_card_in_english(client: TestClient, storage: InMemoryStorage) -> No
         "Sun, Nov 1: ·",
         NOTE_EN,
     ]
-    assert _texts(body) == ["Remove…", "‹ Back"]
+    # PR-08 Phase 3: Pasasana has next stops, so the mark button sits above Remove.
+    assert _texts(body) == ["🎉 Mark new asana", "Remove…", "‹ Back"]
 
 
 def test_the_card_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
@@ -415,7 +416,7 @@ def test_the_card_in_russian(client: TestClient, storage: InMemoryStorage) -> No
         "вс, 1 нояб.: ·",
         NOTE_RU,
     ]
-    assert _texts(body) == ["Убрать…", "‹ Назад"]
+    assert _texts(body) == ["🎉 Отметить новую асану", "Убрать…", "‹ Назад"]
 
 
 def test_the_card_says_today_for_the_students_today(
@@ -600,13 +601,16 @@ def test_standing_only_has_its_own_line(
 
 
 def test_a_null_position_omits_the_line(client: TestClient, storage: InMemoryStorage) -> None:
+    """PR-08 Phase 3: the neutral unset line instead, and no mark button."""
     me = _me(client, storage)
     student = _student(storage, me)
 
-    lines = _lines(_card(client, student))
+    body = _card(client, student)
+    lines = _lines(body)
 
-    assert lines[:2] == ["Anna", "Last 7 days"]
+    assert lines[:3] == ["Anna", "Anna hasn't set their practice yet.", "Last 7 days"]
     assert not any("as marked in their log" in line.lower() for line in lines)
+    assert _texts(body) == ["Remove…", "‹ Back"]
 
 
 @pytest.mark.parametrize(

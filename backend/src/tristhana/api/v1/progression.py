@@ -43,6 +43,8 @@ from tristhana.domain.progression import (
     Track,
     last_asana,
     position_length,
+    teacher_mark,
+    undoable,
 )
 
 router = APIRouter(
@@ -75,10 +77,21 @@ class EventOut(BaseModel):
     before: PositionOut | None = Field(alias="from", serialization_alias="from")
     after: PositionOut | None = Field(alias="to", serialization_alias="to")
     item: str | None
-    marked_by_self: bool
+    marked_by_self: bool = Field(description="Kept for older clients: `by` == self")
+    by: Literal["self", "teacher"] = Field(
+        description="Who marked it: the caller, or a teacher (also a deleted account)"
+    )
+    by_name: str | None = Field(
+        description="The teacher's name while they are linked; null = the caller, or show "
+        '"a teacher"'
+    )
+    undoable: bool = Field(
+        description="DELETE works now: the newest event, or a teacher's mark the position "
+        "hasn't moved on from"
+    )
 
     @classmethod
-    def of(cls, e: ProgressionEvent) -> "EventOut":
+    def of(cls, e: ProgressionEvent, undoable: bool) -> "EventOut":
         return cls.model_validate(
             {
                 "id": e.id,
@@ -88,8 +101,19 @@ class EventOut(BaseModel):
                 "to": PositionOut.maybe(e.after),
                 "item": e.item,
                 "marked_by_self": e.marked_by_self,
+                "by": e.by.value,
+                "by_name": e.by_name,
+                "undoable": undoable,
             }
         )
+
+
+class MarkedOut(BaseModel):
+    """The current position was set by a teacher's mark (PR-08 Phase 3)."""
+
+    event_id: int
+    by_name: str | None = Field(description='null = show "a teacher"')
+    undoable: bool
 
 
 class ProgressionOut(BaseModel):
@@ -108,6 +132,9 @@ class ProgressionOut(BaseModel):
     events: list[EventOut] = Field(description="Newest first, at most 20")
     last_event_id: int | None = Field(description="Send back as `expected_event_id`")
     today: dt.date | None = Field(default=None, description="The caller's local date")
+    marked: MarkedOut | None = Field(
+        default=None, description="The current position is a teacher's mark; null otherwise"
+    )
 
     @classmethod
     def of(
@@ -118,6 +145,8 @@ class ProgressionOut(BaseModel):
         today: dt.date | None = None,
     ) -> "ProgressionOut":
         p = view.progression
+        can_undo = undoable(view.events)
+        mark = teacher_mark(view.events) if p else None
         length = position_length(track, p.position) if p else None
         suggested_length = position_length(track, suggested) if suggested else None
         return cls(
@@ -133,9 +162,12 @@ class ProgressionOut(BaseModel):
             later=[PositionOut.of(q) for q in track.after(p.position)] if p else [],
             suggested=PositionOut.maybe(suggested),
             suggested_length=Length.of(suggested_length) if suggested_length else None,
-            events=[EventOut.of(e) for e in view.events],
+            events=[EventOut.of(e, e.id in can_undo) for e in view.events],
             last_event_id=p.last_event_id if p else None,
             today=today,
+            marked=MarkedOut(event_id=mark.id, by_name=mark.by_name, undoable=mark.id in can_undo)
+            if mark
+            else None,
         )
 
 
@@ -231,7 +263,7 @@ async def post_event(
 def _change_out(track: Track, result: ChangeResult) -> ChangeOut:
     return ChangeOut(
         progression=ProgressionOut.of(track, result.view),
-        event=EventOut.of(result.event) if result.event else None,
+        event=EventOut.of(result.event, True) if result.event else None,  # the newest
         celebrations=[CelebrationOut.of(c) for c in result.celebrations],
     )
 
@@ -243,7 +275,8 @@ async def delete_event(
     use_case: Annotated[UndoProgression, Depends(undo_progression)],
     track: Annotated[Track, Depends(progression_track)],
 ) -> ProgressionOut:
-    """Undo: only the latest event (409 `not_latest`)."""
+    """Undo: the latest event, or a teacher's mark the position hasn't moved on from (an
+    event's `undoable`); 409 `not_latest` otherwise."""
     try:
         view = await use_case.execute(principal, event_id)
     except NotLatest:

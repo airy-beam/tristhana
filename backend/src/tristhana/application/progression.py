@@ -38,7 +38,7 @@ class ProgressionChanged(Exception):
 
 
 class NotLatest(Exception):
-    """Only the latest event can be undone."""
+    """Can't be undone now: not the latest, and not a teacher's mark still in place."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +110,11 @@ class _Write:
         if change is None:
             return ChangeResult(view, None)
         account = principal.account.id
-        event = await self._progression.apply(account, change, current, marked_by=account)
+        # The position too: after a teacher's mark is undone, `last_event_id` stays (ADR-0037).
+        before = view.progression.position if view.progression else None
+        event = await self._progression.apply(
+            account, change, current, marked_by=account, before=before
+        )
         if event is None:
             raise ProgressionChanged("lost the compare-and-set")
         found = celebrations(self._track, view.earlier, change)
@@ -186,7 +190,8 @@ class UndoProgression:
         self._progression = progression
 
     async def execute(self, principal: Principal, event_id: int) -> ProgressionView:
-        """Raises `NotLatest`. Two statements: the undo, then the view."""
+        """The latest event, or a teacher's mark the position hasn't moved on from (ADR-0037).
+        Raises `NotLatest`. Two statements: the undo, then the view."""
         if not await self._progression.undo(principal.account.id, event_id):
             raise NotLatest(str(event_id))
         return await self._progression.get(principal.account.id)

@@ -207,6 +207,24 @@ export async function confirmDestructive(
   return id === "confirm";
 }
 
+/** Telegram's native confirm popup for a non-destructive action (PR-08 Phase 3: a teacher's
+ * mark); resolves true only for `confirm`. Outside Telegram (dev), the browser's confirm. */
+export async function confirmAction(
+  message: string,
+  confirm: string,
+  cancel: string,
+): Promise<boolean> {
+  if (!popup.show.isAvailable()) return window.confirm(message);
+  const id = await popup.show({
+    message,
+    buttons: [
+      { id: "confirm", type: "default", text: confirm },
+      { id: "cancel", type: "default", text: cancel },
+    ],
+  });
+  return id === "confirm";
+}
+
 /** Asks Telegram to let the bot write to this person (ST-09: the export is a bot message;
  * someone who opened the app by link may never have started the bot). True = allowed. */
 export async function allowBotMessages(): Promise<boolean> {

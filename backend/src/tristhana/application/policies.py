@@ -13,6 +13,7 @@ so shala ids can't be probed. A shala membership never grants any of the teacher
 from dataclasses import dataclass
 from uuid import UUID
 
+from tristhana.application.ports.progression import MarkLink
 from tristhana.application.ports.teacher_view import StudentLink
 from tristhana.domain.accounts import Account
 from tristhana.domain.shalas import Membership, ShalaRole, grantable
@@ -88,6 +89,13 @@ def can_view_activity(viewer: Account, link: StudentLink) -> bool:
 def can_view_last_asana(viewer: Account, link: StudentLink) -> bool:
     """A link's teacher sees the current position, never the events behind it (ST-06)."""
     return link.teacher_id == viewer.id
+
+
+def can_mark_progression(actor: Account, link: MarkLink) -> bool:
+    """A link's teacher may mark one of the next stops for the student (PR-08 Phase 3,
+    ADR-0037): one hop, one way, as `can_view_last_asana`. Any teacher on the student's list,
+    an assistant included; shala staff without a link never."""
+    return link.teacher_id == actor.id
 
 
 def can_view_milestones(viewer: Account, student: Account) -> bool:

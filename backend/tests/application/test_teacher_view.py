@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from tests.domain.test_practice import catalog
 from tests.fakes import FixedClock, InMemoryAccounts
 from tests.teacher_link_fakes import InMemoryTeacherLinks, add_person
 from tests.teacher_view_fakes import ScriptedTeacherView
@@ -34,7 +35,7 @@ from tristhana.application.teacher_view import GetStudent, GetStudents
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
 from tristhana.domain.practice import PracticeLength
-from tristhana.domain.progression import STANDING_ONLY, Position
+from tristhana.domain.progression import STANDING_ONLY, Position, Track
 from tristhana.domain.teacher_view import DayCell, SharedDay, StudentCard, StudentToday
 
 NOW = datetime(2026, 11, 7, 12, 0, tzinfo=UTC)
@@ -42,6 +43,7 @@ UTC_TODAY = date(2026, 11, 7)
 LINKED = date(2026, 1, 1)
 P, R = SharedDay.PRACTICED, SharedDay.REST
 LENGTH = PracticeLength(("primary",), "navasana")
+TRACK = Track(catalog())
 ZONES = [
     "Asia/Kolkata",
     "Asia/Kathmandu",
@@ -109,7 +111,9 @@ class World:
         return list(found), total
 
     async def card(self, student: UUID) -> StudentCard:
-        return await GetStudent(self.repo, self.clock).execute(Principal(self.teacher), student)
+        return await GetStudent(self.repo, self.clock, TRACK).execute(
+            Principal(self.teacher), student
+        )
 
 
 @pytest.fixture
@@ -124,11 +128,13 @@ def _midnight(day: date, zone: str) -> datetime:
 # Built with the port and the clock only (ADR-0031)
 
 
-@pytest.mark.parametrize("use_case", [GetStudents, GetStudent])
-def test_a_use_case_takes_the_port_and_the_clock_and_nothing_else(use_case: type) -> None:
-    parameters = list(inspect.signature(use_case).parameters)
+def test_a_use_case_takes_the_port_and_the_clock_and_nothing_else() -> None:
+    assert list(inspect.signature(GetStudents).parameters) == ["view", "clock"]
 
-    assert len(parameters) == 2
+
+def test_the_card_also_takes_the_track_and_nothing_else() -> None:
+    """PR-08 Phase 3: `next_asanas` comes from the in-memory track, not from another port."""
+    assert list(inspect.signature(GetStudent).parameters) == ["view", "clock", "track"]
 
 
 # Each student's own today

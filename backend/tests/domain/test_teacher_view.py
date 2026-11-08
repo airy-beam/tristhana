@@ -68,7 +68,7 @@ def test_the_projection_table(status: DayStatus, shown: SharedDay | None) -> Non
     [
         (StudentToday, ["id", "name", "today"]),
         (DayCell, ["date", "shown", "length"]),
-        (StudentCard, ["id", "name", "days", "last_asana", "quiet"]),
+        (StudentCard, ["id", "name", "days", "last_asana", "quiet", "next_asanas"]),
     ],
 )
 def test_output_types_have_exactly_the_agreed_fields(kind: type, names: list[str]) -> None:

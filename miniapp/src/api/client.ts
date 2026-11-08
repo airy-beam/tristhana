@@ -879,6 +879,7 @@ export type ProgressionChange = components["schemas"]["ChangeOut"];
 export type ProgressionEventBody = components["schemas"]["EventBody"];
 export type Celebration = components["schemas"]["CelebrationOut"];
 export type ProgressionPosition = components["schemas"]["PositionOut"];
+export type ProgressionEvent = components["schemas"]["EventOut"];
 
 const PROGRESSION_KEY = ["progression"] as const;
 
@@ -1024,6 +1025,7 @@ const LINKS_KEY = ["links"];
 const STUDENTS_KEY = ["students"];
 export type StudentsPage = components["schemas"]["StudentsOut"];
 export type StudentCard = components["schemas"]["StudentCardOut"];
+export type NewAsanaBody = components["schemas"]["NewAsanaIn"];
 export const STUDENTS_PAGE = 20;
 
 export function useStudents(offset: number) {
@@ -1052,6 +1054,32 @@ export function useStudent(id: string) {
     },
     staleTime: 60_000,
     retry: false,
+  });
+}
+
+/** PR-08 Phase 3: a linked teacher marks one of the card's `next_asanas`. Not optimistic: the
+ * answer is the refreshed card, which replaces the cached one. A 409 (out of date) refetches
+ * the card; a 404 (unlinked meanwhile) is the caller's to handle. */
+export function useMarkNewAsana(id: string) {
+  const client = useQueryClient();
+  const key = [...STUDENTS_KEY, "card", id];
+  return useMutation({
+    mutationFn: async (body: NewAsanaBody): Promise<StudentCard> => {
+      const { data, error, response } = await api.POST("/api/v1/me/students/{id}/new-asana", {
+        params: { path: { id } },
+        body,
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (card) => {
+      client.setQueryData(key, card);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        void client.invalidateQueries({ queryKey: key, exact: true });
+      }
+    },
   });
 }
 

@@ -490,7 +490,8 @@ export interface paths {
         post?: never;
         /**
          * Delete Event
-         * @description Undo: only the latest event (409 `not_latest`).
+         * @description Undo: the latest event, or a teacher's mark the position hasn't moved on from (an
+         *     event's `undoable`); 409 `not_latest` otherwise.
          */
         delete: operations["delete_event_api_v1_me_progression_events__event_id__delete"];
         options?: never;
@@ -672,6 +673,30 @@ export interface paths {
         post?: never;
         /** Delete Student */
         delete: operations["delete_student_api_v1_me_students__id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/students/{id}/new-asana": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post New Asana
+         * @description PR-08 Phase 3: a linked teacher marks one of the card's `next_asanas`; the student gets
+         *     one silent message and can undo it. Not optimistic: the answer is the refreshed card, the
+         *     same whatever the student's history or the message's delivery. 404 `not_linked`;
+         *     409 `progression_changed` (out of date, or a retry: refetch the card); 422
+         *     `invalid_progression` (`to` isn't within the next stops of `from`).
+         */
+        post: operations["post_new_asana_api_v1_me_students__id__new_asana_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1609,13 +1634,27 @@ export interface components {
         EventKind: "start" | "given" | "changed" | "item_given" | "item_removed";
         /** EventOut */
         EventOut: {
+            /**
+             * By
+             * @description Who marked it: the caller, or a teacher (also a deleted account)
+             * @enum {string}
+             */
+            by: "self" | "teacher";
+            /**
+             * By Name
+             * @description The teacher's name while they are linked; null = the caller, or show "a teacher"
+             */
+            by_name: string | null;
             from: components["schemas"]["PositionOut"] | null;
             /** Id */
             id: number;
             /** Item */
             item: string | null;
             kind: components["schemas"]["EventKind"];
-            /** Marked By Self */
+            /**
+             * Marked By Self
+             * @description Kept for older clients: `by` == self
+             */
             marked_by_self: boolean;
             /**
              * Occurred On
@@ -1623,6 +1662,11 @@ export interface components {
              */
             occurred_on: string;
             to: components["schemas"]["PositionOut"] | null;
+            /**
+             * Undoable
+             * @description DELETE works now: the newest event, or a teacher's mark the position hasn't moved on from
+             */
+            undoable: boolean;
         };
         /** ExportSentOut */
         ExportSentOut: {
@@ -1766,6 +1810,21 @@ export interface components {
              * @description A city slug; null = follow (`follow`)
              */
             slug: string | null;
+        };
+        /**
+         * MarkedOut
+         * @description The current position was set by a teacher's mark (PR-08 Phase 3).
+         */
+        MarkedOut: {
+            /**
+             * By Name
+             * @description null = show "a teacher"
+             */
+            by_name: string | null;
+            /** Event Id */
+            event_id: number;
+            /** Undoable */
+            undoable: boolean;
         };
         /** Me */
         Me: {
@@ -2190,6 +2249,13 @@ export interface components {
              */
             side: "staff" | "student";
         };
+        /** NewAsanaIn */
+        NewAsanaIn: {
+            /** @description The card's `last_asana` */
+            from: components["schemas"]["PositionOut"];
+            /** @description One of the card's `next_asanas` */
+            to: components["schemas"]["PositionOut"];
+        };
         /** NotificationSettingsOut */
         NotificationSettingsOut: {
             /** Daily Cap */
@@ -2421,6 +2487,8 @@ export interface components {
             later: components["schemas"]["PositionOut"][];
             /** @description The position as a practice (the series below + this one); null = standing only, unset or stale */
             length: components["schemas"]["Length"] | null;
+            /** @description The current position is a teacher's mark; null otherwise */
+            marked?: components["schemas"]["MarkedOut"] | null;
             /** @description The next stop; null at the end or when stale */
             next: components["schemas"]["PositionOut"] | null;
             /** @description null = not set yet */
@@ -2932,6 +3000,11 @@ export interface components {
             last_asana: components["schemas"]["PositionOut"] | null;
             /** Name */
             name: string | null;
+            /**
+             * Next Asanas
+             * @description PR-08 Phase 3: the stops this teacher may mark, in order (0-3); empty when unset or at the end of the confirmed series
+             */
+            next_asanas: components["schemas"]["PositionOut"][];
             /** Quiet */
             quiet: boolean;
         };
@@ -5120,6 +5193,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_new_asana_api_v1_me_students__id__new_asana_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAsanaIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentCardOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Service Unavailable */

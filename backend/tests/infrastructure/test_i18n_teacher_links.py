@@ -257,8 +257,8 @@ def _bot(locale: str) -> dict[str, str]:
             "Your log is yours. A teacher on your list sees your name, your last asana and what "
             "you log from the day you added them: practice or rest and your practice length. All "
             "rest you log looks the same, whatever the reason. If nothing shows for a while, your "
-            "teacher sees a short note saying just that. Later, a teacher on your list will also "
-            "be able to mark a new asana for you, and you can undo it. Check-ins, diary notes and "
+            "teacher sees a short note saying just that. A teacher on your list can also mark a "
+            "new asana for you: you get a message and can undo it. Check-ins, diary notes and "
             "the reason for a rest stay private. You can remove a teacher from your list any "
             "time.",
         ),
@@ -267,8 +267,9 @@ def _bot(locale: str) -> dict[str, str]:
             "Твой журнал принадлежит тебе. Учитель из твоего списка видит твоё имя, последнюю "
             "асану и то, что ты отмечаешь со дня добавления: практика или отдых и объём практики. "
             "Любой отмеченный отдых выглядит одинаково, какой бы ни была причина. Если какое-то "
-            "время показать нечего, учитель увидит об этом короткую пометку. Позже учитель из "
-            "твоего списка сможет отметить тебе новую асану, а ты сможешь это отменить. "
+            "время показать нечего, учитель увидит об этом короткую пометку. Учитель из твоего "
+            "списка также может отметить тебе новую асану: придёт сообщение, и отметку можно "
+            "отменить. "
             "Самочувствие, заметки и причина отдыха остаются личными. Убрать учителя из списка "
             "можно в любой момент.",
         ),

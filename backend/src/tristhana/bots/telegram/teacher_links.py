@@ -28,6 +28,7 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.notifications import KeepOffer
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
+from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import moon_callbacks, shalas_callbacks
 from tristhana.bots.telegram import teacher_links_callbacks as cb
@@ -46,7 +47,13 @@ from tristhana.bots.telegram.settings import client_profile
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.moon import MoonFollow, MoonSource
-from tristhana.domain.progression import STANDING_ONLY, Position
+from tristhana.domain.progression import (
+    STANDING_ONLY,
+    Position,
+    Progression,
+    Track,
+    teacher_targets,
+)
 from tristhana.domain.teacher_links import (
     InviteState,
     Linked,
@@ -55,7 +62,7 @@ from tristhana.domain.teacher_links import (
     next_primary,
     shown_name,
 )
-from tristhana.domain.teacher_view import DayCell
+from tristhana.domain.teacher_view import DayCell, StudentCard
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.start import StartScreens
@@ -119,6 +126,7 @@ class LinkScreens:
         self._t = translator
         self._app = app
         self._username = bot_username
+        self._track = Track(links.catalog)  # in memory: callback positions resolve against it
 
     def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
         return button(self._t, locale, key, data)
@@ -351,28 +359,152 @@ class LinkScreens:
         length = self._links.labels.length(locale, d.length)
         return self._t.t(locale, "students-day-length", date=label, state=state, length=length)
 
-    async def student(self, principal: Principal, id: UUID, page: int = 0) -> Screen:
-        locale = principal.account.locale
+    async def student(
+        self, principal: Principal, id: UUID, page: int = 0, lead: str | None = None
+    ) -> Screen:
         try:
             card = await self._links.view.student.execute(principal, id)
         except NotLinked:
             return await self.students(principal, 0)
+        return self._card(principal.account.locale, card, page, lead)
+
+    def _card(self, locale: Locale, card: StudentCard, page: int, lead: str | None) -> Screen:
         today = card.days[-1].date
-        head = [_name(self._t, locale, card.name)]
+        name = _name(self._t, locale, card.name)
+        head = [name]
         if card.last_asana is not None:
             head.append(self._asana(locale, card.last_asana))
+        else:  # PR-08 Phase 3: nothing to mark from, and no button
+            head.append(self._t.t(locale, "students-give-unset", name=name))
         week = [self._t.t(locale, "students-week")]
         week += [self._day(locale, d, today) for d in reversed(card.days)]
         week.append(self._t.t(locale, "students-blank-note"))
         if card.quiet:
             week.append(self._t.t(locale, "students-quiet"))
+        rows: list[list[InlineKeyboardButton]] = []
+        if card.next_asanas:
+            rows.append([self._button(locale, "students-give", cb.give(card.id, page))])
+        rows.append([self._button(locale, "links-remove", cb.person("r", card.id))])
+        rows.append([self._button(locale, "log-back", cb.students(page))])
+        text = "\n".join(head) + "\n\n" + "\n".join(week)
+        if lead:
+            text = f"{lead}\n\n{text}"
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+    # PR-08 Phase 3: mark a new asana (picker → confirm → mark), every step from the card.
+    def _seen(self, number: int, index: int) -> Position | None:
+        """The position a callback names; None when it no longer resolves (catalog changed)."""
+        if number == 0:
+            return STANDING_ONLY if index == 0 else None
+        series = self._links.catalog.by_number(number)
+        if series is None or index >= len(series.stops):
+            return None
+        return Position(series.slug, series.stops[index].key)
+
+    def _where(self, p: Position) -> tuple[int, int] | None:
+        """`(n, i)` for a callback; None for a key the catalog no longer has (stale)."""
+        if p == STANDING_ONLY:
+            return 0, 0
+        series = self._track.series(p)
+        keys = [s.key for s in series.stops] if series is not None else []
+        if series is None or p.key not in keys:
+            return None
+        return series.number, keys.index(p.key)
+
+    def _series_lower(self, locale: Locale, p: Position) -> str:
+        series = self._track.series(p)
+        if series is None:
+            return p.series or ""
+        return self._links.labels.series(locale, series.number, lower=True)
+
+    def _stop(self, locale: Locale, p: Position) -> str:
+        return self._links.labels.stop(locale, p.series or "", p.key or "")
+
+    async def give_picker(self, principal: Principal, id: UUID, page: int) -> Screen:
+        locale = principal.account.locale
+        try:
+            card = await self._links.view.student.execute(principal, id)
+        except NotLinked:
+            return await self.students(principal, 0)
+        if card.last_asana is None or not card.next_asanas:
+            return self._card(locale, card, page, None)
+        where = self._where(card.last_asana)
+        if where is None:  # a stale key: never fall back to another stop
+            return self._card(locale, card, page, self._t.t(locale, "students-give-stale"))
+        number, index = where
+        rows: list[list[InlineKeyboardButton]] = []
+        for steps, target in enumerate(card.next_asanas, start=1):
+            asana = self._stop(locale, target)
+            # [Supta Vajrasana] [→ Bakasana B] [→ Bharadvajasana]: the confirm names the range.
+            key = "students-give-option" if steps == 1 else "students-give-range"
+            label = self._t.t(locale, key, asana=asana)
+            data = cb.give_step(card.id, number, index, steps, page)
+            rows.append([InlineKeyboardButton(text=label, callback_data=data)])
+        rows.append([self._button(locale, "log-back", cb.card(card.id, page))])
+        text = self._t.t(locale, "students-give-pick", name=_name(self._t, locale, card.name))
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+    async def give_confirm(self, principal: Principal, step: cb.GiveStep) -> Screen:
+        locale = principal.account.locale
+        try:
+            card = await self._links.view.student.execute(principal, step.id)
+        except NotLinked:
+            return await self.students(principal, 0)
+        seen = self._seen(step.number, step.index)
+        if seen is None or card.last_asana != seen or step.steps > len(card.next_asanas):
+            stale = self._t.t(locale, "students-give-stale")
+            return self._card(locale, card, step.page, stale)
+        target = card.next_asanas[step.steps - 1]
+        name = _name(self._t, locale, card.name)
+        asana, series = self._stop(locale, target), self._series_lower(locale, target)
+        if step.steps == 1:
+            text = self._t.t(locale, "students-give-ask", name=name, asana=asana, series=series)
+        else:
+            start = card.next_asanas[0]
+            first = self._stop(locale, start)
+            # Across a series boundary, both series are named (Setu Bandhasana → Krounchasana).
+            across = start.series != target.series
+            text = self._t.t(
+                locale,
+                "students-give-ask-across" if across else "students-give-ask-range",
+                name=name,
+                **{"from": first},
+                from_series=self._series_lower(locale, start),
+                asana=asana,
+                series=series,
+            )
+        yes = cb.give_step(step.id, step.number, step.index, step.steps, step.page, confirm=True)
         rows = [
-            [self._button(locale, "links-remove", cb.person("r", id))],
-            [self._button(locale, "log-back", cb.students(page))],
+            [self._button(locale, "students-give-yes", yes)],
+            [self._button(locale, "log-back", cb.give(step.id, step.page))],
         ]
-        return Screen(
-            "\n".join(head) + "\n\n" + "\n".join(week), InlineKeyboardMarkup(inline_keyboard=rows)
-        )
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+    async def give(self, principal: Principal, step: cb.GiveStep) -> Screen:
+        """The mark, then the refreshed card with one line on top. The line and the card are
+        the same whatever the student's history or the note's delivery."""
+        locale = principal.account.locale
+        stale = self._t.t(locale, "students-give-stale")
+        seen = self._seen(step.number, step.index)
+        if seen is None:  # the catalog changed, or forged
+            return await self.student(principal, step.id, step.page, stale)
+        targets = teacher_targets(self._track, Progression(seen))
+        if step.steps > len(targets):
+            return await self.student(principal, step.id, step.page, stale)
+        target = targets[step.steps - 1]
+        try:
+            await self._links.mark.execute(principal, step.id, seen, target)
+        except NotLinked:
+            return await self.students(principal, 0)
+        except ProgressionChanged:
+            return await self.student(principal, step.id, step.page, stale)
+        asana = self._stop(locale, target)
+        if step.steps == 1:
+            lead = self._t.t(locale, "students-given", asana=asana)
+        else:
+            first = self._stop(locale, targets[0])
+            lead = self._t.t(locale, "students-given-range", **{"from": first}, asana=asana)
+        return await self.student(principal, step.id, step.page, lead)
 
     async def ask_remove_student(self, principal: Principal, id: UUID) -> Screen:
         locale = principal.account.locale
@@ -460,6 +592,12 @@ class LinkScreens:
                 return self.invited(principal, code)
             case cb.Card(id, page):
                 return self.student(principal, id, page)
+            case cb.Give(id, page):
+                return self.give_picker(principal, id, page)
+            case cb.GiveStep(confirm=False) as step:
+                return self.give_confirm(principal, step)
+            case cb.GiveStep() as step:
+                return self.give(principal, step)
             case cb.Language(locale, code):
                 client = client_profile(callback.from_user)
                 return self.language(principal, locale, code, client)

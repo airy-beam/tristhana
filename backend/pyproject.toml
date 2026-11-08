@@ -141,6 +141,21 @@ source_modules = ["tristhana.infrastructure.db.teacher_view", "tristhana.applica
 forbidden_modules = ["tristhana.infrastructure.crypto", "tristhana.application.ports.days", "tristhana.application.ports.progression"]
 
 [[tool.importlinter.contracts]]
+name = "A teacher's mark holds no key and reads no log (PR-08 Phase 3, ADR-0037)"
+type = "forbidden"
+# Direct imports, as the My schedule contract: `ports.storage` (the Clock) re-exports every port.
+allow_indirect_imports = true
+source_modules = ["tristhana.application.teacher_marks"]
+forbidden_modules = [
+    "tristhana.infrastructure.crypto",
+    "tristhana.application.ports.days",
+    "tristhana.application.ports.diary",
+    "tristhana.application.ports.check_in",
+    "tristhana.application.ports.practice",
+    "tristhana.application.ports.teacher_view",
+]
+
+[[tool.importlinter.contracts]]
 name = "aiogram is imported only in bots.telegram"
 type = "forbidden"
 # The composition root (main) wires adapters, so only direct imports are forbidden.

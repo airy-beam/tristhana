@@ -552,6 +552,18 @@ progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
 progression-ask-yes = 🎉 Yes, new
 progression-ask-no = Not new
 progression-open = 🧘 My asanas
+
+## PR-08 Phase 3: the student's message about a teacher's mark (in the student's language),
+## and who marked it in My asanas. $teacher falls back to `progression-by-teacher`.
+mark-received = 🎉 New asana: { $asana }. Enjoy it! Marked by { $teacher }.
+mark-received-range = 🎉 New asanas: { $from } → { $asana }. Enjoy them! Marked by { $teacher }.
+mark-received-back = { $asana } is in your practice. Marked by { $teacher }.
+mark-received-undo-hint = If this doesn't match your practice, you can undo it.
+progression-marked-by = Marked by { $teacher }
+progression-by-teacher = a teacher
+progression-mark-moved-on = Your practice has changed since this mark, so nothing was undone. To set where it ends now, use ✏️ Change.
+# A teacher's mark's Undo on My asanas: never two identical "↩︎ Undo" buttons.
+progression-undo-mark = ↩︎ Undo the mark
 celebrate-new-asana = 🎉 New asana: { $asana }. Enjoy it!
 celebrate-new-asanas = 🎉 New asanas: { $from } → { $asana }
 celebrate-series-complete =
@@ -661,7 +673,7 @@ invite-consent =
     • { $name } also sees your last asana as marked in your log.
     • All rest you log looks the same, whatever the reason.
     • If nothing shows for a while, { $name } sees a short note saying just that.
-    • Later, any teacher on your list will also be able to mark a new asana for you. You can undo it.
+    • Any teacher on your list can also mark a new asana for you. You get a message and can undo it.
     • Check-ins, diary notes and the reason for a rest stay private.
     • You can remove { $name } from your list any time in /teachers. No one gets a message.
 invite-know-them = Anyone can choose any name here, so confirm only if you know this person.
@@ -718,6 +730,21 @@ students-mark =
 students-day = { $date }: { $state }
 students-day-length = { $date }: { $state }, { $length }
 students-day-blank = { $date }: ·
+
+## PR-08 Phase 3: a linked teacher marks a new asana for a student (spec §8). The teacher's
+## screens are in the teacher's language; $series is a `series-lower`, the target's series.
+students-give = 🎉 Mark new asana
+students-give-pick = { $name }: which new asana? { $name } gets one message, even for a few.
+students-give-option = { $asana }
+students-give-range = → { $asana }
+students-give-ask = { $name }: the next asana is { $asana } ({ $series }). Mark it as new? { $name } gets a message from the bot and can undo it.
+students-give-ask-range = { $name }: new asanas { $from } → { $asana } ({ $series }). Mark them? { $name } gets one message from the bot and can undo it.
+students-give-ask-across = { $name }: new asanas { $from } ({ $from_series }) → { $asana } ({ $series }). Mark them? { $name } gets one message from the bot and can undo it.
+students-give-yes = 🎉 Yes, mark
+students-given = ✅ Marked: { $asana }.
+students-given-range = ✅ Marked: { $from } → { $asana }.
+students-give-stale = This card was out of date, so nothing was marked. Here it is now.
+students-give-unset = { $name } hasn't set their practice yet.
 
 ## Shalas (SC-01, ADR-0033). Shala and people names are plain text, never declined.
 shala-join-ask = 🏛 Join { $shala } (📍 { $city })?

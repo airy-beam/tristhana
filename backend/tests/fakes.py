@@ -68,9 +68,11 @@ from tristhana.domain.progression import (
     Change,
     Earlier,
     EventKind,
+    Marker,
     Position,
     Progression,
     ProgressionEvent,
+    undoable,
 )
 from tristhana.domain.rest_days import DayOff
 from tristhana.domain.rest_periods import UNCHANGED, RestPeriod, cut_by_log, end_from, place
@@ -562,14 +564,31 @@ class InMemoryProgression:
             self.days.progression_rows.get(account_id), Earlier(targets, items), newest
         )
 
+    async def for_teacher(self, teacher: UUID, student: UUID) -> Any:
+        """No links here: `tests/teacher_mark_fakes.py` `MarkingProgression` has them."""
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.calls.append("for_teacher")
+        return None
+
     async def apply(
-        self, account_id: UUID, change: Change, expected_event_id: int | None, marked_by: UUID
+        self,
+        account_id: UUID,
+        change: Change,
+        expected_event_id: int | None,
+        marked_by: UUID,
+        *,
+        before: Position | None,
+        link_teacher: UUID | None = None,
     ) -> ProgressionEvent | None:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         self.calls.append("apply")
         current = self.days.progression_rows.get(account_id)
         if (current.last_event_id if current else None) != expected_event_id:
             return None
+        if current is not None and (before is None or current.position != before):
+            return None  # the position compare-and-set (ADR-0037); None = "no stored row"
+        if link_teacher is not None:
+            return None  # no links here (see `for_teacher`)
         event_id = 1 + max((e.id for _, e in self.days.progression_events), default=0)
         event = ProgressionEvent(
             event_id,
@@ -578,7 +597,7 @@ class InMemoryProgression:
             change.before,
             change.after,
             change.item,
-            marked_by == account_id,
+            Marker.SELF if marked_by == account_id else Marker.TEACHER,
         )
         self.days.progression_events.append((account_id, event))
         hint = (current.hint, current.hint_event_id) if current else (None, None)
@@ -588,12 +607,23 @@ class InMemoryProgression:
         return event
 
     async def undo(self, account_id: UUID, event_id: int) -> bool:
+        """The latest event, or a teacher's `given` no later position event moved on from
+        (ADR-0037: back to its `from`, items and `last_event_id` kept, the hint cleared)."""
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         self.calls.append("undo")
         current = self.days.progression_rows.get(account_id)
-        if current is None or current.last_event_id != event_id:
+        event = next((e for e in self._events(account_id) if e.id == event_id), None)
+        if current is None or event is None:
             return False
-        event = next(e for e in self._events(account_id) if e.id == event_id)
+        if current.last_event_id != event_id:
+            newest_first = list(reversed(self._events(account_id)))
+            if event_id not in undoable(newest_first) or event.before is None:
+                return False
+            self.days.progression_events.remove((account_id, event))
+            self.days.progression_rows[account_id] = replace(
+                current, position=event.before, hint=None, hint_event_id=None
+            )
+            return True
         self.days.progression_events.remove((account_id, event))
         if event.kind is EventKind.START:
             del self.days.progression_rows[account_id]
@@ -879,6 +909,11 @@ class FakeNotifier:
         default_factory=list[tuple[Recipient, str | None]]
     )
     join_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
+    # PR-08 Phase 3: the student's one silent note about a teacher's mark (`AsanaMarked`).
+    marked: list[tuple[Recipient, str | None, Any]] = field(
+        default_factory=list[tuple[Recipient, str | None, Any]]
+    )
+    mark_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
 
     @property
     def moon(self) -> list[tuple[Recipient, MoonReminder]]:
@@ -910,6 +945,14 @@ class FakeNotifier:
         self, recipient: Recipient, name: str | None, shala: str, role: Any
     ) -> DeliveryResult:  # SC-01: tests/shala_fakes.py `StaffNotifier` records these
         return DeliveryResult(DeliveryStatus.SENT)
+
+    async def tell_asana_marked(
+        self, recipient: Recipient, teacher: str | None, mark: Any
+    ) -> DeliveryResult:
+        self.marked.append((recipient, teacher, mark))
+        return (
+            self.mark_outcomes.pop(0) if self.mark_outcomes else DeliveryResult(DeliveryStatus.SENT)
+        )
 
 
 @dataclass
@@ -994,6 +1037,8 @@ class InMemoryStorage:
     shala_repo: Any = None  # SC-01: tests/shala_fakes.py, loaded on first use
     schedule_repo: Any = None  # SC-02: tests/schedule_fakes.py, loaded on first use
     feed_repo: Any = None  # SC-06: tests/calendar_feed_fakes.py, loaded on first use
+    # PR-08 Phase 3: a test may hand in a progression repo (tests/teacher_mark_fakes.py).
+    progression_repo: Any = None
 
     def __post_init__(self) -> None:
         if self.notification_repo is None:
@@ -1056,6 +1101,8 @@ class InMemoryStorage:
 
     @property
     def progression(self) -> InMemoryProgression:  # PR-08
+        if self.progression_repo is not None:
+            return self.progression_repo
         return InMemoryProgression(self.day_repo)
 
     @property

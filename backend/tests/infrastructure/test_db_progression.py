@@ -96,13 +96,15 @@ async def test_apply_and_get_round_trip(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
     with _statements(engine) as writing:
-        start = await repo.apply(me, _start(NAVASANA), None, me)
+        start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
     assert len(writing) == 1
-    given = await repo.apply(me, _given(NAVASANA, KURMASANA), start.id, me)
+    given = await repo.apply(me, _given(NAVASANA, KURMASANA), start.id, me, before=NAVASANA)
     assert given is not None
     items = frozenset({"drop-backs"})
-    item = await repo.apply(me, _item(KURMASANA, "drop-backs", True, items), given.id, me)
+    item = await repo.apply(
+        me, _item(KURMASANA, "drop-backs", True, items), given.id, me, before=KURMASANA
+    )
     assert item is not None
 
     with _statements(engine) as reading:
@@ -130,9 +132,9 @@ async def test_apply_and_get_round_trip(engine: AsyncEngine) -> None:
 async def test_standing_only_round_trips(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
-    start = await repo.apply(me, _start(STANDING_ONLY), None, me)
+    start = await repo.apply(me, _start(STANDING_ONLY), None, me, before=None)
     assert start is not None
-    await repo.apply(me, _given(STANDING_ONLY, NAVASANA), start.id, me)
+    await repo.apply(me, _given(STANDING_ONLY, NAVASANA), start.id, me, before=STANDING_ONLY)
     view = await repo.get(me)
     assert view.progression is not None
     assert view.progression.position == NAVASANA
@@ -143,10 +145,10 @@ async def test_standing_only_round_trips(engine: AsyncEngine) -> None:
 async def test_a_stale_expected_id_appends_nothing(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
-    start = await repo.apply(me, _start(NAVASANA), None, me)
+    start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
-    assert await repo.apply(me, _start(SETU), None, me) is None  # set already exists
-    assert await repo.apply(me, _given(NAVASANA, SETU), start.id + 100, me) is None
+    assert await repo.apply(me, _start(SETU), None, me, before=None) is None  # set already exists
+    assert await repo.apply(me, _given(NAVASANA, SETU), start.id + 100, me, before=NAVASANA) is None
     view = await repo.get(me)
     assert len(view.events) == 1
     assert view.progression is not None
@@ -156,17 +158,20 @@ async def test_a_stale_expected_id_appends_nothing(engine: AsyncEngine) -> None:
 async def test_expected_id_on_a_missing_row_appends_nothing(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
-    assert await repo.apply(me, _given(NAVASANA, SETU), 1, me) is None
+    assert await repo.apply(me, _given(NAVASANA, SETU), 1, me, before=NAVASANA) is None
     assert (await repo.get(me)).events == ()
 
 
 async def test_two_racing_gives_leave_one_event(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
-    start = await repo.apply(me, _start(NAVASANA), None, me)
+    start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
     results = await asyncio.gather(
-        *(repo.apply(me, _given(NAVASANA, KURMASANA), start.id, me) for _ in range(3))
+        *(
+            repo.apply(me, _given(NAVASANA, KURMASANA), start.id, me, before=NAVASANA)
+            for _ in range(3)
+        )
     )
     assert sum(r is not None for r in results) == 1
     view = await repo.get(me)
@@ -179,12 +184,14 @@ async def test_two_racing_gives_leave_one_event(engine: AsyncEngine) -> None:
 async def test_undo_latest_restores_position_items_and_previous_id(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
-    start = await repo.apply(me, _start(NAVASANA), None, me)
+    start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
-    given = await repo.apply(me, _given(NAVASANA, KURMASANA), start.id, me)
+    given = await repo.apply(me, _given(NAVASANA, KURMASANA), start.id, me, before=NAVASANA)
     assert given is not None
     items = frozenset({"standing-up"})
-    item = await repo.apply(me, _item(KURMASANA, "standing-up", True, items), given.id, me)
+    item = await repo.apply(
+        me, _item(KURMASANA, "standing-up", True, items), given.id, me, before=KURMASANA
+    )
     assert item is not None
 
     assert not await repo.undo(me, given.id)  # not the latest
@@ -209,13 +216,15 @@ async def test_undo_latest_restores_position_items_and_previous_id(engine: Async
 async def test_undo_of_a_removal_puts_the_item_back(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
-    start = await repo.apply(me, _start(SETU), None, me)
+    start = await repo.apply(me, _start(SETU), None, me, before=None)
     assert start is not None
     added = await repo.apply(
-        me, _item(SETU, "drop-backs", True, frozenset({"drop-backs"})), start.id, me
+        me, _item(SETU, "drop-backs", True, frozenset({"drop-backs"})), start.id, me, before=SETU
     )
     assert added is not None
-    removed = await repo.apply(me, _item(SETU, "drop-backs", False, frozenset()), added.id, me)
+    removed = await repo.apply(
+        me, _item(SETU, "drop-backs", False, frozenset()), added.id, me, before=SETU
+    )
     assert removed is not None
     assert await repo.undo(me, removed.id)
     view = await repo.get(me)
@@ -227,7 +236,7 @@ async def test_not_new_lapses_after_any_change(engine: AsyncEngine) -> None:
     me = await _account(engine)
     repo = SqlProgressionRepository(engine)
     await repo.dismiss_hint(me, KURMASANA)  # no row: nothing
-    start = await repo.apply(me, _start(NAVASANA), None, me)
+    start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
     with _statements(engine) as seen:
         await repo.dismiss_hint(me, KURMASANA)
@@ -236,7 +245,11 @@ async def test_not_new_lapses_after_any_change(engine: AsyncEngine) -> None:
     assert view.progression is not None
     assert view.progression.dismissed == KURMASANA
     item = await repo.apply(
-        me, _item(NAVASANA, "drop-backs", True, frozenset({"drop-backs"})), start.id, me
+        me,
+        _item(NAVASANA, "drop-backs", True, frozenset({"drop-backs"})),
+        start.id,
+        me,
+        before=NAVASANA,
     )
     assert item is not None
     view = await repo.get(me)
@@ -251,7 +264,7 @@ async def test_practice_save_joins_progression_and_reports_length_changes(
     days = SqlDayLogRepository(engine, FieldCipher(KEYS))
     await days.upsert(me, DayLog(ON, DayStatus.PRACTICED), "Asia/Almaty")
     practices, repo = SqlPracticeRepository(engine), SqlProgressionRepository(engine)
-    start = await repo.apply(me, _start(NAVASANA), None, me)
+    start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
     kurmasana = PracticeLength(("primary",), "kurmasana")
 
@@ -278,7 +291,7 @@ async def test_presets_read_progression_in_one_statement(engine: AsyncEngine) ->
         none, unset = await practices.recent_with_progression(me, ON, 60)
     assert (none, unset, len(seen)) == ([], None, 1)
 
-    start = await repo.apply(me, _start(NAVASANA), None, me)
+    start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
     _, set_only = await practices.recent_with_progression(me, ON, 60)
     assert set_only is not None
@@ -323,7 +336,9 @@ async def test_checks_reject_bad_rows(engine: AsyncEngine, sql: str) -> None:
 async def test_account_delete_cascades_and_marked_by_is_set_null(engine: AsyncEngine) -> None:
     me, teacher = await _account(engine), await _account(engine)
     repo = SqlProgressionRepository(engine)
-    await repo.apply(me, _start(NAVASANA), None, teacher)  # Phase 3: a teacher marks it
+    await repo.apply(
+        me, _start(NAVASANA), None, teacher, before=None
+    )  # Phase 3: a teacher marks it
     view = await repo.get(me)
     assert not view.events[0].marked_by_self
     async with engine.connect() as conn:
@@ -353,7 +368,7 @@ async def test_0014_adds_the_tables_and_downgrade_drops_them(
         await asyncio.to_thread(migrate.upgrade, migrated_url)
     async with engine.connect() as conn:
         assert (await conn.execute(text(_HAS_TABLES))).scalar_one() == 2
-    assert await SqlProgressionRepository(engine).apply(me, _start(NAVASANA), None, me)
+    assert await SqlProgressionRepository(engine).apply(me, _start(NAVASANA), None, me, before=None)
 
 
 def test_0015_follows_0014() -> None:

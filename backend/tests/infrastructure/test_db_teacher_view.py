@@ -165,7 +165,7 @@ class World:
         assert placed.period is not None
 
     async def card(self, student: UUID) -> StudentCard:
-        use_case = GetStudent(self.view, self.clock)
+        use_case = GetStudent(self.view, self.clock, Track(catalog()))
         return await use_case.execute(Principal(self.teacher), student)
 
     async def listing(self, offset: int = 0, limit: int = 50) -> tuple[list[StudentToday], int]:
@@ -609,7 +609,7 @@ async def _seeded(world: World) -> UUID:
     await world.log(student, _ago(2), DayStatus.SKIPPED)
     position = Position("primary", "navasana")
     start = Change(EventKind.START, TODAY, Progression(position), after=position)
-    await SqlProgressionRepository(world.engine).apply(student, start, None, student)
+    await SqlProgressionRepository(world.engine).apply(student, start, None, student, before=None)
     return student
 
 
@@ -677,7 +677,9 @@ async def test_the_whole_path_runs_with_no_cipher_configured(
     await storage.start()
     try:
         principal = Principal(world.teacher)
-        card = await GetStudent(storage.teacher_view, world.clock).execute(principal, student)
+        card = await GetStudent(storage.teacher_view, world.clock, Track(catalog())).execute(
+            principal, student
+        )
         found, _ = await GetStudents(storage.teacher_view, world.clock).execute(principal, 0, 10)
     finally:
         await storage.stop()
@@ -743,7 +745,7 @@ async def test_the_last_asana_is_current_state_visible_from_the_start(world: Wor
     student = await world.student(linked_on=TODAY)
     position = Position("intermediate", "kapotasana")
     start = Change(EventKind.START, _ago(90), Progression(position), after=position)
-    await SqlProgressionRepository(world.engine).apply(student, start, None, student)
+    await SqlProgressionRepository(world.engine).apply(student, start, None, student, before=None)
 
     assert (await world.card(student)).last_asana == position
 
@@ -751,7 +753,7 @@ async def test_the_last_asana_is_current_state_visible_from_the_start(world: Wor
 async def test_not_set_is_none_and_standing_only_is_a_position(world: World) -> None:
     unset, standing = await world.student(), await world.student()
     start = Change(EventKind.START, TODAY, Progression(STANDING_ONLY), after=STANDING_ONLY)
-    await SqlProgressionRepository(world.engine).apply(standing, start, None, standing)
+    await SqlProgressionRepository(world.engine).apply(standing, start, None, standing, before=None)
 
     assert (await world.card(unset)).last_asana is None
     assert (await world.card(standing)).last_asana == STANDING_ONLY

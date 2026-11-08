@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.application.ports.notifications import (
+    AsanaMarked,
     DeliveryResult,
     DeliveryStatus,
     ExportFile,
@@ -93,6 +94,30 @@ class TelegramNotifier:
                 request_timeout=JOIN_NOTE_TIMEOUT_S,  # the invitee's ✅ is waiting
             ),
             "staff note",
+        )
+
+    async def tell_asana_marked(
+        self, recipient: Recipient, teacher: str | None, mark: AsanaMarked
+    ) -> DeliveryResult:
+        """PR-08 Phase 3: one silent note in the student's language, with Undo. Outside the
+        ledger and the cap, no retry: the student also sees the mark in My asanas."""
+        from tristhana.bots.telegram.progression import marked_note
+
+        runtime = self._runtime()
+        if runtime.labels is None or runtime.catalog is None:  # no links wired (never in the app)
+            return DeliveryResult(DeliveryStatus.FAILED)
+        screen = marked_note(
+            self._t, runtime.labels, runtime.catalog, recipient.locale, teacher, mark
+        )
+        return await _sent(
+            runtime.bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                reply_markup=screen.markup,
+                disable_notification=True,
+                request_timeout=JOIN_NOTE_TIMEOUT_S,  # the teacher's ✅ is waiting
+            ),
+            "mark note",
         )
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:

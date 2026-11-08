@@ -8,6 +8,14 @@ t1:o  t1:s:<page>                           teachers screen, my students
 t1:c:<id>  t1:p:<id>  t1:u:<id>  t1:x:<id>  teacher card, make main, remove ask, remove
 t1:v:<id>[:<page>]  t1:r:<id>  t1:z:<id>    student card (Back keeps the page), remove ask, remove
 t1:i  t1:q  t1:w  t1:wy                     invite screen, send QR, new link ask, new link
+t1:g:<id>:<page>                            mark a new asana: the picker (PR-08 Phase 3)
+t1:gp:<id>:<n>:<i>:<k>:<page>               picked → the confirm screen
+t1:gy:<id>:<n>:<i>:<k>:<page>               confirm and mark
+
+A position is `<n>:<i>`, the series number and the stop's index in it (`0:0` = standing only):
+a stop key doesn't fit beside a uuid. `<k>` (1-3) counts the steps from there; the server
+re-derives the target from the catalog and checks the position itself, so a forged value can
+only fail. Longest: `t1:gy:<uuid>:6:99:3:9999` = 54 bytes.
 """
 
 from dataclasses import dataclass
@@ -65,7 +73,27 @@ class Tap:
     action: Plain
 
 
-type LinkTap = Confirm | Reopen | Card | Language | Students | OnPerson | Tap
+@dataclass(frozen=True, slots=True)
+class Give:
+    """The picker of a student's next stops (PR-08 Phase 3)."""
+
+    id: UUID
+    page: int
+
+
+@dataclass(frozen=True, slots=True)
+class GiveStep:
+    """`confirm` False: picked, show the confirm screen; True: mark it."""
+
+    id: UUID
+    number: int  # the series of the position the teacher saw (0 = standing only)
+    index: int  # that stop's index in its series
+    steps: int  # 1-3: how many stops further the target is
+    page: int
+    confirm: bool
+
+
+type LinkTap = Confirm | Reopen | Card | Language | Students | OnPerson | Tap | Give | GiveStep
 
 
 def plain(action: Plain) -> str:
@@ -82,6 +110,16 @@ def confirm(code: str) -> str:
 
 def card(id: UUID, page: int) -> str:
     return f"{PREFIX}:v:{id}:{page}"
+
+
+def give(id: UUID, page: int) -> str:
+    return f"{PREFIX}:g:{id}:{page}"
+
+
+def give_step(
+    id: UUID, number: int, index: int, steps: int, page: int, confirm: bool = False
+) -> str:
+    return f"{PREFIX}:{'gy' if confirm else 'gp'}:{id}:{number}:{index}:{steps}:{page}"
 
 
 def language(locale: Locale, code: str) -> str:
@@ -110,6 +148,17 @@ def _page(value: str) -> bool:
     return 1 <= len(value) <= 4 and value.isascii() and value.isdigit()
 
 
+def _step(id: str, n: str, i: str, k: str, page: str, confirm: bool) -> GiveStep | None:
+    found = _person("v", id)
+    if found is None or not _page(page) or k not in ("1", "2", "3"):
+        return None
+    if not (len(n) == 1 and n in "0123456") or not (1 <= len(i) <= 2 and i.isascii()):
+        return None
+    if not i.isdigit() or (n == "0" and i != "0"):  # standing only is `0:0`; `2:0` = Pasasana
+        return None
+    return GiveStep(found.id, int(n), int(i), int(k), int(page), confirm)
+
+
 def decode(data: str | None) -> LinkTap | None:
     """None for anything malformed or from another version."""
     match (data or "").split(":"):
@@ -128,6 +177,11 @@ def decode(data: str | None) -> LinkTap | None:
             return Language(locale, code)  # type: ignore[arg-type]
         case [p, "s", page] if p == PREFIX and _page(page):
             return Students(int(page))
+        case [p, "g", value, page] if p == PREFIX and _page(page):
+            found = _person("v", value)
+            return Give(found.id, int(page)) if found else None
+        case [p, "gp" | "gy" as action, value, n, i, k, page] if p == PREFIX:
+            return _step(value, n, i, k, page, action == "gy")
         case [p, action, value] if p == PREFIX and action in _PERSON:
             return _person(action, value)  # type: ignore[arg-type]
         case _:

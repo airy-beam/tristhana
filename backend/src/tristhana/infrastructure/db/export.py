@@ -42,7 +42,13 @@ from tristhana.domain.export import (
     MarkedBy,
 )
 from tristhana.domain.notifications import NotificationSettings
-from tristhana.domain.progression import EventKind, Position, Progression, ProgressionEvent
+from tristhana.domain.progression import (
+    EventKind,
+    Marker,
+    Position,
+    Progression,
+    ProgressionEvent,
+)
 from tristhana.infrastructure.db.accounts import ACCOUNT_COLUMNS, to_account
 from tristhana.infrastructure.db.check_in import known_tags
 from tristhana.infrastructure.db.days import Cipher, open_day_status
@@ -349,7 +355,7 @@ def _event(account_id: UUID, r: Any) -> ExportEvent:
         before=None if kind is EventKind.START else before,
         after=Position(r.to_series, r.to_key) if positional else None,
         item=r.item,
-        marked_by_self=r.marked_by == account_id,
+        by=Marker.SELF if r.marked_by == account_id else Marker.TEACHER,
     )
     if r.marked_by is None:
         marked_by = MarkedBy.UNKNOWN

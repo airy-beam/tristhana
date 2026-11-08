@@ -16,6 +16,7 @@ from tristhana.application.ports.storage import Clock
 from tristhana.application.ports.teacher_links import NotLinked
 from tristhana.application.ports.teacher_view import StudentLink, TeacherViewRepository
 from tristhana.domain.days import local_today, provisional_zone
+from tristhana.domain.progression import Progression, Track, teacher_targets
 from tristhana.domain.teacher_view import QUIET_DAYS, StudentCard, StudentToday, card_days, is_quiet
 
 
@@ -50,9 +51,10 @@ class GetStudents:
 
 
 class GetStudent:
-    def __init__(self, view: TeacherViewRepository, clock: Clock) -> None:
+    def __init__(self, view: TeacherViewRepository, clock: Clock, track: Track) -> None:
         self._view = view
         self._clock = clock
+        self._track = track  # in memory: `next_asanas` needs no read (PR-08 Phase 3)
 
     async def execute(self, principal: Principal, student_id: UUID) -> StudentCard:
         now = self._clock.now()
@@ -68,12 +70,15 @@ class GetStudent:
         ):
             raise NotAllowed
         today = _today(now, link)
+        # From the shown position only, so the offer can't vary with anything hidden.
+        shown = Progression(detail.position) if detail.position is not None else None
         return StudentCard(
             link.student_id,
             link.name,
             card_days(detail.log.shown, detail.lengths, today),
             detail.position,
             is_quiet(detail.log.shown.keys(), today, link.linked_on, detail.quiet_note_agreed),
+            teacher_targets(self._track, shown),
         )
 
 

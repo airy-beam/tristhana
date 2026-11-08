@@ -1501,6 +1501,27 @@
       },
       "EventOut": {
         "properties": {
+          "by": {
+            "description": "Who marked it: the caller, or a teacher (also a deleted account)",
+            "enum": [
+              "self",
+              "teacher"
+            ],
+            "title": "By",
+            "type": "string"
+          },
+          "by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The teacher's name while they are linked; null = the caller, or show \"a teacher\"",
+            "title": "By Name"
+          },
           "from": {
             "anyOf": [
               {
@@ -1530,6 +1551,7 @@
             "$ref": "#/components/schemas/EventKind"
           },
           "marked_by_self": {
+            "description": "Kept for older clients: `by` == self",
             "title": "Marked By Self",
             "type": "boolean"
           },
@@ -1547,6 +1569,11 @@
                 "type": "null"
               }
             ]
+          },
+          "undoable": {
+            "description": "DELETE works now: the newest event, or a teacher's mark the position hasn't moved on from",
+            "title": "Undoable",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1556,7 +1583,10 @@
           "from",
           "to",
           "item",
-          "marked_by_self"
+          "marked_by_self",
+          "by",
+          "by_name",
+          "undoable"
         ],
         "title": "EventOut",
         "type": "object"
@@ -1903,6 +1933,38 @@
           "slug"
         ],
         "title": "LocationBody",
+        "type": "object"
+      },
+      "MarkedOut": {
+        "description": "The current position was set by a teacher's mark (PR-08 Phase 3).",
+        "properties": {
+          "by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = show \"a teacher\"",
+            "title": "By Name"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "integer"
+          },
+          "undoable": {
+            "title": "Undoable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event_id",
+          "by_name",
+          "undoable"
+        ],
+        "title": "MarkedOut",
         "type": "object"
       },
       "Me": {
@@ -2883,6 +2945,24 @@
         "title": "MyShalaOut",
         "type": "object"
       },
+      "NewAsanaIn": {
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/PositionOut",
+            "description": "The card's `last_asana`"
+          },
+          "to": {
+            "$ref": "#/components/schemas/PositionOut",
+            "description": "One of the card's `next_asanas`"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "NewAsanaIn",
+        "type": "object"
+      },
       "NotificationSettingsOut": {
         "properties": {
           "daily_cap": {
@@ -3543,6 +3623,17 @@
               }
             ],
             "description": "The position as a practice (the series below + this one); null = standing only, unset or stale"
+          },
+          "marked": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarkedOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The current position is a teacher's mark; null otherwise"
           },
           "next": {
             "anyOf": [
@@ -4783,6 +4874,14 @@
             ],
             "title": "Name"
           },
+          "next_asanas": {
+            "description": "PR-08 Phase 3: the stops this teacher may mark, in order (0-3); empty when unset or at the end of the confirmed series",
+            "items": {
+              "$ref": "#/components/schemas/PositionOut"
+            },
+            "title": "Next Asanas",
+            "type": "array"
+          },
           "quiet": {
             "title": "Quiet",
             "type": "boolean"
@@ -4793,6 +4892,7 @@
           "name",
           "days",
           "last_asana",
+          "next_asanas",
           "quiet"
         ],
         "title": "StudentCardOut",
@@ -7134,7 +7234,7 @@
     },
     "/api/v1/me/progression/events/{event_id}": {
       "delete": {
-        "description": "Undo: only the latest event (409 `not_latest`).",
+        "description": "Undo: the latest event, or a teacher's mark the position hasn't moved on from (an\nevent's `undoable`); 409 `not_latest` otherwise.",
         "operationId": "delete_event_api_v1_me_progression_events__event_id__delete",
         "parameters": [
           {
@@ -7926,6 +8026,105 @@
           }
         ],
         "summary": "Get Student",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/students/{id}/new-asana": {
+      "post": {
+        "description": "PR-08 Phase 3: a linked teacher marks one of the card's `next_asanas`; the student gets\none silent message and can undo it. Not optimistic: the answer is the refreshed card, the\nsame whatever the student's history or the message's delivery. 404 `not_linked`;\n409 `progression_changed` (out of date, or a retry: refetch the card); 422\n`invalid_progression` (`to` isn't within the next stops of `from`).",
+        "operationId": "post_new_asana_api_v1_me_students__id__new_asana_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAsanaIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentCardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post New Asana",
         "tags": [
           "links"
         ]

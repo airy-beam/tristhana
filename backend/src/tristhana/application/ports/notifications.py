@@ -7,6 +7,7 @@ from uuid import UUID
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay, ShalaMoon, TeacherMoon
 from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
+from tristhana.domain.progression import Celebration, Position
 from tristhana.domain.shalas import ShalaRole
 
 
@@ -217,6 +218,16 @@ class ExportFile:
     local_date: date  # named in the caption
 
 
+@dataclass(frozen=True, slots=True)
+class AsanaMarked:
+    """PR-08 Phase 3: a teacher's mark, as the student is told it. No celebration = held
+    before (the quiet line); `event_id` is for the note's Undo."""
+
+    event_id: int
+    celebrations: tuple[Celebration, ...]
+    target: Position
+
+
 class Notifier(Protocol):
     async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult: ...
 
@@ -233,4 +244,11 @@ class Notifier(Protocol):
         self, recipient: Recipient, name: str | None, shala: str, role: ShalaRole
     ) -> DeliveryResult:
         """SC-01 (Q105): the inviter's one silent note when their staff link is used."""
+        ...
+
+    async def tell_asana_marked(
+        self, recipient: Recipient, teacher: str | None, mark: AsanaMarked
+    ) -> DeliveryResult:
+        """PR-08 Phase 3: the student's one silent note about a teacher's mark, with Undo;
+        outside the ledger and the cap, no retry (as `tell_student_joined`)."""
         ...
