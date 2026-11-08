@@ -9,7 +9,6 @@ from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
 import pytest
-from tristhana.application.teacher_marks import Marked, MarkForStudent
 
 from tests.domain.test_practice import catalog
 from tests.fakes import FakeNotifier, FixedClock, InMemoryAccounts
@@ -33,6 +32,7 @@ from tristhana.application.ports.progression import MarkLink, ProgressionView, T
 from tristhana.application.ports.teacher_links import NotLinked
 from tristhana.application.ports.teacher_view import SharedDetail, SharedLog, StudentLink
 from tristhana.application.progression import ProgressionChanged
+from tristhana.application.teacher_marks import Marked, MarkForStudent
 from tristhana.application.teacher_view import GetStudent
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
