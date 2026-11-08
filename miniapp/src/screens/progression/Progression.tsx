@@ -1,4 +1,4 @@
-import { Localized, useLocalization } from "@fluent/react";
+import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
 import { useState } from "react";
 
 import {
@@ -10,6 +10,7 @@ import {
   type Catalog,
   type Progression as ProgressionValue,
   type ProgressionChange,
+  type ProgressionEvent,
   type ProgressionEventBody,
   type ProgressionPosition,
 } from "../../api/client";
@@ -29,7 +30,8 @@ type Target = { series: string | null; last: string | null };
 const noop = () => undefined;
 
 /** "🧘 My asanas" (PR-08): where the practice ends now, a new asana, the milestone items,
- * a correction (never celebrated), and a short history with Undo on the newest entry.
+ * a correction (never celebrated), and a short history with Undo on each `undoable` entry (the
+ * newest, or a teacher's mark the practice hasn't moved on from, ADR-0037).
  * Loaded lazily, so Home stays light. Writes are not optimistic. */
 export default function Progression({ locale, onBack }: Props) {
   useBackButton(onBack);
@@ -68,7 +70,7 @@ function Body({
   const change = useProgressionEvent();
   const undo = useUndoProgression();
   const [lines, setLines] = useState<string[] | null>(null);
-  const [failed, setFailed] = useState<"changed" | "failed" | null>(null);
+  const [failed, setFailed] = useState<"changed" | "failed" | "moved-on" | null>(null);
   const [editing, setEditing] = useState(!progression.set);
   const today = progression.today ?? "";
   const [day, setDay] = useState(today);
@@ -117,7 +119,15 @@ function Body({
         />
       )}
       {failed && (
-        <Localized id={failed === "changed" ? "progression-changed" : "progression-save-failed"}>
+        <Localized
+          id={
+            failed === "changed"
+              ? "progression-changed"
+              : failed === "moved-on"
+                ? "progression-mark-moved-on"
+                : "progression-save-failed"
+          }
+        >
           <p className="status" role="alert" />
         </Localized>
       )}
@@ -260,10 +270,15 @@ function Body({
           onUndo={(id) => {
             haptics.impact("light");
             setLines(null);
+            setFailed(null);
+            const teachers = progression.events.find((e) => e.id === id)?.by === "teacher";
             undo.mutate(id, {
-              onError: () => {
+              onError: (error) => {
                 haptics.notify("error");
-                setFailed("changed");
+                // A teacher's mark the practice has moved on from (ADR-0037): say so.
+                const movedOn =
+                  teachers && error instanceof ApiError && error.code === "not_latest";
+                setFailed(movedOn ? "moved-on" : "changed");
               },
             });
           }}
@@ -291,9 +306,15 @@ function Current({
   const items = catalog.milestone_items
     .filter((i) => progression.items.includes(i.key))
     .map((i) => itemLabel(l10n, catalog, i.key, locale));
+  const marked = progression.marked; // absent in an older payload
   return (
     <>
       <p>{get(l10n, "progression-current", { length })}</p>
+      {marked && (
+        <p className="hint">
+          {get(l10n, "progression-marked-by", { teacher: teacherName(l10n, marked.by_name) })}
+        </p>
+      )}
       {items.length > 0 && (
         <p className="hint">{get(l10n, "progression-items", { items: items.join(", ") })}</p>
       )}
@@ -390,6 +411,11 @@ function ChangeForm({
   );
 }
 
+/** "Anna" while linked; "a teacher" after an unlink or a deletion (PR-08 Phase 3). */
+function teacherName(l10n: ReactLocalization, name: string | null | undefined): string {
+  return name ?? get(l10n, "progression-by-teacher");
+}
+
 function History({
   catalog,
   progression,
@@ -411,6 +437,8 @@ function History({
     timeZone: "UTC",
   });
   const [newest] = progression.events;
+  // An older payload has no `undoable`: the newest entry, as before (ADR-0026).
+  const canUndo = (e: Partial<ProgressionEvent>) => e.undoable ?? e.id === newest?.id;
   return (
     <section className="card history">
       <Localized id="progression-history">
@@ -422,26 +450,36 @@ function History({
             ? get(l10n, "progression-standing-only")
             : stopLabel(catalog, e.to, locale);
           const item = e.item ? itemLabel(l10n, catalog, e.item, locale) : "";
+          const by =
+            e.by === "teacher"
+              ? ` ${get(l10n, "progression-event-by", { teacher: teacherName(l10n, e.by_name) })}`
+              : "";
+          const day = format.format(new Date(`${e.occurred_on}T00:00:00Z`));
+          const line = get(l10n, "progression-event", { kind: e.kind, asana, item }) + by;
           return (
             <li key={e.id}>
-              <span className="hint">{format.format(new Date(`${e.occurred_on}T00:00:00Z`))}</span>{" "}
-              {get(l10n, "progression-event", { kind: e.kind, asana, item })}
+              <span className="hint">{day}</span> {line}
+              {canUndo(e) && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="link"
+                    disabled={busy}
+                    // Several entries can have an Undo: the label names the one it undoes.
+                    aria-label={get(l10n, "progression-undo-entry", { entry: `${day}: ${line}` })}
+                    onClick={() => {
+                      onUndo(e.id);
+                    }}
+                  >
+                    {get(l10n, "progression-undo")}
+                  </button>
+                </>
+              )}
             </li>
           );
         })}
       </ol>
-      {newest && (
-        <Localized id="progression-undo">
-          <button
-            type="button"
-            className="link"
-            disabled={busy}
-            onClick={() => {
-              onUndo(newest.id);
-            }}
-          />
-        </Localized>
-      )}
     </section>
   );
 }

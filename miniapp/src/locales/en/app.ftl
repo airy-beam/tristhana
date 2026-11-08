@@ -265,7 +265,7 @@ settings-cap = { $n ->
     }
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
-settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short note saying just that. Later, a teacher on your list will also be able to mark a new asana for you, and you can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time.
+settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time.
 # MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
 settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
 settings-save-failed = Couldn't save. Try again in a moment.
@@ -445,6 +445,7 @@ progression-cancel = Cancel
 progression-date = Date
 progression-history = History
 progression-undo = ↩︎ Undo
+progression-undo-entry = ↩︎ Undo: { $entry }
 progression-back = { $asana } is in your practice.
 progression-changed = This changed on another device. Here's the latest.
 progression-save-failed = Couldn't save. Please try once more.
@@ -459,6 +460,11 @@ progression-event =
 progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
 progression-ask-yes = 🎉 Yes, new
 progression-ask-no = Not new
+## PR-08 Phase 3: who marked it; $teacher falls back to `progression-by-teacher`.
+progression-marked-by = Marked by { $teacher }
+progression-event-by = · { $teacher }
+progression-by-teacher = a teacher
+progression-mark-moved-on = Your practice has changed since this mark, so nothing was undone. To set where it ends now, use ✏️ Change.
 celebrate-new-asana = 🎉 New asana: { $asana }. Enjoy it!
 celebrate-new-asanas = 🎉 New asanas: { $from } → { $asana }
 celebrate-series-complete =
@@ -528,6 +534,18 @@ students-day-blank = { $date }: nothing to show
 students-more = Show more
 students-card-load-failed = Couldn't load this page. Try again in a moment.
 students-load-failed = Couldn't load your students. Try again in a moment.
+## PR-08 Phase 3: a teacher marks a new asana (same wording as the bot).
+students-give = 🎉 Mark new asana
+students-give-option = { $asana }
+students-give-range = → { $asana }
+students-give-ask = { $name }: the next asana is { $asana } ({ $series }). Mark it as new? { $name } gets a message from the bot and can undo it.
+students-give-ask-range = { $name }: new asanas { $from } → { $asana } ({ $series }). Mark them? { $name } gets one message from the bot and can undo it.
+students-give-ask-across = { $name }: new asanas { $from } ({ $from_series }) → { $asana } ({ $series }). Mark them? { $name } gets one message from the bot and can undo it.
+students-give-yes = 🎉 Yes, mark
+students-given = ✅ Marked: { $asana }.
+students-given-range = ✅ Marked: { $from } → { $asana }.
+students-give-stale = This card was out of date, so nothing was marked. Here it is now.
+students-give-unset = { $name } hasn't set their practice yet.
 links-students = 👥 My students ({ $count })
 link-students-open = 👥 My students
 day-label =

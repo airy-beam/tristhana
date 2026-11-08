@@ -78,7 +78,7 @@ CONSENT_EN = (
     "• Лена also sees your last asana as marked in your log. "
     "• All rest you log looks the same, whatever the reason. "
     "• If nothing shows for a while, Лена sees a short note saying just that. "
-    "• Later, any teacher on your list will also be able to mark a new asana for you. You can "
+    "• Any teacher on your list can also mark a new asana for you. You get a message and can "
     "undo it. "
     "• Check-ins, diary notes and the reason for a rest stay private. "
     "• You can remove Лена from your list any time in /teachers. No one gets a message."
@@ -90,7 +90,8 @@ CONSENT_RU = (
     "• Ещё будет видна твоя последняя асана по отметкам в журнале. "
     "• Любой отмеченный отдых выглядит одинаково, какой бы ни была причина. "
     "• Если какое-то время показать нечего, Лена увидит об этом короткую пометку. "
-    "• Позже любой учитель из твоего списка сможет отметить тебе новую асану. Это можно отменить. "
+    "• Любой учитель из твоего списка может отметить тебе новую асану. Придёт сообщение, и "
+    "отметку можно отменить. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
     "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит."
 )
@@ -98,16 +99,17 @@ PRIVACY_EN = (
     "Your log is yours. A teacher on your list sees your name, your last asana and what you log "
     "from the day you added them: practice or rest and your practice length. All rest you log "
     "looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short "
-    "note saying just that. Later, a teacher on your list will also be able to mark a new asana "
-    "for you, and you can undo it. Check-ins, diary notes and the reason for a rest stay private. "
+    "note saying just that. A teacher on your list can also mark a new asana for you: you get a "
+    "message and can undo it. Check-ins, diary notes and the reason for a rest stay private. "
     "You can remove a teacher from your list any time."
 )
 PRIVACY_RU = (
     "Твой журнал принадлежит тебе. Учитель из твоего списка видит твоё имя, последнюю асану и "
     "то, что ты отмечаешь со дня добавления: практика или отдых и объём практики. Любой "
     "отмеченный отдых выглядит одинаково, какой бы ни была причина. Если какое-то время показать "
-    "нечего, учитель увидит об этом короткую пометку. Позже учитель из твоего списка сможет "
-    "отметить тебе новую асану, а ты сможешь это отменить. Самочувствие, заметки и причина отдыха "
+    "нечего, учитель увидит об этом короткую пометку. Учитель из твоего списка также может "
+    "отметить тебе новую асану: придёт сообщение, и отметку можно отменить. Самочувствие, "
+    "заметки и причина отдыха "
     "остаются личными. Убрать учителя из списка можно в любой момент."
 )
 

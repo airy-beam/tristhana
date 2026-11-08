@@ -11,13 +11,24 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
 
-from tristhana.api.deps import CurrentPrincipal, app_settings, links, teacher_view
+from tristhana.api.deps import (
+    CurrentPrincipal,
+    app_settings,
+    links,
+    mark_for_student,
+    progression_track,
+    teacher_view,
+)
 from tristhana.api.errors import ApiError, error_responses
 from tristhana.api.v1.practice import Length
 from tristhana.api.v1.progression import PositionOut
+from tristhana.application.policies import Principal
 from tristhana.application.ports.teacher_links import Links, LinksChanged, NotLinked
+from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
+from tristhana.application.teacher_marks import MarkForStudent
 from tristhana.application.teacher_view import TeacherViewUseCases
+from tristhana.domain.progression import Position, Progression, Track, teacher_targets
 from tristhana.domain.teacher_links import MAX_STUDENTS, effective_primary, invite_url
 from tristhana.domain.teacher_view import SharedDay
 from tristhana.settings import Settings
@@ -26,6 +37,8 @@ router = APIRouter(prefix="/me", tags=["links"], responses=error_responses(401, 
 
 UseCases = Annotated[LinkUseCases, Depends(links)]
 ViewCases = Annotated[TeacherViewUseCases, Depends(teacher_view)]
+MarkCase = Annotated[MarkForStudent, Depends(mark_for_student)]
+TrackDep = Annotated[Track, Depends(progression_track)]
 
 
 class TeacherOut(BaseModel):
@@ -154,7 +167,16 @@ class StudentCardOut(BaseModel):
     name: str | None
     days: list[DayOut]
     last_asana: PositionOut | None
+    next_asanas: list[PositionOut] = Field(
+        description="PR-08 Phase 3: the stops this teacher may mark, in order (0-3); "
+        "empty when unset or at the end of the confirmed series"
+    )
     quiet: bool
+
+
+class NewAsanaIn(BaseModel):
+    seen: PositionOut = Field(alias="from", description="The card's `last_asana`")
+    to: PositionOut = Field(description="One of the card's `next_asanas`")
 
 
 @router.get("/students")
@@ -172,15 +194,11 @@ async def get_students(
     )
 
 
-@router.get("/students/{id}", responses=error_responses(404))
-async def get_student(
-    id: UUID, principal: CurrentPrincipal, use_cases: ViewCases, response: Response
-) -> StudentCardOut:
+async def _card(principal: Principal, id: UUID, use_cases: TeacherViewUseCases) -> StudentCardOut:
     try:
         card = await use_cases.student.execute(principal, id)
     except NotLinked:
         raise ApiError(404, "not_linked") from None
-    response.headers["Cache-Control"] = "no-store"
     return StudentCardOut(
         id=card.id,
         name=card.name,
@@ -189,5 +207,45 @@ async def get_student(
             for d in card.days
         ],
         last_asana=PositionOut.maybe(card.last_asana),
+        next_asanas=[PositionOut.of(p) for p in card.next_asanas],
         quiet=card.quiet,
     )
+
+
+@router.get("/students/{id}", responses=error_responses(404))
+async def get_student(
+    id: UUID, principal: CurrentPrincipal, use_cases: ViewCases, response: Response
+) -> StudentCardOut:
+    card = await _card(principal, id, use_cases)
+    response.headers["Cache-Control"] = "no-store"
+    return card
+
+
+@router.post("/students/{id}/new-asana", responses=error_responses(404, 409, 422))
+async def post_new_asana(
+    id: UUID,
+    body: NewAsanaIn,
+    principal: CurrentPrincipal,
+    mark: MarkCase,
+    use_cases: ViewCases,
+    track: TrackDep,
+    response: Response,
+) -> StudentCardOut:
+    """PR-08 Phase 3: a linked teacher marks one of the card's `next_asanas`; the student gets
+    one silent message and can undo it. Not optimistic: the answer is the refreshed card, the
+    same whatever the student's history or the message's delivery. 404 `not_linked`;
+    409 `progression_changed` (out of date, or a retry: refetch the card); 422
+    `invalid_progression` (`to` isn't within the next stops of `from`)."""
+    seen = Position(body.seen.series, body.seen.last)
+    target = Position(body.to.series, body.to.last)
+    if target not in teacher_targets(track, Progression(seen)):
+        raise ApiError(422, "invalid_progression")
+    try:
+        await mark.execute(principal, id, seen, target)
+    except NotLinked:
+        raise ApiError(404, "not_linked") from None
+    except ProgressionChanged:
+        raise ApiError(409, "progression_changed") from None
+    card = await _card(principal, id, use_cases)
+    response.headers["Cache-Control"] = "no-store"
+    return card

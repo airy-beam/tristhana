@@ -105,11 +105,19 @@ async def _fill(engine: AsyncEngine, me: UUID, keys: str = KEYS) -> None:
     await SqlDiaryRepository(engine, cipher).save(me, THU, "Лёгкая практика\nи вторая строка")
     repo = SqlProgressionRepository(engine)
     first = await repo.apply(
-        me, Change(EventKind.START, MON, Progression(NAVASANA), after=NAVASANA), None, me
+        me,
+        Change(EventKind.START, MON, Progression(NAVASANA), after=NAVASANA),
+        None,
+        me,
+        before=None,
     )
     assert first is not None
     await repo.apply(
-        me, Change(EventKind.GIVEN, TUE, Progression(KURMASANA), NAVASANA, KURMASANA), first.id, me
+        me,
+        Change(EventKind.GIVEN, TUE, Progression(KURMASANA), NAVASANA, KURMASANA),
+        first.id,
+        me,
+        before=NAVASANA,
     )
     notifications = SqlNotificationRepository(engine)
     await notifications.patch(me, {"daily_cap": 5}, DEFAULTS)
@@ -336,7 +344,11 @@ async def test_delete_nulls_marked_by_on_other_accounts(engine: AsyncEngine) -> 
     student, _ = await _account(engine)
     repo = SqlProgressionRepository(engine)
     await repo.apply(
-        student, Change(EventKind.START, MON, Progression(NAVASANA), after=NAVASANA), None, teacher
+        student,
+        Change(EventKind.START, MON, Progression(NAVASANA), after=NAVASANA),
+        None,
+        teacher,
+        before=None,
     )
 
     await SqlAccountRepository(engine).delete(teacher)

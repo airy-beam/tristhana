@@ -101,10 +101,10 @@ async def test_progression_writes_work_as_the_app_role(app_engine: AsyncEngine) 
     navasana, kurmasana = Position("primary", "navasana"), Position("primary", "kurmasana")
     start = Change(EventKind.START, ON, Progression(navasana), after=navasana)
 
-    first = await repo.apply(me, start, None, me)
+    first = await repo.apply(me, start, None, me, before=None)
     assert first is not None
     given = Change(EventKind.GIVEN, ON, Progression(kurmasana), navasana, kurmasana)
-    second = await repo.apply(me, given, first.id, me)
+    second = await repo.apply(me, given, first.id, me, before=navasana)
     assert second is not None
     await repo.dismiss_hint(me, Position("primary", "supta-kurmasana"))
     assert await repo.undo(me, second.id)
@@ -242,3 +242,48 @@ async def test_the_moon_follow_reads_and_keep_work_as_the_app_role(app_engine: A
         now - timedelta(days=12), now.date(), DEFAULTS
     )
     assert {c.account_id: c.teacher_location for c in candidates}.get(student) == "almaty"
+
+
+async def test_teacher_marks_work_as_the_app_role(app_engine: AsyncEngine) -> None:
+    """PR-08 Phase 3: `for_teacher`, the guarded mark (link `EXISTS`, position check) and the
+    retract of a non-latest teacher mark, as `tristhana_app`."""
+    student, teacher = await _account(app_engine, "7201"), await _account(app_engine, "7202")
+    async with app_engine.connect() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO tristhana.teacher_link (student_id, teacher_id, linked_on)"
+                " VALUES (:s, :t, :on)"
+            ),
+            {"s": student, "t": teacher, "on": ON},
+        )
+    repo = SqlProgressionRepository(app_engine)
+    navasana, kurmasana = Position("primary", "navasana"), Position("primary", "kurmasana")
+    start = await repo.apply(
+        student,
+        Change(EventKind.START, ON, Progression(navasana), after=navasana),
+        None,
+        student,
+        before=None,
+    )
+    assert start is not None
+
+    found = await repo.for_teacher(teacher, student)
+    assert found is not None
+    mark = await repo.apply(
+        student,
+        Change(EventKind.GIVEN, ON, Progression(kurmasana), navasana, kurmasana),
+        start.id,
+        teacher,
+        before=navasana,
+        link_teacher=teacher,
+    )
+    assert mark is not None
+    items = frozenset({"drop-backs"})
+    item = Change(EventKind.ITEM_GIVEN, ON, Progression(kurmasana, items), item="drop-backs")
+    assert await repo.apply(student, item, mark.id, student, before=kurmasana) is not None
+
+    assert await repo.undo(student, mark.id)
+    view = await repo.get(student)
+    assert view.progression is not None
+    assert view.progression.position == navasana
+    assert view.progression.items == items

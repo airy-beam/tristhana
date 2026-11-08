@@ -16,8 +16,10 @@ from aiogram.filters import Command
 from aiogram.methods import SendMessage
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from tristhana.application.labels import PracticeLabels
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
+from tristhana.application.ports.notifications import AsanaMarked
 from tristhana.application.ports.progression import ProgressionView
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.progression import ChangeResult, NotLatest, ProgressionChanged
@@ -32,18 +34,25 @@ from tristhana.bots.telegram.progression_callbacks import (
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
+from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.progression import (
     STANDING_ONLY,
     Celebration,
     CelebrationKind,
+    EventKind,
     InvalidProgression,
+    Marker,
     NotForward,
     Position,
     Progression,
+    ProgressionEvent,
     ProgressionNotSet,
     position_length,
     shows_traditional,
+    teacher_mark,
+    undoable,
 )
+from tristhana.domain.teacher_links import shown_name
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.days import DayScreens
@@ -53,6 +62,81 @@ if TYPE_CHECKING:
 
 def data(action: str, **kw: object) -> str:
     return encode(ProgressionCallback(action, **kw))  # type: ignore[arg-type]
+
+
+def teacher_name(t: Translator, locale: Locale, name: str | None) -> str:
+    """ "Marked by Лена", or "Marked by a teacher" (unlinked, deleted or nameless)."""
+    return shown_name(name) or t.t(locale, "progression-by-teacher")
+
+
+def _stop(labels: PracticeLabels, locale: Locale, p: Position | None) -> str:
+    return labels.stop(locale, p.series or "", p.key or "") if p is not None else ""
+
+
+def series_line(
+    t: Translator, catalog: PracticeCatalog, locale: Locale, c: Celebration
+) -> str | None:
+    """ "🎉 Full Primary: Yoga Chikitsa." / "🎉 Intermediate begins: …"; None for other kinds."""
+    if c.kind not in (CelebrationKind.SERIES_COMPLETE, CelebrationKind.SERIES_BEGINS):
+        return None
+    series = catalog.get(c.series or "")
+    if series is None:
+        return None
+    traditional = "none"
+    if shows_traditional(series) and series.traditional is not None:
+        names = series.traditional
+        traditional = names.ru if locale == "ru" else names.latin
+    key = (
+        "celebrate-series-complete"
+        if c.kind is CelebrationKind.SERIES_COMPLETE
+        else "celebrate-series-begins"
+    )
+    return t.t(
+        locale,
+        key,
+        series=t.t(locale, "series-name", n=series.number),
+        traditional=traditional,
+    )
+
+
+def marked_note(
+    t: Translator,
+    labels: PracticeLabels,
+    catalog: PracticeCatalog,
+    locale: Locale,
+    teacher: str | None,
+    mark: AsanaMarked,
+) -> Screen:
+    """PR-08 Phase 3: the student's one message about a teacher's mark, in the student's
+    language: the gift line (one stop, a range, or the quiet line when held before), any series
+    lines, the undo hint, then [↩︎ Undo] and [🧘 My asanas]."""
+    name = teacher_name(t, locale, teacher)
+    asana = _stop(labels, locale, mark.target)
+    lines: list[str] = []
+    for c in mark.celebrations:
+        if c.kind is CelebrationKind.NEW_ASANA:
+            if c.first is not None:
+                first = _stop(labels, locale, c.first)
+                lines.append(
+                    t.t(locale, "mark-received-range", **{"from": first}, asana=asana, teacher=name)
+                )
+            else:
+                lines.append(t.t(locale, "mark-received", asana=asana, teacher=name))
+        elif (line := series_line(t, catalog, locale, c)) is not None:
+            lines.append(line)
+    if not lines:
+        lines.append(t.t(locale, "mark-received-back", asana=asana, teacher=name))
+    rows = [
+        [button(t, locale, "progression-undo", data("undo", number=mark.event_id))],
+        [button(t, locale, "progression-open", data("open"))],
+    ]
+    text = "\n".join(lines) + "\n\n" + t.t(locale, "mark-received-undo-hint")
+    return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+def _is_mark(view: ProgressionView, event_id: int) -> bool:
+    found = next((e for e in view.events if e.id == event_id), None)
+    return found is not None and found.kind is EventKind.GIVEN and found.by is Marker.TEACHER
 
 
 def register_progression(router: Router, screens: ProgressionScreens) -> None:
@@ -116,9 +200,7 @@ class ProgressionScreens:
                     lines = self.celebration_lines(locale, result.celebrations)
                     return await self.open(principal, lines, result)
                 case "undo":
-                    view = await self._g.undo.execute(principal, cb.number)
-                    lines = [self.t.t(locale, "progression-undone")]
-                    return await self.open(principal, lines, view=view)
+                    return await self._undo(principal, cb.number)
                 case "not_new":
                     target = position(catalog, cb.number, cb.key)
                     if target is None or cb.day is None:
@@ -135,6 +217,21 @@ class ProgressionScreens:
             return await self.open(principal, [self.t.t(locale, "progression-already")])
         except (ProgressionNotSet, ProgressionChanged, InvalidProgression, NotLatest):
             return await self.open(principal)  # stale or forged: show the current state
+
+    async def _undo(self, principal: Principal, event_id: int) -> Screen:
+        locale = principal.account.locale
+        try:
+            view = await self._g.undo.execute(principal, event_id)
+        except NotLatest:
+            # A teacher's mark the practice has moved on from (the student's message): say so.
+            found = await self._g.get.execute(principal)
+            lead = (
+                [self.t.t(locale, "progression-mark-moved-on")]
+                if _is_mark(found.view, event_id)
+                else []
+            )
+            return await self.open(principal, lead, view=found.view)
+        return await self.open(principal, [self.t.t(locale, "progression-undone")], view=view)
 
     async def _give(self, principal: Principal, target: Position, day: date | None) -> Screen:
         locale = principal.account.locale
@@ -188,17 +285,28 @@ class ProgressionScreens:
             standing = self.t.t(locale, "progression-standing-only")
             rows.append([self._set_button(standing, STANDING_ONLY)])
         else:
-            lines += self._state_lines(locale, progression)
+            mark = teacher_mark(view.events)
+            lines += self._state_lines(locale, progression, mark)
             rows += self._state_rows(locale, progression)
+            just = result.event.id if result is not None and result.event is not None else None
+            if mark is not None and mark.id != just and mark.id in undoable(view.events):
+                undo = data("undo", number=mark.id)  # never two identical "↩︎ Undo" buttons
+                rows.insert(0, [self._button(locale, "progression-undo-mark", undo)])
         if result is not None and result.event is not None:
             undo = data("undo", number=result.event.id)
             rows.insert(0, [self._button(locale, "progression-undo", undo)])
         rows += self._day_screens.app_rows(principal)
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
-    def _state_lines(self, locale: Locale, progression: Progression) -> list[str]:
+    def _state_lines(
+        self, locale: Locale, progression: Progression, mark: ProgressionEvent | None = None
+    ) -> list[str]:
         length = self.position_text(locale, progression.position)
-        lines = [self.t.t(locale, "progression-current", length=length)]
+        current = self.t.t(locale, "progression-current", length=length)
+        if mark is not None:  # PR-08 Phase 3: the position is a teacher's mark
+            who = teacher_name(self.t, locale, mark.by_name)
+            current += "\n" + self.t.t(locale, "progression-marked-by", teacher=who)
+        lines = [current]
         given = [i for i in self._track.items if i.key in progression.items]
         if given:
             items = ", ".join(self.item_label(locale, i.key) for i in given)
@@ -319,26 +427,9 @@ class ProgressionScreens:
                     else:
                         lines.append(self.t.t(locale, "celebrate-new-asana", asana=asana))
                 case CelebrationKind.SERIES_COMPLETE | CelebrationKind.SERIES_BEGINS:
-                    series = self._track.catalog.get(c.series or "")
-                    if series is None:
-                        continue
-                    traditional = "none"
-                    if shows_traditional(series) and series.traditional is not None:
-                        names = series.traditional
-                        traditional = names.ru if locale == "ru" else names.latin
-                    key = (
-                        "celebrate-series-complete"
-                        if c.kind is CelebrationKind.SERIES_COMPLETE
-                        else "celebrate-series-begins"
-                    )
-                    lines.append(
-                        self.t.t(
-                            locale,
-                            key,
-                            series=self.t.t(locale, "series-name", n=series.number),
-                            traditional=traditional,
-                        )
-                    )
+                    line = series_line(self.t, self._track.catalog, locale, c)
+                    if line is not None:
+                        lines.append(line)
                 case CelebrationKind.ITEM:
                     label = self.item_label(locale, c.key or "")
                     lines.append(self.t.t(locale, "celebrate-item", item=label))

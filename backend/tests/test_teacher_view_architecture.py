@@ -15,6 +15,7 @@ from tristhana.application import policies
 from tristhana.application.ports.storage import Storage
 from tristhana.application.ports.teacher_view import TeacherViewRepository
 from tristhana.application.teacher_view import GetStudent, GetStudents
+from tristhana.domain.progression import Track
 
 BACKEND = Path(__file__).resolve().parents[1]
 SRC = BACKEND / "src" / "tristhana"
@@ -117,11 +118,15 @@ def test_the_use_cases_module_loads_no_account_of_the_student() -> None:
 
 @pytest.mark.parametrize("use_case", [GetStudents, GetStudent])
 def test_both_use_cases_depend_on_the_port_and_the_clock(use_case: type) -> None:
+    """PR-08 Phase 3: the card also takes the in-memory `Track` (for `next_asanas`), which is
+    pure domain: still no other port."""
     hints = get_type_hints(use_case.__init__)
     hints.pop("return", None)
+    extra = {"track": Track} if use_case is GetStudent else {}
 
-    assert len(hints) == 2
-    assert TeacherViewRepository in hints.values()
+    assert set(hints) == {"view", "clock", *extra}
+    assert hints["view"] is TeacherViewRepository
+    assert all(hints[k] is v for k, v in extra.items())
 
 
 def test_storage_exposes_the_port() -> None:

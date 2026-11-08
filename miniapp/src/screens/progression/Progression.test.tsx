@@ -94,6 +94,9 @@ const AT_NAVASANA: ProgressionValue = unset({
       to: P("primary", "navasana"),
       item: null,
       marked_by_self: true,
+      by: "self",
+      by_name: null,
+      undoable: true,
     },
   ],
   last_event_id: 7,
@@ -199,7 +202,7 @@ test("set: current line, next, items, history with Undo", async () => {
   expect(screen.getByRole("button", { name: "🎉 New asana: Bhujapidasana" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "🎉 Drop-backs" })).toBeInTheDocument();
   expect(screen.getByText("Started at Navasana")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "↩︎ Undo" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^↩︎ Undo: / })).toBeInTheDocument();
 });
 
 test("a new asana sends the expected id and shows the celebration card", async () => {
@@ -257,7 +260,7 @@ test("a 409 says it changed elsewhere and refetches", async () => {
 test("Undo deletes the newest event", async () => {
   const seen = stubApi();
   renderWith(<Progression locale="en" onBack={vi.fn()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "↩︎ Undo" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^↩︎ Undo: / }));
   await waitFor(() => {
     expect(seen.some((r) => r.method === "DELETE" && r.path.endsWith("/events/7"))).toBe(true);
   });

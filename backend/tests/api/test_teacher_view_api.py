@@ -249,6 +249,12 @@ def test_the_card_has_the_exact_shape(api: TestClient, storage: InMemoryStorage)
             },
         ],
         "last_asana": {"series": "primary", "last": "navasana"},
+        # PR-08 Phase 3: the next three stops, from the shown position only.
+        "next_asanas": [
+            {"series": "primary", "last": "bhujapidasana"},
+            {"series": "primary", "last": "kurmasana"},
+            {"series": "primary", "last": "supta-kurmasana"},
+        ],
         "quiet": False,
     }
 
@@ -274,6 +280,9 @@ def test_the_card_keys_are_exact_all_the_way_down(
         "last_asana",
         "last_asana.series",
         "last_asana.last",
+        "next_asanas",
+        "next_asanas.series",
+        "next_asanas.last",
         "quiet",
     }
 
@@ -473,7 +482,8 @@ def test_openapi_has_the_exact_card_shape(api: TestClient) -> None:
     length = _object_of(schema, day["properties"]["length"])
     position = _object_of(schema, body["properties"]["last_asana"])
 
-    assert set(body["properties"]) == {"id", "name", "days", "last_asana", "quiet"}
+    assert set(body["properties"]) == {"id", "name", "days", "last_asana", "next_asanas", "quiet"}
+    assert _deref(schema, body["properties"]["next_asanas"]["items"]) == position
     assert set(day["properties"]) == {"date", "state", "length"}
     assert _state_values(schema, day["properties"]["state"]) == {"practiced", "rest", None}
     assert set(length["properties"]) == {"series", "end", "first_part"}

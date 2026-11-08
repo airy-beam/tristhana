@@ -361,8 +361,18 @@ class _UnavailableProgression:
     async def get(self, account_id: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def for_teacher(self, teacher: UUID, student: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def apply(
-        self, account_id: UUID, change: Change, expected_event_id: int | None, marked_by: UUID
+        self,
+        account_id: UUID,
+        change: Change,
+        expected_event_id: int | None,
+        marked_by: UUID,
+        *,
+        before: Position | None,
+        link_teacher: UUID | None = None,
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 

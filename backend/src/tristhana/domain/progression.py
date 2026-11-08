@@ -11,6 +11,7 @@ change (injury, pregnancy, a teacher's call) gets a quiet line, never a 🎉.
 """
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
@@ -37,6 +38,8 @@ TRADITIONAL_UP_TO = 2
 # Contexts that ask "New asana?" after a length past the last asana: not self-practice
 # (people try the next asana at home before it is given), not Led (the teacher counts).
 ASK_CONTEXTS = frozenset({PracticeContext.MYSORE, PracticeContext.PRIVATE})
+# A linked teacher marks one of the next stops, no further (PR-08 Phase 3, ADR-0037).
+TEACHER_STEPS = 3
 
 
 class EventKind(StrEnum):
@@ -45,6 +48,17 @@ class EventKind(StrEnum):
     CHANGED = "changed"  # a correction, either way: never celebrates
     ITEM_GIVEN = "item_given"
     ITEM_REMOVED = "item_removed"
+
+
+_POSITION_KINDS = frozenset({EventKind.START, EventKind.GIVEN, EventKind.CHANGED})
+
+
+class Marker(StrEnum):
+    """Who wrote an event: the owner, or anyone else (a teacher; a deleted account, whose
+    `marked_by` is NULL, still counts as a teacher's)."""
+
+    SELF = "self"
+    TEACHER = "teacher"
 
 
 class CelebrationKind(StrEnum):
@@ -100,7 +114,12 @@ class ProgressionEvent:
     before: Position | None = None
     after: Position | None = None
     item: str | None = None
-    marked_by_self: bool = True
+    by: Marker = Marker.SELF
+    by_name: str | None = None  # a teacher's name, only while they are linked
+
+    @property
+    def marked_by_self(self) -> bool:
+        return self.by is Marker.SELF
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,6 +274,63 @@ def item_change(
     items = progression.items | {item} if given else progression.items - {item}
     kind = EventKind.ITEM_GIVEN if given else EventKind.ITEM_REMOVED
     return Change(kind, on, Progression(progression.position, items), item=item)
+
+
+def teacher_targets(track: Track, progression: Progression | None) -> tuple[Position, ...]:
+    """The stops a linked teacher may mark: up to `TEACHER_STEPS` right after the position, in
+    catalog order and across a series boundary (Setu Bandhasana → Pasasana); () when unset,
+    stale or at the end of the confirmed series."""
+    if progression is None:
+        return ()
+    rank = track.rank(progression.position)
+    if rank is None:
+        return ()
+    return track.between(rank + 1, rank + TEACHER_STEPS)
+
+
+def teacher_change(
+    track: Track, progression: Progression | None, seen: Position, target: Position, on: date
+) -> Change:
+    """One GIVEN from what the teacher saw to one of the next stops; the items stay as they are.
+    Raises `ProgressionNotSet` (a teacher never starts a record), `InvalidProgression` (not a
+    stop, or a stale position) or `NotForward` (the card is out of date, or the target isn't
+    among the next `TEACHER_STEPS`)."""
+    check_position(track, target)
+    if progression is None:
+        raise ProgressionNotSet("a teacher never starts a record")
+    if track.rank(progression.position) is None:
+        raise InvalidProgression("a stale position")
+    if progression.position != seen:
+        raise NotForward("the position changed since the card was read")
+    if target not in teacher_targets(track, progression):
+        raise NotForward("not among the next stops")
+    state = Progression(target, progression.items)
+    return Change(EventKind.GIVEN, on, state, seen, target)
+
+
+def _retractable(event: ProgressionEvent) -> bool:
+    return event.kind is EventKind.GIVEN and event.by is Marker.TEACHER
+
+
+def undoable(events: Sequence[ProgressionEvent]) -> frozenset[int]:
+    """Events newest first. The newest one, plus a teacher's `given` that no later START,
+    GIVEN or CHANGED has moved on from (later item events are fine; Q86, ADR-0037)."""
+    if not events:
+        return frozenset()
+    found = {events[0].id}
+    for e in events:
+        if _retractable(e):
+            found.add(e.id)
+        if e.kind in _POSITION_KINDS:
+            break
+    return frozenset(found)
+
+
+def teacher_mark(events: Sequence[ProgressionEvent]) -> ProgressionEvent | None:
+    """The event that set the current position (newest first, past item events), if it is a
+    teacher's `given`."""
+    found = next((e for e in events if e.kind in _POSITION_KINDS), None)
+    return found if found is not None and _retractable(found) else None
 
 
 def celebrations(track: Track, earlier: Earlier, change: Change) -> tuple[Celebration, ...]:

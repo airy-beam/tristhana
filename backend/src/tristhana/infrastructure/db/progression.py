@@ -1,6 +1,7 @@
 """`ProgressionRepository` on Postgres (PR-08, ADR-0026). Every method is one statement:
 a write appends its event and moves the state row together, guarded by the state's
-`last_event_id` (compare-and-set), so a double tap or a second device can't fork it."""
+`last_event_id` and position (compare-and-set), so a double tap or a second device can't fork
+it. A teacher's mark is the same write with a link guard (PR-08 Phase 3, ADR-0037)."""
 
 from datetime import date
 from typing import Any
@@ -14,27 +15,37 @@ from sqlalchemy import (
     delete,
     distinct,
     exists,
+    false,
     func,
     literal,
     literal_column,
+    null,
+    or_,
     select,
     update,
 )
 from sqlalchemy.dialects.postgresql import JSON, aggregate_order_by, insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tristhana.application.ports.progression import ProgressionView
+from tristhana.application.ports.progression import MarkLink, ProgressionView, TeacherMarkView
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
     Change,
     Earlier,
     EventKind,
+    Marker,
     Position,
     Progression,
     ProgressionEvent,
 )
 from tristhana.infrastructure.db.engine import connection
-from tristhana.infrastructure.db.tables import progression, progression_event
+from tristhana.infrastructure.db.tables import (
+    account,
+    identity,
+    progression,
+    progression_event,
+    teacher_link,
+)
 
 _ITEM_KINDS = (EventKind.ITEM_GIVEN.value, EventKind.ITEM_REMOVED.value)
 _POSITION_KINDS = (EventKind.START.value, EventKind.GIVEN.value, EventKind.CHANGED.value)
@@ -83,7 +94,8 @@ def _to_event(account_id: UUID, e: dict[str, Any]) -> ProgressionEvent:
         before=None if kind is EventKind.START else before,
         after=Position(e["to_series"], e["to_key"]) if positional else None,
         item=e["item"],
-        marked_by_self=e["marked_by"] == str(account_id),
+        by=Marker(e["by"]),
+        by_name=e["by_name"],
     )
 
 
@@ -92,58 +104,55 @@ class SqlProgressionRepository:
         self._engine = engine
 
     async def get(self, account_id: UUID) -> ProgressionView:
-        e = progression_event
-        mine = e.c.account_id == account_id
-        reached = (
-            select(e.c.to_series, e.c.to_key)
-            .where(mine, e.c.kind.in_(_POSITION_KINDS))
-            .distinct()
-            .subquery("reached")
-        )
-        targets = (
-            select(
-                func.json_agg(
-                    func.json_build_array(reached.c.to_series, reached.c.to_key), type_=JSON
-                )
-            )
-            .scalar_subquery()
-            .label("targets")
-        )
-        given_items = (
-            select(func.array_agg(distinct(e.c.item)))
-            .where(mine, e.c.kind == EventKind.ITEM_GIVEN.value)
-            .scalar_subquery()
-            .label("given_items")
-        )
-        newest = (
-            select(*e.c).where(mine).order_by(e.c.id.desc()).limit(HISTORY_LIMIT).subquery("newest")
-        )
-        fields = ("id", "kind", "from_series", "from_key", "to_series", "to_key", "item")
-        built = func.json_build_object(
-            *(x for f in fields for x in (f, newest.c[f])),
-            "occurred_on",
-            newest.c.occurred_on,
-            "marked_by",
-            newest.c.marked_by,
-        )
-        events = (
-            select(func.json_agg(aggregate_order_by(built, newest.c.id.desc()), type_=JSON))
-            .scalar_subquery()
-            .label("events")
-        )
         one = select(literal(1).label("one")).subquery("one")
-        stmt = select(*_STATE, targets, given_items, events).select_from(
+        stmt = select(*_STATE, *_view_columns(account_id)).select_from(
             one.outerjoin(progression, progression.c.account_id == account_id)
         )
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
-        reached_at = frozenset(Position(s, k) for s, k in _json(row.targets))
-        earlier = Earlier(reached_at, frozenset(row.given_items or ()))
-        found = tuple(_to_event(account_id, x) for x in _json(row.events))
-        return ProgressionView(to_progression(row), earlier, found)
+        return _view(account_id, row)
+
+    async def for_teacher(self, teacher: UUID, student: UUID) -> TeacherMarkView | None:
+        """The link (by its primary key), the student's zone, locale and Telegram id, and their
+        view, in one statement; no row = not linked this way."""
+        link = (
+            select(teacher_link.c.student_id)
+            .where(teacher_link.c.student_id == student, teacher_link.c.teacher_id == teacher)
+            .cte("link")
+        )
+        stmt = select(
+            account.c.timezone,
+            account.c.locale,
+            identity.c.provider_user_id.label("telegram_id"),
+            *_STATE,
+            *_view_columns(student),
+        ).select_from(
+            link.join(account, account.c.id == link.c.student_id)
+            .outerjoin(
+                identity,
+                and_(
+                    identity.c.account_id == link.c.student_id,
+                    identity.c.provider == "telegram",
+                ),
+            )
+            .outerjoin(progression, progression.c.account_id == link.c.student_id)
+        )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt.limit(1))).first()
+        if row is None:
+            return None
+        found = MarkLink(teacher, student, row.timezone, row.locale, row.telegram_id)
+        return TeacherMarkView(found, _view(student, row))
 
     async def apply(
-        self, account_id: UUID, change: Change, expected_event_id: int | None, marked_by: UUID
+        self,
+        account_id: UUID,
+        change: Change,
+        expected_event_id: int | None,
+        marked_by: UUID,
+        *,
+        before: Position | None,
+        link_teacher: UUID | None = None,
     ) -> ProgressionEvent | None:
         p, e = progression, progression_event
         state = change.state
@@ -160,6 +169,31 @@ class SqlProgressionRepository:
             # after this snapshot can still lose to us and leave a row without its START:
             # two devices racing, harmless (the next read shows a set position).
             source = source.where(exists().where(p.c.account_id == account_id))
+        if link_teacher is not None:
+            # A teacher's mark (ADR-0037): only while linked, checked in the write's own
+            # snapshot. KEY SHARE holds the link row, so an unlink racing us waits for our commit
+            # (the mark stands, then the link goes) or wins first (we write nothing).
+            link = (
+                select(teacher_link.c.student_id)
+                .where(
+                    teacher_link.c.student_id == account_id,
+                    teacher_link.c.teacher_id == link_teacher,
+                )
+                .with_for_update(read=True, key_share=True)
+                .cte("link")
+            )
+            source = source.where(exists(select(link.c.student_id)))
+        guard = p.c.last_event_id.is_not_distinct_from(literal(expected_event_id, BigInteger))
+        if before is None:
+            guard = and_(guard, false())  # "no stored row": an existing one is never replaced
+        else:
+            # The position too: after a teacher's mark is undone `last_event_id` stays, so the
+            # id alone can't catch a client that saw the mark (ADR-0037).
+            guard = and_(
+                guard,
+                p.c.series.is_not_distinct_from(literal(before.series, p.c.series.type)),
+                p.c.last_key.is_not_distinct_from(literal(before.key, p.c.last_key.type)),
+            )
         upsert = insert(p).from_select(
             ["account_id", "series", "last_key", "items", "last_event_id"], source
         )
@@ -173,10 +207,10 @@ class SqlProgressionRepository:
                 "updated_at": func.now(),
             },
             # Re-checked on the locked row: the loser of a race updates nothing.
-            where=p.c.last_event_id.is_not_distinct_from(literal(expected_event_id, BigInteger)),
+            where=guard,
         )
         moved = upsert.returning(p.c.last_event_id).cte("moved")
-        before, after = change.before, change.after
+        start, after = change.before, change.after
         event = insert(e).from_select(
             [
                 "id",
@@ -194,8 +228,8 @@ class SqlProgressionRepository:
                 moved.c.last_event_id,
                 literal(account_id, e.c.account_id.type),
                 literal(change.kind.value, e.c.kind.type),
-                literal(before.series if before else None, e.c.from_series.type),
-                literal(before.key if before else None, e.c.from_key.type),
+                literal(start.series if start else None, e.c.from_series.type),
+                literal(start.key if start else None, e.c.from_key.type),
                 literal(after.series if after else None, e.c.to_series.type),
                 literal(after.key if after else None, e.c.to_key.type),
                 literal(change.item, e.c.item.type),
@@ -208,26 +242,50 @@ class SqlProgressionRepository:
             event_id = (await conn.execute(stmt)).scalar_one_or_none()
         if event_id is None:
             return None
+        by = Marker.SELF if marked_by == account_id else Marker.TEACHER
         return ProgressionEvent(
-            event_id, change.kind, change.occurred_on, before, after, change.item, True
+            event_id, change.kind, change.occurred_on, change.before, after, change.item, by
         )
 
     async def undo(self, account_id: UUID, event_id: int) -> bool:
+        """The latest event, or a teacher's `given` that no later position event moved on from
+        (ADR-0037): that one goes back to its `from`, keeps the items and `last_event_id`, and
+        clears the "Not new" hint (it was tied to an id that no longer moves)."""
         p, e = progression, progression_event
+        # Locked first, so a racing write is either seen here or waits; FOR UPDATE reads the
+        # newest version of the row, so a move that just committed is caught by the position.
         current = (
-            select(p.c.last_event_id)
+            select(p.c.last_event_id, p.c.series, p.c.last_key)
             .where(p.c.account_id == account_id)
             .with_for_update()
             .cte("current")
+        )
+        current_last = select(current.c.last_event_id).scalar_subquery()
+        later = progression_event.alias("later")
+        moved_on = exists().where(
+            later.c.account_id == account_id,
+            later.c.id > event_id,
+            later.c.kind.in_(_POSITION_KINDS),
+        )
+        held = exists().where(
+            current.c.series.is_not_distinct_from(e.c.to_series),
+            current.c.last_key.is_not_distinct_from(e.c.to_key),
+        )
+        retractable = and_(
+            e.c.kind == EventKind.GIVEN.value,
+            e.c.marked_by.is_distinct_from(account_id),
+            ~moved_on,
+            held,
         )
         removed = (
             delete(e)
             .where(
                 e.c.account_id == account_id,
                 e.c.id == event_id,
-                e.c.id == select(current.c.last_event_id).scalar_subquery(),
+                exists(select(current.c.last_event_id)),
+                or_(e.c.id == current_last, retractable),
             )
-            .returning(e.c.account_id, e.c.kind, e.c.from_series, e.c.from_key, e.c.item)
+            .returning(e.c.id, e.c.account_id, e.c.kind, e.c.from_series, e.c.from_key, e.c.item)
             .cte("removed")
         )
         # The snapshot still has the removed row, so "before it" is `id < event_id`.
@@ -236,6 +294,7 @@ class SqlProgressionRepository:
             .where(e.c.account_id == account_id, e.c.id < event_id)
             .scalar_subquery()
         )
+        latest = removed.c.id == p.c.last_event_id
         item_kind = removed.c.kind.in_(_ITEM_KINDS)
         restored = (
             update(p)
@@ -254,7 +313,10 @@ class SqlProgressionRepository:
                     ),
                     else_=p.c["items"],
                 ),
-                last_event_id=previous,
+                last_event_id=case((latest, previous), else_=p.c.last_event_id),
+                hint_series=case((latest, p.c.hint_series), else_=null()),
+                hint_key=case((latest, p.c.hint_key), else_=null()),
+                hint_event_id=case((latest, p.c.hint_event_id), else_=null()),
                 updated_at=func.now(),
             )
             .returning(p.c.account_id)
@@ -291,6 +353,75 @@ class SqlProgressionRepository:
         )
         async with connection(self._engine) as conn:
             await conn.execute(stmt)
+
+
+def _view_columns(account_id: UUID) -> tuple[Any, ...]:
+    """What the history held, and the newest events with who marked them: `by` from
+    `marked_by` (NULL, a deleted account, reads as a teacher), `by_name` only while that teacher
+    is still linked. Scalar subqueries over aliases, so they never correlate with the caller's
+    own joins (`account`, `teacher_link` in `for_teacher`)."""
+    e = progression_event
+    mine = e.c.account_id == account_id
+    reached = (
+        select(e.c.to_series, e.c.to_key)
+        .where(mine, e.c.kind.in_(_POSITION_KINDS))
+        .distinct()
+        .subquery("reached")
+    )
+    targets = (
+        select(
+            func.json_agg(func.json_build_array(reached.c.to_series, reached.c.to_key), type_=JSON)
+        )
+        .scalar_subquery()
+        .label("targets")
+    )
+    given_items = (
+        select(func.array_agg(distinct(e.c.item)))
+        .where(mine, e.c.kind == EventKind.ITEM_GIVEN.value)
+        .scalar_subquery()
+        .label("given_items")
+    )
+    newest = (
+        select(*e.c).where(mine).order_by(e.c.id.desc()).limit(HISTORY_LIMIT).subquery("newest")
+    )
+    marker_link = teacher_link.alias("marker_link")
+    marker = account.alias("marker")
+    by = case(
+        (newest.c.marked_by == account_id, literal(Marker.SELF.value)),
+        else_=literal(Marker.TEACHER.value),
+    )
+    fields = ("id", "kind", "from_series", "from_key", "to_series", "to_key", "item")
+    built = func.json_build_object(
+        *(x for f in fields for x in (f, newest.c[f])),
+        "occurred_on",
+        newest.c.occurred_on,
+        "by",
+        by,
+        "by_name",
+        marker.c.display_name,
+    )
+    events = (
+        select(func.json_agg(aggregate_order_by(built, newest.c.id.desc()), type_=JSON))
+        .select_from(
+            newest.outerjoin(
+                marker_link,
+                and_(
+                    marker_link.c.student_id == account_id,
+                    marker_link.c.teacher_id == newest.c.marked_by,
+                ),
+            ).outerjoin(marker, marker.c.id == marker_link.c.teacher_id)
+        )
+        .scalar_subquery()
+        .label("events")
+    )
+    return targets, given_items, events
+
+
+def _view(account_id: UUID, row: Row[*tuple[Any, ...]]) -> ProgressionView:
+    reached_at = frozenset(Position(s, k) for s, k in _json(row.targets))
+    earlier = Earlier(reached_at, frozenset(row.given_items or ()))
+    found = tuple(_to_event(account_id, x) for x in _json(row.events))
+    return ProgressionView(to_progression(row), earlier, found)
 
 
 def _json(value: Any) -> list[Any]:

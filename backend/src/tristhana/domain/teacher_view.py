@@ -54,6 +54,8 @@ class StudentCard:
     days: tuple[DayCell, ...]
     last_asana: Position | None
     quiet: bool
+    # PR-08 Phase 3: the stops the teacher may mark (`teacher_targets`), from `last_asana` only.
+    next_asanas: tuple[Position, ...] = ()
 
 
 def card_days(

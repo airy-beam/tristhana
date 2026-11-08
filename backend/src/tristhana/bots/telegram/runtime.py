@@ -16,6 +16,7 @@ from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckIn
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
 from tristhana.application.export import DeleteMyAccount, SendMyExport
+from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
     GetMoonView,
     KeepMoonCity,
@@ -165,6 +166,9 @@ class SettingsUseCases:
 class BotRuntime:
     bot: Bot
     dispatcher: Dispatcher
+    # PR-08 Phase 3: catalog names for the student's note about a teacher's mark.
+    labels: PracticeLabels | None = None
+    catalog: PracticeCatalog | None = None
 
 
 def build_runtime(
@@ -212,7 +216,12 @@ def build_runtime(
             calendar,
         )
     )
-    return BotRuntime(bot=Bot(token), dispatcher=dispatcher)
+    return BotRuntime(
+        bot=Bot(token),
+        dispatcher=dispatcher,
+        labels=links.labels if links else None,
+        catalog=links.catalog if links else None,
+    )
 
 
 def webhook_reply(runtime: BotRuntime, method: TelegramMethod[Any]) -> dict[str, Any]:

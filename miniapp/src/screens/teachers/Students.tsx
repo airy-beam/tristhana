@@ -6,16 +6,24 @@ import {
   STUDENTS_PAGE,
   useCatalog,
   useDropStudents,
+  useMarkNewAsana,
   useRemoveStudent,
   useStudent,
   useStudents,
   type Catalog,
+  type ProgressionPosition,
   type StudentCard,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { backButtonAvailable, confirmDestructive, haptics, useBackButton } from "../../telegram";
+import {
+  backButtonAvailable,
+  confirmAction,
+  confirmDestructive,
+  haptics,
+  useBackButton,
+} from "../../telegram";
 import { lengthText } from "../practiceText";
-import { isStanding, stopLabel } from "../progression/progressionText";
+import { get, isStanding, stopLabel } from "../progression/progressionText";
 
 interface Props {
   locale: Locale;
@@ -187,6 +195,17 @@ function Card({ id, locale, onBack }: { id: string; locale: Locale; onBack: () =
       )}
       <h1 className="student-name">{name(card.name)}</h1>
       <LastAsana card={card} catalog={catalog} locale={locale} />
+      {catalog && (
+        <MarkNewAsana
+          card={card}
+          catalog={catalog}
+          locale={locale}
+          onGone={() => {
+            drop();
+            onBack();
+          }}
+        />
+      )}
       <Localized id="students-week">
         <h2 />
       </Localized>
@@ -222,8 +241,13 @@ function LastAsana({
   locale: Locale;
 }) {
   const { l10n } = useLocalization();
+  const name = useName();
   const position = card.last_asana;
-  if (!position || !catalog) return null;
+  if (!position) {
+    // PR-08 Phase 3: an unset student has nothing to mark from (ST-06 already hides the line).
+    return <p>{get(l10n, "students-give-unset", { name: name(card.name) })}</p>;
+  }
+  if (!catalog) return null;
   if (isStanding(position)) {
     return (
       <Localized id="students-last-standing">
@@ -234,7 +258,137 @@ function LastAsana({
   const found = catalog.series.find((s) => s.slug === position.series);
   const series = found ? l10n.getString("series-lower", { n: found.number }) : position.series;
   const asana = stopLabel(catalog, position, locale);
-  return <p>{l10n.getString("students-last-asana", { asana, series: series ?? "" })}</p>;
+  return <p>{get(l10n, "students-last-asana", { asana, series: series ?? "" })}</p>;
+}
+
+/** PR-08 Phase 3: "🎉 Mark new asana" opens the card's `next_asanas` inline (one stop, or a
+ * range from the first new stop, as the bot's picker); a pick asks once, then posts
+ * `{from: last_asana, to}`. Not optimistic: the response replaces the card. 409 refetches the
+ * card with the stale line; 404 goes back to the list. Shows no celebration, history or
+ * delivery: the teacher learns only what they marked. */
+function MarkNewAsana({
+  card,
+  catalog,
+  locale,
+  onGone,
+}: {
+  card: StudentCard;
+  catalog: Catalog;
+  locale: Locale;
+  onGone: () => void;
+}) {
+  const { l10n } = useLocalization();
+  const name = useName();
+  const mark = useMarkNewAsana(card.id);
+  const [open, setOpen] = useState(false);
+  const [line, setLine] = useState<{ text: string; alert: boolean } | null>(null);
+  const seen = card.last_asana;
+  const next = (card as Partial<StudentCard>).next_asanas ?? []; // an older payload has none
+  const first = next[0];
+
+  const label = (target: ProgressionPosition) => stopLabel(catalog, target, locale);
+  const seriesOf = (target: ProgressionPosition) => {
+    const found = catalog.series.find((s) => s.slug === target.series);
+    return found ? get(l10n, "series-lower", { n: found.number }) : (target.series ?? "");
+  };
+
+  const pick = async (target: ProgressionPosition, steps: number) => {
+    if (!seen || !first) return;
+    const vars = {
+      name: name(card.name),
+      from: label(first),
+      from_series: seriesOf(first),
+      asana: label(target),
+      series: seriesOf(target),
+    };
+    // Across a series boundary the confirm names both series (Setu Bandhasana → Krounchasana).
+    const ask =
+      steps === 1
+        ? "students-give-ask"
+        : first.series !== target.series
+          ? "students-give-ask-across"
+          : "students-give-ask-range";
+    const ok = await confirmAction(
+      get(l10n, ask, vars),
+      get(l10n, "students-give-yes"),
+      get(l10n, "delete-cancel"),
+    );
+    if (!ok) return;
+    setLine(null);
+    mark.mutate(
+      { from: seen, to: target },
+      {
+        onSuccess: () => {
+          haptics.impact("light");
+          setOpen(false);
+          const id = steps === 1 ? "students-given" : "students-given-range";
+          setLine({ text: get(l10n, id, vars), alert: false });
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.status === 404) {
+            onGone();
+            return;
+          }
+          haptics.notify("error");
+          if (error instanceof ApiError && error.status === 409) {
+            setOpen(false); // the card refetches: pick again from what it shows now
+            setLine({ text: get(l10n, "students-give-stale"), alert: true });
+          } else {
+            // Nothing is known to have changed (network, 5xx): keep the picks for a retry.
+            setLine({ text: get(l10n, "progression-save-failed"), alert: true });
+          }
+        },
+      },
+    );
+  };
+
+  return (
+    <>
+      {line &&
+        (line.alert ? (
+          <p className="status" role="alert">
+            {line.text}
+          </p>
+        ) : (
+          <p className="status" role="status">
+            {line.text}
+          </p>
+        ))}
+      {seen && first && (
+        <Localized id="students-give">
+          <button
+            type="button"
+            className="row-button"
+            aria-expanded={open}
+            disabled={mark.isPending}
+            onClick={() => {
+              setOpen(!open);
+            }}
+          />
+        </Localized>
+      )}
+      {open && seen && first && (
+        <div className="chips" role="group">
+          {next.map((target, i) => (
+            <button
+              type="button"
+              className="chip"
+              key={`${target.series ?? ""}:${target.last ?? ""}`}
+              disabled={mark.isPending}
+              onClick={() => {
+                void pick(target, i + 1);
+              }}
+            >
+              {/* [Supta Vajrasana] [→ Bakasana B] [→ Bharadvajasana]: the confirm names the range */}
+              {get(l10n, i === 0 ? "students-give-option" : "students-give-range", {
+                asana: label(target),
+              })}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
 }
 
 function Days({

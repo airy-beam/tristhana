@@ -30,6 +30,7 @@ from tristhana.application.ports.teacher_links import (
     TeacherLinkRepository,
 )
 from tristhana.application.settings import caller_today
+from tristhana.application.teacher_marks import MarkForStudent
 from tristhana.application.teacher_view import TeacherViewUseCases
 from tristhana.domain.accounts import Account, moon_follow_of
 from tristhana.domain.moon import Cities, MoonFollow, MoonSource, TeacherMoon, moon_follow
@@ -208,4 +209,5 @@ class LinkUseCases:
     view: TeacherViewUseCases
     labels: PracticeLabels
     catalog: PracticeCatalog
+    mark: MarkForStudent  # PR-08 Phase 3: a new asana from the student card
     shalas: "ShalaUseCases | None" = None  # SC-01: /teachers lists them, the bot joins them
