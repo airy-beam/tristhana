@@ -905,7 +905,9 @@ feed-explain = Your classes and moon days in Google, Apple or Outlook Calendar. 
 feed-moon-only = Join a shala to see its classes here too.
 feed-create = 📅 Create my link
 feed-google = Add to Google Calendar
+feed-google-phone = On a phone the Google button may not add it. Do it once on a computer: calendar.google.com → Other calendars + → From URL, and paste the link. Then it shows on your phone too.
 feed-apple = Add to Apple / Outlook
+feed-copy = 📋 Copy link
 feed-private = 🔒 Anyone with this link sees your schedule. Don't share it; if it got out, make a new one.
 feed-checked = { $day ->
         [none] Not used by a calendar yet

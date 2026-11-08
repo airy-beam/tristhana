@@ -4,7 +4,7 @@ the Google and Apple/Outlook buttons as https URLs (Telegram opens no webcal://,
 Stateless (ADR-0008): a stale confirm acts on the current link only.
 """
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup
 
 from tristhana.application.calendar_feed import CalendarFeedUseCases, feed_urls
 from tristhana.application.policies import Principal
@@ -90,12 +90,18 @@ class FeedScreens:
             self._t.t(locale, "feed-title"),
             self._t.t(locale, "feed-explain"),
             urls.feed,
+            self._t.t(locale, "feed-google-phone"),
             self._t.t(locale, "feed-private"),
             checked,
         ]
         rows = [
             [InlineKeyboardButton(text=self._t.t(locale, "feed-google"), url=urls.google)],
             [InlineKeyboardButton(text=self._t.t(locale, "feed-apple"), url=urls.subscribe)],
+            [
+                InlineKeyboardButton(
+                    text=self._t.t(locale, "feed-copy"), copy_text=CopyTextButton(text=urls.feed)
+                )
+            ],
             [
                 self._button(locale, "feed-rotate", "r"),
                 self._button(locale, "feed-off", "x"),
