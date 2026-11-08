@@ -6,10 +6,12 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { bundleFor, format } from "./i18n/bundles";
 import { negotiateLocale } from "./i18n/negotiate";
-import { initTelegram, isInTelegram, launchUser } from "./telegram";
+import { hasTelegramBridge, initTelegram, isInTelegram, launchUser } from "./telegram";
 
 async function start(): Promise<void> {
-  if (import.meta.env.DEV && !isInTelegram()) {
+  // Not `!isInTelegram()`: after a reload the SDK finds the mock's saved launch params and
+  // says yes, but nothing would answer its events (UnknownEnvError at init).
+  if (import.meta.env.DEV && !hasTelegramBridge()) {
     const { mockTelegram } = await import("./telegram/mock");
     await mockTelegram();
   }

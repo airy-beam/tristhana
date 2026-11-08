@@ -140,6 +140,8 @@ def test_dev_init_data_only_in_dev(storage: InMemoryStorage) -> None:
         raw = client.get("/dev/telegram-init-data", params={"lang": "ru"}).json()["init_data"]
         me = client.get("/api/v1/me", headers={"Authorization": f"tma {raw}"}).json()
     assert (me["display_name"], me["locale"]) == ("Dev", "ru")
+    # The Mini App's SDK refuses launch data without `signature` (startup fails in the browser).
+    assert "signature=" in raw
 
     # APP_ENV=dev is the default, so the endpoint needs the explicit flag too.
     default = Settings(telegram_bot_token=SecretStr(TOKEN))

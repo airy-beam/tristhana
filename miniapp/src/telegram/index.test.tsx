@@ -154,3 +154,24 @@ describe("initTelegram", () => {
     expect(document.documentElement.style.colorScheme).toBe("light");
   });
 });
+
+describe("hasTelegramBridge", () => {
+  afterEach(() => {
+    delete (window as { TelegramWebviewProxy?: unknown }).TelegramWebviewProxy;
+  });
+
+  it("is false in a plain browser tab, even with saved launch params (a reloaded dev tab)", async () => {
+    sessionStorage.setItem("tapps/launchParams", "tgWebAppVersion=8.0");
+    const { hasTelegramBridge } = await import("./index");
+
+    expect(hasTelegramBridge()).toBe(false);
+    sessionStorage.clear();
+  });
+
+  it("is true when a native Telegram app injects its proxy", async () => {
+    (window as { TelegramWebviewProxy?: unknown }).TelegramWebviewProxy = { postEvent: vi.fn() };
+    const { hasTelegramBridge } = await import("./index");
+
+    expect(hasTelegramBridge()).toBe(true);
+  });
+});
