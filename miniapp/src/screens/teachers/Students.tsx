@@ -241,11 +241,10 @@ function LastAsana({
   locale: Locale;
 }) {
   const { l10n } = useLocalization();
-  const name = useName();
   const position = card.last_asana;
   if (!position) {
     // PR-08 Phase 3: an unset student has nothing to mark from (ST-06 already hides the line).
-    return <p>{get(l10n, "students-give-unset", { name: name(card.name) })}</p>;
+    return <p>{get(l10n, "students-give-unset")}</p>;
   }
   if (!catalog) return null;
   if (isStanding(position)) {

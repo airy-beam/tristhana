@@ -744,7 +744,7 @@ students-give-yes = 🎉 Yes, mark
 students-given = ✅ Marked: { $asana }.
 students-given-range = ✅ Marked: { $from } → { $asana }.
 students-give-stale = This card was out of date, so nothing was marked. Here it is now.
-students-give-unset = { $name } hasn't set their practice yet.
+students-give-unset = No last asana set yet. Once they set it in My asanas, you can mark new ones here.
 
 ## Shalas (SC-01, ADR-0033). Shala and people names are plain text, never declined.
 shala-join-ask = 🏛 Join { $shala } (📍 { $city })?

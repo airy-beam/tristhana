@@ -214,7 +214,9 @@ describe("the pick list", () => {
 
     await openCard();
 
-    expect(pageText()).toContain("Anna hasn't set their practice yet.");
+    expect(pageText()).toContain(
+      "No last asana set yet. Once they set it in My asanas, you can mark new ones here.",
+    );
     expect(screen.queryByRole("button", { name: "🎉 Mark new asana" })).toBeNull();
   });
 

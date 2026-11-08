@@ -121,7 +121,7 @@ A position in callback data is `<n>:<i>`: the series number, then the stop's ind
 | `students-give-yes` ⚑ | 🎉 Yes, mark | 🎉 Да, отметить |
 | `students-given` / `-range` ⚑ | ✅ Marked: { $asana }. / ✅ Marked: { $from } → { $asana }. | ✅ Отмечено: { $asana }. / ✅ Отмечено: { $from } → { $asana }. |
 | `students-give-stale` | This card was out of date, so nothing was marked. Here it is now. | Карточка устарела, поэтому ничего не отмечено. Вот актуальная. |
-| `students-give-unset` ⚑ | { $name } hasn't set their practice yet. | { $name }: практика пока не указана. |
+| `students-give-unset` | No last asana set yet. Once they set it in My asanas, you can mark new ones here. (Q160, 2026-11-09: no repeated name; says when the button appears) | Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, здесь можно будет отмечать новые. |
 | `mark-received` | 🎉 New asana: { $asana }. Enjoy it! Marked by { $teacher }. | 🎉 Новая асана: { $asana }. Приятного знакомства! Отметка: { $teacher }. |
 | `mark-received-range` ⚑ | 🎉 New asanas: { $from } → { $asana }. Enjoy them! Marked by { $teacher }. | 🎉 Новые асаны: { $from } → { $asana }. Приятного знакомства! Отметка: { $teacher }. |
 | `mark-received-back` | { $asana } is in your practice. Marked by { $teacher }. | { $asana } — в твоей практике. Отметка: { $teacher }. |

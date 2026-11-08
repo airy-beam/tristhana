@@ -44,11 +44,11 @@ describe("teacher-mark copy", () => {
     expect(plain(format(ru, "students-given-range", range))).toBe(
       "✅ Отмечено: Supta Vajrasana → Bharadvajasana.",
     );
-    expect(plain(format(en, "students-give-unset", { name: "Anna" }))).toBe(
-      "Anna hasn't set their practice yet.",
+    expect(plain(format(en, "students-give-unset"))).toBe(
+      "No last asana set yet. Once they set it in My asanas, you can mark new ones here.",
     );
-    expect(plain(format(ru, "students-give-unset", { name: "Anna" }))).toBe(
-      "Anna: практика пока не указана.",
+    expect(plain(format(ru, "students-give-unset"))).toBe(
+      "Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, здесь можно будет отмечать новые.",
     );
     expect(format(en, "students-give-stale")).toBe(
       "This card was out of date, so nothing was marked. Here it is now.",
