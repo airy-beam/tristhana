@@ -27,6 +27,7 @@ from tristhana.application.ports.classes import (
     ScheduleWindow,
     StoredClass,
 )
+from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.shalas import CapReached, Guarded, ShalaRepository
 from tristhana.application.ports.storage import Clock
 from tristhana.application.rest_days import DayOffSaved, SetDayOff
@@ -60,6 +61,7 @@ from tristhana.domain.classes import (
     shifts,
 )
 from tristhana.domain.days import local_today
+from tristhana.domain.locale import Locale
 from tristhana.domain.moon import Cities, UnknownLocation
 from tristhana.domain.rest_days import Weekdays
 
@@ -70,6 +72,17 @@ MY_DAYS = 7  # "My schedule": a page is a week at most (Q139)
 _READ = timedelta(days=2)  # offsets span -12..+14: a class on my date is within 2 of its own
 _DAY = timedelta(days=1)
 AHEAD = timedelta(days=1)  # how far the caller's date may run ahead of the shala's
+
+
+_CONTEXT = {ClassType.MYSORE: "mysore", ClassType.LED: "led", ClassType.PRIVATE: "private"}
+
+
+def type_name(t: Translator, locale: Locale, type: ClassType) -> str:
+    """Mysore, Led and 1:1 reuse the practice context words; the rest have their own."""
+    context = _CONTEXT.get(type)
+    if context is not None:
+        return t.t(locale, f"context-{context}")
+    return t.t(locale, "class-type", type=type.value)
 
 
 class BadWindow(ValueError):
@@ -301,6 +314,42 @@ class MySchedule:
     staff: dict[UUID, dict[UUID, str | None]]  # teacher names per shala
 
 
+def my_rows(
+    found: MyWindows,
+    cities: Cities,
+    zone: str,
+    first: date,
+    end: date,
+    me: UUID,
+    only: Only,
+) -> tuple[list[MyRow], list[ShalaRef], dict[UUID, dict[UUID, str | None]]]:
+    """The rows of my shalas whose instant falls on [first, end] in `zone`, sorted by instant;
+    the shalas (staff first, then by name) and their staff names. Shared by My schedule and
+    the calendar feed (SC-06)."""
+    rows: list[MyRow] = []
+    refs: list[ShalaRef] = []
+    names: dict[UUID, dict[UUID, str | None]] = {}
+    for w in found.windows:
+        refs.append(ShalaRef(w.shala_id, w.name, w.city, _zone(cities, w.city), w.me.staff))
+        names[w.shala_id] = dict(w.staff)
+        slugs = {c.id: c.city or w.city for c in w.classes}
+        zones = {c: _zone(cities, slug) for c, slug in slugs.items()}
+        for o in _expand(w, cities, first - _READ, end + _READ, keep_swapped=True):
+            if not first <= local_date(o, zone) <= end:
+                continue
+            mine = o.teacher_id in found.teachers or (
+                o.substitute and o.planned_teacher in found.teachers
+            )
+            row = MyRow(w.shala_id, o, zones[o.class_id], slugs[o.class_id], _role(o, me), mine)
+            if only is Only.TEACHERS and not row.my_teacher:
+                continue
+            if only is Only.MINE and row.role is None:
+                continue
+            rows.append(row)
+    rows.sort(key=lambda r: (r.occurrence.starts_at, str(r.shala_id), str(r.occurrence.class_id)))
+    return rows, refs, names
+
+
 class GetMySchedule:
     """SC-03 (ADR-0035): every shala where I am a member, in my zone. One read; my moon city
     comes from the loaded account (`moon_follow_of`), so no log, rest or 🌸 data is read."""
@@ -335,38 +384,7 @@ class GetMySchedule:
         today = local_today(now, zone)
         first = _first(start, skip, today)
         end = first + timedelta(days=days - 1)
-        rows: list[MyRow] = []
-        refs: list[ShalaRef] = []
-        names: dict[UUID, dict[UUID, str | None]] = {}
-        for w in windows:
-            refs.append(
-                ShalaRef(w.shala_id, w.name, w.city, _zone(self._cities, w.city), w.me.staff)
-            )
-            names[w.shala_id] = dict(w.staff)
-            cities = {c.id: c.city or w.city for c in w.classes}
-            zones = {c: _zone(self._cities, slug) for c, slug in cities.items()}
-            for o in _expand(w, self._cities, first - _READ, end + _READ, keep_swapped=True):
-                if not first <= local_date(o, zone) <= end:
-                    continue
-                mine = o.teacher_id in found.teachers or (
-                    o.substitute and o.planned_teacher in found.teachers
-                )
-                row = MyRow(
-                    w.shala_id,
-                    o,
-                    zones[o.class_id],
-                    cities[o.class_id],
-                    _role(o, me),
-                    mine,
-                )
-                if only is Only.TEACHERS and not row.my_teacher:
-                    continue
-                if only is Only.MINE and row.role is None:
-                    continue
-                rows.append(row)
-        rows.sort(
-            key=lambda r: (r.occurrence.starts_at, str(r.shala_id), str(r.occurrence.class_id))
-        )
+        rows, refs, names = my_rows(found, self._cities, zone, first, end, me, only)
         return MySchedule(
             zone=zone,
             zone_known=known is not None,

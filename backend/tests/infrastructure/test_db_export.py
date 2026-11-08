@@ -7,6 +7,7 @@ False; the coverage guard over the metadata; migration 0016."""
 
 import asyncio
 import base64
+import hashlib
 import itertools
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
@@ -113,6 +114,13 @@ async def _fill(engine: AsyncEngine, me: UUID, keys: str = KEYS) -> None:
     notifications = SqlNotificationRepository(engine)
     await notifications.patch(me, {"daily_cap": 5}, DEFAULTS)
     assert await notifications.claim(me, "moon:x", "moon", TUE)
+    # SC-06: a calendar link (a secret: deleted with the account, never exported).
+    from tristhana.infrastructure.db.calendar_feed import SqlCalendarFeedRepository
+
+    token = hashlib.sha256(me.bytes).hexdigest()[:43]
+    await SqlCalendarFeedRepository(engine, cipher).replace(
+        me, hashlib.sha256(token.encode()).digest(), token
+    )
 
 
 async def test_snapshot_opens_every_seal_for_the_owner(engine: AsyncEngine) -> None:

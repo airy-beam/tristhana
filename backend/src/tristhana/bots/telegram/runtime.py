@@ -11,6 +11,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from tristhana.application.accounts import EnsureAccount
+from tristhana.application.calendar_feed import CalendarFeedUseCases
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
@@ -183,6 +184,7 @@ def build_runtime(
     data: DataUseCases | None = None,
     links: LinkUseCases | None = None,
     bot_username: str = "",
+    calendar: CalendarFeedUseCases | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -207,6 +209,7 @@ def build_runtime(
             data,
             links,
             bot_username,
+            calendar,
         )
     )
     return BotRuntime(bot=Bot(token), dispatcher=dispatcher)

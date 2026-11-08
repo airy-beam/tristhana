@@ -1455,3 +1455,49 @@ export function useRemoveSwap(id: string) {
     if (!response.ok) fail(response, error);
   });
 }
+
+// Calendar subscription (SC-06, ADR-0036). The link is a secret: never stored in the client.
+
+export type CalendarFeed = components["schemas"]["CalendarFeedOut"];
+const CALENDAR_FEED_KEY = ["calendar-feed"];
+
+export function useCalendarFeed() {
+  return useQuery({
+    staleTime: 60_000,
+    queryKey: CALENDAR_FEED_KEY,
+    queryFn: async (): Promise<CalendarFeed> => {
+      const { data, error, response } = await api.GET("/api/v1/me/calendar-feed");
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+/** Create my link; an existing one comes back unchanged. `rotate`: a new link (the old one
+ * stops working). */
+export function useCreateCalendarFeed() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ rotate }: { rotate: boolean }): Promise<CalendarFeed> => {
+      const { data, error, response } = rotate
+        ? await api.POST("/api/v1/me/calendar-feed/rotate")
+        : await api.POST("/api/v1/me/calendar-feed");
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: (feed) => {
+      client.setQueryData(CALENDAR_FEED_KEY, feed);
+    },
+  });
+}
+
+export function useDeleteCalendarFeed() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      const { error, response } = await api.DELETE("/api/v1/me/calendar-feed");
+      if (!response.ok) fail(response, error);
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: CALENDAR_FEED_KEY }),
+  });
+}

@@ -743,6 +743,28 @@ my-classes-covering = ты заменяешь { $name }
 page-prev = ◀
 page-next = ▶
 
+# Подписка в календаре (SC-06): личная ICS-ссылка для Google, Apple или Outlook.
+feed-open = 📅 Добавить в календарь
+feed-title = 📅 Подписка в календаре
+feed-explain = Твои занятия и лунные дни в Google, Apple или Outlook Календаре. Обновляется само (в Google — до суток).
+feed-moon-only = Когда вступишь в шалу, здесь появятся и её занятия.
+feed-create = 📅 Создать ссылку
+feed-copy = Скопировать ссылку
+feed-copied = ✓ Скопировано
+feed-google = Добавить в Google Календарь
+feed-apple = Добавить в Apple / Outlook
+feed-private = 🔒 По этой ссылке видно твоё расписание. Не пересылай её; если она попала к кому-то, создай новую.
+feed-checked = { $day ->
+        [none] Календарь ещё не подключён
+       *[other] Календарь последний раз обновлялся: { $day }
+    }
+feed-rotate = 🔄 Новая ссылка
+feed-rotate-confirm = Старая ссылка перестанет работать. В календаре нужно будет подписаться заново.
+feed-off = Отключить
+feed-off-confirm = Календарь перестанет обновляться. События, которые уже в нём, останутся, пока ты не удалишь календарь.
+feed-failed = Не получилось. Попробуй чуть позже.
+feed-off-done = Отключено.
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Знакомство

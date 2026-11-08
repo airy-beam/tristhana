@@ -14,6 +14,7 @@ from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.notifications import MoonPatch, MoonReminder
 from tristhana.bots.telegram import remind_callbacks as rcb
 from tristhana.bots.telegram import settings_callbacks as scb
+from tristhana.bots.telegram.calendar_feed import entry_button
 from tristhana.bots.telegram.moon_callbacks import PREFIX, MoonCallback, decode, encode
 from tristhana.bots.telegram.runtime import MoonUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
@@ -97,8 +98,10 @@ def moon_status(
     )
 
 
-def register_moon(router: Router, moon: MoonUseCases, translator: Translator) -> None:
-    screens = MoonScreens(moon, translator)
+def register_moon(
+    router: Router, moon: MoonUseCases, translator: Translator, calendar_entry: bool = False
+) -> None:
+    screens = MoonScreens(moon, translator, calendar_entry)
 
     @router.message(Command("moon"))
     async def on_moon(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
@@ -114,9 +117,12 @@ def register_moon(router: Router, moon: MoonUseCases, translator: Translator) ->
 
 
 class MoonScreens:
-    def __init__(self, moon: MoonUseCases, translator: Translator) -> None:
+    def __init__(
+        self, moon: MoonUseCases, translator: Translator, calendar_entry: bool = False
+    ) -> None:
         self._m = moon
         self._t = translator
+        self._calendar = calendar_entry  # SC-06: "📅 Add to calendar"
 
     async def handle(
         self, principal: Principal, cb: MoonCallback | None, note: str | None = None
@@ -225,6 +231,8 @@ class MoonScreens:
                     )
                 ]
             )
+        if self._calendar:
+            rows.append([entry_button(self._t, locale)])
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _source(self, locale: Locale, follow: MoonFollow) -> str | None:

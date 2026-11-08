@@ -23,6 +23,7 @@ from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram import data_callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import remind_callbacks as rcb
+from tristhana.bots.telegram.calendar_feed import entry_button
 from tristhana.bots.telegram.day_off import day_off_line, day_off_picker
 from tristhana.bots.telegram.moon import moon_status
 from tristhana.bots.telegram.remind import practice_status
@@ -71,8 +72,9 @@ def register_settings(
     translator: Translator,
     miniapp_url: str = "",
     my_data: bool = False,
+    calendar_entry: bool = False,
 ) -> None:
-    screens = SettingsScreens(settings, translator, miniapp_url, my_data)
+    screens = SettingsScreens(settings, translator, miniapp_url, my_data, calendar_entry)
 
     @router.message(Command("settings"))
     async def on_settings(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
@@ -104,12 +106,18 @@ def register_settings(
 
 class SettingsScreens:
     def __init__(
-        self, s: SettingsUseCases, translator: Translator, miniapp_url: str, my_data: bool = False
+        self,
+        s: SettingsUseCases,
+        translator: Translator,
+        miniapp_url: str,
+        my_data: bool = False,
+        calendar_entry: bool = False,
     ) -> None:
         self._s = s
         self._t = translator
         self._app = miniapp_url
         self._my_data = my_data  # ST-09: the "📦 My data" row
+        self._calendar = calendar_entry  # SC-06: "📅 Add to calendar"
 
     async def handle(
         self, principal: Principal, cb: SettingsCallback | None, client: ExternalProfile
@@ -289,6 +297,8 @@ class SettingsScreens:
                     )
                 ]
             )
+        if self._calendar:
+            rows.append([entry_button(self._t, locale)])
         if self._app:
             rows.append(
                 [

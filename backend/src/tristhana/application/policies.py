@@ -31,6 +31,11 @@ class Principal:
     account: Account
 
 
+def can_manage_calendar_feed(actor: Account, owner: Account) -> bool:
+    """SC-06: a calendar link is its owner's alone (show, create, rotate, turn off)."""
+    return actor.id == owner.id
+
+
 def can_view_check_ins(viewer: Account, student: Account) -> bool:
     """Check-ins are the student's own (ADR-0024): no one else sees them, not even whether
     one exists. A per-teacher opt-in would need its own consent and ADR (ADR-0031)."""

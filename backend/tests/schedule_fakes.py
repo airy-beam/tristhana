@@ -24,11 +24,16 @@ moon_city=None) -> MyWindows(windows, teachers, my_moon)`: the windows of every 
 is a member (staff first, then by name), my linked teacher ids, and the moon dates of
 `moon_city` within [start, end]. It replaces `staff_windows`.
 
+SC-06 (spec §3, ADR-0036) adds `moon_end: date | None = None` (moon dates are read over
+[start, moon_end or end]) and `MyWindows.my_moon_kinds: Mapping[date, MoonDayKind]` (`my_moon`
+stays for SC-03). The fake fills `my_moon_kinds` only once `MyWindows` has the field, so the
+SC-03 suites keep passing before SC-06 lands.
+
 The guards call `application/policies.py` themselves; `test_db_classes.py` pins the SQL to the
 same matrix.
 """
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from datetime import date, time, timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -80,6 +85,8 @@ class InMemorySchedule:
     member_calls: list[tuple[UUID, date, date, bool, str | None]] = field(
         default_factory=list[tuple[UUID, date, date, bool, str | None]]
     )
+    # SC-06: the `moon_end` of each `member_windows` call, in the same order.
+    moon_ends: list[date | None] = field(default_factory=list[date | None])
 
     # Seeding (not part of the port).
 
@@ -133,6 +140,8 @@ class InMemorySchedule:
         end: date,
         staff_only: bool = False,
         moon_city: str | None = None,
+        moon_end: date | None = None,
+        moon_start: date | None = None,
     ) -> Any:
         """SC-03 (spec §3): one `window` per shala where `me` is a member (staff first, then
         by name), my linked teacher ids, and the moon dates of `moon_city` in [start, end].
@@ -141,6 +150,7 @@ class InMemorySchedule:
 
         self._call("member_windows")
         self.member_calls.append((me, start, end, staff_only, moon_city))
+        self.moon_ends.append(moon_end)
 
         def by_name(ids: list[UUID]) -> list[ScheduleWindow]:
             found = (self._read(s, me, start, end) for s in ids)
@@ -152,12 +162,18 @@ class InMemorySchedule:
         )
         links = self.shalas.links
         teachers = frozenset(links.teachers_of(me)) if links is not None else frozenset[UUID]()
-        my_moon = frozenset(
-            d.date
+        last, first = moon_end or end, moon_start or start
+        kinds = {
+            d.date: d.kind
             for d in self.moon.days_by_location.get(moon_city or "", [])
-            if start <= d.date <= end
+            if first <= d.date <= last
+        }
+        extra: dict[str, Any] = {}
+        if "my_moon_kinds" in {f.name for f in fields(MyWindows)}:  # SC-06
+            extra["my_moon_kinds"] = kinds
+        return MyWindows(
+            windows=(*staff, *students), teachers=teachers, my_moon=frozenset(kinds), **extra
         )
-        return MyWindows(windows=(*staff, *students), teachers=teachers, my_moon=my_moon)
 
     def _read(self, shala: UUID, me: UUID, start: date, end: date) -> ScheduleWindow | None:
         m = self.shalas.membership(shala, me)

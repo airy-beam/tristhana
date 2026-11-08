@@ -99,6 +99,8 @@ EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
     "shala_class_override": "the shala's schedule, not personal content",
     "shala_closure": "the shala's schedule, not personal content",
     "shala_swap": "the shala's schedule, not personal content",
+    # SC-06: a capability; shown in the app, never exported (an export may be shared).
+    "calendar_feed": "a secret link, shown in the app; an export may be shared",
 }
 
 

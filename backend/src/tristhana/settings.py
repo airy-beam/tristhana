@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Mini App URL for the /start button and the menu button (empty = no button). Telegram
     # only opens HTTPS web apps.
     miniapp_url: str = ""
+    # SC-06: the public https base of this API, for calendar feed links (empty: the feature is
+    # hidden). Published links depend on it: keep the host serving /ical/v1 once it's used.
+    public_api_url: str = ""
 
     # Exact browser origins allowed to call the API (comma-separated; empty = CORS off).
     cors_origins: str = ""
@@ -69,6 +72,13 @@ class Settings(BaseSettings):
         if value and not value.startswith("https://"):
             raise ValueError("miniapp_url must be an https:// URL (Telegram requirement)")
         return value
+
+    @field_validator("public_api_url")
+    @classmethod
+    def _public_https(cls, value: str) -> str:
+        if value and not value.startswith("https://"):
+            raise ValueError("public_api_url must be an https:// URL (calendar feed links)")
+        return value.rstrip("/")
 
     @field_validator("cors_origins")
     @classmethod

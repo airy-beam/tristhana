@@ -34,6 +34,91 @@
         "title": "AutoKind",
         "type": "string"
       },
+      "CalendarFeedOut": {
+        "properties": {
+          "available": {
+            "description": "False: calendar links aren't offered (no public URL)",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "fetched_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The UTC date a calendar last fetched it",
+            "title": "Fetched On"
+          },
+          "google_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Google Calendar's add-by-URL page",
+            "title": "Google Url"
+          },
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          },
+          "subscribe_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Redirects to webcal:// (Apple, Outlook)",
+            "title": "Subscribe Url"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The https feed to copy; a secret: never share it",
+            "title": "Url"
+          }
+        },
+        "required": [
+          "on",
+          "available",
+          "url",
+          "google_url",
+          "subscribe_url",
+          "created_at",
+          "fetched_on"
+        ],
+        "title": "CalendarFeedOut",
+        "type": "object"
+      },
       "CatalogOut": {
         "properties": {
           "check_in_tags": {
@@ -5263,6 +5348,182 @@
         "summary": "Patch Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/calendar-feed": {
+      "delete": {
+        "description": "Turn it off (idempotent): the link stops working at once.",
+        "operationId": "delete_calendar_feed_api_v1_me_calendar_feed_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Calendar Feed",
+        "tags": [
+          "calendar-feed"
+        ]
+      },
+      "get": {
+        "operationId": "get_calendar_feed_api_v1_me_calendar_feed_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarFeedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Calendar Feed",
+        "tags": [
+          "calendar-feed"
+        ]
+      },
+      "post": {
+        "description": "Create my link; if I have one, return it unchanged (a stale \"Create\" never breaks a\nsubscribed calendar). A new link is `POST /me/calendar-feed/rotate`.",
+        "operationId": "post_calendar_feed_api_v1_me_calendar_feed_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarFeedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Calendar Feed",
+        "tags": [
+          "calendar-feed"
+        ]
+      }
+    },
+    "/api/v1/me/calendar-feed/rotate": {
+      "post": {
+        "description": "Replace my link with a new one: the old link stops working at once.",
+        "operationId": "rotate_calendar_feed_api_v1_me_calendar_feed_rotate_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarFeedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Rotate Calendar Feed",
+        "tags": [
+          "calendar-feed"
         ]
       }
     },

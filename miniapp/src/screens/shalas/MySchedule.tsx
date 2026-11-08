@@ -6,6 +6,7 @@ import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, useBackButton } from "../../telegram";
 import { zoneLabel } from "../practiceText";
 import { placeFor } from "../settings/zones";
+import CalendarFeedCard from "./CalendarFeedCard";
 import { useTypeName } from "./ClassForm";
 import { lengthOf, useRowMarks } from "./ShalaSchedule";
 import { DASH, addDays, dateIn, dayName, hmOf, minutesOf, plain, timeIn } from "./scheduleText";
@@ -198,6 +199,7 @@ function Weeks({
           />
         </>
       )}
+      <CalendarFeedCard locale={locale} />
     </main>
   );
 }

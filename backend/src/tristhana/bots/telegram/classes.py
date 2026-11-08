@@ -25,16 +25,17 @@ from tristhana.application.classes import (
     Only,
     Schedule,
     Teaching,
+    type_name,
 )
 from tristhana.application.policies import NotAllowed, NotFound, Principal
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.storage import Clock
 from tristhana.bots.telegram import classes_callbacks as cb
 from tristhana.bots.telegram import settings_callbacks, shalas_callbacks
+from tristhana.bots.telegram.calendar_feed import entry_button
 from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show, zone_label
 from tristhana.domain.accounts import Account
 from tristhana.domain.classes import (
-    ClassType,
     InvalidClass,
     Occurrence,
     Override,
@@ -46,6 +47,7 @@ from tristhana.domain.moon import Cities, City
 from tristhana.domain.teacher_links import shown_name
 
 if TYPE_CHECKING:
+    from tristhana.bots.telegram.calendar_feed import FeedScreens
     from tristhana.bots.telegram.shalas import ShalaScreens
     from tristhana.bots.telegram.teacher_links import LinkScreens
 
@@ -53,18 +55,9 @@ WEEK = 7
 PICK_HOURS = 48
 BUDGET = 3800  # characters, under Telegram's 4096 with the note on top
 DASH = "\u2013"  # en dash: 06:00-09:30
-_CONTEXT = {ClassType.MYSORE: "mysore", ClassType.LED: "led", ClassType.PRIVATE: "private"}
 _ONLY: dict[cb.Filter, Only] = {"a": Only.ALL, "t": Only.TEACHERS, "m": Only.MINE}
 _FILTER_KEY = {Only.ALL: "all", Only.TEACHERS: "teachers", Only.MINE: "mine"}
 MAX_SHIFTS = 3
-
-
-def type_name(t: Translator, locale: Locale, type: ClassType) -> str:
-    """Mysore, Led and 1:1 reuse the practice context words; the rest have their own."""
-    context = _CONTEXT.get(type)
-    if context is not None:
-        return t.t(locale, f"context-{context}")
-    return t.t(locale, "class-type", type=type.value)
 
 
 def _decimal(value: float, locale: Locale) -> str:
@@ -86,7 +79,9 @@ class ScheduleScreens:
         translator: Translator,
         cities: Cities,
         clock: Clock,
+        feed: "FeedScreens | None" = None,
     ) -> None:
+        self._feed = feed
         self._c = classes
         self._clock = clock
         self._shalas = shalas
@@ -403,6 +398,8 @@ class ScheduleScreens:
         if not s.zone_known:
             city = settings_callbacks.encode(settings_callbacks.SettingsCallback("cities"))
             rows.append([self._button(locale, "settings-city-button", city)])
+        if self._feed is not None and self._feed.available:  # SC-06
+            rows.append([entry_button(self._t, locale)])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _button(self, locale: Locale, key: str, data: str, **args: str) -> InlineKeyboardButton:
@@ -511,6 +508,9 @@ class ScheduleScreens:
             note = self._t.t(locale, "class-invalid")
         return await self.week(principal, tap.shala, 0, note)
 
+    async def _feed_tap(self, principal: Principal, action: cb.FeedAction) -> Screen | None:
+        return None if self._feed is None else await self._feed.handle(principal, action)
+
     async def adopt(self, principal: Principal, shala: UUID) -> Screen:
         try:
             saved = await self._c.adopt.execute(principal, shala)
@@ -519,8 +519,10 @@ class ScheduleScreens:
         account = saved.account if saved is not None else principal.account
         return await self._shalas.card(Principal(account), shala)
 
-    def work(self, tap: cb.ClassTap, principal: Principal) -> Awaitable[Screen]:
+    def work(self, tap: cb.ClassTap, principal: Principal) -> Awaitable[Screen | None]:
         match tap:
+            case cb.Feed(action):
+                return self._feed_tap(principal, action)
             case cb.Week(shala, n):
                 return self.week(principal, shala, n)
             case cb.Pick(shala):
@@ -554,4 +556,4 @@ def register_classes(router: Router, screens: ScheduleScreens) -> None:
             await answered(callback, nothing())
             return None
         screen = await answered(callback, screens.work(tap, Principal(account)))
-        return show(callback, screen)
+        return None if screen is None else show(callback, screen)

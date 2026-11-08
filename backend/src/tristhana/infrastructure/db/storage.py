@@ -14,6 +14,7 @@ from uuid import UUID
 
 from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ClassCaps, ClassDraft
 from tristhana.application.ports.days import DayLogRepository
@@ -110,9 +111,11 @@ class PostgresStorage:
         self._teacher_view: TeacherViewRepository | None = None
         self._shalas: SqlShalaRepository | None = None
         self._schedule: SqlScheduleRepository | None = None
+        self._calendar_feed: CalendarFeedRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
+        from tristhana.infrastructure.db.calendar_feed import SqlCalendarFeedRepository
         from tristhana.infrastructure.db.check_in import SqlCheckInRepository
         from tristhana.infrastructure.db.classes import SqlScheduleRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
@@ -148,6 +151,7 @@ class PostgresStorage:
         self._teacher_view = SqlTeacherViewRepository(self._engine)
         self._shalas = SqlShalaRepository(self._engine)
         self._schedule = SqlScheduleRepository(self._engine)
+        self._calendar_feed = SqlCalendarFeedRepository(self._engine, self._cipher)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -254,6 +258,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._schedule
 
+    @property
+    def calendar_feed(self) -> CalendarFeedRepository:
+        if self._calendar_feed is None:
+            raise RuntimeError("storage not started")
+        return self._calendar_feed
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -292,6 +302,10 @@ class UnconfiguredStorage:
     @property
     def schedule(self) -> _UnavailableSchedule:
         return _UnavailableSchedule()
+
+    @property
+    def calendar_feed(self) -> CalendarFeedRepository:
+        return _UnavailableCalendarFeed()
 
     @property
     def days(self) -> DayLogRepository:
@@ -660,6 +674,20 @@ class _UnavailableShalas:
         raise StorageUnavailable("not configured")
 
 
+class _UnavailableCalendarFeed:
+    async def get(self, me: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def replace(self, me: UUID, token_hash: bytes, token: str) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, me: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def account_by_token(self, token_hash: bytes, today: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
 class _UnavailableSchedule:
     async def window(self, shala: UUID, me: UUID, start: date, end: date) -> NoReturn:
         raise StorageUnavailable("not configured")
@@ -671,6 +699,8 @@ class _UnavailableSchedule:
         end: date,
         staff_only: bool = False,
         moon_city: str | None = None,
+        moon_end: date | None = None,
+        moon_start: date | None = None,
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 

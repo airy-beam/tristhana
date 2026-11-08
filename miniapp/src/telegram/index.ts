@@ -9,6 +9,7 @@ import {
   isTMA,
   mainButton,
   miniApp,
+  openLink as sdkOpenLink,
   openTelegramLink as sdkOpenTelegramLink,
   popup,
   requestWriteAccess,
@@ -224,4 +225,12 @@ export function closeApp(): void {
 
 export function openTelegramLink(url: string): void {
   sdkOpenTelegramLink.ifAvailable(url);
+}
+
+/** An https page in the browser (SC-06: Google Calendar, our webcal redirect). Telegram opens
+ * http(s) only; outside Telegram (dev), a new tab. */
+export function openLink(url: string): void {
+  if (!url.startsWith("https://")) return;
+  if (sdkOpenLink.isAvailable()) sdkOpenLink(url);
+  else window.open(url, "_blank", "noopener");
 }

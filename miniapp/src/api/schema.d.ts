@@ -67,6 +67,52 @@ export interface paths {
         patch: operations["patch_me_api_v1_me_patch"];
         trace?: never;
     };
+    "/api/v1/me/calendar-feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Calendar Feed */
+        get: operations["get_calendar_feed_api_v1_me_calendar_feed_get"];
+        put?: never;
+        /**
+         * Post Calendar Feed
+         * @description Create my link; if I have one, return it unchanged (a stale "Create" never breaks a
+         *     subscribed calendar). A new link is `POST /me/calendar-feed/rotate`.
+         */
+        post: operations["post_calendar_feed_api_v1_me_calendar_feed_post"];
+        /**
+         * Delete Calendar Feed
+         * @description Turn it off (idempotent): the link stops working at once.
+         */
+        delete: operations["delete_calendar_feed_api_v1_me_calendar_feed_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/calendar-feed/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Calendar Feed
+         * @description Replace my link with a new one: the old link stops working at once.
+         */
+        post: operations["rotate_calendar_feed_api_v1_me_calendar_feed_rotate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/classes": {
         parameters: {
             query?: never;
@@ -996,6 +1042,38 @@ export interface components {
          * @enum {string}
          */
         AutoKind: "moon" | "day_off";
+        /** CalendarFeedOut */
+        CalendarFeedOut: {
+            /**
+             * Available
+             * @description False: calendar links aren't offered (no public URL)
+             */
+            available: boolean;
+            /** Created At */
+            created_at: string | null;
+            /**
+             * Fetched On
+             * @description The UTC date a calendar last fetched it
+             */
+            fetched_on: string | null;
+            /**
+             * Google Url
+             * @description Google Calendar's add-by-URL page
+             */
+            google_url: string | null;
+            /** On */
+            on: boolean;
+            /**
+             * Subscribe Url
+             * @description Redirects to webcal:// (Apple, Outlook)
+             */
+            subscribe_url: string | null;
+            /**
+             * Url
+             * @description The https feed to copy; a secret: never share it
+             */
+            url: string | null;
+        };
         /** CatalogOut */
         CatalogOut: {
             /**
@@ -3180,6 +3258,156 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_calendar_feed_api_v1_me_calendar_feed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeedOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_calendar_feed_api_v1_me_calendar_feed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeedOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_calendar_feed_api_v1_me_calendar_feed_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rotate_calendar_feed_api_v1_me_calendar_feed_rotate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeedOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

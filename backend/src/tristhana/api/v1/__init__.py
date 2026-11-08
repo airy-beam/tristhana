@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from tristhana.api.v1 import (
     account_data,
+    calendar_feed,
     check_in,
     classes,
     days,
@@ -34,3 +35,4 @@ router.include_router(stats.router)
 router.include_router(links.router)
 router.include_router(shalas.router)
 router.include_router(classes.router)
+router.include_router(calendar_feed.router)

@@ -25,7 +25,7 @@ from sqlalchemy import (
     true,
     update,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, insert
+from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.types import Date, Integer, SmallInteger, Text, Time, Uuid
@@ -48,6 +48,7 @@ from tristhana.domain.classes import (
     OverrideStatus,
     Swap,
 )
+from tristhana.domain.moon import MoonDayKind
 from tristhana.domain.shalas import Membership
 from tristhana.infrastructure.db.accounts import from_mask, to_mask
 from tristhana.infrastructure.db.engine import connection
@@ -71,6 +72,12 @@ from tristhana.infrastructure.db.tables import shala as _S
 from tristhana.infrastructure.db.tables import shala_class_override as _O
 
 _UUIDS = ARRAY(Uuid())
+
+
+def _by_date(column: Any) -> Any:
+    return aggregate_order_by(column, moon_day.c.date)
+
+
 _MARGIN = timedelta(days=13)  # a move (±6) then a swap (±6), as the domain
 _CHANGES = ("moved_to", "start_time", "minutes", "teacher_id")  # an override's changes
 _C = shala_class
@@ -320,6 +327,8 @@ class SqlScheduleRepository:
         end: date,
         staff_only: bool = False,
         moon_city: str | None = None,
+        moon_end: date | None = None,
+        moon_start: date | None = None,
     ) -> MyWindows:
         """One statement: a base row of my teacher ids and my moon dates, the windows of my
         shalas joined to it (none: one row of NULLs)."""
@@ -338,12 +347,23 @@ class SqlScheduleRepository:
             .where(teacher_link.c.student_id == me)
             .scalar_subquery()
         )
+        in_range = (
+            moon_day.c.location == moon_city,
+            moon_day.c.date.between(moon_start or start, moon_end or end),
+        )
         moon = (
-            select(func.coalesce(func.array_agg(moon_day.c.date), cast([], ARRAY(Date))))
-            .where(moon_day.c.location == moon_city, moon_day.c.date.between(start, end))
+            select(func.coalesce(func.array_agg(_by_date(moon_day.c.date)), cast([], ARRAY(Date))))
+            .where(*in_range)
             .scalar_subquery()
         )
-        base = select(teachers.label("my_teachers"), moon.label("my_moon")).subquery("base")
+        kinds = (
+            select(func.coalesce(func.array_agg(_by_date(moon_day.c.kind)), cast([], ARRAY(Text))))
+            .where(*in_range)
+            .scalar_subquery()
+        )  # the same rows, both ordered by date: they zip
+        base = select(
+            teachers.label("my_teachers"), moon.label("my_moon"), kinds.label("my_moon_kinds")
+        ).subquery("base")
         stmt = (
             select(base, windows)
             .select_from(base)
@@ -358,6 +378,10 @@ class SqlScheduleRepository:
             windows=tuple(_window(r, m) for r, m in found if m is not None),
             teachers=frozenset(first.my_teachers or ()),
             my_moon=frozenset(first.my_moon or ()),
+            my_moon_kinds={
+                d: MoonDayKind(k)
+                for d, k in zip(first.my_moon or (), first.my_moon_kinds or (), strict=True)
+            },
         )
 
     async def classes_of(self, shala: UUID, me: UUID) -> Guarded[tuple[StoredClass, ...]]:
