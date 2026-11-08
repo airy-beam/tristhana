@@ -41,3 +41,24 @@ def test_configure_logging_routes_uvicorn_through_root(capsys: pytest.CaptureFix
     entry = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert entry["logger"] == "uvicorn.error"
     assert entry["message"] == "started"
+
+
+@pytest.mark.parametrize("fmt", ["json", "text"])
+def test_calendar_feed_tokens_never_reach_the_log(
+    fmt: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """SC-06: the feed URL is the secret; uvicorn's access line must not carry it."""
+    token = "Xy3kP9qR2sT5uV8wZ1aB4cD7eF0gH3iJ6kL9mN2oP5q"
+    configure_logging("INFO", fmt)  # pyright: ignore[reportArgumentType]
+
+    access = logging.getLogger("uvicorn.access")
+    access.info('%s - "%s %s HTTP/%s" %d', "1.2.3.4:0", "GET", f"/ical/v1/{token}.ics", "1.1", 200)
+    access.info(
+        '%s - "%s %s HTTP/%s" %d', "1.2.3.4:0", "GET", f"/ical/v1/{token}/subscribe", "1.1", 302
+    )
+    access.info('%s - "%s %s HTTP/%s" %d', "1.2.3.4:0", "GET", "/api/v1/health", "1.1", 200)
+
+    out = capsys.readouterr().out
+    assert token not in out
+    assert out.count("/ical/v1/***") == 2
+    assert "/api/v1/health" in out
