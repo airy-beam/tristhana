@@ -272,6 +272,10 @@ def test_the_on_screen_buttons(client: TestClient, storage: InMemoryStorage) -> 
     assert by_text["Add to Apple / Outlook"]["url"] == f"{PUBLIC}/ical/v1/{token}/subscribe"
     assert set(_datas(body)) == {"c1:f:r", "c1:f:x"}
     assert "c1:f:n" not in _datas(body)
+    # Q161: a phone can't subscribe through Google's link, so the screen says how, and the
+    # link is one tap to copy.
+    assert _t("feed-google-phone") in _flat(body["text"])
+    assert by_text["📋 Copy link"]["copy_text"] == {"text": f"{PUBLIC}/ical/v1/{token}.ics"}
 
 
 def test_the_on_screen_in_russian(client: TestClient, storage: InMemoryStorage) -> None:

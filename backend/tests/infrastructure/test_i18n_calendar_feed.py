@@ -22,6 +22,7 @@ SCREEN_KEYS = (
     "feed-moon-only",
     "feed-create",
     "feed-google",
+    "feed-google-phone",
     "feed-apple",
     "feed-private",
     "feed-checked",
@@ -31,7 +32,7 @@ SCREEN_KEYS = (
     "feed-off-confirm",
     "feed-off-done",
 )
-BOT_KEYS = (*SCREEN_KEYS, "ics-calendar-name", "ics-class")
+BOT_KEYS = (*SCREEN_KEYS, "feed-copy", "ics-calendar-name", "ics-class")
 APP_KEYS = (*SCREEN_KEYS, "feed-copy", "feed-copied")
 COPY: list[tuple[str, dict[str, str], str, str]] = [
     ("feed-open", {}, "📅 Add to calendar", "📅 Добавить в календарь"),
@@ -53,6 +54,15 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
     ("feed-create", {}, "📅 Create my link", "📅 Создать ссылку"),
     ("feed-google", {}, "Add to Google Calendar", "Добавить в Google Календарь"),
     ("feed-apple", {}, "Add to Apple / Outlook", "Добавить в Apple / Outlook"),
+    (
+        "feed-google-phone",
+        {},
+        "On a phone the Google button may not add it. Do it once on a computer: calendar.google.com"
+        " → Other calendars + → From URL, and paste the link. Then it shows on your phone too.",
+        "С телефона кнопка Google может не сработать. Сделай это один раз на компьютере:"
+        " calendar.google.com → «Другие календари» + → по URL, и вставь ссылку. После этого"
+        " календарь появится и на телефоне.",
+    ),
     (
         "feed-private",
         {},

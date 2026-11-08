@@ -121,6 +121,11 @@ export default function CalendarFeedCard({ locale }: { locale: Locale }) {
               />
             </Localized>
           )}
+          {feed.google_url && (
+            <Localized id="feed-google-phone">
+              <p className="hint small" />
+            </Localized>
+          )}
           <Localized id="feed-private">
             <p className="hint small" />
           </Localized>

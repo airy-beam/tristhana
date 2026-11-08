@@ -151,6 +151,8 @@ describe("calendar subscription", () => {
     expect(opened).toEqual([on(TOKEN).google_url, on(TOKEN).subscribe_url]);
     expect(opened.every((u) => u.startsWith("https://"))).toBe(true);
     expect(await screen.findByRole("button", { name: "✓ Copied" })).toBeInTheDocument();
+    // Q161: a phone can't subscribe through Google's link, so the card says how.
+    expect(screen.getByText(/Do it once on a computer/)).toBeInTheDocument();
     expect(writeText).toHaveBeenCalledWith(`${PUBLIC}/ical/v1/${TOKEN}.ics`);
     expect(flat(screen.getByText(/Last checked by a calendar/).textContent)).toBe(
       "Last checked by a calendar: Sat, Nov 7",
