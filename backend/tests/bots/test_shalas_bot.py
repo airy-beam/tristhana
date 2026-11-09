@@ -43,6 +43,7 @@ EN_JOIN = (
     "🏛 Join Ashtanga Almaty (📍 Almaty)? "
     "If you join: "
     "• The shala's teachers and staff see your name (Ash). Nothing from your log. "
+    "• The shala's staff can send announcements to members through the bot. You can mute them. "
     "• Your moon days follow the shala's calendar, unless you've chosen a city, or your "
     "teacher has. If your teacher teaches here, the shala's calendar comes first. "
     "• You can leave any time in /teachers. No one gets a message. "
@@ -52,6 +53,7 @@ RU_JOIN = (
     "🏛 Присоединиться к шале Ashtanga Almaty (📍 Алматы)? "
     "Если присоединиться: "
     "• Преподаватели и сотрудники шалы увидят твоё имя (Ash). Ничего из журнала. "
+    "• Сотрудники шалы могут отправлять участникам объявления через бота. Их можно отключить. "
     "• Лунные дни будут считаться по календарю шалы, если город не выбран ни тобой, ни твоим "
     "учителем. Если учитель преподаёт в этой шале, календарь шалы важнее. "
     "• Выйти можно в любой момент в /teachers. Сообщений никто не получит. "
@@ -62,6 +64,7 @@ EN_STAFF = (
     "If you confirm: "
     "• Everyone in the shala, students included, sees your name (Ash) and role. "
     "• You'll see the names of its students and staff, not their logs. "
+    "• The shala's announcements come to you through the bot too. You can mute them. "
     "• You can leave any time in /teachers."
 )
 RU_STAFF = (
@@ -69,6 +72,7 @@ RU_STAFF = (
     "Если подтвердить: "
     "• Все в шале, включая учеников, увидят твоё имя (Ash) и роль. "
     "• Тебе будут видны имена учеников и сотрудников, но не их журналы. "
+    "• Объявления шалы тоже будут приходить тебе через бота. Их можно отключить. "
     "• Выйти можно в любой момент в /teachers."
 )
 

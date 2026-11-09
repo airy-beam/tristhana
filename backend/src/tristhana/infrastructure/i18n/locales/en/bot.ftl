@@ -675,6 +675,7 @@ invite-consent =
     • If nothing shows for a while, { $name } sees a short note saying just that.
     • Any teacher on your list can also mark a new asana for you. You get a message and can undo it.
     • Check-ins, diary notes and the reason for a rest stay private.
+    • { $name } can send announcements to all their students through the bot. You can mute them.
     • You can remove { $name } from your list any time in /teachers. No one gets a message.
 invite-know-them = Anyone can choose any name here, so confirm only if you know this person.
 invite-not-told = If you tap Not now, { $name } isn't told.
@@ -751,6 +752,7 @@ shala-join-ask = 🏛 Join { $shala } (📍 { $city })?
 shala-join-consent =
     If you join:
     • The shala's teachers and staff see your name{ $me }. Nothing from your log.
+    • The shala's staff can send announcements to members through the bot. You can mute them.
     • Your moon days follow the shala's calendar, unless you've chosen a city, or your teacher has. If your teacher teaches here, the shala's calendar comes first.
     • You can leave any time in /teachers. No one gets a message.
 shala-know-them = Join only a shala you know: anyone can create one with any name.
@@ -760,6 +762,7 @@ shala-staff-consent =
     If you confirm:
     • Everyone in the shala, students included, sees your name{ $me } and role.
     • You'll see the names of its students and staff, not their logs.
+    • The shala's announcements come to you through the bot too. You can mute them.
     • You can leave any time in /teachers.
 shala-staff-yes = ✅ Confirm
 shala-staff-joined = 🏛 { $name } joined { $shala } as { $role }.
@@ -926,3 +929,18 @@ ics-class = { $what } · { $teacher }
 ics-desc-online = 🌐 Online
 ics-desc-time = Shala time: { $time }
 ics-desc-held-moon = 🌙 Held on a moon day (by the shala's calendar)
+
+## NT-03: announcements from a teacher or a shala (plain text, relayed as written)
+ann-head-teacher = 📣 { $name } · your teacher
+ann-head-shala = 📣 { $shala } · { $name }
+ann-head-shala-only = 📣 { $shala }
+ann-mute = 🔕 Mute
+ann-unmute = 🔔 Unmute
+ann-muted = Muted. You'll still find them under 📣 Announcements. No one is told.
+ann-unmuted = Announcements will come here again.
+ann-list = 📣 Announcements
+ann-list-title = 📣 Announcements: { $source }
+ann-list-empty = No announcements in the last 30 days.
+ann-item = 📅 { $date } · { $name }
+ann-pinned-until = 📌 Pinned until { $date }
+ann-announce = 📣 Announce

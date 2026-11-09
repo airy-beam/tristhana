@@ -81,6 +81,7 @@ CONSENT_EN = (
     "• Any teacher on your list can also mark a new asana for you. You get a message and can "
     "undo it. "
     "• Check-ins, diary notes and the reason for a rest stay private. "
+    "• Лена can send announcements to all their students through the bot. You can mute them. "
     "• You can remove Лена from your list any time in /teachers. No one gets a message."
 )
 CONSENT_RU = (
@@ -93,6 +94,7 @@ CONSENT_RU = (
     "• Любой учитель из твоего списка может отметить тебе новую асану. Придёт сообщение, и "
     "отметку можно отменить. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
+    "• Лена может отправлять объявления всем своим ученикам через бота. Их можно отключить. "
     "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит."
 )
 PRIVACY_EN = (
@@ -102,6 +104,8 @@ PRIVACY_EN = (
     "note saying just that. A teacher on your list can also mark a new asana for you: you get a "
     "message and can undo it. Check-ins, diary notes and the reason for a rest stay private. "
     "You can remove a teacher from your list any time."
+    " Teachers on your list and your shalas can send you announcements; "
+    "you can mute each one."
 )
 PRIVACY_RU = (
     "Твой журнал принадлежит тебе. Учитель из твоего списка видит твоё имя, последнюю асану и "
@@ -111,6 +115,8 @@ PRIVACY_RU = (
     "отметить тебе новую асану: придёт сообщение, и отметку можно отменить. Самочувствие, "
     "заметки и причина отдыха "
     "остаются личными. Убрать учителя из списка можно в любой момент."
+    " Учителя из твоего списка и твои шалы могут присылать объявления; "
+    "отключить их можно отдельно для каждого."
 )
 
 

@@ -134,7 +134,13 @@ def test_create_returns_201_with_the_card(api: TestClient, storage: InMemoryStor
     assert body["city"] == {"slug": "almaty", "name": "Almaty"}
     assert body["zone"] == "Asia/Almaty"  # IANA; the client builds the label
     assert (body["online"], body["moon_city"]) == (False, None)
-    assert body["me"] == {"owner": True, "roles": [TEACHER], "student": False, "schedule": True}
+    assert body["me"] == {
+        "owner": True,
+        "roles": [TEACHER],
+        "student": False,
+        "schedule": True,
+        "announce": True,  # NT-03
+    }
     assert body["staff"] == [{"id": str(me), "name": "Ash", "owner": True, "roles": [TEACHER]}]
     assert body["students_total"] == 0
 
@@ -213,6 +219,7 @@ def test_a_student_sees_staff_but_no_students(api: TestClient, storage: InMemory
         "roles": [],
         "student": True,
         "schedule": False,
+        "announce": False,  # NT-03
     }
     assert [s["name"] for s in card.json()["staff"]] == ["Anna"]
     assert "Bea" not in card.text

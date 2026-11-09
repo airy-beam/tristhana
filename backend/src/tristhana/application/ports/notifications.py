@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
+from tristhana.domain.announcements import Source
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay, ShalaMoon, TeacherMoon
 from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
@@ -206,7 +207,21 @@ class PracticeReminder:
     pause: bool = False
 
 
-type Notification = MoonReminder | PracticeReminder
+@dataclass(frozen=True, slots=True)
+class Announcement:
+    """NT-03: a teacher's or a shala's text, relayed as written (plain, no preview), with
+    Mute and the feed. `silent` in the recipient's quiet hours (Q165: never held)."""
+
+    id: UUID
+    source: Source
+    source_name: str | None  # the shala's name, or the teacher's display name
+    author_name: str | None
+    text: str
+    silent: bool
+    local_date: date
+
+
+type Notification = MoonReminder | PracticeReminder | Announcement
 
 
 @dataclass(frozen=True, slots=True)

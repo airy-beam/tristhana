@@ -53,6 +53,7 @@ const SETTINGS: NotificationSettings = {
   moon: { offsets: [1, 7], at: "19:00:00" },
   quiet: { start: "22:00:00", end: "07:00:00" },
   daily_cap: 3,
+  announcements: true,
   practice: { on: null, at: "10:00:00", days: [1, 2, 3, 4, 5, 7] },
   timezone: "Asia/Almaty",
 };

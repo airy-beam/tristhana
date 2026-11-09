@@ -45,6 +45,7 @@ from tristhana.bots.telegram.screens import (
 )
 from tristhana.bots.telegram.settings import client_profile
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
+from tristhana.domain.announcements import Source, SourceKind
 from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.moon import MoonFollow, MoonSource
 from tristhana.domain.progression import (
@@ -65,6 +66,7 @@ from tristhana.domain.teacher_links import (
 from tristhana.domain.teacher_view import DayCell, StudentCard
 
 if TYPE_CHECKING:
+    from tristhana.bots.telegram.announcements import AnnouncementScreens
     from tristhana.bots.telegram.start import StartScreens
 
 PAGE = 10
@@ -127,6 +129,19 @@ class LinkScreens:
         self._app = app
         self._username = bot_username
         self._track = Track(links.catalog)  # in memory: callback positions resolve against it
+        self.announcements: AnnouncementScreens | None = None  # NT-03, set by the router
+
+    def announce_button(
+        self, locale: Locale, shala: UUID | None = None
+    ) -> InlineKeyboardButton | None:
+        """NT-03: `[📣 Announce]` opens the Mini App's compose screen (Q176)."""
+        if not self._app or self.announcements is None:
+            return None
+        query = {"open": "announce"} | ({"shala": str(shala)} if shala else {})
+        url = f"{self._app}{'&' if '?' in self._app else '?'}{urlencode(query)}"
+        return InlineKeyboardButton(
+            text=self._t.t(locale, "ann-announce"), web_app=WebAppInfo(url=url)
+        )
 
     def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
         return button(self._t, locale, key, data)
@@ -295,6 +310,9 @@ class LinkScreens:
             turn.append(self._button(locale, "page-next", cb.students(page + 1)))
         if turn:
             rows.append(turn)
+        announce = self.announce_button(locale) if found else None
+        if announce is not None:
+            rows.append([announce])
         rows.append([self._button(locale, "log-back", cb.plain("o"))])
         if found:
             text = "\n".join(
@@ -309,18 +327,28 @@ class LinkScreens:
 
     async def teacher(self, principal: Principal, id: UUID) -> Screen:
         locale = principal.account.locale
-        found = await self._links.get.execute(principal)
+        source = Source(SourceKind.TEACHER, id)
+        ann = self.announcements
+        if ann is None:
+            found, pin = await self._links.get.execute(principal), None
+        else:  # NT-03: the live pin loads alongside the links
+            found, pin = await asyncio.gather(
+                self._links.get.execute(principal), ann.pin_line(principal, source)
+            )
         teacher = _find(found.teachers, id)
         if teacher is None:  # removed meanwhile, or a forged id
             return await self.overview(principal)
         rows: list[list[InlineKeyboardButton]] = []
+        if ann is not None:
+            rows.append([ann.card_button(locale, source)])
         if len(found.teachers) >= 2 and effective_primary(found.teachers) != id:
             rows.append([self._button(locale, "links-make-main", cb.person("p", id))])
         rows.append([self._button(locale, "links-remove", cb.person("u", id))])
         rows.append([self._button(locale, "log-back", cb.plain("o"))])
-        return Screen(
-            _name(self._t, locale, teacher.name), InlineKeyboardMarkup(inline_keyboard=rows)
-        )
+        text = _name(self._t, locale, teacher.name)
+        if pin is not None:
+            text = f"{text}\n\n{pin}"
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows), no_preview=pin is not None)
 
     async def ask_remove_teacher(self, principal: Principal, id: UUID) -> Screen:
         locale = principal.account.locale

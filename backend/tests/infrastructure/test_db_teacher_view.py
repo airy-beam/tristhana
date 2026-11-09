@@ -982,7 +982,7 @@ async def test_the_export_keeps_its_keys_and_holds_no_flag_on_either_side(
 
         assert data["schema"] == "tristhana.export/1"
         [link] = data["teacher_links"]
-        assert set(link) == {"other_side", "primary", "linked_at"}
+        assert set(link) == {"other_side", "primary", "linked_at", "announcements_muted"}
         assert link["other_side"] == side
         assert "quiet_note" not in everything
 

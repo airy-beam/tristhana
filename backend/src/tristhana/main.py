@@ -19,6 +19,15 @@ from tristhana.api.body_limit import NoteBodyLimit
 from tristhana.api.errors import install_error_handlers
 from tristhana.api.ical import NoCorsForFeed, make_ical_router
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.announcements import (
+    AnnouncementUseCases,
+    DeleteAnnouncement,
+    GetAnnouncements,
+    GetSentAnnouncements,
+    MuteAnnouncements,
+    PinAnnouncement,
+    SendAnnouncement,
+)
 from tristhana.application.calendar_feed import (
     CalendarFeedUseCases,
     CreateFeedLink,
@@ -372,6 +381,7 @@ class _Services:
             self._storage.notifications,
             self._notifier,
             self._storage.shalas,
+            self._storage.announcements,  # NT-03
         )
         view = TeacherViewUseCases(
             GetStudents(self._storage.teacher_view, clock),
@@ -432,6 +442,16 @@ class _Services:
             classes=classes,
         )
         app.state.shalas = shalas
+        announcement_repo = self._storage.announcements
+        announcements = AnnouncementUseCases(
+            send=SendAnnouncement(announcement_repo, clock),
+            feed=GetAnnouncements(announcement_repo, clock),
+            sent=GetSentAnnouncements(announcement_repo, clock),
+            pin=PinAnnouncement(announcement_repo, clock),
+            delete=DeleteAnnouncement(announcement_repo),
+            mute=MuteAnnouncements(announcement_repo),
+        )
+        app.state.announcements = announcements
         links = LinkUseCases(
             preview=PreviewInvite(teacher_links),
             accept=AcceptInvite(teacher_links, self._notifier, clock, cities),
@@ -447,6 +467,7 @@ class _Services:
             catalog=loaded.catalog,
             mark=mark,
             shalas=shalas,
+            announcements=announcements,
         )
         app.state.links = links
         self._bot.ensure_account = ensure

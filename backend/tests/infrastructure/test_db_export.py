@@ -129,6 +129,16 @@ async def _fill(engine: AsyncEngine, me: UUID, keys: str = KEYS) -> None:
     await SqlCalendarFeedRepository(engine, cipher).replace(
         me, hashlib.sha256(token.encode()).digest(), token
     )
+    # NT-03: one I sent (exported as `announcements_sent`, deleted with the account).
+    async with engine.connect() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO tristhana.announcement (author_id, text, audience)"
+                " VALUES (:a, 'Led class Sun 15 Nov, 7:00', 0)"
+            ),
+            {"a": me},
+        )
+        await conn.commit()
 
 
 async def test_snapshot_opens_every_seal_for_the_owner(engine: AsyncEngine) -> None:
@@ -255,6 +265,7 @@ async def _counts(engine: AsyncEngine, account_id: UUID) -> dict[str, int]:
                 "teacher_link": "student_id = :a OR teacher_id = :a",
                 "shala": "owner_id = :a",  # SC-01
                 "shala_staff_invite": "created_by = :a",
+                "announcement": "author_id = :a",  # NT-03
                 **dict.fromkeys(_SCHEDULE_TABLES, _OWNED_SHALA),  # SC-02: with my shala
             }.get(name, "account_id = :a")
             n = await conn.execute(

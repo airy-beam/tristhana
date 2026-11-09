@@ -38,6 +38,7 @@ from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS, InviteState, invite_state
 
 if TYPE_CHECKING:
+    from tristhana.application.announcements import AnnouncementUseCases
     from tristhana.application.shalas import ShalaUseCases
 
 CAPS = Caps(MAX_TEACHERS, MAX_STUDENTS)
@@ -211,3 +212,4 @@ class LinkUseCases:
     catalog: PracticeCatalog
     mark: MarkForStudent  # PR-08 Phase 3: a new asana from the student card
     shalas: "ShalaUseCases | None" = None  # SC-01: /teachers lists them, the bot joins them
+    announcements: "AnnouncementUseCases | None" = None  # NT-03: the feed, mute, pins on cards

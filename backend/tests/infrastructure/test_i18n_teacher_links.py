@@ -260,7 +260,9 @@ def _bot(locale: str) -> dict[str, str]:
             "teacher sees a short note saying just that. A teacher on your list can also mark a "
             "new asana for you: you get a message and can undo it. Check-ins, diary notes and "
             "the reason for a rest stay private. You can remove a teacher from your list any "
-            "time.",
+            "time."
+            " Teachers on your list and your shalas can send you announcements; "
+            "you can mute each one.",
         ),
         (
             "ru",
@@ -271,7 +273,9 @@ def _bot(locale: str) -> dict[str, str]:
             "списка также может отметить тебе новую асану: придёт сообщение, и отметку можно "
             "отменить. "
             "Самочувствие, заметки и причина отдыха остаются личными. Убрать учителя из списка "
-            "можно в любой момент.",
+            "можно в любой момент."
+            " Учителя из твоего списка и твои шалы могут присылать объявления; "
+            "отключить их можно отдельно для каждого.",
         ),
     ],
 )

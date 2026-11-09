@@ -9,11 +9,12 @@ import time
 from collections.abc import Sequence
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 from uuid import UUID
 
 from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.announcements import AnnouncementRepository
 from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ClassCaps, ClassDraft
@@ -112,9 +113,11 @@ class PostgresStorage:
         self._shalas: SqlShalaRepository | None = None
         self._schedule: SqlScheduleRepository | None = None
         self._calendar_feed: CalendarFeedRepository | None = None
+        self._announcements: AnnouncementRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
+        from tristhana.infrastructure.db.announcements import SqlAnnouncementRepository
         from tristhana.infrastructure.db.calendar_feed import SqlCalendarFeedRepository
         from tristhana.infrastructure.db.check_in import SqlCheckInRepository
         from tristhana.infrastructure.db.classes import SqlScheduleRepository
@@ -152,6 +155,7 @@ class PostgresStorage:
         self._shalas = SqlShalaRepository(self._engine)
         self._schedule = SqlScheduleRepository(self._engine)
         self._calendar_feed = SqlCalendarFeedRepository(self._engine, self._cipher)
+        self._announcements = SqlAnnouncementRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -264,6 +268,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._calendar_feed
 
+    @property
+    def announcements(self) -> AnnouncementRepository:
+        if self._announcements is None:
+            raise RuntimeError("storage not started")
+        return self._announcements
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -306,6 +316,10 @@ class UnconfiguredStorage:
     @property
     def calendar_feed(self) -> CalendarFeedRepository:
         return _UnavailableCalendarFeed()
+
+    @property
+    def announcements(self) -> AnnouncementRepository:
+        return _UnavailableAnnouncements()
 
     @property
     def days(self) -> DayLogRepository:
@@ -754,4 +768,40 @@ class _UnavailableSchedule:
         raise StorageUnavailable("not configured")
 
     async def remove_swap(self, shala: UUID, me: UUID, from_date: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableAnnouncements:
+    """NT-03: every call says "temporarily unavailable"."""
+
+    async def create(self, new: Any) -> Any:
+        raise StorageUnavailable("not configured")
+
+    async def feed(
+        self,
+        me: UUID,
+        source: Any,
+        since: datetime,
+        now: datetime,
+        offset: int,
+        limit: int,
+    ) -> Any:
+        raise StorageUnavailable("not configured")
+
+    async def sent(self, me: UUID, since: datetime) -> Any:
+        raise StorageUnavailable("not configured")
+
+    async def set_pin(self, me: UUID, id: UUID, pinned_until: datetime | None) -> Any:
+        raise StorageUnavailable("not configured")
+
+    async def delete(self, me: UUID, id: UUID) -> Any:
+        raise StorageUnavailable("not configured")
+
+    async def set_mute(self, me: UUID, source: Any, muted: bool) -> bool:
+        raise StorageUnavailable("not configured")
+
+    async def due(self, since: datetime, now: datetime, limit: int) -> Any:
+        raise StorageUnavailable("not configured")
+
+    async def prune(self, before: datetime) -> int:
         raise StorageUnavailable("not configured")

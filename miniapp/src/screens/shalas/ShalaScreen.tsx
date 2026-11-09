@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useState, type SyntheticEvent } from "react";
+import { lazy, Suspense, useState, type SyntheticEvent } from "react";
 
 import {
   ApiError,
@@ -56,12 +56,38 @@ const short = (name: string) =>
 interface Props {
   id: string;
   onBack: () => void;
-  week?: number; // the schedule's first week shown (0-3), from My schedule
+  week?: number | undefined; // the schedule's first week shown (0-3), from My schedule
 }
 
 /** The shala card (SC-01): the place, its zone, its moon city and its staff for every member;
  * students, links, roles and delete per role. Students never see other students. */
+const Announcements = lazy(() => import("../announcements/Announcements"));
+
 export default function ShalaScreen({ id, onBack, week }: Props) {
+  const me = useMe().data;
+  const locale: Locale = me?.locale ?? "en";
+  const [announcements, setAnnouncements] = useState<"feed" | "compose" | null>(null);
+  if (announcements)
+    return (
+      <Suspense fallback={<main className="screen" aria-busy="true" />}>
+        <Announcements
+          mode={{ view: announcements, shala: id }}
+          locale={locale}
+          onBack={() => {
+            setAnnouncements(null);
+          }}
+        />
+      </Suspense>
+    );
+  return <Card id={id} onBack={onBack} week={week} onAnnouncements={setAnnouncements} />;
+}
+
+function Card({
+  id,
+  onBack,
+  week,
+  onAnnouncements,
+}: Props & { onAnnouncements: (view: "feed" | "compose") => void }) {
   useBackButton(onBack);
   const { l10n } = useLocalization();
   const query = useShala(id);
@@ -85,6 +111,28 @@ export default function ShalaScreen({ id, onBack, week }: Props) {
           <h1>{l10n.getString("shala-title", { shala: shala.name })}</h1>
           <Place shala={shala} locale={locale} />
           <DayOffOffer shala={shala} />
+          <section className="card">
+            <Localized id="ann-list">
+              <button
+                type="button"
+                className="row-button"
+                onClick={() => {
+                  onAnnouncements("feed");
+                }}
+              />
+            </Localized>
+            {shala.me.announce && (
+              <Localized id="ann-announce">
+                <button
+                  type="button"
+                  className="row-button"
+                  onClick={() => {
+                    onAnnouncements("compose");
+                  }}
+                />
+              </Localized>
+            )}
+          </section>
           {manages(shala.me) && <Edit shala={shala} locale={locale} />}
           <ShalaSchedule shala={shala} week={week ?? 0} />
           <Staff shala={shala} />

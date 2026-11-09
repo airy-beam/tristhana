@@ -265,7 +265,7 @@ settings-cap = { $n ->
     }
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
-settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time.
+settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
 # MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
 settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
 settings-save-failed = Couldn't save. Try again in a moment.
@@ -802,3 +802,39 @@ invite-new-ask = Get a new link? The old link and QR stop working. People alread
 invite-new-yes = 🔄 Yes, new link
 invite-qr-alt = QR code for your invite link
 links-load-failed = Couldn't load your lists. Try again in a moment.
+
+## NT-03: announcements from a teacher or a shala
+ann-announce = 📣 Announce
+ann-compose-title = 📣 Announcement
+ann-to-students = To: all your students ({ $count })
+ann-to-shala = To: everyone in { $shala } ({ $count })
+ann-text-label = Text
+ann-pin-label = Pin it in the app
+ann-pin-none = No pin
+ann-pin-week = 📌 1 week
+ann-pin-month = 📌 1 month
+ann-hint = Name the day and time (e.g. Mon 10 Nov, 6:00), not "tomorrow": people may read it later. Everyone it goes to sees this text and your name, so leave out other people's personal details. It can't be edited once sent.
+ann-hint-shala = It goes to everyone in the shala: students and staff.
+ann-send = Send
+ann-send-ask =
+    Send to { $count ->
+        [one] { $count } person
+       *[other] { $count } people
+    }? It arrives within about 10 minutes.
+ann-sent = ✅ Sent.
+ann-sent-title = Sent
+ann-sent-to =
+    Sent to { $count ->
+        [one] { $count } person
+       *[other] { $count } people
+    }
+ann-limit = 3 announcements have already gone out here in the last 24 hours, the most for one day. Your text is still here: you can send it a little later.
+ann-pinned-until = 📌 until { $date }
+ann-unpin = Unpin
+ann-delete = 🗑 Delete
+ann-delete-ask = Delete this announcement? It leaves the app and won't go out to anyone else. Messages already delivered stay in people's chats.
+ann-list = 📣 Announcements
+ann-list-empty = No announcements in the last 30 days.
+ann-all = All
+ann-send-to-me = Send announcements from { $source } to me in the bot
+settings-announcements = 📣 Announcements from teachers and shalas

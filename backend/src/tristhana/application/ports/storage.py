@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Protocol
 
 from tristhana.application.ports.accounts import AccountRepository
+from tristhana.application.ports.announcements import AnnouncementRepository
 from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ScheduleRepository
@@ -81,6 +82,9 @@ class Storage(Protocol):
 
     @property
     def calendar_feed(self) -> CalendarFeedRepository: ...
+
+    @property
+    def announcements(self) -> AnnouncementRepository: ...
 
 
 class Clock(Protocol):

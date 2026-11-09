@@ -30,6 +30,7 @@ import { cityName } from "../MoonCard";
 
 // SC-01: the card is its own lazy chunk, loaded when a shala is opened.
 const ShalaScreen = lazy(() => import("../shalas/ShalaScreen"));
+const Announcements = lazy(() => import("../announcements/Announcements"));
 
 interface Props {
   onBack: () => void;
@@ -40,6 +41,20 @@ interface Props {
  * confirmed in the bot. A teacher never sees who chose them as main. Loaded lazily, so Settings stays light. Writes are not optimistic. */
 export default function Links({ onBack, onStudents }: Props) {
   const [shala, setShala] = useState<string | null>(null);
+  const [feed, setFeed] = useState(false);
+  const locale: Locale = useMe().data?.locale ?? "en";
+  if (feed)
+    return (
+      <Suspense fallback={null}>
+        <Announcements
+          mode={{ view: "feed", shala: null }}
+          locale={locale}
+          onBack={() => {
+            setFeed(false);
+          }}
+        />
+      </Suspense>
+    );
   if (shala)
     return (
       <Suspense fallback={null}>
@@ -51,10 +66,24 @@ export default function Links({ onBack, onStudents }: Props) {
         />
       </Suspense>
     );
-  return <Lists onBack={onBack} onStudents={onStudents} onShala={setShala} />;
+  return (
+    <Lists
+      onBack={onBack}
+      onStudents={onStudents}
+      onShala={setShala}
+      onFeed={() => {
+        setFeed(true);
+      }}
+    />
+  );
 }
 
-function Lists({ onBack, onStudents, onShala }: Props & { onShala: (id: string) => void }) {
+function Lists({
+  onBack,
+  onStudents,
+  onShala,
+  onFeed,
+}: Props & { onShala: (id: string) => void; onFeed: () => void }) {
   useBackButton(onBack);
   const query = useLinks();
   const links = query.data;
@@ -71,6 +100,11 @@ function Lists({ onBack, onStudents, onShala }: Props & { onShala: (id: string) 
       {query.isError && (
         <Localized id="links-load-failed">
           <p className="hint" role="alert" />
+        </Localized>
+      )}
+      {links && links.teachers.length > 0 && (
+        <Localized id="ann-list">
+          <button type="button" className="row-button" onClick={onFeed} />
         </Localized>
       )}
       {links && (

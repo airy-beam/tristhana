@@ -119,6 +119,7 @@ class ExportLink:
     other_side: str  # teacher | student
     primary: bool | None  # null on rows where I'm the teacher: they never learn it
     linked_at: datetime
+    announcements_muted: bool | None = None  # NT-03: null on rows where I'm the teacher
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +134,18 @@ class ExportShala:
     owner: bool
     roles: tuple[str, ...]
     joined_on: date
+    announcements_muted: bool = False  # NT-03
+
+
+@dataclass(frozen=True, slots=True)
+class ExportAnnouncement:
+    """One I sent (NT-03): received ones are someone else's text and aren't exported."""
+
+    to: str  # students | shala
+    shala: str | None  # the shala's name
+    text: str
+    created_at: datetime
+    pinned_until: datetime | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +170,7 @@ class Snapshot:
     milestones: tuple[ExportMilestone, ...] = ()  # smallest count first
     links: tuple[ExportLink, ...] = ()
     shalas: tuple[ExportShala, ...] = ()
+    announcements: tuple[ExportAnnouncement, ...] = ()  # NT-03: sent by me, oldest first
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,7 +262,12 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
             for m in s.milestones
         ],
         "teacher_links": [
-            {"other_side": k.other_side, "primary": k.primary, "linked_at": _instant(k.linked_at)}
+            {
+                "other_side": k.other_side,
+                "primary": k.primary,
+                "linked_at": _instant(k.linked_at),
+                "announcements_muted": k.announcements_muted,
+            }
             for k in s.links
         ],
         "shalas": [
@@ -261,8 +280,19 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
                 "owner": h.owner,
                 "roles": list(h.roles),
                 "joined_on": h.joined_on.isoformat(),
+                "announcements_muted": h.announcements_muted,
             }
             for h in s.shalas
+        ],
+        "announcements_sent": [
+            {
+                "to": a.to,
+                "shala": a.shala,
+                "text": a.text,
+                "created_at": _instant(a.created_at),
+                "pinned_until": _instant(a.pinned_until) if a.pinned_until else None,
+            }
+            for a in s.announcements
         ],
     }
 

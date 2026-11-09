@@ -48,6 +48,8 @@ type ErrorCode = Literal[
     "export_too_large",
     "confirmation_required",
     "account_deleted",
+    "announcement_limit",
+    "invalid_announcement",
     "unavailable",
 ]
 

@@ -794,6 +794,7 @@ class InMemoryNotifications:
             s.daily_cap,
             s.practice.on,
             s.practice.at,
+            s.announcements,
         )
 
     async def patch(
@@ -1037,6 +1038,7 @@ class InMemoryStorage:
     shala_repo: Any = None  # SC-01: tests/shala_fakes.py, loaded on first use
     schedule_repo: Any = None  # SC-02: tests/schedule_fakes.py, loaded on first use
     feed_repo: Any = None  # SC-06: tests/calendar_feed_fakes.py, loaded on first use
+    announcement_repo: Any = None  # NT-03: tests/announcement_fakes.py, loaded on first use
     # PR-08 Phase 3: a test may hand in a progression repo (tests/teacher_mark_fakes.py).
     progression_repo: Any = None
 
@@ -1150,6 +1152,14 @@ class InMemoryStorage:
 
             self.feed_repo = InMemoryCalendarFeed(self.repo)
         return self.feed_repo
+
+    @property
+    def announcements(self) -> Any:  # NT-03
+        if self.announcement_repo is None:
+            from tests.announcement_fakes import InMemoryAnnouncements
+
+            self.announcement_repo = InMemoryAnnouncements(FixedClock())
+        return self.announcement_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:

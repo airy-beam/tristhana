@@ -67,6 +67,95 @@ export interface paths {
         patch: operations["patch_me_api_v1_me_patch"];
         trace?: never;
     };
+    "/api/v1/me/announcement-mutes/{kind}/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Announcement Mute
+         * @description Push only; the sender is never told (Q167). Idempotent.
+         */
+        put: operations["put_announcement_mute_api_v1_me_announcement_mutes__kind___id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Announcements
+         * @description The caller's teachers and shalas: the last 30 days plus live pins (Q171). `kind` and
+         *     `id` together narrow it to one source.
+         */
+        get: operations["get_announcements_api_v1_me_announcements_get"];
+        put?: never;
+        /**
+         * Post Announcement
+         * @description Saved now, delivered by the next tick (within about 10 minutes).
+         */
+        post: operations["post_announcement_api_v1_me_announcements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/announcements/sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sent Announcements
+         * @description My own, the last 30 days, newest first.
+         */
+        get: operations["get_sent_announcements_api_v1_me_announcements_sent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/announcements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Announcement
+         * @description Idempotent. Messages already delivered stay in people's chats.
+         */
+        delete: operations["delete_announcement_api_v1_me_announcements__id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Announcement
+         * @description Pin (one per source: the earlier pin goes) or unpin.
+         */
+        patch: operations["patch_announcement_api_v1_me_announcements__id__patch"];
+        trace?: never;
+    };
     "/api/v1/me/calendar-feed": {
         parameters: {
             query?: never;
@@ -1044,6 +1133,61 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnnouncementIn */
+        AnnouncementIn: {
+            /**
+             * Pin Days
+             * @default 0
+             * @enum {integer}
+             */
+            pin_days: 0 | 7 | 30;
+            /**
+             * Shala Id
+             * @description Required when `to` is shala
+             */
+            shala_id?: string | null;
+            /**
+             * Text
+             * @description Plain text; at most 1000 characters once trimmed
+             */
+            text: string;
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "students" | "shala";
+        };
+        /** AnnouncementOut */
+        AnnouncementOut: {
+            /**
+             * Author Name
+             * @description null once no longer the teacher or on staff
+             */
+            author_name: string | null;
+            /**
+             * Can Manage
+             * @description May pin or delete it (the author, a shala manager)
+             */
+            can_manage: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Pinned Until
+             * @description Set only while the pin is live
+             */
+            pinned_until: string | null;
+            source: components["schemas"]["SourceOut"];
+            /** Text */
+            text: string;
+        };
         /**
          * AutoDayOut
          * @description An unlogged day shown as rest (PR-09, ADR-0022): never stored, a log always wins.
@@ -1599,7 +1743,7 @@ export interface components {
             retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -1680,6 +1824,41 @@ export interface components {
              */
             sent_at: string;
         };
+        /** FeedOut */
+        FeedOut: {
+            /**
+             * Items
+             * @description Live pins first, then newest first
+             */
+            items: components["schemas"]["AnnouncementOut"][];
+            /** More */
+            more: boolean;
+            /**
+             * Sources
+             * @description The caller's teachers and shalas
+             */
+            sources: components["schemas"]["FeedSourceOut"][];
+        };
+        /** FeedSourceOut */
+        FeedSourceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** @description teacher: `id` is the teacher's account; shala: the shala */
+            kind: components["schemas"]["Kind"];
+            /**
+             * Muted
+             * @description Pushes off for this source (the feed still shows them)
+             */
+            muted: boolean;
+            /**
+             * Name
+             * @description The shala's name, or the teacher's display name
+             */
+            name: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1745,6 +1924,8 @@ export interface components {
              */
             kind: "ladies" | "sick" | "travel";
         };
+        /** @enum {string} */
+        Kind: "teacher" | "shala";
         /** Length */
         Length: {
             /**
@@ -2014,6 +2195,11 @@ export interface components {
             /** Name */
             name: string | null;
         };
+        /** MuteIn */
+        MuteIn: {
+            /** Muted */
+            muted: boolean;
+        };
         /** MyClassOut */
         MyClassOut: {
             /** Cancelled */
@@ -2258,6 +2444,12 @@ export interface components {
         };
         /** NotificationSettingsOut */
         NotificationSettingsOut: {
+            /**
+             * Announcements
+             * @description Announcements from teachers and shalas in the bot (NT-03)
+             * @default true
+             */
+            announcements: boolean;
             /** Daily Cap */
             daily_cap: number;
             /** @description Ask once: is that weekday the day off? (PR-09) */
@@ -2276,6 +2468,11 @@ export interface components {
          * @description Omitted = unchanged; null = back to the default (ADR-0021).
          */
         NotificationSettingsPatch: {
+            /**
+             * Announcements
+             * @description NT-03; null = the default (on)
+             */
+            announcements?: boolean | null;
             /** Daily Cap */
             daily_cap?: number | null;
             moon?: components["schemas"]["MoonPatchBody"] | null;
@@ -2341,6 +2538,15 @@ export interface components {
         PeriodResult: {
             /** @description null: nothing is left (or none) */
             period: components["schemas"]["RestPeriodOut"] | null;
+        };
+        /** PinIn */
+        PinIn: {
+            /**
+             * Pin Days
+             * @description 0 unpins
+             * @enum {integer}
+             */
+            pin_days: 0 | 7 | 30;
         };
         /** PositionOut */
         PositionOut: {
@@ -2690,6 +2896,29 @@ export interface components {
             /** Zone */
             zone: string;
         };
+        /** SentOut */
+        SentOut: {
+            /**
+             * Audience
+             * @description People it went to at send time, muted ones included
+             */
+            audience: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Pinned Until */
+            pinned_until: string | null;
+            source: components["schemas"]["SourceOut"];
+            /** Text */
+            text: string;
+        };
         /** SeriesCount */
         SeriesCount: {
             /**
@@ -2778,6 +3007,12 @@ export interface components {
         };
         /** ShalaMeOut */
         ShalaMeOut: {
+            /**
+             * Announce
+             * @description May announce to the shala (NT-03, Q163)
+             * @default false
+             */
+            announce: boolean;
             /** Owner */
             owner: boolean;
             /** Roles */
@@ -2929,6 +3164,21 @@ export interface components {
             shala_ids: string[];
             /** Zone */
             zone: string;
+        };
+        /** SourceOut */
+        SourceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** @description teacher: `id` is the teacher's account; shala: the shala */
+            kind: components["schemas"]["Kind"];
+            /**
+             * Name
+             * @description The shala's name, or the teacher's display name
+             */
+            name: string | null;
         };
         /** StartBody */
         StartBody: {
@@ -3322,6 +3572,371 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_announcement_mute_api_v1_me_announcement_mutes__kind___id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "teacher" | "shala";
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_announcements_api_v1_me_announcements_get: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["Kind"] | null;
+                id?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_announcement_api_v1_me_announcements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnouncementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_sent_announcements_api_v1_me_announcements_sent_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_announcement_api_v1_me_announcements__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patch_announcement_api_v1_me_announcements__id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

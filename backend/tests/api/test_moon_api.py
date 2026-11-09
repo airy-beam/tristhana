@@ -123,6 +123,7 @@ def test_notification_settings_round_trip(api: TestClient) -> None:
         "timezone": None,
         "practice": practice,
         "day_off_question": question,
+        "announcements": True,  # NT-03: the global switch, on by default
     }  # omitted: kept
     assert (bad.status_code, bad.json()) == (422, {"code": "invalid_settings"})
 

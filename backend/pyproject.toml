@@ -134,6 +134,25 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "Announcements reach no log, diary, check-in or progression (NT-03)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.application.announcements",
+    "tristhana.infrastructure.db.announcements",
+]
+forbidden_modules = [
+    "tristhana.application.ports.days",
+    "tristhana.application.ports.practice",
+    "tristhana.application.ports.diary",
+    "tristhana.application.ports.check_in",
+    "tristhana.application.ports.rest_periods",
+    "tristhana.application.ports.progression",
+    "tristhana.application.ports.teacher_view",
+    "tristhana.infrastructure.crypto",
+]
+
+[[tool.importlinter.contracts]]
 name = "The teacher view holds no key"
 type = "forbidden"
 allow_indirect_imports = true
