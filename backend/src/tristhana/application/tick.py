@@ -25,6 +25,7 @@ from tristhana.application.ports.notifications import (
     ReminderPatch,
 )
 from tristhana.application.ports.shalas import ShalaRepository
+from tristhana.application.ports.share_cards import ShareCardRepository
 from tristhana.application.ports.storage import Clock
 from tristhana.domain import announcements as ann
 from tristhana.domain.moon import Cities, MoonDay, calendar_years, moon_follow
@@ -72,7 +73,9 @@ class RunTick:
         notifier: Notifier,
         shalas: ShalaRepository | None = None,
         announcements: AnnouncementRepository | None = None,
+        share_cards: ShareCardRepository | None = None,
     ) -> None:
+        self._share_cards = share_cards  # ST-07: expired cards
         self._shalas = shalas  # SC-01: expired staff links are pruned with the deliveries
         self._announcements = announcements  # NT-03
         self._clock = clock
@@ -95,6 +98,8 @@ class RunTick:
                 result.pruned += await self._shalas.prune_invites(self._clock.now())
             if self._announcements is not None:
                 result.pruned += await self._announcements.prune(self._clock.now() - ann.KEEP)
+            if self._share_cards is not None:
+                result.pruned += await self._share_cards.prune(self._clock.now())
         return result
 
     async def _announce(self, deadline: datetime, result: TickResult) -> None:

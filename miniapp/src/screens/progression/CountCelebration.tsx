@@ -3,7 +3,7 @@
 import { useLocalization } from "@fluent/react";
 
 import type { Celebration } from "../../api/client";
-import { CelebrationCard } from "./CelebrationCard";
+import { CelebrationCard, shareOf } from "./CelebrationCard";
 import { countLines } from "./progressionText";
 
 export function CountCelebration({
@@ -15,5 +15,7 @@ export function CountCelebration({
 }) {
   const { l10n } = useLocalization();
   const lines = countLines(l10n, found);
-  return lines.length ? <CelebrationCard lines={lines} onDismiss={onDismiss} /> : null;
+  return lines.length ? (
+    <CelebrationCard lines={lines} onDismiss={onDismiss} share={shareOf(found, null)} />
+  ) : null;
 }

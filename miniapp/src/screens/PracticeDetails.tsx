@@ -14,6 +14,7 @@ import {
   type Practice,
   type PracticeBody,
   type PracticeContext,
+  type ShareSubject,
 } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 import { haptics } from "../telegram";
@@ -26,7 +27,7 @@ import {
   zoneLabel,
   type Range,
 } from "./practiceText";
-import { CelebrationCard } from "./progression/CelebrationCard";
+import { CelebrationCard, shareOf } from "./progression/CelebrationCard";
 import { placeFor } from "./settings/zones";
 import { celebrationLines, get, stopLabel } from "./progression/progressionText";
 
@@ -264,9 +265,10 @@ function NewAsanaQuestion({
   const give = useProgressionEvent();
   const dismiss = useDismissNewAsanaHint();
   const [lines, setLines] = useState<string[] | null>(null);
+  const [share, setShare] = useState<ShareSubject | null>(null);
   const asana = stopLabel(catalog, target, locale);
   if (lines) {
-    return <CelebrationCard lines={lines} onDismiss={onDone} />;
+    return <CelebrationCard lines={lines} onDismiss={onDone} share={share} />;
   }
   return (
     <div className="new-asana" role="group">
@@ -289,6 +291,7 @@ function NewAsanaQuestion({
                 {
                   onSuccess: (done) => {
                     const found = celebrationLines(l10n, catalog, done.celebrations, locale);
+                    setShare(shareOf(done.celebrations, done.event?.id));
                     if (found.length) haptics.notify("success");
                     setLines(found.length ? found : [get(l10n, "progression-back", { asana })]);
                   },

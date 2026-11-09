@@ -161,6 +161,20 @@ class TelegramNotifier:
             "export",
         )
 
+    async def send_card_photo(self, recipient: Recipient, png: bytes) -> DeliveryResult:
+        """ST-07: the share card as a photo, so any client can forward or save it."""
+        from aiogram.types import BufferedInputFile
+
+        return await _sent(
+            self._runtime().bot.send_photo(
+                chat_id=int(recipient.telegram_id),
+                photo=BufferedInputFile(png, filename="tristhana.png"),
+                caption=self._t.t(recipient.locale, "share-card-caption"),
+                request_timeout=UPLOAD_TIMEOUT_S,
+            ),
+            "share card",
+        )
+
 
 async def _sent(call: Awaitable[object], what: str) -> DeliveryResult:
     from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter

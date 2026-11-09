@@ -18,3 +18,11 @@ class SecretTokens:
 
     def new(self) -> str:
         return secrets.token_urlsafe(32)
+
+
+class ShareCardTokens:
+    """ST-07 share card tokens: 128 bits, 22 base64url characters (the card is meant to be
+    public and lives 24 h, ADR-0040)."""
+
+    def new(self) -> str:
+        return secrets.token_urlsafe(16)

@@ -18,6 +18,7 @@ from tristhana.api import v1
 from tristhana.api.body_limit import NoteBodyLimit
 from tristhana.api.errors import install_error_handlers
 from tristhana.api.ical import NoCorsForFeed, make_ical_router
+from tristhana.api.share import make_share_router
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.announcements import (
     AnnouncementUseCases,
@@ -125,6 +126,12 @@ from tristhana.application.shalas import (
     ShalaUseCases,
     UpdateShala,
 )
+from tristhana.application.share_cards import (
+    CreateShareCard,
+    GetShareCardImage,
+    SendShareCard,
+    ShareCardUseCases,
+)
 from tristhana.application.stats import GetYearStats
 from tristhana.application.teacher_links import (
     AcceptInvite,
@@ -157,11 +164,12 @@ from tristhana.bots.telegram.runtime import (
 )
 from tristhana.bots.telegram.webhook import make_webhook_router
 from tristhana.domain.progression import Track
+from tristhana.infrastructure.cards.pillow_renderer import PillowCardRenderer
 from tristhana.infrastructure.clock import SystemClock
 from tristhana.infrastructure.db.storage import PostgresStorage, UnconfiguredStorage
 from tristhana.infrastructure.export_zip import ZipExportPacker
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
-from tristhana.infrastructure.invite_codes import SecretCodes, SecretTokens
+from tristhana.infrastructure.invite_codes import SecretCodes, SecretTokens, ShareCardTokens
 from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
 from tristhana.infrastructure.qr import SegnoQrCodes
 from tristhana.infrastructure.seed.cities_yaml import load_cities
@@ -215,6 +223,7 @@ def create_app(
     app.add_middleware(NoCorsForFeed)  # SC-06: outside CORS, so the feed never gets its headers
     app.include_router(v1.router)
     app.include_router(make_ical_router())
+    app.include_router(make_share_router())  # ST-07: the card image (capability URL)
 
     token = settings.telegram_bot_token
     if settings.app_env == "dev" and settings.dev_init_data and token is not None:
@@ -390,6 +399,7 @@ class _Services:
             self._notifier,
             self._storage.shalas,
             self._storage.announcements,  # NT-03
+            self._storage.share_cards,  # ST-07: expired cards are pruned
         )
         view = TeacherViewUseCases(
             GetStudents(self._storage.teacher_view, clock),
@@ -435,6 +445,21 @@ class _Services:
             public_url=self._settings.public_api_url,
         )
         app.state.calendar_feed = calendar_feed
+        cards = self._storage.share_cards
+        app.state.share_cards = ShareCardUseCases(
+            create=CreateShareCard(
+                app.state.year_stats,
+                repo,
+                cards,
+                PillowCardRenderer(translator, loaded.catalog),
+                ShareCardTokens(),
+                track,
+                clock,
+            ),
+            image=GetShareCardImage(cards, clock),
+            send=SendShareCard(cards, self._notifier, clock),
+            public_url=self._settings.public_api_url,
+        )
         self._bot.calendar_feed = calendar_feed
         shalas = ShalaUseCases(
             create=CreateShala(shala_repo, codes, clock, cities),

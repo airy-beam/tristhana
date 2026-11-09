@@ -52,6 +52,10 @@ type ErrorCode = Literal[
     "invalid_announcement",
     "not_attendable",
     "invalid_attendance",
+    "invalid_period",
+    "nothing_to_share",
+    "rate_limited",
+    "already_sent",
     "unavailable",
 ]
 

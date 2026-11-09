@@ -22,6 +22,7 @@ dependencies = [
     "tzfpy>=2.1.1",
     "uvicorn>=0.54.0",
     "uvloop>=0.21",
+    "pillow>=11",
 ]
 
 [project.scripts]
@@ -330,3 +331,37 @@ source_modules = [
 ]
 forbidden_modules = ["segno"]
 ignore_imports = ["tristhana.infrastructure.qr -> segno"]
+
+[[tool.importlinter.contracts]]
+name = "Pillow is imported only in infrastructure.cards.draw (ST-07, ADR-0040)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain",
+    "tristhana.application",
+    "tristhana.infrastructure",
+    "tristhana.api",
+    "tristhana.bots",
+    "tristhana.jobs",
+    "tristhana.moon",
+    "tristhana.main",
+]
+forbidden_modules = ["PIL"]
+ignore_imports = ["tristhana.infrastructure.cards.draw -> PIL"]
+
+[[tool.importlinter.contracts]]
+name = "Share cards compute no moon days and read no diary, check-in or key (ST-07, ADR-0040)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain.share_cards",
+    "tristhana.application.share_cards",
+    "tristhana.infrastructure.cards",
+]
+forbidden_modules = [
+    "tristhana.moon",
+    "tristhana.infrastructure.moon_calc",
+    "tristhana.infrastructure.crypto",
+    "tristhana.application.ports.diary",
+    "tristhana.application.ports.check_in",
+]

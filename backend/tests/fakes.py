@@ -915,6 +915,8 @@ class FakeNotifier:
         default_factory=list[tuple[Recipient, str | None, Any]]
     )
     mark_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
+    cards: list[tuple[Recipient, bytes]] = field(default_factory=list[tuple[Recipient, bytes]])
+    card_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])  # ST-07
 
     @property
     def moon(self) -> list[tuple[Recipient, MoonReminder]]:
@@ -953,6 +955,12 @@ class FakeNotifier:
         self.marked.append((recipient, teacher, mark))
         return (
             self.mark_outcomes.pop(0) if self.mark_outcomes else DeliveryResult(DeliveryStatus.SENT)
+        )
+
+    async def send_card_photo(self, recipient: Recipient, png: bytes) -> DeliveryResult:
+        self.cards.append((recipient, png))
+        return (
+            self.card_outcomes.pop(0) if self.card_outcomes else DeliveryResult(DeliveryStatus.SENT)
         )
 
 
@@ -1040,6 +1048,7 @@ class InMemoryStorage:
     feed_repo: Any = None  # SC-06: tests/calendar_feed_fakes.py, loaded on first use
     announcement_repo: Any = None  # NT-03: tests/announcement_fakes.py, loaded on first use
     attendance_repo: Any = None  # SC-05: tests/attendance_fakes.py, loaded on first use
+    share_card_repo: Any = None  # ST-07: tests/share_card_fakes.py, loaded on first use
     # PR-08 Phase 3: a test may hand in a progression repo (tests/teacher_mark_fakes.py).
     progression_repo: Any = None
 
@@ -1161,6 +1170,14 @@ class InMemoryStorage:
 
             self.announcement_repo = InMemoryAnnouncements(FixedClock())
         return self.announcement_repo
+
+    @property
+    def share_cards(self) -> Any:  # ST-07
+        if self.share_card_repo is None:
+            from tests.share_card_fakes import InMemoryShareCards
+
+            self.share_card_repo = InMemoryShareCards(accounts=self.repo)
+        return self.share_card_repo
 
     @property
     def attendance(self) -> Any:  # SC-05

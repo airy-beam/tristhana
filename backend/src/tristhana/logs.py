@@ -13,14 +13,15 @@ from tristhana.settings import LogFormat
 _FRAMEWORK_LOGGERS = ("uvicorn", "uvicorn.error", "uvicorn.access")
 
 # SC-06: a calendar feed URL is a capability (ADR-0036); access lines must not carry it.
-_FEED_TOKEN = re.compile(r"(/ical/v1/)[A-Za-z0-9_-]+")
+# ST-07: share card image URLs are capabilities too (ADR-0040).
+_FEED_TOKEN = re.compile(r"(/ical/v1/|/share/v1/|/me/share-cards/)[A-Za-z0-9_-]+")
 
 
 class MaskFeedTokens(logging.Filter):
     @override
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
-        if "/ical/" in message:
+        if "/ical/" in message or "/share" in message:
             record.msg, record.args = _FEED_TOKEN.sub(r"\1***", message), None
         return True
 

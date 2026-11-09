@@ -129,6 +129,17 @@ async def _fill(engine: AsyncEngine, me: UUID, keys: str = KEYS) -> None:
     await SqlCalendarFeedRepository(engine, cipher).replace(
         me, hashlib.sha256(token.encode()).digest(), token
     )
+    # ST-07: a share card (24 h, deleted with the account, never exported).
+    from datetime import timedelta as _td
+
+    from tristhana.application.ports.share_cards import NewShareCard
+    from tristhana.domain.share_cards import CardFormat
+    from tristhana.infrastructure.db.share_cards import SqlShareCardRepository
+
+    card = NewShareCard(
+        me, hashlib.sha256(me.bytes).digest(), "year", CardFormat.SQUARE, b"png", NOW + _td(1)
+    )
+    assert await SqlShareCardRepository(engine).insert(card, NOW - _td(1), 50)
     # NT-03: one I sent (exported as `announcements_sent`, deleted with the account).
     async with engine.connect() as conn:
         await conn.execute(

@@ -100,7 +100,8 @@ class NoCorsForFeed:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or not str(scope.get("path", "")).startswith(PREFIX):
+        path = str(scope.get("path", ""))
+        if scope["type"] != "http" or not path.startswith((PREFIX, "/share/")):
             await self.app(scope, receive, send)
             return
 

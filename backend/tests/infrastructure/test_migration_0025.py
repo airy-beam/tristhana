@@ -17,12 +17,11 @@ def _table(name: str) -> Any:
     return table
 
 
-def test_0025_follows_0024_and_is_the_head() -> None:
+def test_0025_follows_0024() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0025")
     assert revision is not None
     assert revision.down_revision == "0024"
-    assert script.get_current_head() == "0025"
 
 
 def test_the_columns() -> None:

@@ -577,3 +577,91 @@ body {
   overflow-wrap: anywhere;
   user-select: all;
 }
+
+/* ST-07: the share sheet (a lazy chunk) and its small "Share" buttons. */
+.share-open {
+  font-size: 15px;
+  white-space: nowrap;
+}
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.share-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: flex-end;
+  background: rgb(0 0 0 / 45%);
+}
+.share-sheet {
+  width: 100%;
+  max-height: calc(var(--tg-viewport-stable-height, 100vh) - 16px);
+  overflow-y: auto;
+  padding: var(--space) var(--space) calc(var(--space) + env(safe-area-inset-bottom));
+  border-radius: 16px 16px 0 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+}
+.share-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.share-head .link {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 18px;
+}
+.share-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px auto;
+  border-radius: 12px;
+  background: #1c1f4d;
+  overflow: hidden;
+}
+.share-preview.story {
+  width: min(60vw, 240px);
+  aspect-ratio: 9 / 16;
+}
+.share-preview.square {
+  width: min(80vw, 320px);
+  aspect-ratio: 1;
+}
+.share-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.share-preview .hint {
+  padding: var(--space);
+  color: #e9e3f2;
+  text-align: center;
+}
+.share-actions .primary {
+  background: var(--c-accent);
+  color: var(--c-accent-text);
+}
+.celebration {
+  position: relative;
+}
+.celebration .celebration-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.celebration .share-open {
+  align-self: flex-end;
+}

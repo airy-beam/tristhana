@@ -573,6 +573,28 @@ calendar_feed = Table(
     CheckConstraint("octet_length(token_hash) = 32", name="token_hash_length"),
 )
 
+# ST-07 / ADR-0040: share card PNGs, kept 24 h behind a capability URL (SHA-256 of the token).
+# Ephemeral and derived: not exported (ST-09), deleted with the account, pruned by the tick.
+share_card = Table(
+    "share_card",
+    metadata,
+    Column("token_hash", LargeBinary(), nullable=False),
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("kind", Text(), nullable=False),
+    Column("format", Text(), nullable=False),
+    Column("png", LargeBinary(), nullable=False),
+    _timestamp("created_at"),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("sent_at", DateTime(timezone=True), nullable=True),
+    PrimaryKeyConstraint("token_hash"),
+    CheckConstraint("octet_length(token_hash) = 32", name="token_hash_length"),
+    CheckConstraint("kind IN ('month', 'year', 'asana', 'count')", name="kind"),
+    CheckConstraint("format IN ('story', 'square')", name="format"),
+    CheckConstraint("octet_length(png) <= 2000000", name="png_size"),
+    Index("share_card_account_id_created_at_idx", "account_id", "created_at"),
+    Index("share_card_expires_at_idx", "expires_at"),
+)
+
 # NT-03 (ADR-0038): plain text, broadcast, not sealed (Q174); pruned after 90 days by the tick.
 # `shala_id` NULL = the author's own students. One pin per source is kept by the writes.
 announcement = Table(

@@ -16,6 +16,7 @@ from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.progression import ProgressionRepository
 from tristhana.application.ports.rest_periods import RestPeriodRepository
 from tristhana.application.ports.shalas import ShalaRepository
+from tristhana.application.ports.share_cards import ShareCardRepository
 from tristhana.application.ports.teacher_links import TeacherLinkRepository
 from tristhana.application.ports.teacher_view import TeacherViewRepository
 
@@ -89,6 +90,9 @@ class Storage(Protocol):
 
     @property
     def attendance(self) -> AttendanceRepository: ...
+
+    @property
+    def share_cards(self) -> ShareCardRepository: ...
 
 
 class Clock(Protocol):

@@ -13,11 +13,13 @@ import {
   type ProgressionEvent,
   type ProgressionEventBody,
   type ProgressionPosition,
+  type ShareSubject,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
 import { lengthText } from "../practiceText";
-import { CelebrationCard } from "./CelebrationCard";
+import { CelebrationCard, shareOf } from "./CelebrationCard";
+import { ShareButton } from "../share/ShareButton";
 import { celebrationLines, get, isStanding, itemLabel, stopLabel } from "./progressionText";
 
 interface Props {
@@ -70,6 +72,7 @@ function Body({
   const change = useProgressionEvent();
   const undo = useUndoProgression();
   const [lines, setLines] = useState<string[] | null>(null);
+  const [share, setShare] = useState<ShareSubject | null>(null);
   const [failed, setFailed] = useState<"changed" | "failed" | "moved-on" | null>(null);
   const [editing, setEditing] = useState(!progression.set);
   const today = progression.today ?? "";
@@ -87,6 +90,7 @@ function Body({
       {
         onSuccess: (done: ProgressionChange) => {
           const found = celebrationLines(l10n, catalog, done.celebrations, locale);
+          setShare(shareOf(done.celebrations, done.event?.id));
           if (found.length) {
             haptics.notify("success");
             setLines(found);
@@ -113,6 +117,7 @@ function Body({
       {lines && (
         <CelebrationCard
           lines={lines}
+          share={share}
           onDismiss={() => {
             setLines(null);
           }}
@@ -459,6 +464,15 @@ function History({
           return (
             <li key={e.id}>
               <span className="hint">{day}</span> {line}
+              {e.kind === "given" && (
+                <>
+                  {" "}
+                  <ShareButton
+                    subject={{ kind: "asana", event_id: e.id }}
+                    label={get(l10n, "share-entry", { entry: `${day}: ${line}` })}
+                  />
+                </>
+              )}
               {canUndo(e) && (
                 <>
                   {" "}
