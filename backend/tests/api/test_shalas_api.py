@@ -48,6 +48,7 @@ SHALA_KEYS = {
 }
 TEACHER, ASSISTANT, OFFICE, ADMIN = "teacher", "assistant", "office", "admin"
 SC02_PARAMETERS = {"class_id", "key", "closure_id", "from", "days"}  # SC-02 schedule routes
+SC05_PARAMETERS = {"q"}  # SC-05: the roster's name search
 
 
 def _routes(shala: UUID, account: UUID) -> list[tuple[str, str, dict[str, Any] | None]]:
@@ -567,6 +568,7 @@ def test_no_shala_route_takes_a_code(api: TestClient) -> None:
                 "offset",
                 "limit",
                 *SC02_PARAMETERS,
+                *SC05_PARAMETERS,
             }, (
                 path,
                 names,

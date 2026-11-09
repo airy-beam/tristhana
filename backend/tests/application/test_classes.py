@@ -345,6 +345,13 @@ async def test_staff_who_manage_create_a_class(world: World, cast: Cast, role: S
     assert world.schedule.of(cast.shala) == [created]
 
 
+async def test_a_title_is_kept_on_one_line(world: World, cast: Cast) -> None:
+    """SC-05 review: line breaks and runs of spaces collapse (titles head the bot roster)."""
+    draft = _draft(title="  Led\nPrimary \t  count ")
+    created = await world.create().execute(world.me(cast.teacher), cast.shala, draft)
+    assert created.title == "Led Primary count"
+
+
 async def test_an_assistant_may_not_create(world: World, cast: Cast) -> None:
     with pytest.raises(NotAllowed):
         await world.create().execute(world.me(cast.assistant), cast.shala, _draft())

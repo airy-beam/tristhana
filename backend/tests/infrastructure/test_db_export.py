@@ -310,6 +310,17 @@ async def _shalas(engine: AsyncEngine, me: UUID, teacher: UUID) -> None:
     )
     assert staff_invite.done
     await _schedule(engine, mine.id, me)
+    async with engine.connect() as conn:  # SC-05: my own mark on my class
+        await conn.execute(
+            text(
+                "INSERT INTO tristhana.class_attendance (shala_id, class_id, occurrence_key,"
+                " account_id, state, class_type, on_date, starts_at, zone)"
+                " SELECT shala_id, id, starts_on, :a, 'confirmed', type, starts_on, now(),"
+                " 'Asia/Almaty' FROM tristhana.shala_class WHERE shala_id = :s"
+            ),
+            {"a": me, "s": mine.id},
+        )
+        await conn.commit()
     theirs = await repo.create(
         teacher, NewShala("Theirs", "almaty", False, frozenset(), codes.new()), CAPS, MON
     )

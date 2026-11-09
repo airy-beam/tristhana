@@ -838,3 +838,39 @@ ann-list-empty = No announcements in the last 30 days.
 ann-all = All
 ann-send-to-me = Send announcements from { $source } to me in the bot
 settings-announcements = 📣 Announcements from teachers and shalas
+
+## SC-05: class attendance (presence, not a log entry or an absence)
+attend-me-button = 🙋 I was there
+attend-state = { $s ->
+        [confirmed] ✅ confirmed
+       *[claimed] 🙋 your mark
+    }
+attend-remove-ask = Remove your mark?
+attend-remove-yes = Remove
+attend-claimed = { $state ->
+        [confirmed] ✅ Marked: { $what }.
+       *[claimed] 🙋 Marked: { $what }. The shala's staff can confirm it.
+    }
+attend-removed = Mark removed.
+attend-log-day = 🧘 Log this day
+attend-failed = Couldn't save the mark. Try again in a moment.
+attend-staff-open = 📋 Attendance · ✅ { $confirmed } · 🙋 { $claimed }
+attend-title = 📋 Attendance
+attend-roster-counts = ✅ { $confirmed } · { $claimed ->
+        [0] nothing to confirm
+        [one] 🙋 1 to confirm
+       *[other] 🙋 { $claimed } to confirm
+    }
+attend-roster-hint = Tick who came. 🙋 = their own mark.
+attend-confirm-all = ✅ Confirm all 🙋 ({ $n })
+attend-staff-tag = staff
+attend-search = Search by name
+attend-empty = No one on the list yet. Students appear here once they join the shala.
+attend-not-open = This class can't be marked now: it hasn't started, it was cancelled, or it was more than 7 days ago.
+attend-save = { $n ->
+        [one] Save (1 change)
+       *[other] Save ({ $n } changes)
+    }
+attend-save-first = Up to 100 changes at a time: save these first.
+attend-load-failed = Couldn't load the list. Try again in a moment.
+attend-close = Close

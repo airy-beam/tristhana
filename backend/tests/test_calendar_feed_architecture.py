@@ -125,9 +125,11 @@ def test_member_windows_gains_a_moon_range() -> None:
     params = inspect.signature(ScheduleRepository.member_windows).parameters
 
     assert list(params) == [
-        "self", "me", "start", "end", "staff_only", "moon_city", "moon_end", "moon_start"
+        "self", "me", "start", "end", "staff_only", "moon_city", "moon_end", "moon_start",
+        "attendance",
     ]  # fmt: skip
     assert params["moon_end"].default is None
+    assert params["attendance"].default is True  # SC-05 review: the feed passes False
     assert params["moon_start"].default is None
 
 

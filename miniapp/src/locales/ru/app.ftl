@@ -854,3 +854,41 @@ ann-list-empty = За последние 30 дней объявлений нет
 ann-all = Все
 ann-send-to-me = { $source }: присылать объявления через бота
 settings-announcements = 📣 Объявления от учителей и шал
+
+## SC-05: посещение занятий (присутствие, не запись в журнале и не пропуск)
+attend-me-button = 🙋 Отметиться
+attend-state = { $s ->
+        [confirmed] ✅ подтверждено
+       *[claimed] 🙋 твоя отметка
+    }
+attend-remove-ask = Снять отметку?
+attend-remove-yes = Снять
+attend-claimed = { $state ->
+        [confirmed] ✅ Отмечено: { $what }.
+       *[claimed] 🙋 Отмечено: { $what }. Сотрудники шалы могут это подтвердить.
+    }
+attend-removed = Отметка снята.
+attend-log-day = 🧘 Записать этот день
+attend-failed = Не получилось сохранить отметку. Попробуй ещё раз чуть позже.
+attend-staff-open = 📋 Посещаемость · ✅ { $confirmed } · 🙋 { $claimed }
+attend-title = 📋 Посещаемость
+attend-roster-counts = ✅ { $confirmed } · { $claimed ->
+        [0] подтверждать нечего
+        [one] 🙋 { $claimed } ждёт подтверждения
+        [few] 🙋 { $claimed } ждут подтверждения
+       *[many] 🙋 { $claimed } ждут подтверждения
+    }
+attend-roster-hint = Отметь посещение галочкой. 🙋 — собственная отметка.
+attend-confirm-all = ✅ Подтвердить все 🙋 ({ $n })
+attend-staff-tag = сотрудник
+attend-search = Поиск по имени
+attend-empty = Список пока пуст. Ученики появятся здесь, когда присоединятся к шале.
+attend-not-open = Это занятие сейчас нельзя отметить: оно ещё не началось, отменено или было больше 7 дней назад.
+attend-save = { $n ->
+        [one] Сохранить ({ $n } изменение)
+        [few] Сохранить ({ $n } изменения)
+       *[many] Сохранить ({ $n } изменений)
+    }
+attend-save-first = За один раз — до 100 изменений: сначала сохрани эти.
+attend-load-failed = Не получилось загрузить список. Попробуй ещё раз чуть позже.
+attend-close = Закрыть

@@ -596,3 +596,31 @@ announcement = Table(
     ),
     Index("announcement_created_at_idx", "created_at"),
 )
+
+# SC-05 (ADR-0039): one row per (class, rule date, person), with a snapshot of the occurrence
+# so history survives rule edits; a deleted class leaves `class_id` NULL. Presence only: no
+# absence is ever stored, and nothing here links to a log. No `marked_by` (less personal data).
+class_attendance = Table(
+    "class_attendance",
+    metadata,
+    Column("id", Uuid(), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("class_id", Uuid(), ForeignKey(shala_class.c.id, ondelete="SET NULL")),
+    Column("occurrence_key", Date(), nullable=False),  # the rule date (ADR-0034)
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("state", Text(), nullable=False),
+    Column("class_type", Text(), nullable=False),
+    Column("on_date", Date(), nullable=False),  # where it took place, in the class zone
+    Column("starts_at", DateTime(timezone=True), nullable=False),
+    Column("zone", Text(), nullable=False),  # IANA, never an offset
+    _timestamp("created_at"),
+    _timestamp("updated_at"),
+    CheckConstraint("state IN ('claimed', 'confirmed')", name="state"),
+    CheckConstraint(f"class_type IN ({_CLASS_TYPES})", name="class_type"),
+    CheckConstraint("abs(on_date - occurrence_key) <= 12", name="on_date"),
+    UniqueConstraint(
+        "class_id", "occurrence_key", "account_id", name="class_attendance_occurrence_key"
+    ),
+    Index("class_attendance_shala_id_on_date_idx", "shala_id", "on_date"),
+    Index("class_attendance_account_id_on_date_idx", "account_id", "on_date"),
+)

@@ -146,6 +146,17 @@ def can_manage_schedule(actor: Membership | None) -> bool:
     )
 
 
+def can_claim_attendance(actor: Membership | None) -> bool:
+    """SC-05: any member marks "I was there" for themselves."""
+    return actor is not None
+
+
+def can_take_attendance(actor: Membership | None) -> bool:
+    """SC-05 (Q181): any staff seat marks who came and confirms claims; assistants run Mysore
+    rooms and the front desk checks people in. The roster is read on the same policy."""
+    return actor is not None and actor.staff
+
+
 def can_rotate_join_link(actor: Membership | None) -> bool:
     return _manages(actor)
 

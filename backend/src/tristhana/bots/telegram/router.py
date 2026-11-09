@@ -19,6 +19,7 @@ from tristhana.application.ports.i18n import Translator
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import days as day_screens
 from tristhana.bots.telegram.announcements import AnnouncementScreens, register_announcements
+from tristhana.bots.telegram.attendance import AttendanceScreens, register_attendance
 from tristhana.bots.telegram.calendar_feed import FeedScreens
 from tristhana.bots.telegram.classes import ScheduleScreens, register_classes
 from tristhana.bots.telegram.data import register_data
@@ -104,7 +105,13 @@ def build_router(
                 links.shalas.cities,
                 links.shalas.clock,
                 feed,
+                attendance=links.shalas.attendance is not None,  # SC-05
             )
+            if links.shalas.attendance is not None:
+                attendance = AttendanceScreens(
+                    links.shalas.attendance, translator, links.shalas.cities
+                )
+                register_attendance(router, attendance)
             register_classes(router, schedule)
     register_tour(router, start, translator, miniapp_url)
     entry = calendar is not None and calendar.available  # SC-06: "📅 Add to calendar" rows

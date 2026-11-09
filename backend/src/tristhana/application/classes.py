@@ -7,8 +7,8 @@ here reads a log: a class is never a log entry.
 """
 
 import datetime as _dt
-from dataclasses import dataclass, replace
-from datetime import date, timedelta
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
@@ -33,6 +33,7 @@ from tristhana.application.ports.storage import Clock
 from tristhana.application.rest_days import DayOffSaved, SetDayOff
 from tristhana.application.settings import caller_today
 from tristhana.domain.accounts import moon_follow_of
+from tristhana.domain.attendance import AttendanceState, Counts, attendable
 from tristhana.domain.classes import (
     CLOSURE_MAX,
     HORIZON,
@@ -111,6 +112,9 @@ class Schedule:
     staff: dict[UUID, str | None]  # teacher names by id
     manage: bool  # `can_manage_schedule`
     closures: tuple[Closure, ...] = ()  # those touching the window, for the Mini App's list
+    # SC-05: attendance counts per (class, rule date), for staff only (empty for a student).
+    counts: dict[tuple[UUID, date], Counts] = field(default_factory=dict[tuple[UUID, date], Counts])
+    staff_view: bool = False  # the caller is on the staff (counts apply, zero when absent)
 
 
 def _unwrap[T](guarded: Guarded[T]) -> T | None:
@@ -126,6 +130,18 @@ def _zone(cities: Cities, slug: str) -> str:
     if found is None:
         raise UnknownLocation(slug)
     return found.location.tz
+
+
+def zone_of(cities: Cities, slug: str) -> str:
+    """The IANA zone of a city slug (SC-05 reuses it for the class zone)."""
+    return _zone(cities, slug)
+
+
+def class_zone(window: ScheduleWindow, cities: Cities, class_id: UUID) -> str:
+    for c in window.classes:
+        if c.id == class_id:
+            return _zone(cities, c.city or window.city)
+    return _zone(cities, window.city)
 
 
 def _series(window: ScheduleWindow, cities: Cities | None) -> list[ClassSeries]:
@@ -170,13 +186,20 @@ def _expand(
     )
 
 
+def occurrences_of(
+    window: ScheduleWindow, cities: Cities, start: date, end: date
+) -> list[Occurrence]:
+    """The window's occurrences on [start, end] in their class zones (SC-05)."""
+    return _expand(window, cities, start, end)
+
+
 def _checked(draft: ClassDraft, cities: Cities) -> ClassDraft:
     """Raises `InvalidClass`, `UnknownLocation`."""
     if draft.city is not None:
         if not draft.online:
             raise InvalidClass("an offline class runs in the shala's zone")
         _zone(cities, draft.city)
-    title = (draft.title or "").strip() or None
+    title = " ".join((draft.title or "").split()) or None  # one line (SC-05 roster)
     draft = replace(draft, title=title, weekdays=frozenset(draft.weekdays))
     check_series(
         ClassSeries(
@@ -249,6 +272,8 @@ class GetSchedule:
             staff=dict(window.staff),
             manage=can_manage_schedule(window.me),
             closures=tuple(c for c in window.closures if c.end >= start and c.start <= end),
+            counts=dict(window.counts) if window.me.staff else {},
+            staff_view=window.me.staff,
         )
 
 
@@ -282,6 +307,9 @@ class MyRow:
     city: str  # the class's city slug
     role: Teaching | None
     my_teacher: bool  # one of my linked teachers teaches it that date, or is covered on it
+    attendance: AttendanceState | None = None  # SC-05: my own mark
+    can_claim: bool = False  # SC-05: started, not cancelled, within the last 7 days
+    counts: Counts | None = None  # SC-05: for staff of the row's shala
 
 
 @dataclass(frozen=True, slots=True)
@@ -322,10 +350,11 @@ def my_rows(
     end: date,
     me: UUID,
     only: Only,
+    now: datetime | None = None,
 ) -> tuple[list[MyRow], list[ShalaRef], dict[UUID, dict[UUID, str | None]]]:
     """The rows of my shalas whose instant falls on [first, end] in `zone`, sorted by instant;
     the shalas (staff first, then by name) and their staff names. Shared by My schedule and
-    the calendar feed (SC-06)."""
+    the calendar feed (SC-06). `now` (SC-05) fills `can_claim`."""
     rows: list[MyRow] = []
     refs: list[ShalaRef] = []
     names: dict[UUID, dict[UUID, str | None]] = {}
@@ -340,7 +369,19 @@ def my_rows(
             mine = o.teacher_id in found.teachers or (
                 o.substitute and o.planned_teacher in found.teachers
             )
-            row = MyRow(w.shala_id, o, zones[o.class_id], slugs[o.class_id], _role(o, me), mine)
+            k = (o.class_id, o.key)
+            here = zones[o.class_id]
+            row = MyRow(
+                w.shala_id,
+                o,
+                here,
+                slugs[o.class_id],
+                _role(o, me),
+                mine,
+                attendance=w.mine.get(k),
+                can_claim=now is not None and attendable(o, here, now),
+                counts=w.counts.get(k, Counts(0, 0)) if w.me.staff else None,
+            )
             if only is Only.TEACHERS and not row.my_teacher:
                 continue
             if only is Only.MINE and row.role is None:
@@ -384,7 +425,7 @@ class GetMySchedule:
         today = local_today(now, zone)
         first = _first(start, skip, today)
         end = first + timedelta(days=days - 1)
-        rows, refs, names = my_rows(found, self._cities, zone, first, end, me, only)
+        rows, refs, names = my_rows(found, self._cities, zone, first, end, me, only, now)
         return MySchedule(
             zone=zone,
             zone_known=known is not None,

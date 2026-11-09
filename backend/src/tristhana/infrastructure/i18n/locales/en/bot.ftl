@@ -754,6 +754,7 @@ shala-join-consent =
     • The shala's teachers and staff see your name{ $me }. Nothing from your log.
     • The shala's staff can send announcements to members through the bot. You can mute them.
     • Your moon days follow the shala's calendar, unless you've chosen a city, or your teacher has. If your teacher teaches here, the shala's calendar comes first.
+    • The shala's staff can mark that you came to a class, and so can you. You see these marks and can remove them any time.
     • You can leave any time in /teachers. No one gets a message.
 shala-know-them = Join only a shala you know: anyone can create one with any name.
 shala-join-yes = ✅ Join
@@ -763,6 +764,7 @@ shala-staff-consent =
     • Everyone in the shala, students included, sees your name{ $me } and role.
     • You'll see the names of its students and staff, not their logs.
     • The shala's announcements come to you through the bot too. You can mute them.
+    • You can mark who came to its classes.
     • You can leave any time in /teachers.
 shala-staff-yes = ✅ Confirm
 shala-staff-joined = 🏛 { $name } joined { $shala } as { $role }.
@@ -944,3 +946,38 @@ ann-list-empty = No announcements in the last 30 days.
 ann-item = 📅 { $date } · { $name }
 ann-pinned-until = 📌 Pinned until { $date }
 ann-announce = 📣 Announce
+
+## SC-05: class attendance (presence only; never a log entry, never an absence)
+attend-me-open = 🙋 I was there…
+attend-me-title = 🙋 Mark a class you came to (today and the 6 days before)
+attend-me-none = No classes to mark in the last 7 days.
+attend-claimed = { $state ->
+        [confirmed] ✅ Marked: { $what }.
+       *[claimed] 🙋 Marked: { $what }. The shala's staff can confirm it.
+    }
+attend-removed = Mark removed: { $what }.
+attend-state = { $s ->
+        [confirmed] ✅ confirmed
+       *[claimed] 🙋 your mark
+    }
+# My schedule: a row I marked (SC-05), after the row text.
+attend-row-mark = { $state ->
+        [confirmed] · ✅
+       *[claimed] · 🙋
+    }
+attend-log-day = 🧘 Log this day
+attend-staff-open = 📋 Attendance…
+attend-roster-title = 📋 { $class } · { $day }, { $time }
+attend-staff-pick = 📋 Which class? Last 7 days.
+attend-staff-none = No classes in the last 7 days.
+attend-row-counts = ✅ { $confirmed } · 🙋 { $claimed }
+attend-roster-counts = ✅ { $confirmed } · { $claimed ->
+        [0] nothing to confirm
+        [one] 🙋 1 to confirm
+       *[other] 🙋 { $claimed } to confirm
+    }
+attend-roster-hint = Tap a name to mark who came. 🙋 = their own mark.
+attend-confirm-all = ✅ Confirm all 🙋 ({ $n })
+attend-staff-tag = · staff
+attend-empty = No one on the list yet. Students appear here once they join the shala.
+attend-not-open = This class can't be marked now: it hasn't started, it was cancelled, or it was more than 7 days ago.

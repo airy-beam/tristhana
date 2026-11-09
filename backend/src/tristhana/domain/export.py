@@ -138,6 +138,19 @@ class ExportShala:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportAttendance:
+    """One of my own class marks (SC-05, Q193): the snapshot and the shala's name, never who
+    marked it or anyone else's row."""
+
+    shala: str
+    class_type: str
+    on: date  # in the class zone
+    starts_at: datetime  # UTC
+    zone: str
+    state: str  # claimed | confirmed
+
+
+@dataclass(frozen=True, slots=True)
 class ExportAnnouncement:
     """One I sent (NT-03): received ones are someone else's text and aren't exported."""
 
@@ -171,6 +184,7 @@ class Snapshot:
     links: tuple[ExportLink, ...] = ()
     shalas: tuple[ExportShala, ...] = ()
     announcements: tuple[ExportAnnouncement, ...] = ()  # NT-03: sent by me, oldest first
+    attendance: tuple[ExportAttendance, ...] = ()  # SC-05: my own marks, oldest first
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,6 +307,17 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
                 "pinned_until": _instant(a.pinned_until) if a.pinned_until else None,
             }
             for a in s.announcements
+        ],
+        "class_attendance": [
+            {
+                "shala": a.shala,
+                "class_type": a.class_type,
+                "date": a.on.isoformat(),
+                "starts_at": _instant(a.starts_at),
+                "zone": a.zone,
+                "state": a.state,
+            }
+            for a in s.attendance
         ],
     }
 

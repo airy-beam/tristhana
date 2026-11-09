@@ -50,6 +50,8 @@ type ErrorCode = Literal[
     "account_deleted",
     "announcement_limit",
     "invalid_announcement",
+    "not_attendable",
+    "invalid_attendance",
     "unavailable",
 ]
 

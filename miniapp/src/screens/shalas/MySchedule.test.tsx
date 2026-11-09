@@ -50,6 +50,9 @@ const row = (over: Partial<MyRow> = {}): MyRow => ({
   role: null,
   my_teacher: true,
   planned: "06:00",
+  attendance: null,
+  can_claim: false,
+  attendance_counts: null,
   ...over,
 });
 

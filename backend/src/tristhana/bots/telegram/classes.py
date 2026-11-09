@@ -32,6 +32,7 @@ from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.storage import Clock
 from tristhana.bots.telegram import classes_callbacks as cb
 from tristhana.bots.telegram import settings_callbacks, shalas_callbacks
+from tristhana.bots.telegram.attendance import entry_buttons, staff_button
 from tristhana.bots.telegram.calendar_feed import entry_button
 from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show, zone_label
 from tristhana.domain.accounts import Account
@@ -80,8 +81,10 @@ class ScheduleScreens:
         cities: Cities,
         clock: Clock,
         feed: "FeedScreens | None" = None,
+        attendance: bool = False,  # SC-05 is wired: the entry buttons and row marks show
     ) -> None:
         self._feed = feed
+        self._attendance = attendance
         self._c = classes
         self._clock = clock
         self._shalas = shalas
@@ -228,6 +231,8 @@ class ScheduleScreens:
         rows: list[list[InlineKeyboardButton]] = [nav] if nav else []
         if s.manage:
             rows.append([self._button(locale, "class-cancel-pick", cb.pick(s.shala_id))])
+        if self._attendance and s.staff_view:  # SC-05
+            rows.append([staff_button(self._t, locale)])
         back = shalas_callbacks.on_shala("c", s.shala_id)
         rows.append([self._button(locale, "log-back", back)])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
@@ -362,6 +367,8 @@ class ScheduleScreens:
             text += " · " + self._t.t(
                 locale, "schedule-swapped-from", day=self._day(locale, o.swapped_from)
             )
+        if r.attendance is not None:  # SC-05: my own mark
+            text += " " + self._t.t(locale, "attend-row-mark", state=r.attendance.value)
         return self._marked(locale, o, text)
 
     def _my_buttons(
@@ -395,6 +402,8 @@ class ScheduleScreens:
             InlineKeyboardButton(text=x.name, callback_data=cb.week(x.id, 0)) for x in s.shalas
         ]
         rows += [shalas[i : i + 2] for i in range(0, len(shalas), 2)]
+        if self._attendance:  # SC-05
+            rows.append(entry_buttons(self._t, locale, s.is_staff))
         if not s.zone_known:
             city = settings_callbacks.encode(settings_callbacks.SettingsCallback("cities"))
             rows.append([self._button(locale, "settings-city-button", city)])

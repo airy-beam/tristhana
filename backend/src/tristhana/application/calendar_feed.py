@@ -120,6 +120,7 @@ class GetCalendarFeed:
             moon_city=follow.city.slug,
             moon_end=today + timedelta(days=FeedWindow.MOON_AHEAD),
             moon_start=today - timedelta(days=FeedWindow.MOON_BACK),
+            attendance=False,  # SC-05 marks and counts are not in the feed
         )
         bound = _expansion_end(found, first, end)
         rows, refs, names = my_rows(found, self._cities, "UTC", first, bound, account.id, Only.ALL)

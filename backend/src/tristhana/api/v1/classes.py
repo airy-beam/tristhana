@@ -29,6 +29,7 @@ from tristhana.application.policies import NotAllowed, NotFound, Principal
 from tristhana.application.ports.classes import ClassDraft, StoredClass
 from tristhana.application.ports.shalas import CapReached
 from tristhana.application.shalas import ShalaUseCases
+from tristhana.domain.attendance import Counts
 from tristhana.domain.classes import (
     TITLE_MAX,
     WINDOW_MAX,
@@ -91,11 +92,19 @@ class OccurrenceOut(BaseModel):
     usual_teacher: ClassTeacherOut | None = Field(description="The class's own teacher")
 
 
+class AttendanceCountsOut(BaseModel):
+    confirmed: int
+    claimed: int = Field(description="🙋 marks waiting for staff to confirm")
+
+
 class ScheduleOccurrenceOut(OccurrenceOut):
     moon: bool = Field(description="On a moon date of its shala's calendar, whatever the policy")
     swapped_to: date | None = Field(
         description="Cancelled here, held on this date instead (My schedule only; null on a"
         " shala's schedule, whose day rows name the swap)"
+    )
+    attendance_counts: AttendanceCountsOut | None = Field(
+        default=None, description="SC-05: for the shala's staff only; null for a student"
     )
 
 
@@ -131,6 +140,12 @@ class MyRowOut(ScheduleOccurrenceOut):
     role: Literal["teaching", "covering", "covered"] | None
     my_teacher: bool = Field(description="One of my linked teachers teaches it, or is covered")
     planned: str | None = Field(description='HH:MM: the rule\'s start, for "moved from …"')
+    attendance: Literal["claimed", "confirmed"] | None = Field(
+        default=None, description="SC-05: my own mark on this occurrence"
+    )
+    can_claim: bool = Field(
+        default=False, description="SC-05: started, not cancelled, within the last 7 days"
+    )
 
 
 class MyDayOut(BaseModel):
@@ -273,9 +288,17 @@ def _teacher(staff: Mapping[UUID, str | None], id: UUID | None) -> ClassTeacherO
     return None if id is None else ClassTeacherOut(id=id, name=staff.get(id))
 
 
+def _counts(c: Counts | None) -> AttendanceCountsOut | None:
+    return None if c is None else AttendanceCountsOut(confirmed=c.confirmed, claimed=c.claimed)
+
+
 def _occurrence(s: Schedule, o: Occurrence) -> ScheduleOccurrenceOut:
+    counts = s.counts.get((o.class_id, o.key), Counts(0, 0)) if s.staff_view else None
     return ScheduleOccurrenceOut(
-        **_occurrence_fields(s.staff, o), moon=o.moon, swapped_to=o.swapped_to
+        **_occurrence_fields(s.staff, o),
+        moon=o.moon,
+        swapped_to=o.swapped_to,
+        attendance_counts=_counts(counts),
     )
 
 
@@ -295,6 +318,9 @@ def _my_row(s: MySchedule, r: MyRow) -> MyRowOut:
         role=None if r.role is None else r.role.value,
         my_teacher=r.my_teacher,
         planned=None if o.planned is None else _hm(o.planned),
+        attendance=None if r.attendance is None else r.attendance.value,
+        can_claim=r.can_claim,
+        attendance_counts=_counts(r.counts),
     )
 
 

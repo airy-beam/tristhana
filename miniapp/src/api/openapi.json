@@ -110,6 +110,54 @@
         "title": "AnnouncementOut",
         "type": "object"
       },
+      "AttendanceCountsOut": {
+        "properties": {
+          "claimed": {
+            "description": "🙋 marks waiting for staff to confirm",
+            "title": "Claimed",
+            "type": "integer"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "confirmed",
+          "claimed"
+        ],
+        "title": "AttendanceCountsOut",
+        "type": "object"
+      },
+      "AttendanceIn": {
+        "properties": {
+          "confirm_claims": {
+            "default": false,
+            "title": "Confirm Claims",
+            "type": "boolean"
+          },
+          "present": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Present",
+            "type": "array"
+          },
+          "removed": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Removed",
+            "type": "array"
+          }
+        },
+        "title": "AttendanceIn",
+        "type": "object"
+      },
       "AutoDayOut": {
         "description": "An unlogged day shown as rest (PR-09, ADR-0022): never stored, a log always wins.",
         "properties": {
@@ -1515,6 +1563,8 @@
           "account_deleted",
           "announcement_limit",
           "invalid_announcement",
+          "not_attendable",
+          "invalid_attendance",
           "unavailable"
         ],
         "type": "string"
@@ -2774,8 +2824,78 @@
         "title": "MyDayOut",
         "type": "object"
       },
+      "MyMarkOut": {
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "day": {
+            "description": "My local date of the class instant (the day to log)",
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "key": {
+            "format": "date",
+            "title": "Key",
+            "type": "string"
+          },
+          "log_day": {
+            "description": "Offer \"Log this day\" (not after Conference or Chanting)",
+            "title": "Log Day",
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/State"
+          }
+        },
+        "required": [
+          "class_id",
+          "key",
+          "state",
+          "day",
+          "log_day"
+        ],
+        "title": "MyMarkOut",
+        "type": "object"
+      },
       "MyRowOut": {
         "properties": {
+          "attendance": {
+            "anyOf": [
+              {
+                "enum": [
+                  "claimed",
+                  "confirmed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SC-05: my own mark on this occurrence",
+            "title": "Attendance"
+          },
+          "attendance_counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceCountsOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SC-05: for the shala's staff only; null for a student"
+          },
+          "can_claim": {
+            "default": false,
+            "description": "SC-05: started, not cancelled, within the last 7 days",
+            "title": "Can Claim",
+            "type": "boolean"
+          },
           "cancelled": {
             "anyOf": [
               {
@@ -4045,6 +4165,170 @@
         ],
         "type": "string"
       },
+      "RosterOccurrenceOut": {
+        "properties": {
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "boolean"
+          },
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "key": {
+            "format": "date",
+            "title": "Key",
+            "type": "string"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "start": {
+            "description": "HH:MM in the class zone",
+            "title": "Start",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ClassTypeName"
+          },
+          "zone": {
+            "description": "The class's IANA zone",
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "on",
+          "start",
+          "end",
+          "starts_at",
+          "zone",
+          "city",
+          "type",
+          "title",
+          "cancelled"
+        ],
+        "title": "RosterOccurrenceOut",
+        "type": "object"
+      },
+      "RosterOut": {
+        "properties": {
+          "attendable": {
+            "description": "False: read-only (not started, cancelled, > 7 days)",
+            "title": "Attendable",
+            "type": "boolean"
+          },
+          "claimed": {
+            "title": "Claimed",
+            "type": "integer"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "integer"
+          },
+          "more": {
+            "title": "More",
+            "type": "boolean"
+          },
+          "occurrence": {
+            "$ref": "#/components/schemas/RosterOccurrenceOut"
+          },
+          "people": {
+            "description": "Claims first, then regulars, then names",
+            "items": {
+              "$ref": "#/components/schemas/RosterPersonOut"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "shala_id": {
+            "format": "uuid",
+            "title": "Shala Id",
+            "type": "string"
+          },
+          "shala_name": {
+            "title": "Shala Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shala_id",
+          "shala_name",
+          "occurrence",
+          "attendable",
+          "confirmed",
+          "claimed",
+          "people",
+          "more"
+        ],
+        "title": "RosterOut",
+        "type": "object"
+      },
+      "RosterPersonOut": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "staff": {
+            "title": "Staff",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/State"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "account_id",
+          "name",
+          "state",
+          "staff"
+        ],
+        "title": "RosterPersonOut",
+        "type": "object"
+      },
       "Runs": {
         "properties": {
           "current": {
@@ -4113,6 +4397,17 @@
       },
       "ScheduleOccurrenceOut": {
         "properties": {
+          "attendance_counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttendanceCountsOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SC-05: for the shala's staff only; null for a student"
+          },
           "cancelled": {
             "anyOf": [
               {
@@ -5062,6 +5357,13 @@
         ],
         "title": "StartBody",
         "type": "object"
+      },
+      "State": {
+        "enum": [
+          "claimed",
+          "confirmed"
+        ],
+        "type": "string"
       },
       "StatsOut": {
         "properties": {
@@ -6307,6 +6609,175 @@
         "summary": "Patch Announcement",
         "tags": [
           "announcements"
+        ]
+      }
+    },
+    "/api/v1/me/attendance/{class_id}/{key}": {
+      "delete": {
+        "description": "Removes my own mark, confirmed or not; idempotent.",
+        "operationId": "remove_my_attendance_api_v1_me_attendance__class_id___key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Remove My Attendance",
+        "tags": [
+          "attendance"
+        ]
+      },
+      "put": {
+        "description": "🙋 I was there: a member marks a started class of the last 7 days (staff: confirmed).",
+        "operationId": "claim_attendance_api_v1_me_attendance__class_id___key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMarkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Claim Attendance",
+        "tags": [
+          "attendance"
         ]
       }
     },
@@ -10137,6 +10608,283 @@
         "summary": "Put Occurrence",
         "tags": [
           "classes"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}/attendance": {
+      "get": {
+        "description": "Staff only (any seat): the roster of one occurrence.",
+        "operationId": "get_attendance_api_v1_shalas__id__classes__class_id__occurrences__key__attendance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Attendance",
+        "tags": [
+          "attendance"
+        ]
+      },
+      "patch": {
+        "description": "Deltas: `present` → confirmed, `removed` → unmarked, `confirm_claims` → every 🙋.",
+        "operationId": "mark_attendance_api_v1_shalas__id__classes__class_id__occurrences__key__attendance_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceCountsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Mark Attendance",
+        "tags": [
+          "attendance"
         ]
       }
     },

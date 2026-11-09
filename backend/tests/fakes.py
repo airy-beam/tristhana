@@ -1039,6 +1039,7 @@ class InMemoryStorage:
     schedule_repo: Any = None  # SC-02: tests/schedule_fakes.py, loaded on first use
     feed_repo: Any = None  # SC-06: tests/calendar_feed_fakes.py, loaded on first use
     announcement_repo: Any = None  # NT-03: tests/announcement_fakes.py, loaded on first use
+    attendance_repo: Any = None  # SC-05: tests/attendance_fakes.py, loaded on first use
     # PR-08 Phase 3: a test may hand in a progression repo (tests/teacher_mark_fakes.py).
     progression_repo: Any = None
 
@@ -1160,6 +1161,14 @@ class InMemoryStorage:
 
             self.announcement_repo = InMemoryAnnouncements(FixedClock())
         return self.announcement_repo
+
+    @property
+    def attendance(self) -> Any:  # SC-05
+        if self.attendance_repo is None:
+            from tests.attendance_fakes import InMemoryAttendance
+
+            self.attendance_repo = InMemoryAttendance(self.schedule)
+        return self.attendance_repo
 
 
 def day_use_cases(repo: InMemoryDays | None = None, clock: FixedClock | None = None) -> DayUseCases:
