@@ -4,6 +4,7 @@ from typing import Protocol
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.announcements import AnnouncementRepository
 from tristhana.application.ports.attendance import AttendanceRepository
+from tristhana.application.ports.badges import BadgeFactsRepository
 from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ScheduleRepository
@@ -93,6 +94,9 @@ class Storage(Protocol):
 
     @property
     def share_cards(self) -> ShareCardRepository: ...
+
+    @property
+    def badges(self) -> BadgeFactsRepository: ...
 
 
 class Clock(Protocol):

@@ -168,6 +168,7 @@ remind-weekday = { $d ->
 ## Stats (ST-01..03). Runs say "in a row", never "streak"/"broken"/"missed".
 stats-open = 📊 My practice
 stats-title = My practice
+badges-open = 🏅 Badges
 stats-year-total = { $n ->
         [one] { $n } practice in { $year }
        *[other] { $n } practices in { $year }

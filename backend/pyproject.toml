@@ -365,3 +365,22 @@ forbidden_modules = [
     "tristhana.application.ports.diary",
     "tristhana.application.ports.check_in",
 ]
+
+[[tool.importlinter.contracts]]
+name = "Badges read no attendance and hold no key (GM-02, ADR-0041)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain.badges",
+    "tristhana.application.badges",
+    "tristhana.application.ports.badges",
+    "tristhana.infrastructure.db.badges",
+    "tristhana.api.v1.badges",
+]
+forbidden_modules = [
+    "tristhana.domain.attendance",
+    "tristhana.application.attendance",
+    "tristhana.application.ports.attendance",
+    "tristhana.infrastructure.db.attendance",
+    "tristhana.infrastructure.crypto",
+]

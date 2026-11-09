@@ -8,6 +8,7 @@ from tristhana.api import initdata
 from tristhana.api.errors import ApiError
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
 from tristhana.application.announcements import AnnouncementUseCases
+from tristhana.application.badges import GetBadges
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, SaveDiaryNote
@@ -71,6 +72,10 @@ def record_device_timezone(request: Request) -> RecordDeviceTimezone:
 
 def year_stats(request: Request) -> "GetYearStats":
     return cast("GetYearStats", request.app.state.year_stats)
+
+
+def get_badges(request: Request) -> GetBadges:
+    return cast(GetBadges, request.app.state.badges)
 
 
 def get_days(request: Request) -> GetDays:

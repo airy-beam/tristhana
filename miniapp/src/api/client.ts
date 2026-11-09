@@ -51,6 +51,9 @@ api.use({
 
 export type Health = components["schemas"]["Health"];
 export type Me = components["schemas"]["Me"];
+// GM-02: fetched inside the lazy Badges chunk (screens/badges), so no hook here.
+export type Badge = components["schemas"]["BadgeOut"];
+export type Badges = components["schemas"]["BadgesOut"];
 export type ErrorCode = components["schemas"]["ErrorCode"];
 
 /** A non-2xx answer from the API, with the stable `code` when the body has one. */
@@ -65,7 +68,7 @@ export class ApiError extends Error {
   }
 }
 
-function fail(response: Response, error: unknown): never {
+export function fail(response: Response, error: unknown): never {
   const body = error !== null && typeof error === "object" ? error : {};
   const code = "code" in body ? (body.code as ErrorCode) : null;
   if (code === "account_deleted") markAccountDeleted(); // deleted elsewhere (the bot)

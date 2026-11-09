@@ -37,6 +37,7 @@ from tristhana.application.attendance import (
     MarkAttendance,
     RemoveMyAttendance,
 )
+from tristhana.application.badges import GetBadges
 from tristhana.application.calendar_feed import (
     CalendarFeedUseCases,
     CreateFeedLink,
@@ -173,6 +174,7 @@ from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.infrastructure.invite_codes import SecretCodes, SecretTokens, ShareCardTokens
 from tristhana.infrastructure.moon_calc import GeneratorMoonCalculator
 from tristhana.infrastructure.qr import SegnoQrCodes
+from tristhana.infrastructure.seed.badges_yaml import check_badges, parse_badges
 from tristhana.infrastructure.seed.cities_yaml import load_cities
 from tristhana.infrastructure.seed.milestones_yaml import load_milestones
 from tristhana.infrastructure.seed.practice_catalog import load_practice_catalog
@@ -285,12 +287,13 @@ class _Services:
         # The aiogram import and the catalog parse (CPU, in threads) overlap the DB warm-up's
         # network wait.
         seed = self._settings.seed_dir
-        _, _, loaded, cities, counts = await asyncio.gather(
+        _, _, loaded, cities, counts, badge_defs = await asyncio.gather(
             self._storage.start(),
             self._bot.preimport(),
             asyncio.to_thread(load_practice_catalog, seed),
             asyncio.to_thread(load_cities, seed / "cities.yaml"),
             asyncio.to_thread(load_milestones, seed / "milestones.yaml"),
+            asyncio.to_thread(parse_badges, seed / "badges.yaml"),
         )
         clock = SystemClock()
         translator = FluentTranslator()
@@ -366,6 +369,13 @@ class _Services:
         app.state.moon, app.state.cities = moon, cities
         app.state.year_stats = GetYearStats(
             self._storage.days, self._storage.moon, cities, loaded.catalog, clock
+        )
+        app.state.badges = GetBadges(  # GM-02: checked against the catalog at startup
+            self._storage.badges,
+            check_badges(seed / "badges.yaml", badge_defs, track),
+            track,
+            cities,
+            clock,
         )
         notification_settings = NotificationSettingsUseCase(self._storage.notifications, clock)
         app.state.notification_settings = notification_settings

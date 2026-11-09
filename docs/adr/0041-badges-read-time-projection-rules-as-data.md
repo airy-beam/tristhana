@@ -1,0 +1,21 @@
+# ADR-0041: Badges are a read-time projection of existing data; definitions are seed data over a closed set of rule kinds
+- Status: Accepted (owner, 2026-11-09)
+- Date: 2026-11-09
+## Context
+GM-02 adds a persistent badge collection (spec `docs/specs/GM-02-badges.md`). Everything a first set needs is already stored: practised days and their practice details (`day_log`, `practice`: context, start time), the GM-01 seen ledger (`practice_milestone`, ADR-0028), the append-only progression history (`progression_event`, ADR-0026) and the stored moon calendars (ADR-0019, resolved per MD-02, ADR-0032). ADR-0028 suggested GM-02 might reuse its ledger pattern. A ledger would keep a badge after edits and give a fixed "first seen" date, but it needs either work on the day write (the hottest path, one statement per tap, < 300 ms p50) or a write during a read, plus a migration, an export section and seeding for existing users. GM-01 already covers the moments worth a 🎉; badges are something to look back at, not a second celebration.
+## Decision
+- **No badge table.** `GET /api/v1/me/badges` reads the facts in **one statement** (logged dates with their plain status, rest-period date ranges, the effective moon dates, Led / self-practice / early-start dates, the GM-01 ledger thresholds, position and item events; sealed columns never selected) and a pure function `domain/badges.py: earned(defs, facts, track, off, joined, today)` (reusing PR-09 `auto_days`, so every rest kind incl. auto-rest is one set and 🌸 is indistinguishable) decides which badges show and the date of each, recomputed on every read. Nothing is written, nothing touches the day write.
+- **Keeping rule:** a badge follows the data it comes from. Asana badges come from the append-only history, so a ✏️ Change down (an injury, a teacher stepping back) keeps them; only Undo, which says "that didn't happen", removes one. A quick correction (a ✏️ Change below the stop the same day, or before any practice was logged after the give; owner, 2026-11-09) counts as a mis-tap and gives no badge. Practice-count badges for thresholds in the GM-01 ledger stay even if days are cleared. Other day-based badges follow the log: clearing days can quietly remove one. Nothing ever announces a loss.
+- **Definitions are data:** `data/seed/badges.yaml` (loaded at startup, strict, cross-checked against the catalog, ADR-0017 pattern) lists the badges, their order, group, icon and parameters. Each badge uses one of a **closed set of rule kinds** in code (`practices`, `run`, `context`, `early_start`, `moon_rest`, `return`, `series_complete`, `series_begins`, `stop`, `item`). A new badge on an existing kind is a data change plus Fluent copy; a new kind is code.
+- **Earn-time delivery: none.** No bot line, no push, no 🎉. The Mini App marks badges it hasn't shown before with a device-local "new" pill.
+## Consequences
+- Zero cost on every write path; no migration, no seed or backfill, nothing to export or cascade (export Q in the spec).
+- Dates are true to the log ("the 108th practice was on …"), and they move if earlier days are backfilled or cleared.
+- A correction can make a day-based badge disappear (accepted; tone: no message, no "lost").
+- A future earn-time note (bot line or push) would need a "seen" ledger after all; revisit then (supersede this ADR).
+- Read cost grows with history: one per-account aggregate over ≤ ~9 000 days and ≤ hundreds of events, then O(n) in memory. The DB test asserts the statement < 30 ms on a 9 000-day account.
+## Alternatives considered
+- **A `badge` ledger written in the day write** (ADR-0028 style CTEs): Mandala (a 40-practice run over rest and auto-rest days), Return and the context badges need more than a count, which turns the hot statement into several aggregates on every 🧘 tap. Practice details (context, start time) are saved by a different write, so a second hook would be needed too.
+- **A ledger latched on read** (GET inserts newly derived badges): keeps badges forever, but turns a GET into a write, needs a migration and export, and would latch a mis-tapped asana give that was later undone.
+- **Hard-coded badge list in Python:** against "data, not code" and the seed pattern; the set is expected to grow.
+- **A generic rule DSL in YAML:** too much for ten rule kinds; harder to validate and test.

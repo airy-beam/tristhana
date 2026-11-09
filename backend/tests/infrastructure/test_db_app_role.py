@@ -287,3 +287,17 @@ async def test_teacher_marks_work_as_the_app_role(app_engine: AsyncEngine) -> No
     assert view.progression is not None
     assert view.progression.position == navasana
     assert view.progression.items == items
+
+
+async def test_the_badge_facts_read_works_as_the_app_role(app_engine: AsyncEngine) -> None:
+    """GM-02: the one statement over the log, practice, periods, moon, ledger and events."""
+    from tristhana.infrastructure.db.badges import SqlBadgeFactsRepository
+
+    me = await _account(app_engine)
+    await SqlDayLogRepository(app_engine, FieldCipher(KEYS)).upsert(
+        me, DayLog(ON, DayStatus.LADIES), "Asia/Almaty"
+    )
+
+    facts = await SqlBadgeFactsRepository(app_engine).facts(me, "mysuru", ON)
+
+    assert facts.logged == {ON: DayStatus.REST}

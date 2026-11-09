@@ -1076,6 +1076,7 @@ class InMemoryStorage:
     announcement_repo: Any = None  # NT-03: tests/announcement_fakes.py, loaded on first use
     attendance_repo: Any = None  # SC-05: tests/attendance_fakes.py, loaded on first use
     share_card_repo: Any = None  # ST-07: tests/share_card_fakes.py, loaded on first use
+    badge_repo: Any = None  # GM-02: tests/badge_fakes.py, loaded on first use
     # PR-08 Phase 3: a test may hand in a progression repo (tests/teacher_mark_fakes.py).
     progression_repo: Any = None
 
@@ -1205,6 +1206,14 @@ class InMemoryStorage:
 
             self.share_card_repo = InMemoryShareCards(accounts=self.repo)
         return self.share_card_repo
+
+    @property
+    def badges(self) -> Any:  # GM-02
+        if self.badge_repo is None:
+            from tests.badge_fakes import InMemoryBadgeFacts
+
+            self.badge_repo = InMemoryBadgeFacts()
+        return self.badge_repo
 
     @property
     def attendance(self) -> Any:  # SC-05

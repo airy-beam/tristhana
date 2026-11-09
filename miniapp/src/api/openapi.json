@@ -212,6 +212,148 @@
         "title": "AutoKind",
         "type": "string"
       },
+      "BadgeOut": {
+        "properties": {
+          "at_record_start": {
+            "description": "An asana held when the record began",
+            "title": "At Record Start",
+            "type": "boolean"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Before dawn: the local wall-clock threshold, HH:MM",
+            "title": "Before"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For the copy: practices, Led, moon days…",
+            "title": "Count"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Return: days with no practice before it",
+            "title": "Days"
+          },
+          "earned_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The date it came from; null = a practice count kept by the GM-01 ledger",
+            "title": "Earned On"
+          },
+          "group": {
+            "enum": [
+              "practice",
+              "asanas"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
+          "icon": {
+            "title": "Icon",
+            "type": "string"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Milestone item key (label: `milestone-label`)",
+            "title": "Item"
+          },
+          "key": {
+            "description": "Fluent `badge-<key>`; an unknown key is skipped by the client",
+            "title": "Key",
+            "type": "string"
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Series slug (series and stop badges)",
+            "title": "Series"
+          },
+          "stop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stop key in `series` (stop badges)",
+            "title": "Stop"
+          }
+        },
+        "required": [
+          "key",
+          "group",
+          "icon",
+          "earned_on",
+          "at_record_start",
+          "count",
+          "days",
+          "before",
+          "series",
+          "stop",
+          "item"
+        ],
+        "title": "BadgeOut",
+        "type": "object"
+      },
+      "BadgesOut": {
+        "properties": {
+          "badges": {
+            "items": {
+              "$ref": "#/components/schemas/BadgeOut"
+            },
+            "title": "Badges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "badges"
+        ],
+        "title": "BadgesOut",
+        "type": "object"
+      },
       "CalendarFeedOut": {
         "properties": {
           "available": {
@@ -7101,6 +7243,53 @@
         "summary": "Claim Attendance",
         "tags": [
           "attendance"
+        ]
+      }
+    },
+    "/api/v1/me/badges": {
+      "get": {
+        "description": "Owner only (teachers and shalas never see badges). Derived on every read: nothing is\nstored, and a badge follows the data it comes from.",
+        "operationId": "get_my_badges_api_v1_me_badges_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadgesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get My Badges",
+        "tags": [
+          "badges"
         ]
       }
     },
