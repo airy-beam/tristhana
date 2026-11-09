@@ -874,3 +874,24 @@ attend-save = { $n ->
 attend-save-first = Up to 100 changes at a time: save these first.
 attend-load-failed = Couldn't load the list. Try again in a moment.
 attend-close = Close
+
+## ST-07: share cards
+share-open = Share
+share-title = Share a card
+share-close = ✕
+    .aria-label = Close
+share-format-story = Story
+share-format-square = Square
+share-preview-alt = Card preview
+share-loading = Drawing the card…
+share-failed = Couldn't make the card. Try again a bit later.
+share-rate-limited = That's a lot of cards today. Try again tomorrow.
+share-privacy-note = The card shows your practice days: no name, notes or reasons for rest.
+share-to-story = Share to story
+share-save = Save image
+share-saved = ✓ Saved
+share-send-chat = Send to my chat
+share-sent = ✓ Sent to your chat
+share-send-unreachable = The bot can't write to you yet. Open @tristhana_bot, tap Start, then try again.
+share-story-caption = My practice · @tristhana_bot
+share-entry = Share: { $entry }

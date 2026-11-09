@@ -892,3 +892,24 @@ attend-save = { $n ->
 attend-save-first = За один раз — до 100 изменений: сначала сохрани эти.
 attend-load-failed = Не получилось загрузить список. Попробуй ещё раз чуть позже.
 attend-close = Закрыть
+
+## ST-07: карточки, чтобы поделиться
+share-open = Поделиться
+share-title = Поделиться карточкой
+share-close = ✕
+    .aria-label = Закрыть
+share-format-story = История
+share-format-square = Квадрат
+share-preview-alt = Предпросмотр карточки
+share-loading = Рисую карточку…
+share-failed = Не получилось сделать карточку. Попробуй чуть позже.
+share-rate-limited = Сегодня карточек уже много. Попробуй завтра.
+share-privacy-note = На карточке — дни практики: без имени, заметок и причин отдыха.
+share-to-story = В историю
+share-save = Сохранить картинку
+share-saved = ✓ Сохранено
+share-send-chat = Прислать в чат
+share-sent = ✓ Отправлено в чат
+share-send-unreachable = Бот пока не может тебе написать. Открой @tristhana_bot, нажми «Старт» и попробуй ещё раз.
+share-story-caption = Моя практика · @tristhana_bot
+share-entry = Поделиться: { $entry }

@@ -405,3 +405,34 @@ describe("Stats auto-rest and the day-off question (PR-09)", () => {
     expect(screen.getByText(/Nothing logged this month yet/)).toBeInTheDocument();
   });
 });
+
+describe("Share cards (ST-07)", () => {
+  it("offers Share for the year and a month with practice, not for an empty month", async () => {
+    stubApi();
+    renderStats();
+    await screen.findByText(byText("This month: 1 practice"));
+    const yearCard = screen.getByRole("heading", { name: "2026" }).closest("section");
+    const monthCard = screen.getByRole("heading", { name: "October 2026" }).closest("section");
+    // Two Share buttons, each named for what it shares.
+    expect(
+      within(yearCard as HTMLElement).getByRole("button", {
+        name: (n) => plain(n) === "Share: 2026",
+      }),
+    ).toBeVisible();
+    expect(
+      within(monthCard as HTMLElement).getByRole("button", {
+        name: (n) => plain(n) === "Share: October 2026",
+      }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "September" }));
+    expect(within(monthCard as HTMLElement).queryByRole("button", { name: /^Share/ })).toBeNull();
+  });
+
+  it("offers no Share for a year without practice", async () => {
+    stubApi(stats({ year_total: EMPTY, months: Array.from({ length: 12 }, () => EMPTY) }));
+    renderStats();
+    await screen.findByRole("heading", { name: "2026" });
+    expect(screen.queryByRole("button", { name: /^Share/ })).toBeNull();
+  });
+});

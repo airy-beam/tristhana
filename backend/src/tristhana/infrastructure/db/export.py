@@ -113,6 +113,8 @@ EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
     "shala_swap": "the shala's schedule, not personal content",
     # SC-06: a capability; shown in the app, never exported (an export may be shared).
     "calendar_feed": "a secret link, shown in the app; an export may be shared",
+    # ST-07: rendered from exported data, kept 24 h, then pruned (ADR-0040).
+    "share_card": "an image made from exported data, deleted after 24 hours",
 }
 
 

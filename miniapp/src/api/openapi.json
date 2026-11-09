@@ -110,6 +110,27 @@
         "title": "AnnouncementOut",
         "type": "object"
       },
+      "AsanaCardIn": {
+        "properties": {
+          "event_id": {
+            "description": "A given asana from My asanas (PR-08)",
+            "minimum": 1.0,
+            "title": "Event Id",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "asana",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "event_id"
+        ],
+        "title": "AsanaCardIn",
+        "type": "object"
+      },
       "AttendanceCountsOut": {
         "properties": {
           "claimed": {
@@ -1093,6 +1114,28 @@
         "title": "ContextCounts",
         "type": "object"
       },
+      "CountCardIn": {
+        "properties": {
+          "count": {
+            "description": "A practice count already reached (GM-01)",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "count",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "count"
+        ],
+        "title": "CountCardIn",
+        "type": "object"
+      },
       "Day": {
         "properties": {
           "check_ins": {
@@ -1565,6 +1608,10 @@
           "invalid_announcement",
           "not_attendable",
           "invalid_attendance",
+          "invalid_period",
+          "nothing_to_share",
+          "rate_limited",
+          "already_sent",
           "unavailable"
         ],
         "type": "string"
@@ -2380,6 +2427,34 @@
           }
         },
         "title": "MePatch",
+        "type": "object"
+      },
+      "MonthCardIn": {
+        "properties": {
+          "kind": {
+            "const": "month",
+            "title": "Kind",
+            "type": "string"
+          },
+          "month": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month",
+            "type": "integer"
+          },
+          "year": {
+            "maximum": 9999.0,
+            "minimum": 2000.0,
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "year",
+          "month"
+        ],
+        "title": "MonthCardIn",
         "type": "object"
       },
       "MoonDayKind": {
@@ -5248,6 +5323,103 @@
         "title": "ShalaStudentsOut",
         "type": "object"
       },
+      "ShareCardIn": {
+        "properties": {
+          "card": {
+            "discriminator": {
+              "mapping": {
+                "asana": "#/components/schemas/AsanaCardIn",
+                "count": "#/components/schemas/CountCardIn",
+                "month": "#/components/schemas/MonthCardIn",
+                "year": "#/components/schemas/YearCardIn"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MonthCardIn"
+              },
+              {
+                "$ref": "#/components/schemas/YearCardIn"
+              },
+              {
+                "$ref": "#/components/schemas/AsanaCardIn"
+              },
+              {
+                "$ref": "#/components/schemas/CountCardIn"
+              }
+            ],
+            "title": "Card"
+          },
+          "format": {
+            "enum": [
+              "story",
+              "square"
+            ],
+            "title": "Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "card"
+        ],
+        "title": "ShareCardIn",
+        "type": "object"
+      },
+      "ShareCardOut": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "id": {
+            "description": "The card's token: the image URL is its capability",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "image_url",
+          "width",
+          "height",
+          "file_name",
+          "expires_at"
+        ],
+        "title": "ShareCardOut",
+        "type": "object"
+      },
+      "ShareSentOut": {
+        "properties": {
+          "sent": {
+            "title": "Sent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sent"
+        ],
+        "title": "ShareSentOut",
+        "type": "object"
+      },
       "SharedDay": {
         "enum": [
           "practiced",
@@ -5809,6 +5981,27 @@
         "maximum": 7.0,
         "minimum": 1.0,
         "type": "integer"
+      },
+      "YearCardIn": {
+        "properties": {
+          "kind": {
+            "const": "year",
+            "title": "Kind",
+            "type": "string"
+          },
+          "year": {
+            "maximum": 9999.0,
+            "minimum": 2000.0,
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "year"
+        ],
+        "title": "YearCardIn",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -9062,6 +9255,181 @@
         "summary": "Get My Shalas",
         "tags": [
           "shalas"
+        ]
+      }
+    },
+    "/api/v1/me/share-cards": {
+      "post": {
+        "description": "Renders one card of the caller's own data (two tones only: no rest, 🌸 or unlogged\ndays; no name). 404 `not_found` (an event or count that isn't the caller's or can't be\nshared); 422 `invalid_period` (future), `nothing_to_share` (no practice); 429\n`rate_limited` (50 cards per 24 h); 503 `unavailable` when cards are off.",
+        "operationId": "create_share_card_api_v1_me_share_cards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareCardIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareCardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Create Share Card",
+        "tags": [
+          "share-cards"
+        ]
+      }
+    },
+    "/api/v1/me/share-cards/{card_id}/send": {
+      "post": {
+        "description": "The bot posts the card as a photo in the caller's own chat, once per card. 409\n`already_sent`, `bot_unreachable` (blocked or never started); 404 for someone else's,\nunknown or expired cards.",
+        "operationId": "send_share_card_api_v1_me_share_cards__card_id__send_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareSentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Send Share Card",
+        "tags": [
+          "share-cards"
         ]
       }
     },

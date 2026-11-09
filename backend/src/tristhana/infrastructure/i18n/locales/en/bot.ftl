@@ -981,3 +981,6 @@ attend-confirm-all = ✅ Confirm all 🙋 ({ $n })
 attend-staff-tag = · staff
 attend-empty = No one on the list yet. Students appear here once they join the shala.
 attend-not-open = This class can't be marked now: it hasn't started, it was cancelled, or it was more than 7 days ago.
+
+# ST-07: a share card sent to the person's own chat from the Mini App ("Send to my chat").
+share-card-caption = Your Tristhana card: forward it or save it to share.

@@ -735,6 +735,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/share-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Share Card
+         * @description Renders one card of the caller's own data (two tones only: no rest, 🌸 or unlogged
+         *     days; no name). 404 `not_found` (an event or count that isn't the caller's or can't be
+         *     shared); 422 `invalid_period` (future), `nothing_to_share` (no practice); 429
+         *     `rate_limited` (50 cards per 24 h); 503 `unavailable` when cards are off.
+         */
+        post: operations["create_share_card_api_v1_me_share_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/share-cards/{card_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Share Card
+         * @description The bot posts the card as a photo in the caller's own chat, once per card. 409
+         *     `already_sent`, `bot_unreachable` (blocked or never started); 404 for someone else's,
+         *     unknown or expired cards.
+         */
+        post: operations["send_share_card_api_v1_me_share_cards__card_id__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/stats": {
         parameters: {
             query?: never;
@@ -1236,6 +1281,19 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** AsanaCardIn */
+        AsanaCardIn: {
+            /**
+             * Event Id
+             * @description A given asana from My asanas (PR-08)
+             */
+            event_id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "asana";
+        };
         /** AttendanceCountsOut */
         AttendanceCountsOut: {
             /**
@@ -1601,6 +1659,19 @@ export interface components {
             /** Self */
             self: number;
         };
+        /** CountCardIn */
+        CountCardIn: {
+            /**
+             * Count
+             * @description A practice count already reached (GM-01)
+             */
+            count: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "count";
+        };
         /** Day */
         Day: {
             /**
@@ -1813,7 +1884,7 @@ export interface components {
             retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "not_attendable" | "invalid_attendance" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "not_attendable" | "invalid_attendance" | "invalid_period" | "nothing_to_share" | "rate_limited" | "already_sent" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -2156,6 +2227,18 @@ export interface components {
              * @description IANA zone or UTC
              */
             timezone?: string | null;
+        };
+        /** MonthCardIn */
+        MonthCardIn: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "month";
+            /** Month */
+            month: number;
+            /** Year */
+            year: number;
         };
         /**
          * MoonDayKind
@@ -3328,6 +3411,42 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** ShareCardIn */
+        ShareCardIn: {
+            /** Card */
+            card: components["schemas"]["MonthCardIn"] | components["schemas"]["YearCardIn"] | components["schemas"]["AsanaCardIn"] | components["schemas"]["CountCardIn"];
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "story" | "square";
+        };
+        /** ShareCardOut */
+        ShareCardOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** File Name */
+            file_name: string;
+            /** Height */
+            height: number;
+            /**
+             * Id
+             * @description The card's token: the image URL is its capability
+             */
+            id: string;
+            /** Image Url */
+            image_url: string;
+            /** Width */
+            width: number;
+        };
+        /** ShareSentOut */
+        ShareSentOut: {
+            /** Sent */
+            sent: boolean;
+        };
         /**
          * SharedDay
          * @enum {string}
@@ -3583,6 +3702,16 @@ export interface components {
             type: string;
         };
         Weekday: number;
+        /** YearCardIn */
+        YearCardIn: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "year";
+            /** Year */
+            year: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -5908,6 +6037,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    create_share_card_api_v1_me_share_cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareCardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareCardOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    send_share_card_api_v1_me_share_cards__card_id__send_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareSentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

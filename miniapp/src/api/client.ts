@@ -1718,3 +1718,54 @@ export function useMuteAnnouncements() {
     },
   );
 }
+
+// ST-07: share cards (ADR-0040). The server renders the card; the sheet previews the image
+// URL and hands it to Telegram. Within an open sheet a card is cached per subject and format,
+// so switching Story ↔ Square back costs nothing (and doesn't use up the daily limit).
+export type ShareSubject = components["schemas"]["ShareCardIn"]["card"];
+export type ShareFormat = components["schemas"]["ShareCardIn"]["format"];
+export type ShareCard = components["schemas"]["ShareCardOut"];
+
+export function useShareCard(subject: ShareSubject, format: ShareFormat) {
+  return useQuery({
+    queryKey: ["share-card", subject, format],
+    queryFn: async (): Promise<ShareCard> => {
+      const { data, error, response } = await api.POST("/api/v1/me/share-cards", {
+        body: { format, card: subject },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 10 * 60_000,
+    gcTime: 10 * 60_000,
+    // A fresh card each time the sheet opens (a practice may have been logged since);
+    // within one sheet, Story ↔ Square stays cached.
+    refetchOnMount: "always",
+    retry: false,
+  });
+}
+
+/** "Send to my chat": the bot posts the card as a photo, once per card. */
+export function useSendShareCard() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      try {
+        await postShareCard(id);
+      } catch (e) {
+        // As the export (ST-09): never started the bot → Telegram's prompt, then once more.
+        if (e instanceof ApiError && e.code === "bot_unreachable" && (await allowBotMessages())) {
+          await postShareCard(id);
+          return;
+        }
+        throw e;
+      }
+    },
+  });
+}
+
+async function postShareCard(id: string): Promise<void> {
+  const { data, error, response } = await api.POST("/api/v1/me/share-cards/{card_id}/send", {
+    params: { path: { card_id: id } },
+  });
+  if (!data) fail(response, error);
+}

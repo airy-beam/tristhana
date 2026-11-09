@@ -19,6 +19,7 @@ from tristhana.api.v1 import (
     progression,
     rest_periods,
     shalas,
+    share_cards,
     stats,
 )
 
@@ -38,5 +39,6 @@ router.include_router(links.router)
 router.include_router(shalas.router)
 router.include_router(classes.router)
 router.include_router(calendar_feed.router)
+router.include_router(share_cards.router)
 router.include_router(announcements.router)
 router.include_router(attendance.router)

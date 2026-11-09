@@ -45,6 +45,7 @@ from tristhana.application.ports.shalas import (
     StaffPreview,
     StudentsPage,
 )
+from tristhana.application.ports.share_cards import NewShareCard, SendClaim, ShareCardRepository
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.ports.teacher_links import (
     Accepted,
@@ -116,6 +117,7 @@ class PostgresStorage:
         self._calendar_feed: CalendarFeedRepository | None = None
         self._announcements: AnnouncementRepository | None = None
         self._attendance: AttendanceRepository | None = None
+        self._share_cards: ShareCardRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -134,6 +136,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.progression import SqlProgressionRepository
         from tristhana.infrastructure.db.rest_periods import SqlRestPeriodRepository
         from tristhana.infrastructure.db.shalas import SqlShalaRepository
+        from tristhana.infrastructure.db.share_cards import SqlShareCardRepository
         from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
         from tristhana.infrastructure.db.teacher_view import SqlTeacherViewRepository
 
@@ -160,6 +163,7 @@ class PostgresStorage:
         self._calendar_feed = SqlCalendarFeedRepository(self._engine, self._cipher)
         self._announcements = SqlAnnouncementRepository(self._engine)
         self._attendance = SqlAttendanceRepository(self._engine)
+        self._share_cards = SqlShareCardRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -273,6 +277,12 @@ class PostgresStorage:
         return self._calendar_feed
 
     @property
+    def share_cards(self) -> ShareCardRepository:
+        if self._share_cards is None:
+            raise RuntimeError("storage not started")
+        return self._share_cards
+
+    @property
     def announcements(self) -> AnnouncementRepository:
         if self._announcements is None:
             raise RuntimeError("storage not started")
@@ -326,6 +336,10 @@ class UnconfiguredStorage:
     @property
     def calendar_feed(self) -> CalendarFeedRepository:
         return _UnavailableCalendarFeed()
+
+    @property
+    def share_cards(self) -> ShareCardRepository:
+        return _UnavailableShareCards()
 
     @property
     def announcements(self) -> AnnouncementRepository:
@@ -723,6 +737,29 @@ class _UnavailableCalendarFeed:
         raise StorageUnavailable("not configured")
 
     async def account_by_token(self, token_hash: bytes, today: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableShareCards:
+    async def recent(self, account_id: UUID, since: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def insert(self, card: NewShareCard, since: datetime, limit: int) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def image(self, token_hash: bytes, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def claim_send(self, account_id: UUID, token_hash: bytes, now: datetime) -> SendClaim:
+        raise StorageUnavailable("not configured")
+
+    async def release_send(self, account_id: UUID, token_hash: bytes) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def milestone_seen(self, account_id: UUID, threshold: int) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def prune(self, now: datetime) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 

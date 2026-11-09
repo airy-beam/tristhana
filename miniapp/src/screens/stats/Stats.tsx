@@ -1,4 +1,4 @@
-import { Localized } from "@fluent/react";
+import { Localized, useLocalization } from "@fluent/react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import {
@@ -16,6 +16,7 @@ import { DayOffQuestion } from "../DayOffQuestion";
 import { autoDays, loadShowLadies, moonDates, parse, saveShowLadies } from "./cells";
 import { DayEditor } from "./DayEditor";
 import { Heatmap } from "./Heatmap";
+import { ShareButton } from "../share/ShareButton";
 import { MonthView } from "./MonthView";
 
 interface Props {
@@ -82,6 +83,7 @@ function Loaded({
   onDayOff: () => void;
   back: ReactNode;
 }) {
+  const { l10n } = useLocalization();
   const cities = useMoonCities().data;
   const currentYear = Number(stats.today.slice(0, 4));
   const isCurrent = stats.year === currentYear;
@@ -161,12 +163,20 @@ function Loaded({
             />
           </Localized>
         </div>
-        <Localized
-          id="stats-year-total"
-          vars={{ n: stats.year_total.practiced, year: String(stats.year) }}
-        >
-          <p className="hint" />
-        </Localized>
+        <div className="card-head">
+          <Localized
+            id="stats-year-total"
+            vars={{ n: stats.year_total.practiced, year: String(stats.year) }}
+          >
+            <p className="hint" />
+          </Localized>
+          {stats.year_total.practiced > 0 && (
+            <ShareButton
+              subject={{ kind: "year", year: stats.year }}
+              label={l10n.getString("share-entry", { entry: String(stats.year) })}
+            />
+          )}
+        </div>
         <Heatmap
           stats={stats}
           moon={moon}
@@ -198,9 +208,19 @@ function Loaded({
       </section>
 
       <section className="card" aria-labelledby="month-title">
-        <h2 id="month-title" tabIndex={-1}>
-          {fmt.monthYear.format(Date.UTC(stats.year, month, 1))}
-        </h2>
+        <div className="card-head">
+          <h2 id="month-title" tabIndex={-1}>
+            {fmt.monthYear.format(Date.UTC(stats.year, month, 1))}
+          </h2>
+          {summary.practiced > 0 && (
+            <ShareButton
+              subject={{ kind: "month", year: stats.year, month: month + 1 }}
+              label={l10n.getString("share-entry", {
+                entry: fmt.monthYear.format(Date.UTC(stats.year, month, 1)),
+              })}
+            />
+          )}
+        </div>
         <MonthView
           stats={stats}
           month={month}

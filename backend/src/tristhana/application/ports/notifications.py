@@ -267,3 +267,8 @@ class Notifier(Protocol):
         """PR-08 Phase 3: the student's one silent note about a teacher's mark, with Undo;
         outside the ledger and the cap, no retry (as `tell_student_joined`)."""
         ...
+
+    async def send_card_photo(self, recipient: Recipient, png: bytes) -> DeliveryResult:
+        """ST-07: a share card as a photo in the person's own chat, with a short caption;
+        outside the ledger and the cap, no retry."""
+        ...
