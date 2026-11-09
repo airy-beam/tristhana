@@ -6,6 +6,7 @@ from tristhana.api.v1 import (
     account_data,
     announcements,
     attendance,
+    badges,
     calendar_feed,
     check_in,
     classes,
@@ -35,6 +36,7 @@ router.include_router(diary.router)
 router.include_router(progression.router)
 router.include_router(moon.router)
 router.include_router(stats.router)
+router.include_router(badges.router)
 router.include_router(links.router)
 router.include_router(shalas.router)
 router.include_router(classes.router)

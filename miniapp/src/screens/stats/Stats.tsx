@@ -1,5 +1,14 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   useMe,
@@ -19,6 +28,9 @@ import { Heatmap } from "./Heatmap";
 import { ShareButton } from "../share/ShareButton";
 import { MonthView } from "./MonthView";
 
+// GM-02: its own chunk (with its copy), so My practice doesn't pay for it.
+const Badges = lazy(() => import("../badges/Badges"));
+
 interface Props {
   locale: Locale;
   zone: string | null;
@@ -32,6 +44,23 @@ interface Props {
 export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
   useBackButton(onBack);
   const [year, setYear] = useState<number | undefined>(undefined);
+  // Badges open over My practice, which stays mounted (hidden): Back returns to the same month,
+  // editor and scroll position.
+  const [badges, setBadges] = useState(false);
+  const scroll = useRef<number | null>(null);
+  const openBadges = useCallback(() => {
+    scroll.current = window.scrollY;
+    setBadges(true);
+    window.scrollTo({ top: 0 });
+  }, []);
+  const closeBadges = useCallback(() => {
+    setBadges(false);
+  }, []);
+  useEffect(() => {
+    if (badges || scroll.current === null) return;
+    window.scrollTo({ top: scroll.current });
+    scroll.current = null;
+  }, [badges]);
   const query = useStats(year);
   const stats = query.data;
   // Outside Telegram (or on clients without its Back button) the screen needs its own.
@@ -56,15 +85,24 @@ export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
     setYear(y === Number(stats.today.slice(0, 4)) ? undefined : y);
   };
   return (
-    <Loaded
-      key={stats.year}
-      stats={stats}
-      locale={locale}
-      zone={zone}
-      onYear={pick}
-      onDayOff={onDayOff}
-      back={back}
-    />
+    <>
+      {badges && (
+        <Suspense fallback={<main className="screen" aria-busy="true" />}>
+          <Badges locale={locale} onBack={closeBadges} />
+        </Suspense>
+      )}
+      <Loaded
+        key={stats.year}
+        stats={stats}
+        locale={locale}
+        zone={zone}
+        onYear={pick}
+        onDayOff={onDayOff}
+        onBadges={openBadges}
+        hidden={badges}
+        back={back}
+      />
+    </>
   );
 }
 
@@ -74,6 +112,8 @@ function Loaded({
   zone,
   onYear,
   onDayOff,
+  onBadges,
+  hidden,
   back,
 }: {
   stats: StatsData;
@@ -81,6 +121,8 @@ function Loaded({
   zone: string | null;
   onYear: (year: number) => void;
   onDayOff: () => void;
+  onBadges: () => void;
+  hidden: boolean;
   back: ReactNode;
 }) {
   const { l10n } = useLocalization();
@@ -129,7 +171,7 @@ function Loaded({
   const first = stats.first_year ?? currentYear;
 
   return (
-    <main className="screen stats">
+    <main className="screen stats" hidden={hidden}>
       {back}
       <Localized id="stats-title">
         <h1 />
@@ -250,6 +292,10 @@ function Loaded({
           current={isCurrent && month === Number(stats.today.slice(5, 7)) - 1}
         />
       </section>
+
+      <Localized id="badges-open">
+        <button type="button" className="row-button" onClick={onBadges} />
+      </Localized>
     </main>
   );
 }

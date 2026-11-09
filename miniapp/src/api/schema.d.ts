@@ -180,6 +180,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Badges
+         * @description Owner only (teachers and shalas never see badges). Derived on every read: nothing is
+         *     stored, and a badge follows the data it comes from.
+         */
+        get: operations["get_my_badges_api_v1_me_badges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/calendar-feed": {
         parameters: {
             query?: never;
@@ -1359,6 +1380,66 @@ export interface components {
          * @enum {string}
          */
         AutoKind: "moon" | "day_off";
+        /** BadgeOut */
+        BadgeOut: {
+            /**
+             * At Record Start
+             * @description An asana held when the record began
+             */
+            at_record_start: boolean;
+            /**
+             * Before
+             * @description Before dawn: the local wall-clock threshold, HH:MM
+             */
+            before: string | null;
+            /**
+             * Count
+             * @description For the copy: practices, Led, moon days…
+             */
+            count: number | null;
+            /**
+             * Days
+             * @description Return: days with no practice before it
+             */
+            days: number | null;
+            /**
+             * Earned On
+             * @description The date it came from; null = a practice count kept by the GM-01 ledger
+             */
+            earned_on: string | null;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "practice" | "asanas";
+            /** Icon */
+            icon: string;
+            /**
+             * Item
+             * @description Milestone item key (label: `milestone-label`)
+             */
+            item: string | null;
+            /**
+             * Key
+             * @description Fluent `badge-<key>`; an unknown key is skipped by the client
+             */
+            key: string;
+            /**
+             * Series
+             * @description Series slug (series and stop badges)
+             */
+            series: string | null;
+            /**
+             * Stop
+             * @description Stop key in `series` (stop badges)
+             */
+            stop: string | null;
+        };
+        /** BadgesOut */
+        BadgesOut: {
+            /** Badges */
+            badges: components["schemas"]["BadgeOut"][];
+        };
         /** CalendarFeedOut */
         CalendarFeedOut: {
             /**
@@ -4457,6 +4538,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_badges_api_v1_me_badges_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BadgesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Service Unavailable */

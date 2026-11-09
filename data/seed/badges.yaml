@@ -1,0 +1,42 @@
+# Badges (GM-02, ADR-0041): a quiet collection to look back at, derived on every read from the
+# log, the practice details, the GM-01 ledger and the progression history. Nothing is stored.
+# Display order = file order, within each group. At most 40.
+#
+# Each badge uses one rule kind (code, domain/badges.py) and only that kind's parameters:
+#   practices {count}        the count-th practised date (a GM-01 ledger count stays undated)
+#   run {count}              count practices in a row; every rest kind is transparent, only
+#                            "No practice" or an unlogged non-rest day ends a run
+#   context {context, count} the count-th Led / self-practice (slot 1; context: led | self)
+#   early_start {before, count}  the count-th practice started before `before` (HH:MM, local)
+#   moon_rest {count}        the count-th moon date of the account's calendar spent resting
+#   return {days}            a practice after at least `days` days with none
+#   series_complete {series} / series_begins {series} / stop {series, stop}: the first
+#                            position at or past it (a START counts, "from the record start")
+#   item {item}              the first time a milestone item was given
+#
+# Add a badge on an existing kind: append it here, add `badge-<key>` (+ `.about`) to
+# miniapp/src/locales/{en,ru}/badges.ftl and deploy. A new kind is code.
+badges:
+  - {key: ekam, group: practice, icon: "🌅", rule: practices, count: 1}
+  - {key: nava, group: practice, icon: "🔢", rule: practices, count: 9}
+  - {key: shatam, group: practice, icon: "💯", rule: practices, count: 100}
+  - {key: count-108, group: practice, icon: "📿", rule: practices, count: 108}
+  - {key: count-365, group: practice, icon: "🗓", rule: practices, count: 365}
+  - {key: sahasra, group: practice, icon: "✨", rule: practices, count: 1000}
+  - {key: mandala, group: practice, icon: "🪷", rule: run, count: 40}
+  - {key: before-dawn, group: practice, icon: "🌄", rule: early_start, before: "06:00", count: 10}
+  - {key: led-by-the-count, group: practice, icon: "🎙", rule: context, context: led, count: 10}
+  - {key: self-practice, group: practice, icon: "🏠", rule: context, context: self, count: 30}
+  - {key: rest-is-practice, group: practice, icon: "🫶", rule: moon_rest, count: 10}
+  - {key: return, group: practice, icon: "👣", rule: return, days: 14}
+  - {key: yoga-chikitsa, group: asanas, icon: "1️⃣", rule: series_complete, series: primary}
+  - {key: nadi-shodhana, group: asanas, icon: "2️⃣", rule: series_begins, series: intermediate}
+  - {key: supta-kurmasana, group: asanas, icon: "🐢", rule: stop, series: primary, stop: supta-kurmasana}
+  # The catalog's stop is B: Kapotasana A and B are given together, after B.
+  - {key: kapotasana, group: asanas, icon: "🕊", rule: stop, series: intermediate, stop: kapotasana-b}
+  - {key: karandavasana, group: asanas, icon: "🦆", rule: stop, series: intermediate, stop: karandavasana}
+  # Item icons: the bow (Urdhva Dhanurasana is where a drop-back lands), the curve back up,
+  # the wheel (Viparita Chakrasana = reversed wheel).
+  - {key: drop-backs, group: asanas, icon: "🏹", rule: item, item: drop-backs}
+  - {key: standing-up, group: asanas, icon: "⤴️", rule: item, item: standing-up}
+  - {key: tic-tacs, group: asanas, icon: "🎡", rule: item, item: viparita-chakrasana}

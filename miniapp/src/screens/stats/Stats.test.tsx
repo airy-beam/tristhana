@@ -105,6 +105,9 @@ function stubApi(data: StatsData = stats()): Request[] {
       if (url.pathname === "/api/v1/me") return json({ day_off: dayOff });
       if (url.pathname === "/api/v1/me/notification-settings")
         return json({ ...NOTIFY, day_off_question: question });
+      if (url.pathname === "/api/v1/me/badges") return json({ badges: [] });
+      if (url.pathname === "/api/v1/catalog")
+        return json({ version: "v1", series: [], milestone_items: [], check_in_tags: [] });
       return json({});
     }),
   );
@@ -434,5 +437,52 @@ describe("Share cards (ST-07)", () => {
     renderStats();
     await screen.findByRole("heading", { name: "2026" });
     expect(screen.queryByRole("button", { name: /^Share/ })).toBeNull();
+  });
+});
+
+describe("Badges entry (GM-02)", () => {
+  it("opens the lazy Badges screen from My practice", async () => {
+    vi.stubGlobal("scrollTo", vi.fn());
+    const seen = stubApi();
+    renderStats();
+    await screen.findByText(byText("This month: 1 practice"));
+    expect(seen.some((r) => r.url.includes("/me/badges"))).toBe(false); // nothing until opened
+
+    fireEvent.click(screen.getByRole("button", { name: "🏅 Badges" }));
+
+    expect(await screen.findByRole("heading", { name: "Badges" })).toBeVisible();
+    expect(
+      await screen.findByText("Badges appear here by themselves as you log your practice."),
+    ).toBeVisible();
+    expect(seen.some((r) => r.url.includes("/me/badges"))).toBe(true);
+  });
+
+  it("comes back to the same month and scroll position", async () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+    vi.stubGlobal("scrollY", 420);
+    backButton.available = false; // so Badges shows its own back link
+    stubApi();
+    renderStats();
+    await screen.findByText(byText("This month: 1 practice"));
+    fireEvent.click(screen.getByRole("button", { name: "September" }));
+    expect(screen.getByRole("heading", { name: "September 2026" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "🏅 Badges" }));
+    await screen.findByRole("heading", { name: "Badges" });
+    expect(screen.queryByRole("heading", { name: "September 2026" })).toBeNull(); // hidden
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+
+    fireEvent.click(screen.getByRole("button", { name: /Back/ }));
+
+    expect(screen.queryByRole("heading", { name: "Badges" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "September 2026" })).toBeVisible();
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 420 });
+  });
+
+  it("is «Значки» in Russian", async () => {
+    stubApi();
+    renderStats("ru");
+    expect(await screen.findByRole("button", { name: "🏅 Значки" })).toBeVisible();
   });
 });

@@ -16,6 +16,7 @@ from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.announcements import AnnouncementRepository
 from tristhana.application.ports.attendance import AttendanceRepository
+from tristhana.application.ports.badges import BadgeFactsRepository
 from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ClassCaps, ClassDraft
@@ -118,11 +119,13 @@ class PostgresStorage:
         self._announcements: AnnouncementRepository | None = None
         self._attendance: AttendanceRepository | None = None
         self._share_cards: ShareCardRepository | None = None
+        self._badges: BadgeFactsRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
         from tristhana.infrastructure.db.announcements import SqlAnnouncementRepository
         from tristhana.infrastructure.db.attendance import SqlAttendanceRepository
+        from tristhana.infrastructure.db.badges import SqlBadgeFactsRepository
         from tristhana.infrastructure.db.calendar_feed import SqlCalendarFeedRepository
         from tristhana.infrastructure.db.check_in import SqlCheckInRepository
         from tristhana.infrastructure.db.classes import SqlScheduleRepository
@@ -164,6 +167,7 @@ class PostgresStorage:
         self._announcements = SqlAnnouncementRepository(self._engine)
         self._attendance = SqlAttendanceRepository(self._engine)
         self._share_cards = SqlShareCardRepository(self._engine)
+        self._badges = SqlBadgeFactsRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -283,6 +287,12 @@ class PostgresStorage:
         return self._share_cards
 
     @property
+    def badges(self) -> BadgeFactsRepository:
+        if self._badges is None:
+            raise RuntimeError("storage not started")
+        return self._badges
+
+    @property
     def announcements(self) -> AnnouncementRepository:
         if self._announcements is None:
             raise RuntimeError("storage not started")
@@ -340,6 +350,10 @@ class UnconfiguredStorage:
     @property
     def share_cards(self) -> ShareCardRepository:
         return _UnavailableShareCards()
+
+    @property
+    def badges(self) -> BadgeFactsRepository:
+        return _UnavailableBadges()
 
     @property
     def announcements(self) -> AnnouncementRepository:
@@ -763,6 +777,11 @@ class _UnavailableShareCards:
         raise StorageUnavailable("not configured")
 
     async def prune(self, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableBadges:
+    async def facts(self, account_id: UUID, moon_location: str, today: date) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 
