@@ -20,12 +20,14 @@ from tristhana.domain.progression import (
     EventKind,
     Position,
     ProgressionEvent,
+    TimelineEntry,
     Track,
     celebrations,
     given_change,
     item_change,
     set_change,
     suggest_start,
+    timeline,
 )
 
 # "read": compare against the state this call reads (the bot); an id or None: against what
@@ -133,7 +135,8 @@ def _after(view: ProgressionView, change: Change, event: ProgressionEvent) -> Pr
         state = replace(
             state, hint=view.progression.hint, hint_event_id=view.progression.hint_event_id
         )
-    return ProgressionView(state, earlier, ((event, *view.events))[:HISTORY_LIMIT])
+    position_event = event if change.after is not None else view.position_event
+    return ProgressionView(state, earlier, ((event, *view.events))[:HISTORY_LIMIT], position_event)
 
 
 class SetPractice(_Write):
@@ -205,3 +208,29 @@ class DismissNewAsanaHint:
         """ "Not new" for the current position: one UPDATE, idempotent; it lapses once the
         position changes."""
         await self._progression.dismiss_hint(principal.account.id, target)
+
+
+@dataclass(frozen=True, slots=True)
+class Timeline:
+    entries: tuple[TimelineEntry, ...]  # newest first
+    truncated: bool = False  # older events left out (`TIMELINE_LIMIT`)
+
+    @property
+    def set(self) -> bool:
+        """A record exists (any event; a cut history may not reach back to its START)."""
+        return bool(self.entries)
+
+
+class GetTimeline:
+    """ST-04: the caller's own history with what each event meant (one statement, then the
+    replay in memory). Read-only; undo stays in My asanas → History."""
+
+    def __init__(self, progression: ProgressionRepository, track: Track) -> None:
+        self._progression = progression
+        self._track = track
+
+    async def execute(self, principal: Principal) -> Timeline:
+        # Own data only: the principal's account, never another id (`can_view_progression`).
+        found = await self._progression.timeline(principal.account.id)
+        entries = timeline(self._track, found.events, found.earlier)
+        return Timeline(entries, found.truncated)

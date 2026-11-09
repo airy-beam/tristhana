@@ -455,8 +455,20 @@ progression-event =
         [given] 🎉 { $asana }
         [changed] Changed to { $asana }
         [item_given] 🎉 { $item }
-       *[item_removed] { $item }: removed
+       *[item_removed] { $item }: not in practice now
     }
+## ST-04: the timeline (read-only; undo stays in History). $length as in progression-current.
+timeline-open = 🗓 Timeline
+timeline-title = 🗓 My asanas over time
+timeline-start = Record begins: { $length }
+timeline-given-range = 🎉 { $from } → { $asana }
+timeline-given-across = { $from } ({ $from_series }) → { $asana } ({ $series })
+timeline-series = { $series }
+timeline-given-again = { $asana } again
+timeline-item-removed = { $item }: set aside
+timeline-empty-unset = Set where your practice ends in My asanas, and your timeline starts from there.
+timeline-empty-start = New asanas will appear here with their dates.
+timeline-truncated = Showing the newest { $count } entries.
 progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
 progression-ask-yes = 🎉 Yes, new
 progression-ask-no = Not new

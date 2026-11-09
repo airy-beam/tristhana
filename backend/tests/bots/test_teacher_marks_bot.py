@@ -725,6 +725,51 @@ def test_my_asanas_has_no_marked_line_once_moved_on(
     assert "Marked by" not in body["text"]
 
 
+def test_a_mark_past_the_newest_20_events_still_shows_with_undo_and_undoes(
+    client: TestClient, storage: InMemoryStorage, repo: MarkingProgression
+) -> None:
+    """Q159 (ST-04): 25 item events after the mark push it out of History; G still finds it."""
+    me = _me(client, storage)
+    student = _student(storage, repo, me)
+    _mark(client, student)
+    mark_id = storage.day_repo.progression_rows[student.id].last_event_id
+    assert mark_id is not None
+    asyncio.run(_item_events(repo, student.id, mark_id, 25))
+    tg = _tg(student, storage)
+
+    body = _command(client, "/asanas", user_id=tg)
+
+    lines = _lines(body)
+    current = next(i for i, line in enumerate(lines) if line.startswith("Your practice:"))
+    assert "Marked by Ash" in lines[current + 1]
+    assert [b["callback_data"] for b in _buttons(body) if b["text"] == "↩︎ Undo the mark"] == [
+        f"g1:u:{mark_id}"
+    ]
+
+    undone = _tap(client, f"g1:u:{mark_id}", user_id=tg)
+
+    assert undone["method"] == "editMessageText"
+    assert "Marked by" not in undone["text"]
+    assert "↩︎ Undo the mark" not in _texts(undone)
+    state = storage.day_repo.progression_rows[student.id]
+    assert state.position == KAPOTASANA_B
+    assert state.items == ITEMS | {"standing-up"}  # 25 toggles end on "given"
+
+
+async def _item_events(repo: MarkingProgression, who: UUID, after: int, count: int) -> None:
+    """The student's own `count` item events (standing-up on, off, …) at the marked position."""
+    last, items = after, ITEMS
+    position = SUPTA_VAJRASANA
+    for n in range(count):
+        given = n % 2 == 0
+        items = items | {"standing-up"} if given else items - {"standing-up"}
+        kind = EventKind.ITEM_GIVEN if given else EventKind.ITEM_REMOVED
+        change = Change(kind, TODAY, Progression(position, items), item="standing-up")
+        event = await repo.apply(who, change, last, who)
+        assert event is not None
+        last = event.id
+
+
 # Callback data
 
 

@@ -12,6 +12,7 @@ from tristhana.api.deps import (
     CurrentPrincipal,
     dismiss_new_asana_hint,
     get_progression,
+    get_timeline,
     mark_item,
     mark_new_asana,
     progression_track,
@@ -25,6 +26,7 @@ from tristhana.application.progression import (
     ChangeResult,
     DismissNewAsanaHint,
     GetProgression,
+    GetTimeline,
     MarkItem,
     MarkNewAsana,
     NotLatest,
@@ -40,6 +42,7 @@ from tristhana.domain.progression import (
     InvalidProgression,
     Position,
     ProgressionEvent,
+    TimelineEntry,
     Track,
     last_asana,
     position_length,
@@ -145,8 +148,8 @@ class ProgressionOut(BaseModel):
         today: dt.date | None = None,
     ) -> "ProgressionOut":
         p = view.progression
-        can_undo = undoable(view.events)
-        mark = teacher_mark(view.events) if p else None
+        can_undo = undoable(view.events, view.position_event)
+        mark = teacher_mark(view.events, view.position_event) if p else None
         length = position_length(track, p.position) if p else None
         suggested_length = position_length(track, suggested) if suggested else None
         return cls(
@@ -201,6 +204,57 @@ class ChangeOut(BaseModel):
     )
 
 
+class TimelineEntryOut(BaseModel):
+    id: int
+    kind: EventKind
+    occurred_on: dt.date = Field(description="The local practice day it was marked for")
+    before: PositionOut | None = Field(alias="from", serialization_alias="from")
+    after: PositionOut | None = Field(alias="to", serialization_alias="to")
+    item: str | None
+    by: Literal["self", "teacher"] = Field(
+        description="Who marked it: the caller, or a teacher (also a deleted account)"
+    )
+    by_name: str | None = Field(
+        description="The teacher's name while they are linked; null = the caller, or show "
+        '"a teacher"'
+    )
+    celebrations: list[CelebrationOut] = Field(
+        description="What it meant when it happened, in practice order (new asana first, then "
+        "the series lines); empty = no 🎉 (start, a correction, a removal, given again)"
+    )
+    length: Length | None = Field(
+        default=None,
+        description="start only: where the record begins, as a practice (as `length` on "
+        "GET /me/progression); null = standing only, stale, or another kind",
+    )
+
+    @classmethod
+    def of(cls, track: Track, entry: TimelineEntry) -> "TimelineEntryOut":
+        e = entry.event
+        start = e.kind is EventKind.START and e.after is not None
+        length = position_length(track, e.after) if start and e.after is not None else None
+        return cls.model_validate(
+            {
+                "id": e.id,
+                "kind": e.kind,
+                "occurred_on": e.occurred_on,
+                "from": PositionOut.maybe(e.before),
+                "to": PositionOut.maybe(e.after),
+                "item": e.item,
+                "by": e.by.value,
+                "by_name": e.by_name,
+                "celebrations": [CelebrationOut.of(c) for c in entry.celebrations],
+                "length": Length.of(length) if length else None,
+            }
+        )
+
+
+class TimelineOut(BaseModel):
+    set: bool = Field(description="false = no record yet (nothing to show)")
+    truncated: bool = Field(description="Older entries were left out (only the newest 1,000)")
+    entries: list[TimelineEntryOut] = Field(description="Newest first; read-only (no undo)")
+
+
 class EventBody(BaseModel):
     kind: Literal["set", "given", "item_given", "item_removed"]
     series: str | None = Field(default=None, description="set/given: null with last = standing")
@@ -223,6 +277,21 @@ async def get_mine(
 ) -> ProgressionOut:
     found = await use_case.execute(principal)
     return ProgressionOut.of(track, found.view, found.suggested, found.today)
+
+
+@router.get("/timeline")
+async def get_my_timeline(
+    principal: CurrentPrincipal,
+    use_case: Annotated[GetTimeline, Depends(get_timeline)],
+    track: Annotated[Track, Depends(progression_track)],
+) -> TimelineOut:
+    """ST-04: every event of the caller's own record with what it meant (one statement)."""
+    found = await use_case.execute(principal)
+    return TimelineOut(
+        set=found.set,
+        truncated=found.truncated,
+        entries=[TimelineEntryOut.of(track, e) for e in found.entries],
+    )
 
 
 @router.post("/events", status_code=201, responses=error_responses(409, 422))

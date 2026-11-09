@@ -17,8 +17,13 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 from uuid import UUID
 
-from tests.fakes import InMemoryDays, InMemoryProgression
-from tristhana.application.ports.progression import MarkLink, ProgressionView, TeacherMarkView
+from tests.fakes import InMemoryDays, InMemoryProgression, position_event_of, timeline_of
+from tristhana.application.ports.progression import (
+    MarkLink,
+    ProgressionView,
+    TeacherMarkView,
+    TimelineRead,
+)
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
     Change,
@@ -60,8 +65,16 @@ class MarkingProgression(InMemoryProgression):
         items = frozenset(e.item for e in events if e.kind is EventKind.ITEM_GIVEN and e.item)
         newest = tuple(reversed(events))[:HISTORY_LIMIT]
         return ProgressionView(
-            self.days.progression_rows.get(account_id), Earlier(targets, items), newest
+            self.days.progression_rows.get(account_id),
+            Earlier(targets, items),
+            newest,
+            position_event_of(events),
         )
+
+    async def timeline(self, account_id: UUID) -> TimelineRead:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.calls.append("timeline")
+        return timeline_of([self._event(account_id, e) for e in self._events(account_id)])
 
     async def for_teacher(self, teacher: UUID, student: UUID) -> TeacherMarkView | None:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
@@ -176,6 +189,10 @@ class ScriptedMarks:
     async def get(self, account_id: UUID) -> ProgressionView:
         self.calls.append("get")
         return self.found.view if self.found else ProgressionView(None)
+
+    async def timeline(self, account_id: UUID) -> TimelineRead:
+        self.calls.append("timeline")
+        return TimelineRead(())
 
     async def apply(
         self,

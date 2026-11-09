@@ -285,11 +285,15 @@ class ProgressionScreens:
             standing = self.t.t(locale, "progression-standing-only")
             rows.append([self._set_button(standing, STANDING_ONLY)])
         else:
-            mark = teacher_mark(view.events)
+            mark = teacher_mark(view.events, view.position_event)
             lines += self._state_lines(locale, progression, mark)
             rows += self._state_rows(locale, progression)
             just = result.event.id if result is not None and result.event is not None else None
-            if mark is not None and mark.id != just and mark.id in undoable(view.events):
+            if (
+                mark is not None
+                and mark.id != just
+                and mark.id in undoable(view.events, view.position_event)
+            ):
                 undo = data("undo", number=mark.id)  # never two identical "↩︎ Undo" buttons
                 rows.insert(0, [self._button(locale, "progression-undo-mark", undo)])
         if result is not None and result.event is not None:

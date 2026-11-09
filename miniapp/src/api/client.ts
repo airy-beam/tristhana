@@ -880,8 +880,25 @@ export type ProgressionEventBody = components["schemas"]["EventBody"];
 export type Celebration = components["schemas"]["CelebrationOut"];
 export type ProgressionPosition = components["schemas"]["PositionOut"];
 export type ProgressionEvent = components["schemas"]["EventOut"];
+export type Timeline = components["schemas"]["TimelineOut"];
+export type TimelineEntry = components["schemas"]["TimelineEntryOut"];
 
 const PROGRESSION_KEY = ["progression"] as const;
+// Under PROGRESSION_KEY, so a 409's prefix invalidation refreshes it too.
+const TIMELINE_KEY = [...PROGRESSION_KEY, "timeline"] as const;
+
+/** ST-04: the whole record with what each event meant, newest first (read-only). */
+export function useTimeline() {
+  return useQuery({
+    queryKey: TIMELINE_KEY,
+    queryFn: async (): Promise<Timeline> => {
+      const { data, error, response } = await api.GET("/api/v1/me/progression/timeline");
+      if (!data) fail(response, error);
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
 
 /** "🧘 My asanas" (PR-08): where the practice ends now, items, the newest events. */
 export function useProgression(enabled = true) {
@@ -912,6 +929,7 @@ export function useProgressionEvent() {
     },
     onSuccess: (change) => {
       client.setQueryData(PROGRESSION_KEY, change.progression);
+      void client.invalidateQueries({ queryKey: TIMELINE_KEY });
       void client.invalidateQueries({ queryKey: ["practice-presets"] }); // "🧘 My practice"
     },
     onError: (error) => {
@@ -937,6 +955,7 @@ export function useUndoProgression() {
     },
     onSuccess: (progression) => {
       client.setQueryData(PROGRESSION_KEY, progression);
+      void client.invalidateQueries({ queryKey: TIMELINE_KEY });
       void client.invalidateQueries({ queryKey: ["practice-presets"] });
     },
     onError: () => {

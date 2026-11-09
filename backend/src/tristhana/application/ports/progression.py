@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import NamedTuple, Protocol
 from uuid import UUID
 
 from tristhana.domain.locale import Locale
@@ -17,6 +17,8 @@ class ProgressionView:
     progression: Progression | None  # None = not set yet
     earlier: Earlier = field(default_factory=Earlier)
     events: tuple[ProgressionEvent, ...] = ()  # newest first, at most HISTORY_LIMIT
+    # The newest START/GIVEN/CHANGED, however old (Q159): what set the current position.
+    position_event: ProgressionEvent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,11 +40,24 @@ class TeacherMarkView:
     view: ProgressionView  # the student's, read in the same statement as the link
 
 
+class TimelineRead(NamedTuple):
+    """The newest `TIMELINE_LIMIT` events, oldest first (ST-04)."""
+
+    events: tuple[ProgressionEvent, ...]
+    truncated: bool = False  # older events were left out …
+    earlier: Earlier = Earlier()  # … and what they had reached, so the replay stays honest
+
+
 class ProgressionRepository(Protocol):
     """One statement per method (ADR-0026). Progression is plain, owner-only data."""
 
     async def get(self, account_id: UUID) -> ProgressionView:
         """The state, what the history held (`Earlier`) and the newest events."""
+        ...
+
+    async def timeline(self, account_id: UUID) -> TimelineRead:
+        """The newest `TIMELINE_LIMIT` events oldest first (ST-04), with who marked them,
+        whether older ones were left out and what those had reached (one statement)."""
         ...
 
     async def for_teacher(self, teacher: UUID, student: UUID) -> TeacherMarkView | None:

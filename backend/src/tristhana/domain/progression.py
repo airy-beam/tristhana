@@ -30,6 +30,8 @@ from tristhana.domain.practice import (
 
 MAX_ITEMS = 8
 HISTORY_LIMIT = 20
+# The timeline (ST-04) reads at most this many events, newest first (decades of practice).
+TIMELINE_LIMIT = 1000
 # The current series alone ("Intermediate → X", Primary on Fridays) is offered once the
 # position reaches this stop (SYC splits around Pincha Mayurasana / Karandavasana).
 SPLIT_FROM: dict[str, str] = {"intermediate": "pincha-mayurasana"}
@@ -130,6 +132,9 @@ class Earlier:
 
     targets: frozenset[Position] = frozenset()
     items: frozenset[str] = frozenset()
+
+
+NOTHING_EARLIER = Earlier()
 
 
 @dataclass(frozen=True, slots=True)
@@ -312,24 +317,38 @@ def _retractable(event: ProgressionEvent) -> bool:
     return event.kind is EventKind.GIVEN and event.by is Marker.TEACHER
 
 
-def undoable(events: Sequence[ProgressionEvent]) -> frozenset[int]:
+def _position_event(
+    events: Sequence[ProgressionEvent], position: ProgressionEvent | None
+) -> ProgressionEvent | None:
+    """The event that set the current position: `position` when the reader has it (any age,
+    Q159), else the newest START/GIVEN/CHANGED among `events` (newest first)."""
+    if position is not None:
+        return position
+    return next((e for e in events if e.kind in _POSITION_KINDS), None)
+
+
+def undoable(
+    events: Sequence[ProgressionEvent], position: ProgressionEvent | None = None
+) -> frozenset[int]:
     """Events newest first. The newest one, plus a teacher's `given` that no later START,
-    GIVEN or CHANGED has moved on from (later item events are fine; Q86, ADR-0037)."""
+    GIVEN or CHANGED has moved on from (later item events are fine; Q86, ADR-0037). `position`
+    is the event that set the current position, however old (Q159); without it, only `events`
+    are searched."""
     if not events:
         return frozenset()
     found = {events[0].id}
-    for e in events:
-        if _retractable(e):
-            found.add(e.id)
-        if e.kind in _POSITION_KINDS:
-            break
+    mark = _position_event(events, position)
+    if mark is not None and _retractable(mark):
+        found.add(mark.id)
     return frozenset(found)
 
 
-def teacher_mark(events: Sequence[ProgressionEvent]) -> ProgressionEvent | None:
-    """The event that set the current position (newest first, past item events), if it is a
-    teacher's `given`."""
-    found = next((e for e in events if e.kind in _POSITION_KINDS), None)
+def teacher_mark(
+    events: Sequence[ProgressionEvent], position: ProgressionEvent | None = None
+) -> ProgressionEvent | None:
+    """The event that set the current position (`position`, or the newest past item events), if
+    it is a teacher's `given`."""
+    found = _position_event(events, position)
     return found if found is not None and _retractable(found) else None
 
 
@@ -364,6 +383,43 @@ def celebrations(track: Track, earlier: Earlier, change: Change) -> tuple[Celebr
             out.append(Celebration(CelebrationKind.SERIES_BEGINS, series.slug))
         if series.stops[-1].key == p.key:
             out.append(Celebration(CelebrationKind.SERIES_COMPLETE, series.slug))
+    return tuple(out)
+
+
+@dataclass(frozen=True, slots=True)
+class TimelineEntry:
+    """One event and what it meant when it happened (ST-04)."""
+
+    event: ProgressionEvent
+    celebrations: tuple[Celebration, ...] = ()
+
+
+def timeline(
+    track: Track, oldest_first: Sequence[ProgressionEvent], before: Earlier = NOTHING_EARLIER
+) -> tuple[TimelineEntry, ...]:
+    """The history replayed through `celebrations`, so "first time", ranges, "begins" and "full"
+    mean what the 🎉 meant at write time (a give at or below the peak is quiet; START and
+    CHANGED never celebrate). Undone events are deleted, so they aren't here. `before` = what
+    events older than `oldest_first` reached (a cut history). Newest first."""
+    targets: set[Position] = set(before.targets)
+    items: set[str] = set(before.items)
+    out: list[TimelineEntry] = []
+    for event in oldest_first:
+        earlier = Earlier(frozenset(targets), frozenset(items))
+        change = Change(
+            event.kind,
+            event.occurred_on,
+            Progression(event.after or STANDING_ONLY),
+            event.before,
+            event.after,
+            event.item,
+        )
+        out.append(TimelineEntry(event, celebrations(track, earlier, change)))
+        if event.kind in _POSITION_KINDS and event.after is not None:
+            targets.add(event.after)
+        elif event.kind is EventKind.ITEM_GIVEN and event.item is not None:
+            items.add(event.item)
+    out.reverse()
     return tuple(out)
 
 

@@ -632,6 +632,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/progression/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Timeline
+         * @description ST-04: every event of the caller's own record with what it meant (one statement).
+         */
+        get: operations["get_my_timeline_api_v1_me_progression_timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/rest-periods": {
         parameters: {
             query?: never;
@@ -3688,6 +3708,58 @@ export interface components {
              */
             primary_chosen: boolean;
         };
+        /** TimelineEntryOut */
+        TimelineEntryOut: {
+            /**
+             * By
+             * @description Who marked it: the caller, or a teacher (also a deleted account)
+             * @enum {string}
+             */
+            by: "self" | "teacher";
+            /**
+             * By Name
+             * @description The teacher's name while they are linked; null = the caller, or show "a teacher"
+             */
+            by_name: string | null;
+            /**
+             * Celebrations
+             * @description What it meant when it happened, in practice order (new asana first, then the series lines); empty = no 🎉 (start, a correction, a removal, given again)
+             */
+            celebrations: components["schemas"]["CelebrationOut"][];
+            from: components["schemas"]["PositionOut"] | null;
+            /** Id */
+            id: number;
+            /** Item */
+            item: string | null;
+            kind: components["schemas"]["EventKind"];
+            /** @description start only: where the record begins, as a practice (as `length` on GET /me/progression); null = standing only, stale, or another kind */
+            length?: components["schemas"]["Length"] | null;
+            /**
+             * Occurred On
+             * Format: date
+             * @description The local practice day it was marked for
+             */
+            occurred_on: string;
+            to: components["schemas"]["PositionOut"] | null;
+        };
+        /** TimelineOut */
+        TimelineOut: {
+            /**
+             * Entries
+             * @description Newest first; read-only (no undo)
+             */
+            entries: components["schemas"]["TimelineEntryOut"][];
+            /**
+             * Set
+             * @description false = no record yet (nothing to show)
+             */
+            set: boolean;
+            /**
+             * Truncated
+             * @description Older entries were left out (only the newest 1,000)
+             */
+            truncated: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -5794,6 +5866,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_timeline_api_v1_me_progression_timeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Service Unavailable */
