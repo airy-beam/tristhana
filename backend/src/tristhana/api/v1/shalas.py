@@ -16,7 +16,12 @@ from pydantic import BaseModel, Field, StringConstraints
 from tristhana.api.deps import CurrentPrincipal, app_settings, links, shalas
 from tristhana.api.errors import ApiError, ErrorCode, error_responses
 from tristhana.application.moon import UnknownLocation
-from tristhana.application.policies import NotAllowed, NotFound, can_manage_schedule
+from tristhana.application.policies import (
+    NotAllowed,
+    NotFound,
+    can_announce_to_shala,
+    can_manage_schedule,
+)
 from tristhana.application.ports.shalas import CapReached, MyShala, ShalaCard
 from tristhana.application.shalas import ShalaUseCases
 from tristhana.application.teacher_links import LinkUseCases
@@ -51,6 +56,7 @@ class ShalaMeOut(BaseModel):
     roles: list[Role]
     student: bool
     schedule: bool = Field(description="May manage classes (SC-02, Q118)")
+    announce: bool = Field(default=False, description="May announce to the shala (NT-03, Q163)")
 
 
 class ShalaStaffOut(BaseModel):
@@ -177,6 +183,7 @@ def _out(card: ShalaCard, use_cases: ShalaUseCases, locale: str) -> ShalaOut:
             roles=_roles(card.me.roles),
             student=card.me.student,
             schedule=can_manage_schedule(card.me),
+            announce=can_announce_to_shala(card.me),
         ),
         days_off=None if card.days_off is None else sorted(card.days_off),
         moon_policy=MoonPolicy(card.moon_policy).value,

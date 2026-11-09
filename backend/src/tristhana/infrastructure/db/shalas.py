@@ -932,7 +932,8 @@ class SqlShalaRepository:
             return len((await conn.execute(stmt)).all())
 
 
-# For the SC-02 schedule repository: the same membership code and guards.
+# For the SC-02 schedule and NT-03 announcement repositories: the same membership code
+# and guards.
 member_columns = _member
 membership_of = _membership
 allowed_codes = _allowed

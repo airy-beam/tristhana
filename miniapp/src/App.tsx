@@ -24,6 +24,16 @@ const Progression = lazy(() => import("./screens/progression/Progression"));
 const Links = lazy(() => import("./screens/settings/Links"));
 const Students = lazy(() => import("./screens/teachers/Students"));
 const MySchedule = lazy(() => import("./screens/shalas/MySchedule"));
+const Announcements = lazy(() => import("./screens/announcements/Announcements"));
+
+/** NT-03: the bot's `[📣 Announce]` opens the app with `?open=announce` (and `&shala=<id>`),
+ * read once at launch. */
+function launchAnnounce(): { shala: string | null } | null {
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("open") !== "announce") return null;
+  const shala = query.get("shala");
+  return { shala: shala && /^[0-9a-f-]{36}$/i.test(shala) ? shala : null };
+}
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -68,7 +78,9 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
     | "students"
     | "links-students"
     | "my-schedule"
-  >("home");
+    | "announce"
+  >(() => (launchAnnounce() ? "announce" : "home"));
+  const [announceTo] = useState(() => launchAnnounce()?.shala ?? null);
   const home = useCallback(() => {
     setView("home");
   }, []);
@@ -137,6 +149,14 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
           ) : me && (view === "students" || view === "links-students") ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Students locale={me.locale} onBack={view === "students" ? home : links} />
+            </Suspense>
+          ) : me && view === "announce" ? (
+            <Suspense fallback={<main className="screen" aria-busy="true" />}>
+              <Announcements
+                mode={{ view: "compose", shala: announceTo }}
+                locale={me.locale}
+                onBack={home}
+              />
             </Suspense>
           ) : me && view === "my-schedule" ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>

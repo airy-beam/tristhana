@@ -155,6 +155,9 @@ class DayOffQuestionOut(BaseModel):
 
 class NotificationSettingsOut(_SettingsCommon):
     practice: PracticeSettingsOut
+    announcements: bool = Field(
+        default=True, description="Announcements from teachers and shalas in the bot (NT-03)"
+    )
     timezone: str | None = Field(description="Reminders need it; null = none are sent")
     day_off_question: DayOffQuestionOut | None = Field(
         default=None, description="Ask once: is that weekday the day off? (PR-09)"
@@ -177,6 +180,7 @@ def _settings_out(
             paused_until=pause.until if pause else None,
         ),
         timezone=account.timezone,
+        announcements=s.announcements,
         day_off_question=(
             DayOffQuestionOut(weekday=question.weekday, reminders_on=question.reminders_on)
             if question
@@ -278,6 +282,7 @@ class NotificationSettingsPatch(BaseModel):
     quiet: Quiet | None = None
     daily_cap: int | None = Field(default=None, ge=1, le=10)
     practice: PracticePatchBody | None = None
+    announcements: bool | None = Field(default=None, description="NT-03; null = the default (on)")
 
 
 def _time(t: dt.time | None) -> dt.time | None:
@@ -304,6 +309,7 @@ def _domain_patch(body: NotificationSettingsPatch) -> NotificationPatch:
         daily_cap=body.daily_cap if "daily_cap" in sent else KEEP,
         practice_on=p.on if p and "on" in practice else KEEP,
         practice_at=_time(p.at) if p and "at" in practice else KEEP,
+        announcements_on=body.announcements if "announcements" in sent else KEEP,
     )
 
 

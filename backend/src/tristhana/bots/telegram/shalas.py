@@ -5,6 +5,7 @@ never logged. A preview names no one but the inviter of a staff link; students n
 other students.
 """
 
+import asyncio
 from collections.abc import Awaitable
 from datetime import date
 from typing import TYPE_CHECKING
@@ -23,6 +24,7 @@ from tristhana.application.policies import (
     NotAllowed,
     NotFound,
     Principal,
+    can_announce_to_shala,
     can_edit_shala,
     can_remove_staff,
     can_remove_student,
@@ -40,6 +42,7 @@ from tristhana.bots.telegram.runtime import SettingsUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show, zone_label
 from tristhana.bots.telegram.settings import client_profile
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
+from tristhana.domain.announcements import Source, SourceKind
 from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.moon import City, MoonFollow, MoonSource
 from tristhana.domain.shalas import (
@@ -212,7 +215,13 @@ class ShalaScreens:
 
     # The card
 
-    def _card(self, principal: Principal, card: ShalaCard, note: str | None = None) -> Screen:
+    def _card(
+        self,
+        principal: Principal,
+        card: ShalaCard,
+        note: str | None = None,
+        pin: str | None = None,
+    ) -> Screen:
         locale = principal.account.locale
         today: date = caller_today(principal, self._clock)
         city = self._cities.find(card.city)
@@ -241,9 +250,17 @@ class ShalaScreens:
         if can_edit_shala(me):
             lines.append(self._t.t(locale, "shala-moon-shared"))
         text = "\n".join(lines)
+        if pin:  # NT-03: the live pin
+            text = f"{text}\n\n{pin}"
         if note:
             text = f"{text}\n\n{note}"
         rows: list[list[InlineKeyboardButton]] = []
+        ann = self._links.announcements
+        if ann is not None:  # NT-03
+            rows.append([ann.card_button(locale, Source(SourceKind.SHALA, card.id))])
+            announce = self._links.announce_button(locale, card.id)
+            if announce is not None and can_announce_to_shala(me):
+                rows.append([announce])
         if self._h.classes is not None:  # SC-02
             rows.append([self._button(locale, "schedule-open", classes_cb.week(card.id, 0))])
             if days_off is not None and principal.account.day_off.days is None:  # Q119
@@ -267,7 +284,8 @@ class ShalaScreens:
         if not me.owner:
             rows.append([self._button(locale, "shala-leave", cb.on_shala("k", card.id))])
         rows.append([self._button(locale, "log-back", "t1:o")])
-        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+        # A pin is the author's text: no preview for a URL in it (NT-03).
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows), no_preview=bool(pin))
 
     def _days_off(self, locale: Locale, days: frozenset[int] | None) -> str | None:
         if not days:
@@ -280,11 +298,18 @@ class ShalaScreens:
         return [self._t.t(locale, "shala-role-in-list", role=n) for n in names]
 
     async def card(self, principal: Principal, shala: UUID, note: str | None = None) -> Screen:
+        ann = self._links.announcements
         try:
-            found = await self._h.get.execute(principal, shala)
+            if ann is None:
+                found, pin = await self._h.get.execute(principal, shala), None
+            else:  # NT-03: the live pin loads alongside the card
+                found, pin = await asyncio.gather(
+                    self._h.get.execute(principal, shala),
+                    ann.pin_line(principal, Source(SourceKind.SHALA, shala)),
+                )
         except NotFound:  # gone, left, or a forged id
             return await self._links.overview(principal)
-        return self._card(principal, found, note)
+        return self._card(principal, found, note, pin)
 
     # Students (staff only)
 

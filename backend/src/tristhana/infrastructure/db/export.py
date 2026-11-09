@@ -28,6 +28,7 @@ from tristhana.application.ports.export import Owned
 from tristhana.domain.check_in import CheckIn
 from tristhana.domain.days import DayStatus
 from tristhana.domain.export import (
+    ExportAnnouncement,
     ExportCheckIn,
     ExportDay,
     ExportEvent,
@@ -59,6 +60,7 @@ from tristhana.infrastructure.db.practice import to_practice
 from tristhana.infrastructure.db.rest_periods import open_kind
 from tristhana.infrastructure.db.tables import (
     account,
+    announcement,
     check_in,
     day_log,
     diary_note,
@@ -94,6 +96,7 @@ EXPORTED_TABLES = frozenset(
         "teacher_link",  # as `teacher_links`, without the other person (ID-04)
         "shala_staff",  # as `shalas`, my own memberships only (SC-01)
         "shala_student",
+        "announcement",  # as `announcements_sent`, my own only (NT-03)
     }
 )
 EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
@@ -146,6 +149,7 @@ class SqlExportRepository:
             passed,
             links,
             memberships,
+            announced,
         ) = rows
         return Owned(
             account=to_account(row),
@@ -188,7 +192,12 @@ class SqlExportRepository:
                 ExportMilestone(r.threshold, r.reached_at, r.celebrated) for r in passed
             ),
             links=tuple(
-                ExportLink("teacher" if r.mine else "student", r.primary, r.created_at)
+                ExportLink(
+                    "teacher" if r.mine else "student",
+                    r.primary,
+                    r.created_at,
+                    r.announcements_muted if r.mine else None,
+                )
                 for r in links
             ),
             shalas=tuple(
@@ -201,8 +210,19 @@ class SqlExportRepository:
                     r.owner,
                     tuple(r.roles or ()),
                     r.joined_on,
+                    r.announcements_muted,
                 )
                 for r in memberships
+            ),
+            announcements=tuple(
+                ExportAnnouncement(
+                    "students" if r.shala_name is None else "shala",
+                    r.shala_name,
+                    r.text,
+                    r.created_at,
+                    r.pinned_until,
+                )
+                for r in announced
             ),
         )
 
@@ -304,10 +324,20 @@ def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
             mine.label("mine"),
             case((mine, main_first == 1)).label("primary"),
             teacher_link.c.created_at,
+            teacher_link.c.announcements_muted,
         )
         .where(or_(mine, teacher_link.c.teacher_id == account_id))
         .order_by(teacher_link.c.created_at),
         _memberships(account_id),
+        select(  # NT-03: my own, never a recipient
+            announcement.c.text,
+            announcement.c.created_at,
+            announcement.c.pinned_until,
+            shala.c.name.label("shala_name"),
+        )
+        .select_from(announcement.outerjoin(shala, shala.c.id == announcement.c.shala_id))
+        .where(announcement.c.author_id == account_id)
+        .order_by(announcement.c.created_at, announcement.c.id),
     ]
 
 
@@ -319,6 +349,7 @@ def _memberships(account_id: UUID) -> Any:
         false().label("student"),
         shala_staff.c.joined_on,
         shala_staff.c.created_at,
+        shala_staff.c.announcements_muted,
     ).where(shala_staff.c.account_id == account_id)
     students = select(
         shala_student.c.shala_id,
@@ -326,6 +357,7 @@ def _memberships(account_id: UUID) -> Any:
         true().label("student"),
         shala_student.c.joined_on,
         shala_student.c.created_at,
+        shala_student.c.announcements_muted,
     ).where(shala_student.c.account_id == account_id)
     m = union_all(staff, students).subquery("m")
     return (
@@ -338,6 +370,7 @@ def _memberships(account_id: UUID) -> Any:
             m.c.roles,
             m.c.student,
             m.c.joined_on,
+            m.c.announcements_muted,
         )
         .join_from(m, shala, shala.c.id == m.c.shala_id)
         .order_by(m.c.created_at, m.c.shala_id)

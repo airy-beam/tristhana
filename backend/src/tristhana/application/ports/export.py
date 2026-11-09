@@ -5,6 +5,7 @@ from uuid import UUID
 
 from tristhana.domain.accounts import Account
 from tristhana.domain.export import (
+    ExportAnnouncement,
     ExportCheckIn,
     ExportDay,
     ExportEvent,
@@ -44,6 +45,7 @@ class Owned:
     milestones: tuple[ExportMilestone, ...] = ()  # GM-01 part 2
     links: tuple[ExportLink, ...] = ()
     shalas: tuple[ExportShala, ...] = ()
+    announcements: tuple[ExportAnnouncement, ...] = ()  # NT-03
 
 
 class ExportRepository(Protocol):

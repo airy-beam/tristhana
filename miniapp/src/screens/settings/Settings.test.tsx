@@ -43,6 +43,7 @@ const SETTINGS: NotificationSettings = {
   moon: { offsets: [1, 7], at: "19:00:00" },
   quiet: { start: "22:00:00", end: "07:00:00" },
   daily_cap: 3,
+  announcements: true,
   practice: { on: true, at: "20:00:00", days: [1, 2, 3, 4, 5, 7] },
   timezone: "Asia/Almaty",
 };
@@ -52,6 +53,7 @@ const json = (body: unknown) =>
 
 let dayOffFails = false;
 let meFails = false;
+let teachers: unknown[] = [];
 
 function stubApi(): Request[] {
   const seen: Request[] = [];
@@ -84,7 +86,7 @@ function stubApi(): Request[] {
           days: [],
         });
       }
-      if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
+      if (path === "/api/v1/me/links") return json({ teachers, students: [] });
       if (path === "/api/v1/me/shalas") return json([]); // SC-01
       return json({});
     }),
@@ -137,6 +139,31 @@ afterEach(() => {
 });
 
 describe("Settings", () => {
+  it("has the NT-03 announcements switch once there is a teacher, off = false, on = null", async () => {
+    teachers = [{ id: "t1", name: "Anna", primary: true, primary_chosen: false, linked_at: "x" }];
+    const seen = stubApi();
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+
+    const toggle = await screen.findByRole("checkbox", {
+      name: "📣 Announcements from teachers and shalas",
+    });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toContainEqual({
+      announcements: false,
+    });
+    teachers = [];
+  });
+
+  it("has no announcements switch with no teacher or shala", async () => {
+    stubApi();
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    await screen.findByRole("button", { name: "🧭 Quick tour" });
+    expect(
+      screen.queryByRole("checkbox", { name: "📣 Announcements from teachers and shalas" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("re-opens the quick tour from a row above Privacy", async () => {
     stubApi();
     const onTour = vi.fn();

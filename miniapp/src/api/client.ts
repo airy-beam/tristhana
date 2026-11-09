@@ -1190,8 +1190,9 @@ export function useMyShalas() {
   });
 }
 
-export function useShala(id: string) {
+export function useShala(id: string, enabled = true) {
   return useQuery({
+    enabled,
     staleTime: 60_000,
     queryKey: [...SHALAS_KEY, id],
     queryFn: async (): Promise<Shala> => {
@@ -1528,4 +1529,98 @@ export function useDeleteCalendarFeed() {
     },
     onSuccess: () => client.invalidateQueries({ queryKey: CALENDAR_FEED_KEY }),
   });
+}
+
+// Announcements (NT-03, ADR-0038). Composed here only (Q176); the bot's tick delivers them.
+
+export type Announcement = components["schemas"]["AnnouncementOut"];
+export type AnnouncementFeed = components["schemas"]["FeedOut"];
+export type AnnouncementSource = components["schemas"]["FeedSourceOut"];
+export type SentAnnouncement = components["schemas"]["SentOut"];
+export type AnnouncementIn = components["schemas"]["AnnouncementIn"];
+type SourceKind = "teacher" | "shala";
+const ANNOUNCEMENTS_KEY = ["announcements"];
+
+/** My teachers' and shalas' announcements (the last 30 days plus live pins); `source`
+ * narrows it to one. */
+export const ANNOUNCEMENTS_PAGE = 20;
+
+export function useAnnouncements(source: { kind: SourceKind; id: string } | null, offset = 0) {
+  return useQuery({
+    staleTime: 60_000,
+    queryKey: [...ANNOUNCEMENTS_KEY, "feed", source?.kind ?? "all", source?.id ?? "", offset],
+    queryFn: async (): Promise<AnnouncementFeed> => {
+      const page = { offset, limit: ANNOUNCEMENTS_PAGE };
+      const { data, error, response } = await api.GET("/api/v1/me/announcements", {
+        params: { query: source ? { kind: source.kind, id: source.id, ...page } : page },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    retry: false,
+  });
+}
+
+export function useSentAnnouncements() {
+  return useQuery({
+    staleTime: 60_000,
+    queryKey: [...ANNOUNCEMENTS_KEY, "sent"],
+    queryFn: async (): Promise<SentAnnouncement[]> => {
+      const { data, error, response } = await api.GET("/api/v1/me/announcements/sent");
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+function useAnnouncementWrite<A, R>(write: (arg: A) => Promise<R>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: write,
+    onSettled: () => client.invalidateQueries({ queryKey: ANNOUNCEMENTS_KEY }),
+  });
+}
+
+export function useSendAnnouncement() {
+  return useAnnouncementWrite(async (body: AnnouncementIn): Promise<SentAnnouncement> => {
+    const { data, error, response } = await api.POST("/api/v1/me/announcements", { body });
+    if (!data) fail(response, error);
+    return data;
+  });
+}
+
+/** 0 unpins; a pin replaces the source's earlier one. */
+export function usePinAnnouncement() {
+  return useAnnouncementWrite(
+    async ({ id, days }: { id: string; days: 0 | 7 | 30 }): Promise<SentAnnouncement> => {
+      const { data, error, response } = await api.PATCH("/api/v1/me/announcements/{id}", {
+        params: { path: { id } },
+        body: { pin_days: days },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+  );
+}
+
+export function useDeleteAnnouncement() {
+  return useAnnouncementWrite(async (id: string): Promise<void> => {
+    const { error, response } = await api.DELETE("/api/v1/me/announcements/{id}", {
+      params: { path: { id } },
+    });
+    if (!response.ok) fail(response, error);
+  });
+}
+
+/** Push only: the feed still shows them; the sender is never told (Q167). */
+export function useMuteAnnouncements() {
+  return useAnnouncementWrite(
+    async ({ kind, id, muted }: { kind: SourceKind; id: string; muted: boolean }) => {
+      const { error, response } = await api.PUT("/api/v1/me/announcement-mutes/{kind}/{id}", {
+        params: { path: { kind, id } },
+        body: { muted },
+      });
+      if (!response.ok) fail(response, error);
+    },
+  );
 }

@@ -912,6 +912,7 @@ async def test_the_export_holds_my_memberships_only(engine: AsyncEngine, side: s
         "owner",
         "roles",
         "joined_on",
+        "announcements_muted",  # NT-03
     }
     assert (row["name"], row["side"], row["owner"]) == (
         "Ashtanga Almaty",

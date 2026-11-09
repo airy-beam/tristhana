@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import {
   ApiError,
@@ -32,8 +32,23 @@ interface Props {
 
 /** "👥 My students" (ST-06): name and today's mark in the list, the 7 days on the card only, so
  * no side-by-side week can read as a "who hasn't practiced" list (Q78). Loaded lazily. */
+const Announcements = lazy(() => import("../announcements/Announcements"));
+
 export default function Students({ locale, onBack }: Props) {
   const [open, setOpen] = useState<string | null>(null);
+  const [announcing, setAnnouncing] = useState(false);
+  if (announcing)
+    return (
+      <Suspense fallback={<main className="screen" aria-busy="true" />}>
+        <Announcements
+          mode={{ view: "compose", shala: null }}
+          locale={locale}
+          onBack={() => {
+            setAnnouncing(false);
+          }}
+        />
+      </Suspense>
+    );
   return open ? (
     <Card
       id={open}
@@ -43,7 +58,13 @@ export default function Students({ locale, onBack }: Props) {
       }}
     />
   ) : (
-    <List onBack={onBack} onOpen={setOpen} />
+    <List
+      onBack={onBack}
+      onOpen={setOpen}
+      onAnnounce={() => {
+        setAnnouncing(true);
+      }}
+    />
   );
 }
 
@@ -52,7 +73,15 @@ function useName() {
   return (name: string | null) => name ?? l10n.getString("link-no-name");
 }
 
-function List({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string) => void }) {
+function List({
+  onBack,
+  onOpen,
+  onAnnounce,
+}: {
+  onBack: () => void;
+  onOpen: (id: string) => void;
+  onAnnounce: () => void;
+}) {
   useBackButton(onBack);
   const [pages, setPages] = useState(1);
   const first = useStudents(0);
@@ -73,6 +102,11 @@ function List({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string) => 
       <Localized id="students-days-note">
         <p className="hint" />
       </Localized>
+      {total > 0 && (
+        <Localized id="ann-announce">
+          <button type="button" className="row-button" onClick={onAnnounce} />
+        </Localized>
+      )}
       {first.isError && (
         <Localized id="students-load-failed">
           <p className="hint" role="alert" />

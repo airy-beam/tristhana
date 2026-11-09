@@ -644,7 +644,9 @@ async def test_the_export_has_both_directions(engine: AsyncEngine) -> None:
         ("student", None),  # a teacher's own rows never say whether they're main
         ("teacher", True),  # the effective main, with nothing flagged
     ]
-    assert all(set(link) == {"other_side", "primary", "linked_at"} for link in links)
+    assert all(
+        set(link) == {"other_side", "primary", "linked_at", "announcements_muted"} for link in links
+    )
     assert all(link["linked_at"].endswith("Z") for link in links)
 
 

@@ -335,6 +335,7 @@ notification_settings = Table(
     Column("practice_at", Time()),
     Column("unreachable_at", DateTime(timezone=True)),
     Column("moon_intro_sent_at", DateTime(timezone=True)),  # Q24: the intro went out once
+    Column("announcements_on", Boolean()),  # NT-03 (Q167): NULL = on (the default)
     _timestamp("updated_at"),
     CheckConstraint("moon_offsets <@ '{1,3,7}'::smallint[]", name="moon_offsets"),
     CheckConstraint("daily_cap BETWEEN 1 AND 10", name="daily_cap"),
@@ -353,7 +354,7 @@ notification_delivery = Table(
     _timestamp("created_at"),
     _timestamp("updated_at"),
     PrimaryKeyConstraint("account_id", "dedupe_key"),
-    CheckConstraint("category IN ('moon', 'practice')", name="category"),
+    CheckConstraint("category IN ('moon', 'practice', 'announcement')", name="category"),
     CheckConstraint("status IN ('claimed', 'sent', 'failed', 'blocked')", name="status"),
 )
 
@@ -369,6 +370,8 @@ teacher_link = Table(
     Column("linked_on", Date(), nullable=False),
     _timestamp("created_at"),
     Column("quiet_note_agreed", Boolean(), nullable=False, server_default=text("false")),
+    # NT-03 (Q167): the student's push mute for this teacher; the sender is never told.
+    Column("announcements_muted", Boolean(), nullable=False, server_default=text("false")),
     PrimaryKeyConstraint("student_id", "teacher_id"),
     CheckConstraint("student_id <> teacher_id", name="not_self"),
     Index("teacher_link_teacher_id_student_id_idx", "teacher_id", "student_id"),
@@ -422,6 +425,7 @@ shala_staff = Table(
     Column("roles", ARRAY(Text()), nullable=False, server_default=text("'{}'")),
     Column("joined_on", Date(), nullable=False),  # the member's local date at confirm
     _timestamp("created_at"),
+    Column("announcements_muted", Boolean(), nullable=False, server_default=text("false")),
     PrimaryKeyConstraint("shala_id", "account_id"),
     CheckConstraint(f"roles <@ {_ROLES}", name="roles"),
     Index("shala_staff_account_id_created_at_idx", "account_id", "created_at"),
@@ -434,6 +438,7 @@ shala_student = Table(
     Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
     Column("joined_on", Date(), nullable=False),
     _timestamp("created_at"),
+    Column("announcements_muted", Boolean(), nullable=False, server_default=text("false")),
     PrimaryKeyConstraint("shala_id", "account_id"),
     Index("shala_student_account_id_created_at_idx", "account_id", "created_at"),
 )
@@ -566,4 +571,28 @@ calendar_feed = Table(
     PrimaryKeyConstraint("account_id"),
     UniqueConstraint("token_hash"),
     CheckConstraint("octet_length(token_hash) = 32", name="token_hash_length"),
+)
+
+# NT-03 (ADR-0038): plain text, broadcast, not sealed (Q174); pruned after 90 days by the tick.
+# `shala_id` NULL = the author's own students. One pin per source is kept by the writes.
+announcement = Table(
+    "announcement",
+    metadata,
+    Column("id", Uuid(), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("author_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE")),
+    Column("text", Text(), nullable=False),
+    Column("audience", Integer(), nullable=False),
+    Column("pinned_until", DateTime(timezone=True)),
+    _timestamp("created_at"),
+    CheckConstraint("char_length(text) BETWEEN 1 AND 1000", name="text"),
+    CheckConstraint("audience >= 0", name="audience"),
+    Index("announcement_author_id_created_at_idx", "author_id", "created_at"),
+    Index(
+        "announcement_shala_id_created_at_idx",
+        "shala_id",
+        "created_at",
+        postgresql_where=text("shala_id IS NOT NULL"),
+    ),
+    Index("announcement_created_at_idx", "created_at"),
 )

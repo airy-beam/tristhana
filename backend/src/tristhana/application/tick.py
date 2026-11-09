@@ -7,10 +7,13 @@ step watches the deadline and leaves the rest to the next tick (every 10 min).
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from tristhana.application.ports.announcements import AnnouncementRepository, DueAnnouncement
 from tristhana.application.ports.moon import MoonCalculator, MoonCalendarRepository
 from tristhana.application.ports.notifications import (
+    Announcement,
     DeliveryStatus,
     MoonReminder,
     Notification,
@@ -23,6 +26,7 @@ from tristhana.application.ports.notifications import (
 )
 from tristhana.application.ports.shalas import ShalaRepository
 from tristhana.application.ports.storage import Clock
+from tristhana.domain import announcements as ann
 from tristhana.domain.moon import Cities, MoonDay, calendar_years, moon_follow
 from tristhana.domain.notifications import (
     DEFAULTS,
@@ -37,6 +41,7 @@ KEEP_DELIVERIES = timedelta(days=60)
 # Deliveries and logged days that matter: moon dedupe (offsets <= 7 + grace) and the
 # practice reminder's long-silence rule (10 reminded days, with days off in between).
 LOOKBACK = timedelta(days=21)
+DUE_ANNOUNCEMENTS = 2000  # recipients read per tick (NT-03); the rest go next tick
 
 
 @dataclass(slots=True)
@@ -48,6 +53,7 @@ class TickResult:
     computed: int = 0
     pruned: int = 0
     paused: int = 0
+    announced: int = 0  # NT-03 pushes sent (also counted in `sent`)
     stopped_early: bool = False
 
 
@@ -65,8 +71,10 @@ class RunTick:
         notifications: NotificationRepository,
         notifier: Notifier,
         shalas: ShalaRepository | None = None,
+        announcements: AnnouncementRepository | None = None,
     ) -> None:
         self._shalas = shalas  # SC-01: expired staff links are pruned with the deliveries
+        self._announcements = announcements  # NT-03
         self._clock = clock
         self._cities = cities
         self._moon = moon
@@ -79,12 +87,61 @@ class RunTick:
         deadline = self._clock.now() + budget
         result = TickResult()
         await self._send(deadline, result)
+        await self._announce(deadline, result)
         await self._top_up(deadline, result)
         if self._clock.now() < deadline:
             result.pruned = await self._notifications.prune(self._clock.now() - KEEP_DELIVERIES)
             if self._shalas is not None:
                 result.pruned += await self._shalas.prune_invites(self._clock.now())
+            if self._announcements is not None:
+                result.pruned += await self._announcements.prune(self._clock.now() - ann.KEEP)
         return result
+
+    async def _announce(self, deadline: datetime, result: TickResult) -> None:
+        """NT-03: after the reminders (so a reminder already sent today counts first), from
+        the live audience; quiet hours only make it silent (Q165), the cap is not consulted
+        but the ledger row counts toward it (Q166)."""
+        if self._announcements is None or result.stopped_early:
+            return
+        now = self._clock.now()
+        if now >= deadline:
+            result.stopped_early = True
+            return
+        rows = await self._announcements.due(now - ann.STALE, now, DUE_ANNOUNCEMENTS)
+        for row in rows:
+            try:
+                await self._announce_to(row, deadline, result)
+            except _Stop:
+                result.stopped_early = True
+                return
+
+    async def _announce_to(
+        self, row: DueAnnouncement, deadline: datetime, result: TickResult
+    ) -> None:
+        send = ann.due(self._clock.now(), row.created_at, row.zone, row.quiet)
+        if send is None:
+            return
+        notification = Announcement(
+            row.id,
+            row.source,
+            row.source_name,
+            row.author_name,
+            row.text,
+            send.silent,
+            send.local_date,
+        )
+        status = await self._deliver(
+            row.account_id,
+            Recipient(row.telegram_id, row.locale),
+            ann.announcement_key(row.id),
+            "announcement",
+            send.local_date,
+            notification,
+            deadline,
+            result,
+        )
+        if status is DeliveryStatus.SENT:
+            result.announced += 1
 
     async def _send(self, deadline: datetime, result: TickResult) -> None:
         now = self._clock.now()
@@ -149,7 +206,14 @@ class RunTick:
                 due.moon_day, due.days_before, city, intro, c.settings.moon.offsets, due.local_date
             )
             status = await self._deliver(
-                c, due.key, "moon", due.local_date, reminder, deadline, result
+                c.account_id,
+                Recipient(c.telegram_id, c.locale),
+                due.key,
+                "moon",
+                due.local_date,
+                reminder,
+                deadline,
+                result,
             )
             if status is DeliveryStatus.BLOCKED:
                 return
@@ -163,7 +227,14 @@ class RunTick:
             return
         reminder = PracticeReminder(practice.local_date, practice.pause)
         status = await self._deliver(
-            c, practice.key, "practice", practice.local_date, reminder, deadline, result
+            c.account_id,
+            Recipient(c.telegram_id, c.locale),
+            practice.key,
+            "practice",
+            practice.local_date,
+            reminder,
+            deadline,
+            result,
         )
         if practice.pause and status is DeliveryStatus.SENT:
             await self._notifications.patch_practice(
@@ -173,7 +244,8 @@ class RunTick:
 
     async def _deliver(
         self,
-        c: ReminderCandidate,
+        account_id: UUID,
+        recipient: Recipient,
         key: str,
         category: str,
         local_date: date,
@@ -184,24 +256,24 @@ class RunTick:
         """Claim, send, record. None when another run has it; raises `_Stop`."""
         if self._clock.now() >= deadline:  # never claim what this run may not finish
             raise _Stop
-        if not await self._notifications.claim(c.account_id, key, category, local_date):
+        if not await self._notifications.claim(account_id, key, category, local_date):
             result.skipped += 1
             return None
-        outcome = await self._notifier.deliver(Recipient(c.telegram_id, c.locale), notification)
+        outcome = await self._notifier.deliver(recipient, notification)
         match outcome.status:
             case DeliveryStatus.SENT:
-                await self._notifications.finish(c.account_id, key, "sent")
+                await self._notifications.finish(account_id, key, "sent")
                 result.sent += 1
             case DeliveryStatus.BLOCKED:
-                await self._notifications.finish(c.account_id, key, "blocked")
-                await self._notifications.mark_unreachable(c.account_id, self._clock.now())
+                await self._notifications.finish(account_id, key, "blocked")
+                await self._notifications.mark_unreachable(account_id, self._clock.now())
                 result.blocked += 1
             case DeliveryStatus.RETRY_AFTER:
-                await self._notifications.finish(c.account_id, key, "failed")
+                await self._notifications.finish(account_id, key, "failed")
                 result.failed += 1
                 raise _Stop
             case DeliveryStatus.FAILED:
-                await self._notifications.finish(c.account_id, key, "failed")
+                await self._notifications.finish(account_id, key, "failed")
                 result.failed += 1
         return outcome.status
 

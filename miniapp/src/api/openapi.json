@@ -1,6 +1,115 @@
 {
   "components": {
     "schemas": {
+      "AnnouncementIn": {
+        "properties": {
+          "pin_days": {
+            "default": 0,
+            "enum": [
+              0,
+              7,
+              30
+            ],
+            "title": "Pin Days",
+            "type": "integer"
+          },
+          "shala_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when `to` is shala",
+            "title": "Shala Id"
+          },
+          "text": {
+            "description": "Plain text; at most 1000 characters once trimmed",
+            "maxLength": 4000,
+            "title": "Text",
+            "type": "string"
+          },
+          "to": {
+            "enum": [
+              "students",
+              "shala"
+            ],
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "text"
+        ],
+        "title": "AnnouncementIn",
+        "type": "object"
+      },
+      "AnnouncementOut": {
+        "properties": {
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null once no longer the teacher or on staff",
+            "title": "Author Name"
+          },
+          "can_manage": {
+            "description": "May pin or delete it (the author, a shala manager)",
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pinned_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set only while the pin is live",
+            "title": "Pinned Until"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceOut"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "author_name",
+          "text",
+          "created_at",
+          "pinned_until",
+          "can_manage"
+        ],
+        "title": "AnnouncementOut",
+        "type": "object"
+      },
       "AutoDayOut": {
         "description": "An unlogged day shown as rest (PR-09, ADR-0022): never stored, a log always wins.",
         "properties": {
@@ -1404,6 +1513,8 @@
           "export_too_large",
           "confirmation_required",
           "account_deleted",
+          "announcement_limit",
+          "invalid_announcement",
           "unavailable"
         ],
         "type": "string"
@@ -1615,6 +1726,75 @@
         "title": "ExportSentOut",
         "type": "object"
       },
+      "FeedOut": {
+        "properties": {
+          "items": {
+            "description": "Live pins first, then newest first",
+            "items": {
+              "$ref": "#/components/schemas/AnnouncementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "more": {
+            "title": "More",
+            "type": "boolean"
+          },
+          "sources": {
+            "description": "The caller's teachers and shalas",
+            "items": {
+              "$ref": "#/components/schemas/FeedSourceOut"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "sources",
+          "more"
+        ],
+        "title": "FeedOut",
+        "type": "object"
+      },
+      "FeedSourceOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/Kind",
+            "description": "teacher: `id` is the teacher's account; shala: the shala"
+          },
+          "muted": {
+            "description": "Pushes off for this source (the feed still shows them)",
+            "title": "Muted",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The shala's name, or the teacher's display name",
+            "title": "Name"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "muted"
+        ],
+        "title": "FeedSourceOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1749,6 +1929,13 @@
         ],
         "title": "KeepBody",
         "type": "object"
+      },
+      "Kind": {
+        "enum": [
+          "teacher",
+          "shala"
+        ],
+        "type": "string"
       },
       "Length": {
         "properties": {
@@ -2409,6 +2596,19 @@
         "title": "MoonTeacher",
         "type": "object"
       },
+      "MuteIn": {
+        "properties": {
+          "muted": {
+            "title": "Muted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "muted"
+        ],
+        "title": "MuteIn",
+        "type": "object"
+      },
       "MyClassOut": {
         "properties": {
           "cancelled": {
@@ -2965,6 +3165,12 @@
       },
       "NotificationSettingsOut": {
         "properties": {
+          "announcements": {
+            "default": true,
+            "description": "Announcements from teachers and shalas in the bot (NT-03)",
+            "title": "Announcements",
+            "type": "boolean"
+          },
           "daily_cap": {
             "maximum": 10.0,
             "minimum": 1.0,
@@ -3017,6 +3223,18 @@
       "NotificationSettingsPatch": {
         "description": "Omitted = unchanged; null = back to the default (ADR-0021).",
         "properties": {
+          "announcements": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "NT-03; null = the default (on)",
+            "title": "Announcements"
+          },
           "daily_cap": {
             "anyOf": [
               {
@@ -3211,6 +3429,25 @@
           "period"
         ],
         "title": "PeriodResult",
+        "type": "object"
+      },
+      "PinIn": {
+        "properties": {
+          "pin_days": {
+            "description": "0 unpins",
+            "enum": [
+              0,
+              7,
+              30
+            ],
+            "title": "Pin Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pin_days"
+        ],
+        "title": "PinIn",
         "type": "object"
       },
       "PositionOut": {
@@ -4131,6 +4368,54 @@
         "title": "ScheduleShalaOut",
         "type": "object"
       },
+      "SentOut": {
+        "properties": {
+          "audience": {
+            "description": "People it went to at send time, muted ones included",
+            "title": "Audience",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pinned_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Until"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceOut"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "text",
+          "created_at",
+          "pinned_until",
+          "audience"
+        ],
+        "title": "SentOut",
+        "type": "object"
+      },
       "SeriesCount": {
         "properties": {
           "number": {
@@ -4320,6 +4605,12 @@
       },
       "ShalaMeOut": {
         "properties": {
+          "announce": {
+            "default": false,
+            "description": "May announce to the shala (NT-03, Q163)",
+            "title": "Announce",
+            "type": "boolean"
+          },
           "owner": {
             "title": "Owner",
             "type": "boolean"
@@ -4707,6 +4998,38 @@
           "minutes"
         ],
         "title": "ShiftOut",
+        "type": "object"
+      },
+      "SourceOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/Kind",
+            "description": "teacher: `id` is the teacher's account; shala: the shala"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The shala's name, or the teacher's display name",
+            "title": "Name"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name"
+        ],
+        "title": "SourceOut",
         "type": "object"
       },
       "StartBody": {
@@ -5448,6 +5771,542 @@
         "summary": "Patch Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/announcement-mutes/{kind}/{id}": {
+      "put": {
+        "description": "Push only; the sender is never told (Q167). Idempotent.",
+        "operationId": "put_announcement_mute_api_v1_me_announcement_mutes__kind___id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "teacher",
+                "shala"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MuteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Announcement Mute",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/api/v1/me/announcements": {
+      "get": {
+        "description": "The caller's teachers and shalas: the last 30 days plus live pins (Q171). `kind` and\n`id` together narrow it to one source.",
+        "operationId": "get_announcements_api_v1_me_announcements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Kind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Announcements",
+        "tags": [
+          "announcements"
+        ]
+      },
+      "post": {
+        "description": "Saved now, delivered by the next tick (within about 10 minutes).",
+        "operationId": "post_announcement_api_v1_me_announcements_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Announcement",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/api/v1/me/announcements/sent": {
+      "get": {
+        "description": "My own, the last 30 days, newest first.",
+        "operationId": "get_sent_announcements_api_v1_me_announcements_sent_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SentOut"
+                  },
+                  "title": "Response Get Sent Announcements Api V1 Me Announcements Sent Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Sent Announcements",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/api/v1/me/announcements/{id}": {
+      "delete": {
+        "description": "Idempotent. Messages already delivered stay in people's chats.",
+        "operationId": "delete_announcement_api_v1_me_announcements__id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Announcement",
+        "tags": [
+          "announcements"
+        ]
+      },
+      "patch": {
+        "description": "Pin (one per source: the earlier pin goes) or unpin.",
+        "operationId": "patch_announcement_api_v1_me_announcements__id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Patch Announcement",
+        "tags": [
+          "announcements"
         ]
       }
     },

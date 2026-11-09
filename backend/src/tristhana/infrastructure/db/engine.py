@@ -109,6 +109,7 @@ def is_account_gone(error: DBAPIError) -> bool:
     return name.endswith("_account_id_fkey") or name in (
         "teacher_link_student_id_fkey",
         "shala_owner_id_fkey",  # SC-01: creating a shala as the account goes
+        "announcement_author_id_fkey",  # NT-03: announcing as the account goes
     )
 
 

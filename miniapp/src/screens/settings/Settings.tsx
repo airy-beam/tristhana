@@ -69,6 +69,7 @@ export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) 
         place={placeFor(me.home_city, me.timezone, me.locale)}
       />
       <Quiet zone={me.timezone} />
+      <AnnouncementsSwitch />
       <CalendarFeedCard locale={me.locale} />
       <Localized id="links-title">
         <button type="button" className="row-button" onClick={onLinks} />
@@ -446,6 +447,51 @@ function activeTimes(settings: NotificationSettings): string[] {
   if (settings.moon.offsets.length) out.push(settings.moon.at);
   if (settings.practice.on) out.push(settings.practice.at);
   return out;
+}
+
+/** NT-03 (Q167): one switch for every teacher's and shala's announcements in the bot; each
+ * source also has its own mute. Shown once there is a teacher or a shala to hear from. */
+function AnnouncementsSwitch() {
+  const settings = useNotificationSettings().data;
+  const links = useLinks().data;
+  const shalas = useMyShalas().data;
+  const save = usePatchNotificationSettings();
+  const [on, setOn] = useState<boolean | null>(null);
+  if (!settings) return null;
+  if (!links?.teachers.length && !shalas?.length) return null;
+  const checked = on ?? settings.announcements;
+  return (
+    <section className="card">
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => {
+            const value = e.target.checked;
+            haptics.impact("light");
+            setOn(value); // optimistic
+            save.mutate(
+              { announcements: value ? null : false }, // null: back to the default (on)
+              {
+                onError: () => {
+                  setOn(!value);
+                  haptics.notify("error");
+                },
+              },
+            );
+          }}
+        />
+        <Localized id="settings-announcements">
+          <span />
+        </Localized>
+      </label>
+      {save.isError && (
+        <Localized id="settings-save-failed">
+          <p className="status" role="alert" />
+        </Localized>
+      )}
+    </section>
+  );
 }
 
 function Quiet({ zone }: { zone: string | null }) {

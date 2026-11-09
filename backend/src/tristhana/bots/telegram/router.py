@@ -18,6 +18,7 @@ from tristhana.application.calendar_feed import CalendarFeedUseCases
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import days as day_screens
+from tristhana.bots.telegram.announcements import AnnouncementScreens, register_announcements
 from tristhana.bots.telegram.calendar_feed import FeedScreens
 from tristhana.bots.telegram.classes import ScheduleScreens, register_classes
 from tristhana.bots.telegram.data import register_data
@@ -83,6 +84,10 @@ def build_router(
     register_start(router, start, invites, shalas)
     if invites is not None:
         register_links(router, invites)
+        if links is not None and links.announcements is not None and links.shalas is not None:
+            ann = AnnouncementScreens(links.announcements, translator, links.shalas.clock)
+            invites.announcements = ann  # NT-03: pins and buttons on the cards
+            register_announcements(router, ann, invites.overview)
     if shalas is not None:
         register_shalas(router, shalas)
         if links is not None and links.shalas is not None and links.shalas.classes is not None:

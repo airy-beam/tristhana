@@ -189,3 +189,35 @@ def can_remove_student(actor: Membership | None, *, own: bool) -> bool:
     if own:
         return actor.student
     return actor.staff and (actor.owner or bool(actor.roles & {ShalaRole.ADMIN, ShalaRole.OFFICE}))
+
+
+def can_announce_to_shala(actor: Membership | None) -> bool:
+    """NT-03 (Q163): the owner, a manager, a teacher or the front desk speak for the shala,
+    as `can_manage_schedule`; never an assistant or a student."""
+    return can_manage_schedule(actor)
+
+
+def can_announce_to_students(actor: Account, teacher_id: UUID) -> bool:
+    """NT-03: a teacher announces only to their own linked students."""
+    return actor.id == teacher_id
+
+
+def can_moderate_announcements(shala: Membership | None) -> bool:
+    """A shala's owner or a manager may pin or delete anyone's announcement there."""
+    return _manages(shala)
+
+
+def can_manage_announcement(actor: Account, author_id: UUID, shala: Membership | None) -> bool:
+    """Delete: the author (even after leaving), or for a shala's announcement its owner or a
+    manager (moderation). `shala` is the caller's membership of the announcement's shala."""
+    return actor.id == author_id or can_moderate_announcements(shala)
+
+
+def can_pin_announcement(
+    actor: Account, author_id: UUID, shala_source: bool, shala: Membership | None
+) -> bool:
+    """Pin or unpin: a moderator, or the author while they still speak for the source (an
+    ex-front-desk can't pin over the shala's current pin)."""
+    if can_moderate_announcements(shala):
+        return True
+    return actor.id == author_id and (not shala_source or can_announce_to_shala(shala))

@@ -43,6 +43,7 @@ def test_teacher_link_columns_and_key() -> None:
         "linked_on",
         "created_at",
         "quiet_note_agreed",  # ST-06, migration 0020
+        "announcements_muted",  # NT-03, migration 0024
     }
     assert {c.name for c in table.columns if c.nullable} == set()
     assert table.c.is_primary.server_default is not None

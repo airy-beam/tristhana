@@ -214,6 +214,7 @@ class SendMyExport:
             milestones=owned.milestones,
             links=owned.links,
             shalas=owned.shalas,
+            announcements=owned.announcements,
         )
 
     def labels(self, locale: Locale) -> ExportLabels:

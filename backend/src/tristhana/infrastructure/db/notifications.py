@@ -72,6 +72,7 @@ def _stored(row: Any) -> StoredSettings:
         daily_cap=row.daily_cap,
         practice_on=row.practice_on,
         practice_at=row.practice_at,
+        announcements_on=row.announcements_on,
     )
 
 
@@ -121,6 +122,7 @@ _SETTINGS_COLUMNS = (
     _S.c.daily_cap,
     _S.c.practice_on,
     _S.c.practice_at,
+    _S.c.announcements_on,  # NT-03
 )
 
 
@@ -156,6 +158,7 @@ class SqlNotificationRepository:
             "daily_cap": settings.daily_cap,
             "practice_on": settings.practice.on,
             "practice_at": settings.practice.at,
+            "announcements_on": settings.announcements,
         }
         return await self._upsert(account_id, values, settings)
 

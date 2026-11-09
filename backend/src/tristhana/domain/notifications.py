@@ -66,6 +66,7 @@ class NotificationSettings:
     quiet: QuietHours
     daily_cap: int
     practice: PracticeReminders = PRACTICE_DEFAULT
+    announcements: bool = True  # NT-03 (Q167): the global switch; per-source mutes are apart
 
 
 DEFAULTS = NotificationSettings(
@@ -297,6 +298,7 @@ class StoredSettings:
     daily_cap: int | None = None
     practice_on: bool | None = None  # None = never chosen
     practice_at: time | None = None
+    announcements_on: bool | None = None  # NT-03: None = on
 
 
 def effective(stored: StoredSettings, defaults: NotificationSettings) -> NotificationSettings:
@@ -316,6 +318,11 @@ def effective(stored: StoredSettings, defaults: NotificationSettings) -> Notific
             stored.practice_on,
             stored.practice_at or defaults.practice.at,
             defaults.practice.days,  # the practice days (the day off decides them)
+        ),
+        announcements=(
+            stored.announcements_on
+            if stored.announcements_on is not None
+            else defaults.announcements
         ),
     )
 
@@ -338,6 +345,7 @@ class NotificationPatch:
     daily_cap: int | _Keep | None = KEEP
     practice_on: bool | _Keep | None = KEEP
     practice_at: time | _Keep | None = KEEP
+    announcements_on: bool | _Keep | None = KEEP  # NT-03
 
     def columns(self) -> dict[str, object]:
         """The stored columns this patch writes (only those sent)."""
@@ -348,6 +356,7 @@ class NotificationPatch:
             "daily_cap",
             "practice_on",
             "practice_at",
+            "announcements_on",
         ):
             value = getattr(self, name)
             if not isinstance(value, _Keep):

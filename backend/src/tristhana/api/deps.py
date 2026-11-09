@@ -7,6 +7,7 @@ from fastapi.security import APIKeyHeader
 from tristhana.api import initdata
 from tristhana.api.errors import ApiError
 from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.announcements import AnnouncementUseCases
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, SaveDiaryNote
@@ -229,6 +230,10 @@ def delete_my_account(request: Request) -> "DeleteMyAccount":
 
 def teacher_view(request: Request) -> TeacherViewUseCases:
     return cast(TeacherViewUseCases, request.app.state.teacher_view)
+
+
+def announcements(request: Request) -> AnnouncementUseCases:
+    return cast(AnnouncementUseCases, request.app.state.announcements)
 
 
 def shalas(request: Request) -> ShalaUseCases:

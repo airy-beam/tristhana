@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.application.ports.notifications import (
+    Announcement,
     AsanaMarked,
     DeliveryResult,
     DeliveryStatus,
@@ -39,6 +40,8 @@ class TelegramNotifier:
     async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult:
         from tristhana.bots.telegram import moon, remind
 
+        if isinstance(notification, Announcement):
+            return await self._announce(recipient, notification)
         if isinstance(notification, MoonReminder):
             screen = moon.reminder_screen(self._t, recipient.locale, notification)
         else:
@@ -51,6 +54,27 @@ class TelegramNotifier:
                 request_timeout=SEND_TIMEOUT_S,  # a stalled Telegram must not eat the tick
             ),
             "reminder",
+        )
+
+    async def _announce(self, recipient: Recipient, n: Announcement) -> DeliveryResult:
+        """NT-03: plain text (no parse_mode), no link preview, silent in quiet hours (Q165).
+        Only the id and the status are logged, never the text."""
+        from aiogram.types import LinkPreviewOptions
+
+        from tristhana.bots.telegram import announcements
+
+        screen = announcements.message_screen(self._t, recipient.locale, n)
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                reply_markup=screen.markup,
+                parse_mode=None,  # the text is the author's, never markup
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+                disable_notification=n.silent,
+                request_timeout=SEND_TIMEOUT_S,
+            ),
+            "announcement",
         )
 
     async def tell_student_joined(
