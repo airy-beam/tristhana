@@ -1,5 +1,5 @@
 import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
-import { useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 
 import {
   ApiError,
@@ -31,6 +31,9 @@ type Target = { series: string | null; last: string | null };
 
 const noop = () => undefined;
 
+// ST-04: its own chunk, so My asanas doesn't pay for it.
+const Timeline = lazy(() => import("./Timeline"));
+
 /** "🧘 My asanas" (PR-08): where the practice ends now, a new asana, the milestone items,
  * a correction (never celebrated), and a short history with Undo on each `undoable` entry (the
  * newest, or a teacher's mark the practice hasn't moved on from, ADR-0037).
@@ -40,6 +43,17 @@ export default function Progression({ locale, onBack }: Props) {
   const catalog = useCatalog().data;
   const progression = useProgression();
   const data = progression.data;
+  const [timeline, setTimeline] = useState(false);
+  const closeTimeline = useCallback(() => {
+    setTimeline(false);
+  }, []);
+  if (timeline) {
+    return (
+      <Suspense fallback={<main className="screen" aria-busy="true" />}>
+        <Timeline locale={locale} onBack={closeTimeline} />
+      </Suspense>
+    );
+  }
   return (
     <main className="screen progression">
       {!backButtonAvailable() && (
@@ -51,7 +65,14 @@ export default function Progression({ locale, onBack }: Props) {
         <h1 />
       </Localized>
       {catalog && data ? (
-        <Body catalog={catalog} progression={data} locale={locale} />
+        <Body
+          catalog={catalog}
+          progression={data}
+          locale={locale}
+          onTimeline={() => {
+            setTimeline(true);
+          }}
+        />
       ) : (
         <div aria-busy="true" />
       )}
@@ -63,10 +84,12 @@ function Body({
   catalog,
   progression,
   locale,
+  onTimeline,
 }: {
   catalog: Catalog;
   progression: ProgressionValue;
   locale: Locale;
+  onTimeline: () => void;
 }) {
   const { l10n } = useLocalization();
   const change = useProgressionEvent();
@@ -288,6 +311,11 @@ function Body({
             });
           }}
         />
+      )}
+      {progression.set && (
+        <Localized id="timeline-open">
+          <button type="button" className="row-button" onClick={onTimeline} />
+        </Localized>
       )}
     </>
   );

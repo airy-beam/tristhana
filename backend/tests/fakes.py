@@ -27,7 +27,7 @@ from tristhana.application.ports.notifications import (
     ReminderPatch,
 )
 from tristhana.application.ports.practice import CopiedPractice, SavedPractice
-from tristhana.application.ports.progression import ProgressionView
+from tristhana.application.ports.progression import ProgressionView, TimelineRead
 from tristhana.application.ports.rest_periods import Ended, Placed
 from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice import (
@@ -65,6 +65,7 @@ from tristhana.domain.notifications import (
 from tristhana.domain.practice import Practice, PracticeContext
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
+    TIMELINE_LIMIT,
     Change,
     Earlier,
     EventKind,
@@ -542,6 +543,24 @@ class InMemoryPractices:
         return recent, self.days.progression_rows.get(account_id)
 
 
+def position_event_of(oldest_first: list[ProgressionEvent]) -> ProgressionEvent | None:
+    """The newest START/GIVEN/CHANGED, however old (Q159), as the SQL's `position_event`."""
+    positional = (EventKind.START, EventKind.GIVEN, EventKind.CHANGED)
+    return next((e for e in reversed(oldest_first) if e.kind in positional), None)
+
+
+def timeline_of(oldest_first: list[ProgressionEvent]) -> TimelineRead:
+    """The newest `TIMELINE_LIMIT`, oldest first, whether older ones were left out, and what
+    those reached (as the SQL)."""
+    cut = len(oldest_first) - TIMELINE_LIMIT
+    if cut <= 0:
+        return TimelineRead(tuple(oldest_first))
+    older = oldest_first[:cut]
+    targets = frozenset(e.after for e in older if e.after is not None)
+    items = frozenset(e.item for e in older if e.kind is EventKind.ITEM_GIVEN and e.item)
+    return TimelineRead(tuple(oldest_first[cut:]), True, Earlier(targets, items))
+
+
 @dataclass
 class InMemoryProgression:
     """PR-08 `ProgressionRepository` over `InMemoryDays.progression_*`, with the SQL's
@@ -561,8 +580,16 @@ class InMemoryProgression:
         items = frozenset(e.item for e in events if e.kind is EventKind.ITEM_GIVEN and e.item)
         newest = tuple(reversed(events))[:HISTORY_LIMIT]
         return ProgressionView(
-            self.days.progression_rows.get(account_id), Earlier(targets, items), newest
+            self.days.progression_rows.get(account_id),
+            Earlier(targets, items),
+            newest,
+            position_event_of(events),
         )
+
+    async def timeline(self, account_id: UUID) -> TimelineRead:
+        self.days._check()  # pyright: ignore[reportPrivateUsage]
+        self.calls.append("timeline")
+        return timeline_of(self._events(account_id))
 
     async def for_teacher(self, teacher: UUID, student: UUID) -> Any:
         """No links here: `tests/teacher_mark_fakes.py` `MarkingProgression` has them."""

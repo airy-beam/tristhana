@@ -514,3 +514,41 @@ def test_the_event_fields_are_in_openapi(api: TestClient) -> None:
     assert {"by", "by_name", "undoable"} <= set(schemas["EventOut"]["properties"])
     assert set(schemas["EventOut"]["properties"]["by"]["enum"]) == {"self", "teacher"}
     assert "marked" in schemas["ProgressionOut"]["properties"]
+
+
+# Q159 (ST-04): the mark is found however many item events came after it
+
+
+def test_a_mark_past_the_newest_20_events_stays_marked_and_undoable(
+    api: TestClient, storage: InMemoryStorage, repo: MarkingProgression
+) -> None:
+    me = _me(api, storage)
+    student = _student(storage, me, locale="en")
+    _mark(api, student.id, KAPOTASANA_B, BHARADVAJASANA)
+    mark_id = storage.day_repo.progression_rows[student.id].last_event_id
+    assert mark_id is not None
+    last, items = mark_id, ITEMS
+    for n in range(25):
+        given = n % 2 == 0
+        items = items | {"standing-up"} if given else items - {"standing-up"}
+        kind = EventKind.ITEM_GIVEN if given else EventKind.ITEM_REMOVED
+        change = Change(kind, TODAY, Progression(BHARADVAJASANA, items), item="standing-up")
+        event = asyncio.run(repo.apply(student.id, change, last, student.id))
+        assert event is not None
+        last = event.id
+    student_auth = _auth(STUDENT_TG, "Anna")
+
+    body = api.get(MINE, headers=student_auth).json()
+
+    assert len(body["events"]) == 20
+    assert mark_id not in [e["id"] for e in body["events"]]
+    assert body["marked"] == {"event_id": mark_id, "by_name": "Лена", "undoable": True}
+    assert [e["undoable"] for e in body["events"]] == [True] + [False] * 19
+
+    response = api.delete(f"{MINE}/events/{mark_id}", headers=student_auth)
+
+    assert response.status_code == 200, response.text
+    after = response.json()
+    assert after["position"] == _pos(KAPOTASANA_B)
+    assert set(after["items"]) == items
+    assert after["marked"] is None

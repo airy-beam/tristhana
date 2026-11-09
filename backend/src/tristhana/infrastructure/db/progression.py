@@ -27,9 +27,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSON, aggregate_order_by, insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tristhana.application.ports.progression import MarkLink, ProgressionView, TeacherMarkView
+from tristhana.application.ports.progression import (
+    MarkLink,
+    ProgressionView,
+    TeacherMarkView,
+    TimelineRead,
+)
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
+    TIMELINE_LIMIT,
     Change,
     Earlier,
     EventKind,
@@ -111,6 +117,41 @@ class SqlProgressionRepository:
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
         return _view(account_id, row)
+
+    async def timeline(self, account_id: UUID) -> TimelineRead:
+        """One statement: the newest `TIMELINE_LIMIT` + 1 events (the extra one only says older
+        ones exist), oldest first, with who marked them; plus what every event older than the
+        kept window reached, so a cut history replays its first entries honestly."""
+        e = progression_event
+        mine = e.c.account_id == account_id
+        newest = (
+            select(*e.c)
+            .where(mine)
+            .order_by(e.c.id.desc())
+            .limit(TIMELINE_LIMIT + 1)
+            .subquery("newest")
+        )
+        # The oldest kept id; NULL (nothing older is read) with fewer events than the limit.
+        cutoff = (
+            select(e.c.id)
+            .where(mine)
+            .order_by(e.c.id.desc())
+            .offset(TIMELINE_LIMIT - 1)
+            .limit(1)
+            .scalar_subquery()
+        )
+        targets, given_items = _earlier_columns(account_id, e.c.id < cutoff)
+        stmt = select(
+            _events_json(account_id, newest, ascending=True).label("events"), targets, given_items
+        )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one()
+        found = _json(row.events)
+        truncated = len(found) > TIMELINE_LIMIT
+        if truncated:
+            found = found[1:]
+        events = tuple(_to_event(account_id, x) for x in found)
+        return TimelineRead(events, truncated, _earlier(row) if truncated else Earlier())
 
     async def for_teacher(self, teacher: UUID, student: UUID) -> TeacherMarkView | None:
         """The link (by its primary key), the student's zone, locale and Telegram id, and their
@@ -362,9 +403,30 @@ def _view_columns(account_id: UUID) -> tuple[Any, ...]:
     own joins (`account`, `teacher_link` in `for_teacher`)."""
     e = progression_event
     mine = e.c.account_id == account_id
+    targets, given_items = _earlier_columns(account_id)
+    newest = (
+        select(*e.c).where(mine).order_by(e.c.id.desc()).limit(HISTORY_LIMIT).subquery("newest")
+    )
+    events = _events_json(account_id, newest).label("events")
+    # Q159: the event that set the position, however old (index `(account_id, id DESC)`).
+    latest_position = (
+        select(*e.c)
+        .where(mine, e.c.kind.in_(_POSITION_KINDS))
+        .order_by(e.c.id.desc())
+        .limit(1)
+        .subquery("latest_position")
+    )
+    position_event = _events_json(account_id, latest_position).label("position_event")
+    return targets, given_items, events, position_event
+
+
+def _earlier_columns(account_id: UUID, *where: Any) -> tuple[Any, Any]:
+    """Every position reached and every item given (`Earlier`), limited by `where`."""
+    e = progression_event
+    mine = e.c.account_id == account_id
     reached = (
         select(e.c.to_series, e.c.to_key)
-        .where(mine, e.c.kind.in_(_POSITION_KINDS))
+        .where(mine, e.c.kind.in_(_POSITION_KINDS), *where)
         .distinct()
         .subquery("reached")
     )
@@ -377,51 +439,60 @@ def _view_columns(account_id: UUID) -> tuple[Any, ...]:
     )
     given_items = (
         select(func.array_agg(distinct(e.c.item)))
-        .where(mine, e.c.kind == EventKind.ITEM_GIVEN.value)
+        .where(mine, e.c.kind == EventKind.ITEM_GIVEN.value, *where)
         .scalar_subquery()
         .label("given_items")
     )
-    newest = (
-        select(*e.c).where(mine).order_by(e.c.id.desc()).limit(HISTORY_LIMIT).subquery("newest")
-    )
+    return targets, given_items
+
+
+def _earlier(row: Row[*tuple[Any, ...]]) -> Earlier:
+    reached_at = frozenset(Position(s, k) for s, k in _json(row.targets))
+    return Earlier(reached_at, frozenset(row.given_items or ()))
+
+
+def _events_json(account_id: UUID, rows: Any, *, ascending: bool = False) -> Any:
+    """`rows` (a subquery of `progression_event`) as one JSON array ordered by id, with who
+    marked each: `by` from `marked_by` (NULL, a deleted account, reads as a teacher), `by_name`
+    only while that teacher is still linked. Over aliases, so it never correlates with the
+    caller's own joins (`account`, `teacher_link` in `for_teacher`)."""
     marker_link = teacher_link.alias("marker_link")
     marker = account.alias("marker")
     by = case(
-        (newest.c.marked_by == account_id, literal(Marker.SELF.value)),
+        (rows.c.marked_by == account_id, literal(Marker.SELF.value)),
         else_=literal(Marker.TEACHER.value),
     )
     fields = ("id", "kind", "from_series", "from_key", "to_series", "to_key", "item")
     built = func.json_build_object(
-        *(x for f in fields for x in (f, newest.c[f])),
+        *(x for f in fields for x in (f, rows.c[f])),
         "occurred_on",
-        newest.c.occurred_on,
+        rows.c.occurred_on,
         "by",
         by,
         "by_name",
         marker.c.display_name,
     )
-    events = (
-        select(func.json_agg(aggregate_order_by(built, newest.c.id.desc()), type_=JSON))
+    order = rows.c.id.asc() if ascending else rows.c.id.desc()
+    return (
+        select(func.json_agg(aggregate_order_by(built, order), type_=JSON))
         .select_from(
-            newest.outerjoin(
+            rows.outerjoin(
                 marker_link,
                 and_(
                     marker_link.c.student_id == account_id,
-                    marker_link.c.teacher_id == newest.c.marked_by,
+                    marker_link.c.teacher_id == rows.c.marked_by,
                 ),
             ).outerjoin(marker, marker.c.id == marker_link.c.teacher_id)
         )
         .scalar_subquery()
-        .label("events")
     )
-    return targets, given_items, events
 
 
 def _view(account_id: UUID, row: Row[*tuple[Any, ...]]) -> ProgressionView:
-    reached_at = frozenset(Position(s, k) for s, k in _json(row.targets))
-    earlier = Earlier(reached_at, frozenset(row.given_items or ()))
+    earlier = _earlier(row)
     found = tuple(_to_event(account_id, x) for x in _json(row.events))
-    return ProgressionView(to_progression(row), earlier, found)
+    position = [_to_event(account_id, x) for x in _json(row.position_event)]
+    return ProgressionView(to_progression(row), earlier, found, position[0] if position else None)
 
 
 def _json(value: Any) -> list[Any]:

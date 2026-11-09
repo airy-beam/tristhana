@@ -36,6 +36,7 @@ from tristhana.application.practice import (
 from tristhana.application.progression import (
     DismissNewAsanaHint,
     GetProgression,
+    GetTimeline,
     MarkItem,
     MarkNewAsana,
     SetPractice,
@@ -109,6 +110,7 @@ class ProgressionUseCases:
     item: MarkItem
     undo: UndoProgression
     dismiss: DismissNewAsanaHint
+    timeline: GetTimeline  # ST-04 (Mini App only)
     track: Track
 
 

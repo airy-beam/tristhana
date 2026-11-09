@@ -5937,6 +5937,136 @@
         "title": "TeacherOut",
         "type": "object"
       },
+      "TimelineEntryOut": {
+        "properties": {
+          "by": {
+            "description": "Who marked it: the caller, or a teacher (also a deleted account)",
+            "enum": [
+              "self",
+              "teacher"
+            ],
+            "title": "By",
+            "type": "string"
+          },
+          "by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The teacher's name while they are linked; null = the caller, or show \"a teacher\"",
+            "title": "By Name"
+          },
+          "celebrations": {
+            "description": "What it meant when it happened, in practice order (new asana first, then the series lines); empty = no 🎉 (start, a correction, a removal, given again)",
+            "items": {
+              "$ref": "#/components/schemas/CelebrationOut"
+            },
+            "title": "Celebrations",
+            "type": "array"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EventKind"
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "start only: where the record begins, as a practice (as `length` on GET /me/progression); null = standing only, stale, or another kind"
+          },
+          "occurred_on": {
+            "description": "The local practice day it was marked for",
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "occurred_on",
+          "from",
+          "to",
+          "item",
+          "by",
+          "by_name",
+          "celebrations"
+        ],
+        "title": "TimelineEntryOut",
+        "type": "object"
+      },
+      "TimelineOut": {
+        "properties": {
+          "entries": {
+            "description": "Newest first; read-only (no undo)",
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "set": {
+            "description": "false = no record yet (nothing to show)",
+            "title": "Set",
+            "type": "boolean"
+          },
+          "truncated": {
+            "description": "Older entries were left out (only the newest 1,000)",
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "set",
+          "truncated",
+          "entries"
+        ],
+        "title": "TimelineOut",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -8889,6 +9019,53 @@
           }
         ],
         "summary": "Post Hint Dismissal",
+        "tags": [
+          "progression"
+        ]
+      }
+    },
+    "/api/v1/me/progression/timeline": {
+      "get": {
+        "description": "ST-04: every event of the caller's own record with what it meant (one statement).",
+        "operationId": "get_my_timeline_api_v1_me_progression_timeline_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get My Timeline",
         "tags": [
           "progression"
         ]

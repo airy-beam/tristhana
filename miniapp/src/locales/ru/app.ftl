@@ -466,8 +466,20 @@ progression-event =
         [given] 🎉 { $asana }
         [changed] Изменено: { $asana }
         [item_given] 🎉 { $item }
-       *[item_removed] { $item }: убрано
+       *[item_removed] { $item }: сейчас не в практике
     }
+## ST-04: хронология (только чтение; отмена остаётся в Истории). $length как в progression-current.
+timeline-open = 🗓 Хронология
+timeline-title = 🗓 Мои асаны: хронология
+timeline-start = Начало записи: { $length }
+timeline-given-range = 🎉 { $from } → { $asana }
+timeline-given-across = { $from } ({ $from_series } серия) → { $asana } ({ $series } серия)
+timeline-series = { $series } серия
+timeline-given-again = Снова { $asana }
+timeline-item-removed = { $item }: отложено
+timeline-empty-unset = Укажи в «Мои асаны», где сейчас заканчивается практика, и отсюда начнётся хронология.
+timeline-empty-start = Новые асаны появятся здесь с датами.
+timeline-truncated = Показаны последние записи: { $count }.
 progression-ask-new = { $asana } — дальше твоей последней асаны. Новая асана? 🎉
 progression-ask-yes = 🎉 Да, новая
 progression-ask-no = Не новая

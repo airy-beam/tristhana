@@ -403,6 +403,9 @@ class _UnavailableProgression:
     async def get(self, account_id: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def timeline(self, account_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def for_teacher(self, teacher: UUID, student: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 

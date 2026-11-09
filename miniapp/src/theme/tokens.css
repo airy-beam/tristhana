@@ -449,6 +449,14 @@ body {
 .history li {
   margin: 6px 0;
 }
+/* ST-04: corrections and removals stay visible, quieter; series lines stand out. */
+.timeline li.muted {
+  color: var(--c-hint);
+}
+.timeline .milestone {
+  margin: 8px 0 2px;
+  font-weight: 600;
+}
 
 /* ST-09: delete my account */
 .danger {

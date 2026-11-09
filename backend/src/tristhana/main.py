@@ -84,6 +84,7 @@ from tristhana.application.practice import (
 from tristhana.application.progression import (
     DismissNewAsanaHint,
     GetProgression,
+    GetTimeline,
     MarkItem,
     MarkNewAsana,
     SetPractice,
@@ -334,6 +335,7 @@ class _Services:
             item=MarkItem(repo, track, clock),
             undo=UndoProgression(repo),
             dismiss=DismissNewAsanaHint(repo),
+            timeline=GetTimeline(repo, track),
             track=track,
         )
         app.state.progression = progression

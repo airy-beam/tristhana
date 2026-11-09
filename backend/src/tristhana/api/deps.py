@@ -23,6 +23,7 @@ from tristhana.application.practice import ClearPractice, GetPracticePresets, Sa
 from tristhana.application.progression import (
     DismissNewAsanaHint,
     GetProgression,
+    GetTimeline,
     MarkItem,
     MarkNewAsana,
     SetPractice,
@@ -138,6 +139,10 @@ def mark_item(request: Request) -> MarkItem:
 
 def undo_progression(request: Request) -> UndoProgression:
     return cast(UndoProgression, request.app.state.progression.undo)
+
+
+def get_timeline(request: Request) -> GetTimeline:
+    return cast(GetTimeline, request.app.state.progression.timeline)
 
 
 def dismiss_new_asana_hint(request: Request) -> DismissNewAsanaHint:
