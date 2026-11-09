@@ -18,7 +18,7 @@ from pathlib import Path
 
 from PIL import Image
 
-ATTACHMENTS = Path("/home/pumpkin_vibe/Documents/pumpkin_notes/attachments")
+ATTACHMENTS = Path("/home/pumpkin_vibe/Documents/pumpkin_notes/attachments/tristhana_bot")
 CHROME = "google-chrome"
 MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"
 SCALE = 2
