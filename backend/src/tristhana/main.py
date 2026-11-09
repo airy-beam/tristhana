@@ -28,6 +28,14 @@ from tristhana.application.announcements import (
     PinAnnouncement,
     SendAnnouncement,
 )
+from tristhana.application.attendance import (
+    AttendanceUseCases,
+    ClaimAttendance,
+    GetRoster,
+    ListAttendable,
+    MarkAttendance,
+    RemoveMyAttendance,
+)
 from tristhana.application.calendar_feed import (
     CalendarFeedUseCases,
     CreateFeedLink,
@@ -410,6 +418,14 @@ class _Services:
             mine=GetMySchedule(schedule, clock, cities),
         )
         app.state.classes = classes
+        attendance_repo = self._storage.attendance
+        attendance = AttendanceUseCases(
+            claim=ClaimAttendance(attendance_repo, clock, cities),
+            remove=RemoveMyAttendance(attendance_repo),
+            roster=GetRoster(attendance_repo, clock, cities),
+            mark=MarkAttendance(attendance_repo, clock, cities),
+            listing=ListAttendable(schedule, clock, cities),
+        )
         feeds = self._storage.calendar_feed
         calendar_feed = CalendarFeedUseCases(
             get=GetFeedLink(feeds),
@@ -440,6 +456,7 @@ class _Services:
             cities=cities,
             clock=clock,
             classes=classes,
+            attendance=attendance,
         )
         app.state.shalas = shalas
         announcement_repo = self._storage.announcements

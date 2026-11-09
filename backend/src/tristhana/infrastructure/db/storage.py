@@ -15,6 +15,7 @@ from uuid import UUID
 from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.announcements import AnnouncementRepository
+from tristhana.application.ports.attendance import AttendanceRepository
 from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ClassCaps, ClassDraft
@@ -114,10 +115,12 @@ class PostgresStorage:
         self._schedule: SqlScheduleRepository | None = None
         self._calendar_feed: CalendarFeedRepository | None = None
         self._announcements: AnnouncementRepository | None = None
+        self._attendance: AttendanceRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
         from tristhana.infrastructure.db.announcements import SqlAnnouncementRepository
+        from tristhana.infrastructure.db.attendance import SqlAttendanceRepository
         from tristhana.infrastructure.db.calendar_feed import SqlCalendarFeedRepository
         from tristhana.infrastructure.db.check_in import SqlCheckInRepository
         from tristhana.infrastructure.db.classes import SqlScheduleRepository
@@ -156,6 +159,7 @@ class PostgresStorage:
         self._schedule = SqlScheduleRepository(self._engine)
         self._calendar_feed = SqlCalendarFeedRepository(self._engine, self._cipher)
         self._announcements = SqlAnnouncementRepository(self._engine)
+        self._attendance = SqlAttendanceRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -274,6 +278,12 @@ class PostgresStorage:
             raise RuntimeError("storage not started")
         return self._announcements
 
+    @property
+    def attendance(self) -> AttendanceRepository:
+        if self._attendance is None:
+            raise RuntimeError("storage not started")
+        return self._attendance
+
     def _require_engine(self) -> AsyncEngine:
         if self._engine is None:
             raise RuntimeError("storage not started")
@@ -320,6 +330,10 @@ class UnconfiguredStorage:
     @property
     def announcements(self) -> AnnouncementRepository:
         return _UnavailableAnnouncements()
+
+    @property
+    def attendance(self) -> AttendanceRepository:
+        return _UnavailableAttendance()
 
     @property
     def days(self) -> DayLogRepository:
@@ -725,6 +739,7 @@ class _UnavailableSchedule:
         moon_city: str | None = None,
         moon_end: date | None = None,
         moon_start: date | None = None,
+        attendance: bool = True,
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
@@ -804,4 +819,27 @@ class _UnavailableAnnouncements:
         raise StorageUnavailable("not configured")
 
     async def prune(self, before: datetime) -> int:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableAttendance:
+    """SC-05: every call says "temporarily unavailable"."""
+
+    async def occurrence(self, me: UUID, class_id: UUID, key: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def roster(
+        self, me: UUID, class_id: UUID, key: date, q: str | None, offset: int, limit: int
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def claim(self, me: UUID, snap: Any, state: Any) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def remove(self, me: UUID, class_id: UUID, key: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def mark(
+        self, me: UUID, snap: Any, present: Any, removed: Any, confirm_claims: bool
+    ) -> NoReturn:
         raise StorageUnavailable("not configured")

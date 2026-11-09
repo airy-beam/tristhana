@@ -156,6 +156,30 @@ export interface paths {
         patch: operations["patch_announcement_api_v1_me_announcements__id__patch"];
         trace?: never;
     };
+    "/api/v1/me/attendance/{class_id}/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Claim Attendance
+         * @description 🙋 I was there: a member marks a started class of the last 7 days (staff: confirmed).
+         */
+        put: operations["claim_attendance_api_v1_me_attendance__class_id___key__put"];
+        post?: never;
+        /**
+         * Remove My Attendance
+         * @description Removes my own mark, confirmed or not; idempotent.
+         */
+        delete: operations["remove_my_attendance_api_v1_me_attendance__class_id___key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/calendar-feed": {
         parameters: {
             query?: never;
@@ -948,6 +972,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attendance
+         * @description Staff only (any seat): the roster of one occurrence.
+         */
+        get: operations["get_attendance_api_v1_shalas__id__classes__class_id__occurrences__key__attendance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark Attendance
+         * @description Deltas: `present` → confirmed, `removed` → unmarked, `confirm_claims` → every 🙋.
+         */
+        patch: operations["mark_attendance_api_v1_shalas__id__classes__class_id__occurrences__key__attendance_patch"];
+        trace?: never;
+    };
     "/api/v1/shalas/{id}/closures": {
         parameters: {
             query?: never;
@@ -1187,6 +1235,28 @@ export interface components {
             source: components["schemas"]["SourceOut"];
             /** Text */
             text: string;
+        };
+        /** AttendanceCountsOut */
+        AttendanceCountsOut: {
+            /**
+             * Claimed
+             * @description 🙋 marks waiting for staff to confirm
+             */
+            claimed: number;
+            /** Confirmed */
+            confirmed: number;
+        };
+        /** AttendanceIn */
+        AttendanceIn: {
+            /**
+             * Confirm Claims
+             * @default false
+             */
+            confirm_claims: boolean;
+            /** Present */
+            present?: string[];
+            /** Removed */
+            removed?: string[];
         };
         /**
          * AutoDayOut
@@ -1743,7 +1813,7 @@ export interface components {
             retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "not_attendable" | "invalid_attendance" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -2271,8 +2341,46 @@ export interface components {
              */
             my_moon: boolean;
         };
+        /** MyMarkOut */
+        MyMarkOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /**
+             * Day
+             * Format: date
+             * @description My local date of the class instant (the day to log)
+             */
+            day: string;
+            /**
+             * Key
+             * Format: date
+             */
+            key: string;
+            /**
+             * Log Day
+             * @description Offer "Log this day" (not after Conference or Chanting)
+             */
+            log_day: boolean;
+            state: components["schemas"]["State"];
+        };
         /** MyRowOut */
         MyRowOut: {
+            /**
+             * Attendance
+             * @description SC-05: my own mark on this occurrence
+             */
+            attendance?: ("claimed" | "confirmed") | null;
+            /** @description SC-05: for the shala's staff only; null for a student */
+            attendance_counts?: components["schemas"]["AttendanceCountsOut"] | null;
+            /**
+             * Can Claim
+             * @description SC-05: started, not cancelled, within the last 7 days
+             * @default false
+             */
+            can_claim: boolean;
             /** Cancelled */
             cancelled: ("moon" | "closure" | "cancelled") | null;
             /**
@@ -2759,6 +2867,83 @@ export interface components {
         };
         /** @enum {string} */
         Role: "admin" | "teacher" | "assistant" | "office";
+        /** RosterOccurrenceOut */
+        RosterOccurrenceOut: {
+            /** Cancelled */
+            cancelled: boolean;
+            /** City */
+            city: string;
+            /** End */
+            end: string;
+            /**
+             * Key
+             * Format: date
+             */
+            key: string;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /**
+             * Start
+             * @description HH:MM in the class zone
+             */
+            start: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Title */
+            title: string | null;
+            type: components["schemas"]["ClassTypeName"];
+            /**
+             * Zone
+             * @description The class's IANA zone
+             */
+            zone: string;
+        };
+        /** RosterOut */
+        RosterOut: {
+            /**
+             * Attendable
+             * @description False: read-only (not started, cancelled, > 7 days)
+             */
+            attendable: boolean;
+            /** Claimed */
+            claimed: number;
+            /** Confirmed */
+            confirmed: number;
+            /** More */
+            more: boolean;
+            occurrence: components["schemas"]["RosterOccurrenceOut"];
+            /**
+             * People
+             * @description Claims first, then regulars, then names
+             */
+            people: components["schemas"]["RosterPersonOut"][];
+            /**
+             * Shala Id
+             * Format: uuid
+             */
+            shala_id: string;
+            /** Shala Name */
+            shala_name: string;
+        };
+        /** RosterPersonOut */
+        RosterPersonOut: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Name */
+            name: string | null;
+            /** Staff */
+            staff: boolean;
+            state: components["schemas"]["State"] | null;
+        };
         /** Runs */
         Runs: {
             /**
@@ -2794,6 +2979,8 @@ export interface components {
         };
         /** ScheduleOccurrenceOut */
         ScheduleOccurrenceOut: {
+            /** @description SC-05: for the shala's staff only; null for a student */
+            attendance_counts?: components["schemas"]["AttendanceCountsOut"] | null;
             /** Cancelled */
             cancelled: ("moon" | "closure" | "cancelled") | null;
             /**
@@ -3199,6 +3386,8 @@ export interface components {
              */
             start: string;
         };
+        /** @enum {string} */
+        State: "claimed" | "confirmed";
         /** StatsOut */
         StatsOut: {
             /**
@@ -3951,6 +4140,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    claim_attendance_api_v1_me_attendance__class_id___key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMarkOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    remove_my_attendance_api_v1_me_attendance__class_id___key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */
@@ -6710,6 +7015,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_attendance_api_v1_shalas__id__classes__class_id__occurrences__key__attendance_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+                class_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    mark_attendance_api_v1_shalas__id__classes__class_id__occurrences__key__attendance_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                class_id: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceCountsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Service Unavailable */

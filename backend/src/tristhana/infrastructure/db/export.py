@@ -29,6 +29,7 @@ from tristhana.domain.check_in import CheckIn
 from tristhana.domain.days import DayStatus
 from tristhana.domain.export import (
     ExportAnnouncement,
+    ExportAttendance,
     ExportCheckIn,
     ExportDay,
     ExportEvent,
@@ -62,6 +63,7 @@ from tristhana.infrastructure.db.tables import (
     account,
     announcement,
     check_in,
+    class_attendance,
     day_log,
     diary_note,
     identity,
@@ -97,6 +99,7 @@ EXPORTED_TABLES = frozenset(
         "shala_staff",  # as `shalas`, my own memberships only (SC-01)
         "shala_student",
         "announcement",  # as `announcements_sent`, my own only (NT-03)
+        "class_attendance",  # my own marks with the shala's name (SC-05, Q193)
     }
 )
 EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
@@ -150,6 +153,7 @@ class SqlExportRepository:
             links,
             memberships,
             announced,
+            attended,
         ) = rows
         return Owned(
             account=to_account(row),
@@ -223,6 +227,10 @@ class SqlExportRepository:
                     r.pinned_until,
                 )
                 for r in announced
+            ),
+            attendance=tuple(
+                ExportAttendance(r.name, r.class_type, r.on_date, r.starts_at, r.zone, r.state)
+                for r in attended
             ),
         )
 
@@ -338,6 +346,17 @@ def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
         .select_from(announcement.outerjoin(shala, shala.c.id == announcement.c.shala_id))
         .where(announcement.c.author_id == account_id)
         .order_by(announcement.c.created_at, announcement.c.id),
+        select(  # SC-05: my own marks; never who marked them
+            shala.c.name,
+            class_attendance.c.class_type,
+            class_attendance.c.on_date,
+            class_attendance.c.starts_at,
+            class_attendance.c.zone,
+            class_attendance.c.state,
+        )
+        .join_from(class_attendance, shala, shala.c.id == class_attendance.c.shala_id)
+        .where(class_attendance.c.account_id == account_id)
+        .order_by(class_attendance.c.starts_at, class_attendance.c.id),
     ]
 
 

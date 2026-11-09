@@ -1,11 +1,20 @@
 import { Localized, useLocalization } from "@fluent/react";
 import { lazy, Suspense, useState } from "react";
 
-import { useMe, useMySchedule, type MyRow, type MySchedule as Week } from "../../api/client";
+import {
+  useClaimAttendance,
+  useMe,
+  useMySchedule,
+  useRemoveAttendance,
+  type MyMark,
+  type MyRow,
+  type MySchedule as Week,
+} from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { backButtonAvailable, useBackButton } from "../../telegram";
+import { backButtonAvailable, confirmDestructive, haptics, useBackButton } from "../../telegram";
 import { zoneLabel } from "../practiceText";
 import { placeFor } from "../settings/zones";
+import { loadShowLadies } from "../stats/cells";
 import CalendarFeedCard from "./CalendarFeedCard";
 import { useTypeName } from "./ClassForm";
 import { lengthOf, useRowMarks } from "./ShalaSchedule";
@@ -13,8 +22,11 @@ import { DASH, addDays, dateIn, dayName, hmOf, minutesOf, plain, timeIn } from "
 
 // The shala card is its own lazy chunk (as from Links).
 const ShalaScreen = lazy(() => import("./ShalaScreen"));
+// SC-05: "🧘 Log this day" opens the day editor of the month calendar (its own chunk).
+const DayEditor = lazy(() => import("../stats/DayEditor").then((m) => ({ default: m.DayEditor })));
 
 const WEEKS = 4;
+const FIRST_WEEK = -1; // SC-05 (Q192): last week, for "🙋 I was there"
 type Filter = "all" | "teachers" | "mine";
 const FILTER_KEY = "tristhana.my-schedule.filter";
 const SHIFT_MARK = "⚠";
@@ -98,10 +110,13 @@ function Weeks({
   const { l10n } = useLocalization();
   const [week, setWeek] = useState(0);
   const [choice, setChoice] = useState<Choice>(remembered);
+  const [claimed, setClaimed] = useState<{ mark: MyMark; what: string } | null>(null);
+  const [logDay, setLogDay] = useState<string | null>(null);
+  const me = useMe().data;
   const base = useMySchedule(null);
-  const from = week > 0 && base.data ? addDays(base.data.today, week * 7) : null;
+  const from = week !== 0 && base.data ? addDays(base.data.today, week * 7) : null;
   const query = useMySchedule(from);
-  const data = week > 0 && !from ? undefined : query.data;
+  const data = week !== 0 && !from ? undefined : query.data;
   const choose = (next: Choice) => {
     setChoice(next);
     remember(next);
@@ -166,7 +181,7 @@ function Weeks({
               <button
                 type="button"
                 className="link"
-                disabled={week === 0}
+                disabled={week === FIRST_WEEK}
                 onClick={() => {
                   setWeek(week - 1);
                 }}
@@ -194,9 +209,49 @@ function Weeks({
             )}
             filter={filter}
             onOpen={(id) => {
-              onOpen(id, week);
+              onOpen(id, Math.max(week, 0));
+            }}
+            onClaimed={(mark, what) => {
+              setClaimed({ mark, what });
             }}
           />
+          {claimed && (
+            <div className="card" role="status">
+              <p className="hint">
+                {plain(
+                  l10n.getString("attend-claimed", {
+                    state: claimed.mark.state,
+                    what: claimed.what,
+                  }),
+                )}
+              </p>
+              {claimed.mark.log_day && (
+                <Localized id="attend-log-day">
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => {
+                      setLogDay(claimed.mark.day);
+                    }}
+                  />
+                </Localized>
+              )}
+            </div>
+          )}
+          {logDay && (
+            <Suspense fallback={null}>
+              <DayEditor
+                date={logDay}
+                label={dayName(logDay, locale)}
+                zone={me?.timezone ?? null}
+                locale={locale}
+                showLadies={loadShowLadies()}
+                onClose={() => {
+                  setLogDay(null);
+                }}
+              />
+            </Suspense>
+          )}
         </>
       )}
       <CalendarFeedCard locale={locale} />
@@ -260,12 +315,14 @@ function Days({
   locale,
   filter,
   onOpen,
+  onClaimed,
 }: {
   data: Week;
   rows: MyRow[];
   locale: Locale;
   filter: Filter;
   onOpen: (shala: string) => void;
+  onClaimed: (mark: MyMark, what: string) => void;
 }) {
   const { l10n } = useLocalization();
   const text = useMyRowText(data, locale);
@@ -304,22 +361,92 @@ function Days({
             .filter((r) => dateIn(r.starts_at, data.zone) === d.date)
             .map((r) => {
               const [main, more] = text(r, named);
+              const what = `${dayName(dateIn(r.starts_at, data.zone), locale)} ${main}`;
               return (
-                <button
+                <div
                   key={`${r.shala_id}:${r.class_id}:${r.key}:${r.on}`}
-                  type="button"
-                  className="row-button my-schedule-row"
-                  onClick={() => {
-                    onOpen(r.shala_id);
-                  }}
+                  className="my-schedule-item"
                 >
-                  <span className="link-person">{main}</span>
-                  {more && <span className="hint small">{more}</span>}
-                </button>
+                  <button
+                    type="button"
+                    className="row-button my-schedule-row"
+                    onClick={() => {
+                      onOpen(r.shala_id);
+                    }}
+                  >
+                    <span className="link-person">{main}</span>
+                    {more && <span className="hint small">{more}</span>}
+                  </button>
+                  <Mark
+                    row={r}
+                    onClaimed={(mark) => {
+                      onClaimed(mark, what);
+                    }}
+                  />
+                </div>
               );
             })}
         </div>
       ))}
+    </>
+  );
+}
+
+/** SC-05: "🙋 I was there" on a started row of the last 7 days; a marked row shows ✅ or 🙋,
+ * and a tap asks before removing my mark. Presence only: no log is written. */
+function Mark({ row: r, onClaimed }: { row: MyRow; onClaimed: (mark: MyMark) => void }) {
+  const { l10n } = useLocalization();
+  const claim = useClaimAttendance();
+  const remove = useRemoveAttendance();
+  const target = { classId: r.class_id, key: r.key };
+  const failed = (claim.isError || remove.isError) && (
+    <Localized id="attend-failed">
+      <span className="hint small" role="alert" />
+    </Localized>
+  );
+  if (r.attendance) {
+    const ask = async () => {
+      const ok = await confirmDestructive(
+        l10n.getString("attend-remove-ask"),
+        l10n.getString("attend-remove-yes"),
+        l10n.getString("delete-cancel"),
+      );
+      if (!ok) return;
+      haptics.impact("light");
+      remove.mutate(target);
+    };
+    return (
+      <>
+        <button
+          type="button"
+          className="chip"
+          aria-label={plain(l10n.getString("attend-state", { s: r.attendance }))}
+          disabled={remove.isPending}
+          onClick={() => {
+            void ask();
+          }}
+        >
+          {r.attendance === "confirmed" ? "✅" : "🙋"}
+        </button>
+        {failed}
+      </>
+    );
+  }
+  if (!r.can_claim) return null;
+  return (
+    <>
+      <Localized id="attend-me-button">
+        <button
+          type="button"
+          className="chip"
+          disabled={claim.isPending}
+          onClick={() => {
+            haptics.impact("light");
+            claim.mutate(target, { onSuccess: onClaimed });
+          }}
+        />
+      </Localized>
+      {failed}
     </>
   );
 }

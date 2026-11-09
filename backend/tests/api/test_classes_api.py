@@ -57,7 +57,8 @@ SC02_OCCURRENCE_KEYS = {
 }
 # SC-03 (spec §4): the shala schedule gains `moon` and `swapped_to`; `/me/classes` keeps the
 # SC-02 shape while it is deprecated.
-OCCURRENCE_KEYS = SC02_OCCURRENCE_KEYS | {"moon", "swapped_to"}
+# SC-05 (spec §4): staff counts on every schedule row (null for a student).
+OCCURRENCE_KEYS = SC02_OCCURRENCE_KEYS | {"moon", "swapped_to", "attendance_counts"}
 CLASS_KEYS = {
     "id",
     "type",

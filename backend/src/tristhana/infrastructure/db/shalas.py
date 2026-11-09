@@ -69,6 +69,7 @@ from tristhana.infrastructure.db.accounts import from_mask, to_mask
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.tables import (
     account,
+    class_attendance,
     identity,
     shala_staff,
     shala_staff_invite,
@@ -265,6 +266,18 @@ def _inviter_may(role: Any, inviter_code: Any) -> Any:
 def _if(cur: Any, condition: Any) -> Any:
     """A guard on the one-row `cur` CTE, as EXISTS so the write doesn't join it."""
     return exists(select(cur.c.id).where(condition))
+
+
+def _drop_attendance(shala: UUID, target: UUID, gone: Any) -> Any:
+    """SC-05 (Q186): leaving or a removal deletes the person's attendance at the shala, in the
+    same statement as the membership row it follows."""
+    a = class_attendance
+    return (
+        delete(a)
+        .where(a.c.shala_id == shala, a.c.account_id == target, exists(select(gone.c.account_id)))
+        .returning(a.c.id)
+        .cte("dropped")
+    )
 
 
 def _lock_id(account_id: UUID) -> int:
@@ -850,7 +863,12 @@ class SqlShalaRepository:
             .returning(shala_staff.c.account_id)
             .cte("gone")
         )
-        stmt = select(*cur.c, exists(select(gone.c.account_id)).label("done"))
+        dropped = _drop_attendance(shala, target, gone)
+        stmt = select(
+            *cur.c,
+            exists(select(gone.c.account_id)).label("done"),
+            exists(select(dropped.c.id)).label("dropped"),
+        )
         row = await self._one(stmt)
         if row is None:
             return Guarded(None, False)
@@ -878,7 +896,12 @@ class SqlShalaRepository:
             .returning(shala_student.c.account_id)
             .cte("gone")
         )
-        stmt = select(*cur.c, exists(select(gone.c.account_id)).label("removed"))
+        dropped = _drop_attendance(shala, target, gone)
+        stmt = select(
+            *cur.c,
+            exists(select(gone.c.account_id)).label("removed"),
+            exists(select(dropped.c.id)).label("dropped"),
+        )
         row = await self._one(stmt)
         if row is None:
             return Guarded(None, False)

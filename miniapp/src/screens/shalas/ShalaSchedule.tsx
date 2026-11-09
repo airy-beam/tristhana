@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useState, type SyntheticEvent } from "react";
+import { lazy, Suspense, useState, type ReactNode, type SyntheticEvent } from "react";
 
 import {
   useAddClosure,
@@ -35,6 +35,8 @@ import {
 
 const WEEK = 7;
 const WEEKS = 4;
+// SC-05: the staff roster is its own lazy chunk.
+const Attendance = lazy(() => import("./Attendance"));
 
 /** The shala's week (SC-02): every member reads it in the shala's zone (the card above names
  * it once); a day whose offset differs (a DST week) names it again. Staff who manage classes
@@ -227,7 +229,8 @@ function Week({
               .filter((o) => localDay(o) === d.date)
               .map((o) => {
                 const id = `${o.class_id}:${o.key}`;
-                return shala.me.schedule ? (
+                // Staff who manage classes, and any staff seat for attendance (SC-05, Q181).
+                return shala.me.schedule || o.attendance_counts ? (
                   <div key={id}>
                     <button
                       type="button"
@@ -244,6 +247,7 @@ function Week({
                       <Sheet
                         shala={shala}
                         occurrence={o}
+                        locale={locale}
                         onDone={() => {
                           setOpen(null);
                         }}
@@ -263,15 +267,69 @@ function Week({
   );
 }
 
-/** Staff on one occurrence: cancel, hold anyway (auto-cancelled only, Q126), restore. */
+/** Staff on one occurrence: attendance (any staff seat, SC-05), and for those who manage
+ * classes cancel, hold anyway (auto-cancelled only, Q126), restore. */
 function Sheet({
   shala,
   occurrence: o,
+  locale,
   onDone,
 }: {
   shala: Shala;
   occurrence: Occurrence;
+  locale: Locale;
   onDone: () => void;
+}) {
+  const { l10n } = useLocalization();
+  const [roster, setRoster] = useState(false);
+  const counts = o.attendance_counts;
+  const attendance = counts && (
+    <>
+      {roster ? (
+        <Suspense fallback={null}>
+          <Attendance
+            shalaId={shala.id}
+            classId={o.class_id}
+            occurrenceKey={o.key}
+            locale={locale}
+            onClose={() => {
+              setRoster(false);
+            }}
+          />
+        </Suspense>
+      ) : (
+        <button
+          type="button"
+          className="row-button"
+          onClick={() => {
+            haptics.selection();
+            setRoster(true);
+          }}
+        >
+          {plain(
+            l10n.getString("attend-staff-open", {
+              confirmed: counts.confirmed,
+              claimed: counts.claimed,
+            }),
+          )}
+        </button>
+      )}
+    </>
+  );
+  if (!shala.me.schedule) return <div className="role-editor">{attendance}</div>;
+  return <ManageSheet shala={shala} occurrence={o} onDone={onDone} attendance={attendance} />;
+}
+
+function ManageSheet({
+  shala,
+  occurrence: o,
+  onDone,
+  attendance,
+}: {
+  shala: Shala;
+  occurrence: Occurrence;
+  onDone: () => void;
+  attendance: ReactNode;
 }) {
   const { l10n } = useLocalization();
   const set = useSetOccurrence(shala.id);
@@ -314,6 +372,7 @@ function Sheet({
   const pending = set.isPending || clear.isPending || remove.isPending;
   return (
     <div className="role-editor">
+      {attendance}
       {o.cancelled === null && (
         <label className="label">
           <Localized id="occurrence-teacher">

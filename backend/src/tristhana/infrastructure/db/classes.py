@@ -39,6 +39,7 @@ from tristhana.application.ports.classes import (
     StoredClass,
 )
 from tristhana.application.ports.shalas import Guarded
+from tristhana.domain.attendance import AttendanceState, Counts
 from tristhana.domain.classes import (
     ClassType,
     Closure,
@@ -60,6 +61,7 @@ from tristhana.infrastructure.db.shalas import (
     staff_json,
 )
 from tristhana.infrastructure.db.tables import (
+    class_attendance,
     moon_day,
     shala_class,
     shala_closure,
@@ -208,9 +210,9 @@ def _invalid(e: IntegrityError) -> InvalidClass:
     return InvalidClass(type(e.orig).__name__ if e.orig is not None else "integrity")
 
 
-def _window_stmt(me: UUID, start: date, end: date) -> Any:
+def _window_stmt(me: UUID, start: date, end: date, attendance: bool = True) -> Any:
     """Every row that shapes [start-13, end+13] for a shala, the caller's side included; the
-    caller adds the shala filter."""
+    caller adds the shala filter. `attendance=False` (the ICS feed) skips the SC-05 reads."""
     lo, hi = start - _MARGIN, end + _MARGIN
     overrides = (
         select(
@@ -259,6 +261,7 @@ def _window_stmt(me: UUID, start: date, end: date) -> Any:
         .scalar_subquery()
     )
     return select(
+        *(_attendance_columns(me, lo, hi) if attendance else _no_attendance()),
         _S.c.id,
         _S.c.owner_id,
         _S.c.name,
@@ -274,6 +277,63 @@ def _window_stmt(me: UUID, start: date, end: date) -> Any:
         moon.label("moon"),
         staff_json(_S.c.id).label("staff"),
     )
+
+
+def is_member(shala: Any, who: Any) -> Any:
+    """A current student or staff member. Reads count only these: a claim racing a leave can
+    insert after the leave's delete (READ COMMITTED), and that stray row stays invisible."""
+    return or_(
+        exists().where(shala_student.c.shala_id == shala, shala_student.c.account_id == who),
+        exists().where(shala_staff.c.shala_id == shala, shala_staff.c.account_id == who),
+    )
+
+
+def _no_attendance() -> tuple[Any, ...]:
+    return (
+        func.jsonb_build_array().label("att_mine"),
+        func.jsonb_build_array().label("att_counts"),
+    )
+
+
+def _attendance_columns(me: UUID, lo: date, hi: date) -> tuple[Any, ...]:
+    """SC-05: my marks in the window, and for staff the counts per (class, rule date)."""
+    a = class_attendance
+    in_window = (
+        a.c.shala_id == _S.c.id,
+        a.c.class_id.is_not(None),
+        a.c.occurrence_key.between(lo, hi),
+    )
+    mine = (
+        select(_agg("class_id", a.c.class_id, "key", a.c.occurrence_key, "state", a.c.state))
+        .where(*in_window, a.c.account_id == me)
+        .scalar_subquery()
+    )
+    confirmed = a.c.state == AttendanceState.CONFIRMED.value
+    grouped = (
+        select(
+            a.c.class_id,
+            a.c.occurrence_key,
+            func.count().filter(confirmed).label("confirmed"),
+            func.count().filter(~confirmed).label("claimed"),
+        )
+        .where(
+            *in_window,
+            exists().where(shala_staff.c.shala_id == _S.c.id, shala_staff.c.account_id == me),
+            is_member(a.c.shala_id, a.c.account_id),
+        )
+        .group_by(a.c.class_id, a.c.occurrence_key)
+        .correlate(_S)
+        .subquery("g")
+    )
+    counts = select(
+        _agg(
+            "class_id", grouped.c.class_id,
+            "key", grouped.c.occurrence_key,
+            "confirmed", grouped.c.confirmed,
+            "claimed", grouped.c.claimed,
+        )
+    ).scalar_subquery()  # fmt: skip
+    return (mine.label("att_mine"), counts.label("att_counts"))
 
 
 def _window(row: Row[Any], m: Membership) -> ScheduleWindow:
@@ -299,6 +359,18 @@ def _window(row: Row[Any], m: Membership) -> ScheduleWindow:
         ),
         moon=frozenset(date.fromisoformat(d) for d in row.moon),
         staff={UUID(s["id"]): s["name"] for s in row.staff},
+        mine={
+            (UUID(x["class_id"]), date.fromisoformat(x["key"])): AttendanceState(x["state"])
+            for x in row.att_mine
+        },
+        counts={
+            (UUID(x["class_id"]), date.fromisoformat(x["key"])): Counts(
+                x["confirmed"], x["claimed"]
+            )
+            for x in row.att_counts
+        }
+        if m.staff
+        else {},
     )
 
 
@@ -329,6 +401,7 @@ class SqlScheduleRepository:
         moon_city: str | None = None,
         moon_end: date | None = None,
         moon_start: date | None = None,
+        attendance: bool = True,
     ) -> MyWindows:
         """One statement: a base row of my teacher ids and my moon dates, the windows of my
         shalas joined to it (none: one row of NULLs)."""
@@ -341,7 +414,7 @@ class SqlScheduleRepository:
                     shala_student.c.shala_id == _S.c.id, shala_student.c.account_id == me
                 ),
             )
-        windows = _window_stmt(me, start, end).where(member).subquery("w")
+        windows = _window_stmt(me, start, end, attendance).where(member).subquery("w")
         teachers = (
             select(func.coalesce(func.array_agg(teacher_link.c.teacher_id), cast([], _UUIDS)))
             .where(teacher_link.c.student_id == me)

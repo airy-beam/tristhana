@@ -30,6 +30,7 @@ port (`tristhana.application.ports.shalas`):
 """
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields, replace
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -146,6 +147,10 @@ class InMemoryShalas:
     fail_with: Exception | None = None
     writes: list[str] = field(default_factory=list[str])  # finished writes, in order
     reads: list[str] = field(default_factory=list[str])  # every port call, in order
+    # SC-05 (Q186): leaving or a removal deletes the person's attendance at the shala.
+    on_leave: list[Callable[[UUID, UUID], None]] = field(
+        default_factory=list[Callable[[UUID, UUID], None]]
+    )
     _tick: int = 0
 
     # Seeding (not part of the port).
@@ -441,6 +446,8 @@ class InMemoryShalas:
         if not can_remove_staff(m, t, own=own):
             return Guarded(m, False)
         del self.staff[(shala, target)]
+        for hook in self.on_leave:
+            hook(shala, target)
         self.writes.append("remove_staff")
         return Guarded(m, True)
 
@@ -454,6 +461,8 @@ class InMemoryShalas:
         if not can_remove_student(m, own=own):
             return Guarded(m, False)
         if self.students_rows.pop((shala, target), None) is not None:
+            for hook in self.on_leave:
+                hook(shala, target)
             self.writes.append("remove_student")
         return Guarded(m, True)
 

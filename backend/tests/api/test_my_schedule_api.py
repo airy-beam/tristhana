@@ -52,8 +52,11 @@ SC02_OCCURRENCE_KEYS = {
     "held",
     "usual_teacher",
 }
-OCCURRENCE_KEYS = SC02_OCCURRENCE_KEYS | {"moon", "swapped_to"}
-MY_ROW_KEYS = OCCURRENCE_KEYS | {"shala_id", "zone", "city", "role", "my_teacher", "planned"}
+# SC-05 (spec §4): staff counts on every schedule row (null for a student).
+OCCURRENCE_KEYS = SC02_OCCURRENCE_KEYS | {"moon", "swapped_to", "attendance_counts"}
+MY_ROW_KEYS = OCCURRENCE_KEYS | {
+    "shala_id", "zone", "city", "role", "my_teacher", "planned", "attendance", "can_claim",
+}  # fmt: skip
 MY_SCHEDULE_KEYS = {
     "zone",
     "zone_known",

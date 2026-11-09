@@ -46,6 +46,8 @@ EN_JOIN = (
     "• The shala's staff can send announcements to members through the bot. You can mute them. "
     "• Your moon days follow the shala's calendar, unless you've chosen a city, or your "
     "teacher has. If your teacher teaches here, the shala's calendar comes first. "
+    "• The shala's staff can mark that you came to a class, and so can you. You see these marks "
+    "and can remove them any time. "  # SC-05 (Q190)
     "• You can leave any time in /teachers. No one gets a message. "
     "Join only a shala you know: anyone can create one with any name."
 )
@@ -56,6 +58,8 @@ RU_JOIN = (
     "• Сотрудники шалы могут отправлять участникам объявления через бота. Их можно отключить. "
     "• Лунные дни будут считаться по календарю шалы, если город не выбран ни тобой, ни твоим "
     "учителем. Если учитель преподаёт в этой шале, календарь шалы важнее. "
+    "• Посещение занятий могут отмечать сотрудники шалы, и ты тоже. Эти отметки видны тебе, и их "
+    "можно снять в любой момент. "  # SC-05 (Q190)
     "• Выйти можно в любой момент в /teachers. Сообщений никто не получит. "
     "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 )
@@ -65,6 +69,7 @@ EN_STAFF = (
     "• Everyone in the shala, students included, sees your name (Ash) and role. "
     "• You'll see the names of its students and staff, not their logs. "
     "• The shala's announcements come to you through the bot too. You can mute them. "
+    "• You can mark who came to its classes. "  # SC-05 (Q190)
     "• You can leave any time in /teachers."
 )
 RU_STAFF = (
@@ -73,6 +78,7 @@ RU_STAFF = (
     "• Все в шале, включая учеников, увидят твоё имя (Ash) и роль. "
     "• Тебе будут видны имена учеников и сотрудников, но не их журналы. "
     "• Объявления шалы тоже будут приходить тебе через бота. Их можно отключить. "
+    "• Можно отмечать посещение занятий. "  # SC-05 (Q190)
     "• Выйти можно в любой момент в /teachers."
 )
 

@@ -53,6 +53,7 @@ from tristhana.domain.shalas import (
 )
 
 if TYPE_CHECKING:
+    from tristhana.application.attendance import AttendanceUseCases
     from tristhana.application.classes import ClassUseCases
 
 CAPS = ShalaCaps(
@@ -412,3 +413,4 @@ class ShalaUseCases:
     cities: Cities
     clock: Clock
     classes: "ClassUseCases | None" = None  # SC-02
+    attendance: "AttendanceUseCases | None" = None  # SC-05

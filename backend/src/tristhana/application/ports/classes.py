@@ -13,6 +13,7 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.application.ports.shalas import Guarded
+from tristhana.domain.attendance import AttendanceState, Counts
 from tristhana.domain.classes import ClassType, Closure, MoonPolicy, Override, Swap
 from tristhana.domain.moon import MoonDayKind
 from tristhana.domain.rest_days import Weekdays
@@ -66,6 +67,14 @@ class ScheduleWindow:
     swaps: tuple[Swap, ...]
     moon: frozenset[date]
     staff: Mapping[UUID, str | None]
+    # SC-05 (ADR-0039): my own attendance by (class, rule date) in the window, and for staff
+    # the counts per occurrence (empty for a student).
+    mine: Mapping[tuple[UUID, date], AttendanceState] = field(
+        default_factory=dict[tuple[UUID, date], AttendanceState]
+    )
+    counts: Mapping[tuple[UUID, date], Counts] = field(
+        default_factory=dict[tuple[UUID, date], Counts]
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +101,7 @@ class ScheduleRepository(Protocol):
         moon_city: str | None = None,
         moon_end: date | None = None,
         moon_start: date | None = None,
+        attendance: bool = True,  # False: skip my marks and the staff counts (SC-06)
     ) -> MyWindows:
         """SC-03, one statement: a `window` per shala where `me` is a member (staff first, then
         by name; `staff_only`: staff seats only), my linked teacher ids, and the stored moon

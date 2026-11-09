@@ -87,6 +87,7 @@ class InMemorySchedule:
     )
     # SC-06: the `moon_end` of each `member_windows` call, in the same order.
     moon_ends: list[date | None] = field(default_factory=list[date | None])
+    attendance: Any = None  # SC-05: tests/attendance_fakes.py attaches itself
 
     # Seeding (not part of the port).
 
@@ -142,6 +143,7 @@ class InMemorySchedule:
         moon_city: str | None = None,
         moon_end: date | None = None,
         moon_start: date | None = None,
+        attendance: bool = True,  # False: skip my marks and the staff counts (SC-06)
     ) -> Any:
         """SC-03 (spec §3): one `window` per shala where `me` is a member (staff first, then
         by name), my linked teacher ids, and the moon dates of `moon_city` in [start, end].
@@ -212,7 +214,14 @@ class InMemorySchedule:
                 d.date for d in self.moon.days_by_location.get(moon_city, []) if lo <= d.date <= hi
             ),
             staff={a: self.shalas._name(a) for a in self.shalas.staff_of(shala)},  # pyright: ignore[reportPrivateUsage]
+            **self._attendance(shala, me, m.staff, lo, hi),
         )
+
+    def _attendance(self, shala: UUID, me: UUID, staff: bool, lo: date, hi: date) -> Any:
+        """SC-05: my marks and, for staff, the counts, from `attendance` once it's attached."""
+        if self.attendance is None:
+            return {}
+        return self.attendance.window_fields(shala, me, staff, lo, hi)
 
     async def classes_of(self, shala: UUID, me: UUID) -> Guarded[tuple[StoredClass, ...]]:
         self._call("classes_of")

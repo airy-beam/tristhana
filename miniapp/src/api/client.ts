@@ -1425,12 +1425,106 @@ export function useSetOccurrence(id: string) {
     async ({ classId, key, body }: { classId: string; key: string; body: OccurrenceChange }) => {
       const { data, error, response } = await api.PUT(
         "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}",
-        { params: { path: { id, class_id: classId, key } }, body },
+        {
+          params: { path: { id, class_id: classId, key } },
+          body,
+        },
       );
       if (!data) fail(response, error);
       return data;
     },
   );
+}
+
+// SC-05: attendance. A mark is presence only (never a log entry); `key` is the rule date.
+export type MyMark = components["schemas"]["MyMarkOut"];
+export type Roster = components["schemas"]["RosterOut"];
+export type RosterPerson = components["schemas"]["RosterPersonOut"];
+export type AttendanceCounts = components["schemas"]["AttendanceCountsOut"];
+
+const rosterKey = (id: string, classId: string, key: string) => [
+  ...scheduleKey(id),
+  "attendance",
+  classId,
+  key,
+];
+
+/** 🙋 I was there: my own mark (staff: confirmed at once). */
+export function useClaimAttendance() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ classId, key }: { classId: string; key: string }): Promise<MyMark> => {
+      const { data, error, response } = await api.PUT("/api/v1/me/attendance/{class_id}/{key}", {
+        params: { path: { class_id: classId, key } },
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: SHALAS_KEY }),
+  });
+}
+
+/** Removes my own mark, confirmed or not (idempotent). */
+export function useRemoveAttendance() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ classId, key }: { classId: string; key: string }) => {
+      const { error, response } = await api.DELETE("/api/v1/me/attendance/{class_id}/{key}", {
+        params: { path: { class_id: classId, key } },
+      });
+      if (!response.ok) fail(response, error);
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: SHALAS_KEY }),
+  });
+}
+
+/** Staff: one occurrence's roster (claims first, then regulars, then names). */
+export function useRoster(id: string, classId: string, key: string, q: string, offset: number) {
+  return useQuery({
+    staleTime: 10_000,
+    queryKey: [...rosterKey(id, classId, key), q, offset],
+    queryFn: async (): Promise<Roster> => {
+      const { data, error, response } = await api.GET(
+        "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}/attendance",
+        {
+          params: {
+            path: { id, class_id: classId, key },
+            query: { ...(q ? { q } : {}), offset, limit: 50 },
+          },
+        },
+      );
+      if (!data) fail(response, error);
+      return data;
+    },
+  });
+}
+
+/** The staff PATCH body; `confirm_claims` defaults to false. */
+export type AttendanceDelta = Partial<components["schemas"]["AttendanceIn"]>;
+
+/** Staff: deltas (`present` → confirmed, `removed` → unmarked, `confirm_claims`). Not
+ * optimistic: the roster and the schedules are refetched after the answer. */
+export function useMarkAttendance(id: string, classId: string, key: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: AttendanceDelta): Promise<AttendanceCounts> => {
+      const { data, error, response } = await api.PATCH(
+        "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}/attendance",
+        {
+          params: { path: { id, class_id: classId, key } },
+          body: { confirm_claims: false, ...body },
+        },
+      );
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: rosterKey(id, classId, key) }),
+        client.invalidateQueries({ queryKey: scheduleKey(id), exact: false }),
+        client.invalidateQueries({ queryKey: MY_SCHEDULE_KEY }),
+      ]),
+  });
 }
 
 /** Restore: the occurrence follows its rule again. */
