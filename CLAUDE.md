@@ -22,7 +22,7 @@ A Telegram bot + Telegram Mini App (later web/mobile) for the **Ashtanga yoga** 
 - Tone: supportive, never guilt-inducing. Streaks skip rest/moon days. No leaderboards by default.
 
 ## Architecture rules (non-negotiable)
-- **Monorepo:** `backend/` (Python 3.13, FastAPI, SQLAlchemy 2 async, Alembic, uv), `miniapp/` (React + TS + Vite), `data/seed/`, `docs/adr/`, `infra/`, `tools/`.
+- **Monorepo:** `backend/` (Python 3.13, FastAPI, SQLAlchemy 2 async, Alembic, uv), `miniapp/` (React + TS + Vite), `site/` (public landing page + guides, Astro Starlight), `data/seed/`, `docs/adr/`, `infra/`, `tools/`.
 - **Hexagonal layering** in `backend/src/tristhana/`: `domain/` (pure, no I/O) ← `application/` (use cases + ports) ← adapters (`api/`, `bots/telegram/`, `jobs/`, `infrastructure/`).
   - `aiogram` is imported **only** in `bots/telegram/`. Bot handlers call use cases and contain no business logic.
   - The REST API and the bot use the **same use cases**.
@@ -40,6 +40,7 @@ A Telegram bot + Telegram Mini App (later web/mobile) for the **Ashtanga yoga** 
 - Backend: `cd backend && uv sync` · `uv run pytest` · `uv run ruff check --no-cache . && uv run ruff format .` (`--no-cache` before committing: a stale cache once hid a CI failure) · `uv run pyright` · `uv run lint-imports` · full moon parity: `uv run pytest -m slow` · DB tests: set `TEST_DATABASE_URL` (local Postgres, see `backend/README.md`) · migrations: `uv run tristhana-migrate` (reads `DATABASE_URL` from the environment, not `.env`: `set -a && . ./.env && set +a` first, or for the local container pass it inline: `DATABASE_URL=postgresql://postgres:dev@127.0.0.1:5432/tristhana uv run tristhana-migrate`; a fresh dev DB must be migrated once before `tristhana-dev`)
 - Run locally: `cd backend && uv run tristhana-dev` (API on :8000, `/docs`; with `TELEGRAM_MODE=polling` + the dev bot token in `backend/.env`, @tristhana_dev_bot long-polls in the same process). Config: copy `backend/.env.example` → `backend/.env`.
 - Mini App: `cd miniapp && npm ci` · `npm run dev` (mocked Telegram; `/api` proxied to :8000) · `npm test` (CI runs in UTC, so check with `TZ=UTC npm test` too) · `npm run lint` · `npm run format:check` (CI runs it; fix with `npx prettier --write .`) · `npm run typecheck` · `npm run build && npm run check:bundle` · `npm run gen:api`
+- Public site (UI-05, `site/`): `cd site && npm ci` · `npm run dev` (:4321) · `npm test` · `npm run check:guide` (`-- --write` refreshes `guide-map.yaml`) · `npm run typecheck` · `npm run format:check` · `npm run build && node scripts/check-dist.mjs`. Guides quote labels with `:ftl[key]` and commands with `:cmd[name]`, never by hand (`site/README.md`, ADR-0043).
 - Diagrams: `python3 tools/render_diagrams.py`
 - Brand images: `docs/brand/render.sh SRC OUT W H` (sources in `docs/brand/src/`, see `docs/brand/README.md`)
 - Ops (☁️ ask the owner first): `infra/gcp/bootstrap.sh --dry-run`, then without the flag · `python3 tools/telegram/set_webhook.py [--info]` (webhook + menu button) · container check: `ENGINE=podman infra/ci/container-smoke.sh IMAGE` · catalog review table: `cd backend && uv run python ../tools/catalog/render_review.py <notes-dir>`

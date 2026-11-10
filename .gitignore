@@ -23,3 +23,5 @@ dist/
 .vscode/
 # claude local
 .claude/settings.local.json
+# astro
+.astro/
