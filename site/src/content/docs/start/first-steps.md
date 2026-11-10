@@ -12,6 +12,6 @@ Open the bot, pick your language and log your first day. It takes about two minu
 2. The bot asks how today was. Tap :ftl[status-practiced] or :ftl[status-rest]: both go in your log.
 3. That's it, your first day is logged. Want the calendar and stats? Tap :ftl[start-open-app].
 
-:::note
-This page is being written. Screenshots are coming.
-:::
+![The bot's greeting with the buttons for today](../../../assets/shots/en/bot-start.webp)
+
+_Pictures of the bot are drawn from its real messages._

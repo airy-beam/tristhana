@@ -22,6 +22,7 @@ function preconnectApi(apiBaseUrl: string): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
+  const devApi = process.env.DEV_API_TARGET ?? "http://localhost:8000";
   return {
     plugins: [react(), preconnectApi(env.VITE_API_BASE_URL ?? "")],
     build: { target: "es2022" },
@@ -30,7 +31,9 @@ export default defineConfig(({ mode }) => {
       // /dev signs initData for the browser mock (backend APP_ENV=dev + DEV_INIT_DATA=true).
       // Through a tunnel it is public: anyone with the URL can act as any dev-bot user, so
       // leave DEV_INIT_DATA off while testing on a device.
-      proxy: { "/api": "http://localhost:8000", "/dev": "http://localhost:8000" },
+      // DEV_API_TARGET points both at another local backend (the guide screenshots use a demo
+      // instance on its own port and database, UI-05).
+      proxy: { "/api": devApi, "/dev": devApi },
       // On-device testing through a tunnel (e.g. cloudflared) as @tristhana_dev_bot's URL.
       allowedHosts: [".trycloudflare.com"],
     },

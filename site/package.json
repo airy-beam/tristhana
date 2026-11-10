@@ -12,7 +12,8 @@
     "test": "vitest run",
     "check:guide": "node scripts/check.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "shots": "node shots/shoot.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "0.42.10",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",
+    "playwright-core": "1.65.0",
     "prettier": "3.9.10",
     "prettier-plugin-astro": "1.1.2",
     "typescript": "6.0.3",
