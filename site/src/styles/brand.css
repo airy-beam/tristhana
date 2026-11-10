@@ -1,0 +1,66 @@
+/* UI-05: Tristhana's palette (docs/brand): deep indigo, saffron/ochre, off-white paper.
+   System fonts only, so the site makes no outside requests. */
+:root {
+  --sl-color-accent-low: #23265c;
+  --sl-color-accent: #5a61c9;
+  --sl-color-accent-high: #c9ccf5;
+  --sl-color-white: #f7f1e4;
+  --sl-color-gray-1: #ebe5d8;
+  --sl-color-gray-2: #c6c3cf;
+  --sl-color-gray-3: #9391a8;
+  --sl-color-gray-4: #55567a;
+  --sl-color-gray-5: #2f3160;
+  --sl-color-gray-6: #1c1f4d;
+  --sl-color-black: #14163a;
+  --tr-saffron: #e8a33d;
+  --tr-ochre: #c8732a;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #dfe1f8;
+  --sl-color-accent: #3d43a6;
+  --sl-color-accent-high: #1c1f4d;
+  --sl-color-white: #1c1f4d;
+  --sl-color-gray-1: #23265c;
+  --sl-color-gray-2: #34376b;
+  --sl-color-gray-3: #5c5e85;
+  --sl-color-gray-4: #8a8ba6;
+  --sl-color-gray-5: #cfc8b8;
+  --sl-color-gray-6: #efe7d6;
+  --sl-color-gray-7: #f7f1e4;
+  --sl-color-black: #fbf7ee;
+}
+
+/* Button labels quoted from the product read as buttons, not as shouting. */
+.sl-markdown-content strong {
+  font-weight: 600;
+}
+
+.sl-markdown-content :not(pre) > code {
+  white-space: nowrap;
+}
+
+/* Landing page */
+.hero .tagline {
+  max-width: 34rem;
+}
+
+.sl-link-button.primary {
+  background: var(--tr-saffron);
+  border-color: var(--tr-saffron);
+  color: #1c1f4d;
+}
+
+.sl-link-button.primary:hover {
+  background: var(--tr-ochre);
+  border-color: var(--tr-ochre);
+  color: #fbf7ee;
+}
+
+/* Phone screenshots: a fixed, modest width so text columns stay readable. */
+.sl-markdown-content img.shot {
+  width: min(100%, 19.5rem);
+  height: auto;
+  border-radius: 1rem;
+  border: 1px solid var(--sl-color-gray-5);
+}

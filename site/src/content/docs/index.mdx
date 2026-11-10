@@ -1,0 +1,69 @@
+---
+title: Tristhana
+description: A companion for your Ashtanga practice, in Telegram. Log your practice, follow moon days, stay close to your teacher and your shala.
+template: splash
+features: [UI-05]
+hero:
+  tagline: A quiet companion for your Ashtanga practice. It lives in Telegram, remembers your practice and your rest, and never nags.
+  image:
+    file: ../../assets/mark.svg
+    alt: ""
+  actions:
+    - text: Open in Telegram
+      link: https://t.me/tristhana_bot
+      icon: telegram
+      variant: primary
+    - text: First steps
+      link: /start/first-steps/
+      icon: right-arrow
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+## Who is it for?
+
+<CardGrid>
+  <LinkCard
+    title="I practise"
+    description="Log practice and rest in two taps, see your year, keep track of your asanas."
+    href="/students/log-practice/"
+  />
+  <LinkCard
+    title="I teach"
+    description="Invite your students, see how their week is going, mark a new asana."
+    href="/teachers/invite-students/"
+  />
+  <LinkCard
+    title="I run a shala"
+    description="One schedule for everyone, each person sees it in their own time."
+    href="/staff/create-shala/"
+  />
+</CardGrid>
+
+## What it does
+
+<CardGrid>
+  <Card title="Practice and rest, both count" icon="pencil">
+    Mysore, Led, self-practice at home: one tap for the day, more detail if you want it. Rest days
+    and moon days are part of the log, not gaps in it.
+  </Card>
+  <Card title="Moon days for your city" icon="moon">
+    Full and new moon days are calculated for a real place: your teacher's city, your own, or
+    Mysuru. You get a gentle heads-up before each one.
+  </Card>
+  <Card title="Your teacher, your shala" icon="group">
+    Connect by a link. See the classes of all your shalas in your own time, and add them to your
+    calendar.
+  </Card>
+  <Card title="Private by default" icon="approve-check">
+    Your diary notes are encrypted and nobody else can read them. A teacher sees only a small, clear
+    part of your log, and you can check exactly which.
+  </Card>
+</CardGrid>
+
+## Good to know
+
+- **Free and open source.** Tristhana is a hobby project made by a practitioner. The code is public under the AGPL-3.0 licence [on GitHub](https://github.com/airy-beam/tristhana).
+- **No ads, no tracking.** This site sets no cookies and loads nothing from other sites.
+- **In English and Russian.** [Читать по-русски](/ru/).
