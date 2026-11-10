@@ -32,6 +32,7 @@ from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import moon_callbacks, shalas_callbacks
 from tristhana.bots.telegram import teacher_links_callbacks as cb
+from tristhana.bots.telegram.directory_listing import ListingScreens, card_lines, mark_line
 from tristhana.bots.telegram.runtime import SettingsUseCases
 from tristhana.bots.telegram.screens import (
     Reply,
@@ -46,6 +47,7 @@ from tristhana.bots.telegram.screens import (
 from tristhana.bots.telegram.settings import client_profile
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.announcements import Source, SourceKind
+from tristhana.domain.directory_listing import ListingMark
 from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.moon import MoonFollow, MoonSource
 from tristhana.domain.progression import (
@@ -130,6 +132,7 @@ class LinkScreens:
         self._username = bot_username
         self._track = Track(links.catalog)  # in memory: callback positions resolve against it
         self.announcements: AnnouncementScreens | None = None  # NT-03, set by the router
+        self.listings: ListingScreens | None = None  # ID-05, set by the router
 
     def announce_button(
         self, locale: Locale, shala: UUID | None = None
@@ -146,7 +149,13 @@ class LinkScreens:
     def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
         return button(self._t, locale, key, data)
 
-    def _consent(self, principal: Principal, code: str, teacher: str | None) -> Screen:
+    def _consent(
+        self,
+        principal: Principal,
+        code: str,
+        teacher: str | None,
+        listing: ListingMark | None = None,
+    ) -> Screen:
         account = principal.account
         locale = account.locale
         name = _name(self._t, locale, teacher)
@@ -156,9 +165,13 @@ class LinkScreens:
             f"{self._t.t(locale, 'invite-know-them')} "
             f"{self._t.t(locale, 'invite-not-told', name=name)}"
         )
+        # ID-05: the checked fact on its own line, never the self-declared level here; with
+        # no listing there is no line and no gap. `invite-know-them` stays for everyone.
+        fact = [mark_line(self._t, locale, listing)] if listing is not None else []
         text = "\n\n".join(
             [
                 self._t.t(locale, "invite-ask", name=name),
+                *fact,
                 self._t.t(locale, "invite-consent", name=name, me=me),
                 closing,
             ]
@@ -185,7 +198,7 @@ class LinkScreens:
         name = _name(self._t, locale, found.name)
         match found.state:
             case InviteState.OPEN:
-                return self._consent(principal, code, found.name)
+                return self._consent(principal, code, found.name, found.listing)
             case InviteState.OWN:
                 lead = self._t.t(locale, "invite-own")
             case InviteState.ALREADY:
@@ -346,6 +359,10 @@ class LinkScreens:
         rows.append([self._button(locale, "links-remove", cb.person("u", id))])
         rows.append([self._button(locale, "log-back", cb.plain("o"))])
         text = _name(self._t, locale, teacher.name)
+        listing = found.listings.get(id)
+        if listing is not None:  # ID-05: the line, the level, and what it means
+            fact = "\n".join(card_lines(self._t, locale, listing))
+            text = f"{text}\n{fact}\n\n{self._t.t(locale, 'listing-about')}"
         if pin is not None:
             text = f"{text}\n\n{pin}"
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows), no_preview=pin is not None)
@@ -587,6 +604,8 @@ class LinkScreens:
                     )
                 ]
             )
+        if self.listings is not None and self.listings.available:  # ID-05: one quiet row
+            rows.append([self.listings.entry_button(locale)])
         rows.append([self._button(locale, "log-back", cb.plain("o"))])
         hints = (self._t.t(locale, "invite-hint"), self._t.t(locale, "invite-moon-hint"))
         text = "\n\n".join((url, *hints))

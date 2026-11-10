@@ -22,6 +22,7 @@ from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ClassCaps, ClassDraft
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
+from tristhana.application.ports.directory_listing import ListingRepository
 from tristhana.application.ports.export import ExportRepository, Owned
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import (
@@ -120,6 +121,7 @@ class PostgresStorage:
         self._attendance: AttendanceRepository | None = None
         self._share_cards: ShareCardRepository | None = None
         self._badges: BadgeFactsRepository | None = None
+        self._listings: ListingRepository | None = None
 
     async def start(self) -> None:
         from tristhana.infrastructure.db.accounts import SqlAccountRepository
@@ -131,6 +133,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.classes import SqlScheduleRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.diary import SqlDiaryRepository
+        from tristhana.infrastructure.db.directory_listing import SqlListingRepository
         from tristhana.infrastructure.db.engine import build_engine
         from tristhana.infrastructure.db.export import SqlExportRepository
         from tristhana.infrastructure.db.moon import SqlMoonCalendarRepository
@@ -168,6 +171,7 @@ class PostgresStorage:
         self._attendance = SqlAttendanceRepository(self._engine)
         self._share_cards = SqlShareCardRepository(self._engine)
         self._badges = SqlBadgeFactsRepository(self._engine)
+        self._listings = SqlListingRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
         try:
@@ -293,6 +297,12 @@ class PostgresStorage:
         return self._badges
 
     @property
+    def listings(self) -> ListingRepository:
+        if self._listings is None:
+            raise RuntimeError("storage not started")
+        return self._listings
+
+    @property
     def announcements(self) -> AnnouncementRepository:
         if self._announcements is None:
             raise RuntimeError("storage not started")
@@ -354,6 +364,10 @@ class UnconfiguredStorage:
     @property
     def badges(self) -> BadgeFactsRepository:
         return _UnavailableBadges()
+
+    @property
+    def listings(self) -> ListingRepository:
+        return _UnavailableListings()
 
     @property
     def announcements(self) -> AnnouncementRepository:
@@ -777,6 +791,31 @@ class _UnavailableShareCards:
         raise StorageUnavailable("not configured")
 
     async def prune(self, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableListings:
+    async def get(self, me: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def save(self, me: UUID, details: Any, plan: Any, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def withdraw(self, me: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def recipients(self, accounts: frozenset[UUID]) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def requests(self, listed: bool, page: int) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def request(self, account_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def decide(
+        self, account_id: UUID, revision: int, outcome: Any, checked_on: date, by: UUID
+    ) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 

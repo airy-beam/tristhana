@@ -10,6 +10,7 @@ from tristhana.application.ports.check_in import CheckInRepository
 from tristhana.application.ports.classes import ScheduleRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
+from tristhana.application.ports.directory_listing import ListingRepository
 from tristhana.application.ports.export import ExportRepository
 from tristhana.application.ports.moon import MoonCalendarRepository
 from tristhana.application.ports.notifications import NotificationRepository
@@ -97,6 +98,9 @@ class Storage(Protocol):
 
     @property
     def badges(self) -> BadgeFactsRepository: ...
+
+    @property
+    def listings(self) -> ListingRepository: ...
 
 
 class Clock(Protocol):

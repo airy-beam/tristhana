@@ -32,6 +32,8 @@ LAST_SEEN_PRECISION = timedelta(hours=24)
 # Bidi controls can reorder the text around a name; zero-width joiners stay (emoji sequences).
 _BIDI_CONTROLS = re.compile("[‪-‮⁦-⁩‎‏]")
 _WHITESPACE = re.compile(r"\s+")
+# ID-05 (Q256): a check mark in a name could imitate the directory line. Dropped on save.
+_CHECK_MARKS = re.compile("[\u2713\u2714\u2611\u2705]\ufe0f?")
 _UTC_NAMES = frozenset({"UTC", "Etc/UTC"})
 # `account.home_city` (ADR-0029): None = never chosen (the nudge shows), NOT_LISTED = chosen:
 # not in the list / not now, otherwise a city slug whose zone is the account's zone.
@@ -256,10 +258,10 @@ def home_city_of(account: Account, cities: Cities) -> City | None:
 
 
 def normalize_display_name(raw: str | None) -> str | None:
-    """Printable, single-spaced, at most 64 characters; blank becomes None."""
+    """Printable, single-spaced, at most 64 characters, no check marks; blank becomes None."""
     if raw is None:
         return None
-    text = _BIDI_CONTROLS.sub("", raw)
+    text = _CHECK_MARKS.sub("", _BIDI_CONTROLS.sub("", raw))
     text = "".join(" " if unicodedata.category(ch) == "Cc" else ch for ch in text)
     text = _WHITESPACE.sub(" ", text).strip()[:DISPLAY_NAME_MAX].rstrip()
     return text or None

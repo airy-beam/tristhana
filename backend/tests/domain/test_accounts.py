@@ -122,3 +122,19 @@ def test_etc_utc_is_the_same_as_utc() -> None:
 )
 def test_device_utc_says_nothing_about_location(reported: str, stored: str | None) -> None:
     assert device_timezone(reported) == stored
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Anna ✔", "Anna"),
+        ("✔ Anna", "Anna"),
+        ("Anna ✔️ Petrova", "Anna Petrova"),
+        ("✓✅☑ Anna", "Anna"),
+        ("✅", None),
+        ("Anna 🌸", "Anna 🌸"),  # other emoji stay
+    ],
+)
+def test_display_names_hold_no_check_marks(raw: str, expected: str | None) -> None:
+    """ID-05 (Q256): a check mark in a name could imitate the directory line."""
+    assert normalize_display_name(raw) == expected

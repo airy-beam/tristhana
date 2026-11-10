@@ -21,8 +21,15 @@ from tristhana.application.ports.teacher_links import (
 from tristhana.domain.moon import TeacherMoon
 from tristhana.domain.teacher_links import Linked
 from tristhana.infrastructure.db.accounts import MAIN_TEACHER, to_teacher
+from tristhana.infrastructure.db.directory_listing import MARK_COLUMNS, mark_join, to_mark
 from tristhana.infrastructure.db.engine import connection, constraint_name, sqlstate
-from tristhana.infrastructure.db.tables import account, identity, teacher_invite, teacher_link
+from tristhana.infrastructure.db.tables import (
+    account,
+    directory_listing,
+    identity,
+    teacher_invite,
+    teacher_link,
+)
 
 _TEACHER_GONE = "teacher_link_teacher_id_fkey"
 _ONE_PRIMARY = "teacher_link_one_primary"
@@ -99,15 +106,19 @@ class SqlTeacherLinkRepository:
                 already.label("already"),
                 mine.label("mine"),
                 theirs.label("theirs"),
+                *MARK_COLUMNS,  # ID-05: a PK join, no extra statement
             )
             .join_from(teacher_invite, account, account.c.id == teacher)
+            .outerjoin(directory_listing, mark_join(teacher))
             .where(teacher_invite.c.code == code)
         )
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one_or_none()
         if row is None:
             return None
-        return InvitePreview(row.account_id, row.display_name, row.already, row.mine, row.theirs)
+        return InvitePreview(
+            row.account_id, row.display_name, row.already, row.mine, row.theirs, to_mark(row)
+        )
 
     async def accept(self, code: str, me: UUID, caps: Caps, linked_on: date) -> Accepted | None:
         try:
@@ -144,17 +155,22 @@ class SqlTeacherLinkRepository:
                 account.c.display_name,
                 and_(mine, link.c.is_primary).label("chosen"),
                 link.c.created_at,
+                *MARK_COLUMNS,
             )
             .join_from(link, account, account.c.id == other)
+            # ID-05: only my teachers' rows can match (a student row never carries a mark).
+            .outerjoin(directory_listing, and_(mine, mark_join(link.c.teacher_id)))
             .where(or_(mine, link.c.teacher_id == me))
             .order_by(link.c.created_at, other)
         )
         async with connection(self._engine) as conn:
             rows = (await conn.execute(stmt)).all()
         people = [(r.mine, Linked(r.other, r.display_name, r.chosen, r.created_at)) for r in rows]
+        marks = {r.other: to_mark(r) for r in rows if r.mine}
         return Links(
             teachers=tuple(p for is_mine, p in people if is_mine),
             students=tuple(p for is_mine, p in people if not is_mine),
+            listings={id: mark for id, mark in marks.items() if mark is not None},
         )
 
     async def invite(self, me: UUID, new_code: str) -> str:

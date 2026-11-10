@@ -1,4 +1,4 @@
-"""Migration 0026 `share_card` (ST-07 spec §6; ADR-0040), without a database: the head, the
+"""Migration 0026 `share_card` (ST-07 spec §6; ADR-0040), without a database: its place, the
 columns, the key, the cascade and the export exclusion. CHECKs, up/down and `alembic check`
 run on Postgres in `test_db_share_cards.py`."""
 
@@ -9,12 +9,11 @@ from tristhana.infrastructure.db.export import EXCLUDED_TABLES, EXPORTED_TABLES
 from tristhana.infrastructure.db.migrate import alembic_config
 
 
-def test_0026_follows_0025_and_is_the_head() -> None:
+def test_0026_follows_0025() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0026")
     assert revision is not None
     assert revision.down_revision == "0025"
-    assert script.get_current_head() == "0026"
 
 
 def test_the_table() -> None:

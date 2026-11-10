@@ -710,3 +710,41 @@ body {
 .card .badge-about {
   margin: 0 0 8px 40px;
 }
+
+/* ID-05: the directory line under a teacher's name (plain text colour, never a pill), and its
+   form. */
+.listing-mark {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0; /* a comfortable tap target */
+  border: 0;
+  background: none;
+  color: var(--c-text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.listing-form .label {
+  display: block;
+  margin: 12px 0 6px;
+}
+.listing-form input,
+.listing-form select,
+.listing-form textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--c-hint) 40%, transparent);
+  border-radius: 10px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: inherit;
+}
+.listing-form .row-button {
+  margin-top: var(--space);
+}

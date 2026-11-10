@@ -15,6 +15,7 @@ from tristhana.application.calendar_feed import CalendarFeedUseCases
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
+from tristhana.application.directory_listing import ListingUseCases
 from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
@@ -191,6 +192,7 @@ def build_runtime(
     links: LinkUseCases | None = None,
     bot_username: str = "",
     calendar: CalendarFeedUseCases | None = None,
+    listings: ListingUseCases | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -216,6 +218,7 @@ def build_runtime(
             links,
             bot_username,
             calendar,
+            listings,
         )
     )
     return BotRuntime(

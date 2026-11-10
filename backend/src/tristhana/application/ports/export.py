@@ -4,6 +4,7 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.accounts import Account
+from tristhana.domain.directory_listing import Listing
 from tristhana.domain.export import (
     ExportAnnouncement,
     ExportAttendance,
@@ -48,6 +49,7 @@ class Owned:
     shalas: tuple[ExportShala, ...] = ()
     announcements: tuple[ExportAnnouncement, ...] = ()  # NT-03
     attendance: tuple[ExportAttendance, ...] = ()  # SC-05
+    listing: Listing | None = None  # ID-05: my own request, never who checked it
 
 
 class ExportRepository(Protocol):

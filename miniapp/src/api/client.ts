@@ -1041,6 +1041,12 @@ export type TeacherLinks = components["schemas"]["LinksOut"];
 export type LinkedTeacher = components["schemas"]["TeacherOut"];
 export type LinkedStudent = components["schemas"]["StudentOut"];
 export type Invite = components["schemas"]["InviteOut"];
+// ID-05: the directory line. Types only: its hooks live with the lazy screens
+// (screens/settings/listing.ts), so the initial bundle doesn't carry them.
+export type Listing = components["schemas"]["ListingOut"];
+export type ListingBody = components["schemas"]["ListingIn"];
+export type ListingMark = components["schemas"]["ListingMarkOut"];
+export type ListingLevel = components["schemas"]["Level"];
 
 const LINKS_KEY = ["links"];
 

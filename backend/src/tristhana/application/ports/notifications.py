@@ -5,6 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from tristhana.domain.announcements import Source
+from tristhana.domain.directory_listing import Outcome
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay, ShalaMoon, TeacherMoon
 from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
@@ -271,4 +272,16 @@ class Notifier(Protocol):
     async def send_card_photo(self, recipient: Recipient, png: bytes) -> DeliveryResult:
         """ST-07: a share card as a photo in the person's own chat, with a short caption;
         outside the ledger and the cap, no retry."""
+        ...
+
+    async def tell_listing_requested(self, recipient: Recipient) -> DeliveryResult:
+        """ID-05: one silent note to a platform admin, "a directory request is waiting". It
+        carries no name; outside the ledger and the cap, no retry (`/admin` is the record)."""
+        ...
+
+    async def tell_listing_checked(
+        self, recipient: Recipient, outcome: Outcome, name_as_listed: str, was_listed: bool
+    ) -> DeliveryResult:
+        """ID-05: the teacher's one silent note about the answer. `was_listed`: a re-check
+        that ended the line, not a first answer. Outside the ledger and the cap, no retry."""
         ...

@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { lazy, Suspense, useState, type SyntheticEvent } from "react";
+import { Fragment, lazy, Suspense, useState, type SyntheticEvent } from "react";
 
 import {
   ApiError,
@@ -27,10 +27,13 @@ import {
 } from "../../telegram";
 import type { Locale } from "../../i18n/negotiate";
 import { cityName } from "../MoonCard";
+import { checkedMonth, useListing, type ListingMark } from "./listing";
 
 // SC-01: the card is its own lazy chunk, loaded when a shala is opened.
 const ShalaScreen = lazy(() => import("../shalas/ShalaScreen"));
 const Announcements = lazy(() => import("../announcements/Announcements"));
+// ID-05: the form (and its copy) loads when the row is tapped.
+const DirectoryListing = lazy(() => import("./DirectoryListing"));
 
 interface Props {
   onBack: () => void;
@@ -42,7 +45,19 @@ interface Props {
 export default function Links({ onBack, onStudents }: Props) {
   const [shala, setShala] = useState<string | null>(null);
   const [feed, setFeed] = useState(false);
+  const [listing, setListing] = useState(false);
   const locale: Locale = useMe().data?.locale ?? "en";
+  if (listing)
+    return (
+      <Suspense fallback={null}>
+        <DirectoryListing
+          locale={locale}
+          onBack={() => {
+            setListing(false);
+          }}
+        />
+      </Suspense>
+    );
   if (feed)
     return (
       <Suspense fallback={null}>
@@ -74,6 +89,10 @@ export default function Links({ onBack, onStudents }: Props) {
       onFeed={() => {
         setFeed(true);
       }}
+      onListing={() => {
+        setListing(true);
+      }}
+      locale={locale}
     />
   );
 }
@@ -83,7 +102,14 @@ function Lists({
   onStudents,
   onShala,
   onFeed,
-}: Props & { onShala: (id: string) => void; onFeed: () => void }) {
+  onListing,
+  locale,
+}: Props & {
+  onShala: (id: string) => void;
+  onFeed: () => void;
+  onListing: () => void;
+  locale: Locale;
+}) {
   useBackButton(onBack);
   const query = useLinks();
   const links = query.data;
@@ -109,9 +135,10 @@ function Lists({
       )}
       {links && (
         <>
-          <Teachers teachers={links.teachers} />
+          <Teachers teachers={links.teachers} locale={locale} />
           <Students students={links.students} onOpen={onStudents} />
           <InviteCard hasStudents={links.students.length > 0} />
+          <ListingRow onOpen={onListing} />
         </>
       )}
       <Shalas onOpen={onShala} />
@@ -290,7 +317,67 @@ function useName() {
   return (name: string | null) => name ?? l10n.getString("link-no-name");
 }
 
-function Teachers({ teachers }: { teachers: LinkedTeacher[] }) {
+/** ID-05: the quiet way in to the directory line. Hidden while it loads, and when requests
+ * aren't taken (`available` false) unless I have a request or a line to look at or remove;
+ * its failure is never this screen's error. */
+function ListingRow({ onOpen }: { onOpen: () => void }) {
+  const { data } = useListing();
+  const mine = data && data.status !== "none" && data.status !== "withdrawn";
+  if (!data || !(data.available || mine)) return null;
+  return (
+    <Localized id="listing-open">
+      <button
+        type="button"
+        className="row-button"
+        onClick={() => {
+          haptics.selection();
+          onOpen();
+        }}
+      />
+    </Localized>
+  );
+}
+
+/** ID-05: the directory line, its own element under the name (never part of it). A tap opens
+ * what it means, and only there the level in the teacher's own words. A teacher without a
+ * line renders nothing at all. */
+function ListingLine({ mark, locale }: { mark: ListingMark; locale: Locale }) {
+  const { l10n } = useLocalization();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="listing-mark"
+        aria-expanded={open}
+        onClick={() => {
+          setOpen(!open);
+        }}
+      >
+        {l10n.getString("listing-mark", {
+          listed: mark.name_as_listed,
+          when: checkedMonth(mark.checked_on, locale),
+        })}
+      </button>
+      {open && (
+        <>
+          {mark.declared_level && (
+            <p className="hint small">
+              {l10n.getString("listing-level", {
+                level: l10n.getString("listing-level-name", { level: mark.declared_level }),
+              })}
+            </p>
+          )}
+          <Localized id="listing-about">
+            <p className="hint small" />
+          </Localized>
+        </>
+      )}
+    </>
+  );
+}
+
+function Teachers({ teachers, locale }: { teachers: LinkedTeacher[]; locale: Locale }) {
   const { l10n } = useLocalization();
   const name = useName();
   const makeMain = useMakeMainTeacher();
@@ -333,31 +420,34 @@ function Teachers({ teachers }: { teachers: LinkedTeacher[] }) {
         </>
       )}
       {teachers.map((teacher) => (
-        <div className="link-person" key={teacher.id}>
-          <span>{name(teacher.name)}</span>
-          {several && !teacher.primary && (
-            <Localized id="links-make-main">
+        <Fragment key={teacher.id}>
+          <div className="link-person">
+            <span>{name(teacher.name)}</span>
+            {several && !teacher.primary && (
+              <Localized id="links-make-main">
+                <button
+                  type="button"
+                  className="link"
+                  disabled={makeMain.isPending}
+                  onClick={() => {
+                    haptics.selection();
+                    makeMain.mutate(teacher.id);
+                  }}
+                />
+              </Localized>
+            )}
+            <Localized id="links-remove">
               <button
                 type="button"
                 className="link"
-                disabled={makeMain.isPending}
                 onClick={() => {
-                  haptics.selection();
-                  makeMain.mutate(teacher.id);
+                  void confirmRemove(teacher);
                 }}
               />
             </Localized>
-          )}
-          <Localized id="links-remove">
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                void confirmRemove(teacher);
-              }}
-            />
-          </Localized>
-        </div>
+          </div>
+          {teacher.listing && <ListingLine mark={teacher.listing} locale={locale} />}
+        </Fragment>
       ))}
     </section>
   );

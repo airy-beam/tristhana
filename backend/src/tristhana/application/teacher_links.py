@@ -33,6 +33,7 @@ from tristhana.application.settings import caller_today
 from tristhana.application.teacher_marks import MarkForStudent
 from tristhana.application.teacher_view import TeacherViewUseCases
 from tristhana.domain.accounts import Account, moon_follow_of
+from tristhana.domain.directory_listing import ListingMark
 from tristhana.domain.moon import Cities, MoonFollow, MoonSource, TeacherMoon, moon_follow
 from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS, InviteState, invite_state
@@ -48,6 +49,7 @@ CAPS = Caps(MAX_TEACHERS, MAX_STUDENTS)
 class Previewed:
     state: InviteState
     name: str | None
+    listing: ListingMark | None = None  # ID-05
 
 
 def _moved(account: Account, main: TeacherMoon | None, cities: Cities) -> MoonFollow | None:
@@ -85,7 +87,7 @@ class PreviewInvite:
         state = invite_state(
             me, found.teacher_id, found.already, found.my_teachers, found.their_students
         )
-        return Previewed(state, found.teacher_name)
+        return Previewed(state, found.teacher_name, found.listing)
 
 
 class AcceptInvite:

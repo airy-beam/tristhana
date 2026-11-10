@@ -460,6 +460,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/directory-listing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Directory Listing */
+        get: operations["get_directory_listing_api_v1_me_directory_listing_get"];
+        /**
+         * Put Directory Listing
+         * @description Send a request, or edit mine. A waiting request and the level change in place; a new
+         *     request, or a listed name or region that changed, is looked up by a person (409
+         *     `listing_wait`: at most one a day). 422 `invalid_listing`: empty, too long, unknown level.
+         */
+        put: operations["put_directory_listing_api_v1_me_directory_listing_put"];
+        post?: never;
+        /**
+         * Delete Directory Listing
+         * @description Remove my line and my details (idempotent). No one is told.
+         */
+        delete: operations["delete_directory_listing_api_v1_me_directory_listing_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/exports": {
         parameters: {
             query?: never;
@@ -1985,7 +2012,7 @@ export interface components {
             retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "not_attendable" | "invalid_attendance" | "invalid_period" | "nothing_to_share" | "rate_limited" | "already_sent" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "not_attendable" | "invalid_attendance" | "invalid_period" | "nothing_to_share" | "rate_limited" | "already_sent" | "invalid_listing" | "listing_wait" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -2183,12 +2210,78 @@ export interface components {
              */
             series: string[];
         };
+        /** @enum {string} */
+        Level: "authorised" | "authorised-1" | "authorised-2" | "certified";
         /** LinksOut */
         LinksOut: {
             /** Students */
             students: components["schemas"]["StudentOut"][];
             /** Teachers */
             teachers: components["schemas"]["TeacherOut"][];
+        };
+        /** ListingIn */
+        ListingIn: {
+            /** Declared Level */
+            declared_level?: string | null;
+            /**
+             * Name As Listed
+             * @description 1-100 characters once cleaned
+             */
+            name_as_listed: string;
+            /**
+             * Note
+             * @description At most 300
+             */
+            note?: string | null;
+            /**
+             * Region
+             * @description 1-60 characters once cleaned
+             */
+            region: string;
+        };
+        /**
+         * ListingMarkOut
+         * @description All another person sees of a teacher's listing, and only while it is listed.
+         */
+        ListingMarkOut: {
+            /**
+             * Checked On
+             * Format: date
+             * @description Shown as month and year only
+             */
+            checked_on: string;
+            /** @description The teacher's own words, not checked: show it on the teacher card only */
+            declared_level: components["schemas"]["Level"] | null;
+            /** Name As Listed */
+            name_as_listed: string;
+        };
+        /** ListingOut */
+        ListingOut: {
+            /**
+             * Available
+             * @description False: requests aren't taken right now (hide the entry and the form); an existing row can still be read and removed
+             */
+            available: boolean;
+            /**
+             * Can Send
+             * @description False: a new request must wait (one a day)
+             */
+            can_send: boolean;
+            /** Checked On */
+            checked_on: string | null;
+            declared_level: components["schemas"]["Level"] | null;
+            /** Name As Listed */
+            name_as_listed: string | null;
+            /**
+             * Note
+             * @description For the checker only; kept only while pending
+             */
+            note: string | null;
+            /** Region */
+            region: string | null;
+            /** Requested At */
+            requested_at: string | null;
+            status: components["schemas"]["Status"];
         };
         /** @enum {string} */
         Locale: "en" | "ru";
@@ -3638,6 +3731,8 @@ export interface components {
             year: number;
             year_total: components["schemas"]["SummaryOut"];
         };
+        /** @enum {string} */
+        Status: "none" | "pending" | "listed" | "not_found" | "withdrawn";
         /** StopOut */
         StopOut: {
             /** Key */
@@ -3776,6 +3871,8 @@ export interface components {
              * Format: date-time
              */
             linked_at: string;
+            /** @description ID-05: the directory line, only while listed; else null */
+            listing?: components["schemas"]["ListingMarkOut"] | null;
             /** Name */
             name: string | null;
             /**
@@ -5431,6 +5528,140 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_directory_listing_api_v1_me_directory_listing_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    put_directory_listing_api_v1_me_directory_listing_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_directory_listing_api_v1_me_directory_listing_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

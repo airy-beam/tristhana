@@ -13,7 +13,9 @@ class DateArg:
 
     day: date
     with_year: bool = False
-    style: Literal["short", "long"] = "short"  # long: "15 November", "15 ноября" (genitive)
+    # long: "15 November", "15 ноября" (genitive); month: "November 2026", «ноябрь 2026»
+    # (the standalone month, for after a colon).
+    style: Literal["short", "long", "month"] = "short"
 
 
 @dataclass(frozen=True, slots=True)

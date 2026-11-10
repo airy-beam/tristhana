@@ -56,6 +56,8 @@ type ErrorCode = Literal[
     "nothing_to_share",
     "rate_limited",
     "already_sent",
+    "invalid_listing",
+    "listing_wait",
     "unavailable",
 ]
 

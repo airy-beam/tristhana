@@ -20,6 +20,7 @@ from tristhana.api.deps import (
     teacher_view,
 )
 from tristhana.api.errors import ApiError, error_responses
+from tristhana.api.v1.directory_listing import ListingMarkOut
 from tristhana.api.v1.practice import Length
 from tristhana.api.v1.progression import PositionOut
 from tristhana.application.policies import Principal
@@ -47,6 +48,9 @@ class TeacherOut(BaseModel):
     primary: bool = Field(description="The main teacher: the chosen one, else the oldest link")
     primary_chosen: bool = Field(description="False: `primary` is the automatic default")
     linked_at: datetime
+    listing: ListingMarkOut | None = Field(
+        default=None, description="ID-05: the directory line, only while listed; else null"
+    )
 
 
 class StudentOut(BaseModel):
@@ -72,6 +76,7 @@ class LinksOut(BaseModel):
                     primary=t.id == main,
                     primary_chosen=t.chosen_primary,
                     linked_at=t.linked_at,
+                    listing=ListingMarkOut.maybe(found.listings.get(t.id)),
                 )
                 for t in found.teachers
             ],

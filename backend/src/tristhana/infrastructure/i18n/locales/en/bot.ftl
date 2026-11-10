@@ -984,3 +984,57 @@ attend-not-open = This class can't be marked now: it hasn't started, it was canc
 
 # ST-07: a share card sent to the person's own chat from the Mini App ("Send to my chat").
 share-card-caption = Your Tristhana card: forward it or save it to share.
+
+# ID-05 (ADR-0042): the directory listing. One checked, dated fact; never "badge", "verified"
+# or an endorsement. $listed = the name as it stands in the directory; $when = month and year.
+listing-mark = ✔ Listed in the Sharath Yoga Centre teachers directory as { $listed } (checked: { $when })
+listing-level = Level (in the teacher's own words): { $level }
+listing-level-name =
+    { $level ->
+       *[authorised] Authorised
+        [authorised-1] Authorised Level 1
+        [authorised-2] Authorised Level 2
+        [certified] Certified
+    }
+listing-about = The name is in the public teachers directory of Sharath Yoga Centre (SYC); it was looked up by hand on that date. This is not an endorsement by SYC, and Tristhana has no connection with SYC. The level is the teacher's own words: the directory shows no levels. Many experienced teachers are not in this directory; the line says nothing about a teacher who doesn't have it.
+listing-open = SYC directory listing
+listing-title = SYC directory listing
+listing-intro = If your name is in the Sharath Yoga Centre teachers directory, I can show that to your students next to your name. A person checks it by hand, so it can take a few days. Many experienced teachers are not in this directory, and everything here works the same without the line.
+listing-how = The form is in the app. It asks for your name, exactly as in the directory, and the country or region.
+listing-pending = Sent: «{ $listed }». A person will look it up by hand.
+listing-listed-hint = Your students see this line on your invite and next to your name.
+listing-not-found = I couldn't confirm the entry «{ $listed }» for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
+listing-app = ✏️ Open the form
+listing-remove = Remove…
+listing-remove-ask = Remove the directory line? Students will no longer see it. You can ask again later.
+listing-remove-yes = Remove
+listing-removed = Removed. Students don't see the line.
+listing-note-listed = ✔ «{ $listed }» is in the Sharath Yoga Centre teachers directory. Your students now see this next to your name.
+listing-note-not-found = I couldn't confirm the directory entry «{ $listed }» for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
+listing-note-ended = At today's check I couldn't find «{ $listed }» in the Sharath Yoga Centre teachers directory, so that line is no longer shown. The directory changes, and this says nothing about your teaching. Everything else stays as it is: your students, your link, your lists. If the directory shows the name again, or under another spelling, send the details any time.
+export-readme-listing = directory_listing in data.json: your request for the Sharath Yoga Centre teachers directory line, if you sent one. status: "pending" = waiting for the check, "listed" = the line is shown, "not_found" = the entry couldn't be confirmed for this account, "withdrawn" = you removed it.
+admin-listing-title = Directory requests: { $waiting } waiting · { $listed } listed
+admin-listing-oldest = Oldest check: { $when }
+admin-listing-listed-title = Listed, oldest check first. Go through the list about twice a year.
+admin-listing-empty = Nothing here.
+admin-listing-recheck = Listed: re-check
+admin-listing-waiting = Waiting requests
+admin-listing-card-name = Account name: { $name }
+admin-listing-card-listed = Name as listed: { $listed }
+admin-listing-card-region = Country or region: { $region }
+admin-listing-card-level = Level (their own words): { $level }
+admin-listing-card-note = Their note: { $note }
+admin-listing-card-requested = Sent: { $date }
+admin-listing-card-checked = Last check: { $when }
+admin-listing-open-directory = 🌐 Open the directory
+admin-listing-listed = ✔ Listed
+admin-listing-still-listed = ✔ Still listed
+admin-listing-not-found = Can't confirm…
+admin-listing-ended = No longer listed…
+admin-listing-not-found-ask = Answer «{ $listed }» as not confirmed? The teacher gets one message and can send the details again.
+admin-listing-ended-ask = Remove the line for «{ $listed }»? It hides at once and the teacher gets one message. Students are told nothing.
+admin-listing-yes = Yes
+admin-listing-stale = This request has changed. Here is the current list.
+admin-listing-done-listed = ✔ Listed: «{ $listed }».
+admin-listing-done-not-found = Done: no line for «{ $listed }». The teacher gets one message.
+admin-listing-new = A directory request is waiting: /admin
