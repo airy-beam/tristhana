@@ -57,8 +57,8 @@
   color: #fbf7ee;
 }
 
-/* Phone screenshots: a fixed, modest width so text columns stay readable. */
-.sl-markdown-content img.shot {
+/* Every image in a guide is a phone screenshot: a fixed, modest width keeps the text readable. */
+.sl-markdown-content img {
   width: min(100%, 19.5rem);
   height: auto;
   border-radius: 1rem;

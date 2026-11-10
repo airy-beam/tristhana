@@ -1,5 +1,6 @@
 // Dev only (dynamically imported, so it's not in production bundles): pretend to be inside
-// Telegram so the app runs in a normal browser. `?lang=ru` and `?theme=dark` switch the mock.
+// Telegram so the app runs in a normal browser. `?lang=ru` and `?theme=dark` switch the mock;
+// `?user=<id>&name=<first name>` picks the dev account (default: user 1, "Dev").
 // The initData is signed by the local backend (APP_ENV=dev), so the real auth path runs.
 import { mockTelegramEnv } from "@telegram-apps/sdk-react";
 
@@ -30,15 +31,23 @@ export async function mockTelegram(): Promise<void> {
       tgWebAppThemeParams: query.get("theme") === "dark" ? DARK : LIGHT,
       tgWebAppVersion: "8.0",
       tgWebAppPlatform: "tdesktop",
-      tgWebAppData: await signedInitData(lang),
+      tgWebAppData: await signedInitData(lang, query.get("user"), query.get("name")),
     },
   });
 }
 
 /** From the backend's dev-only endpoint; unsigned (API answers 401) if it isn't running. */
-async function signedInitData(lang: string): Promise<URLSearchParams> {
+async function signedInitData(
+  lang: string,
+  userId: string | null,
+  firstName: string | null,
+): Promise<URLSearchParams> {
+  // UI-05: `?user=9001&name=Maya` signs in as a seeded demo account (guide screenshots).
+  const params = new URLSearchParams({ lang });
+  if (userId) params.set("user_id", userId);
+  if (firstName) params.set("first_name", firstName);
   try {
-    const response = await fetch(`/dev/telegram-init-data?lang=${encodeURIComponent(lang)}`);
+    const response = await fetch(`/dev/telegram-init-data?${params.toString()}`);
     if (response.ok) {
       const { init_data } = (await response.json()) as { init_data: string };
       return new URLSearchParams(init_data);

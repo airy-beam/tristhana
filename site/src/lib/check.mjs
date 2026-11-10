@@ -62,10 +62,11 @@ const same = (/** @type {unknown} */ a, /** @type {unknown} */ b) =>
   JSON.stringify(a) === JSON.stringify(b);
 
 /**
- * @param {{ docsDir: string, label: (locale: string, key: string, args?: Record<string, string>, from?: string) => string, commands: string[] }} input
+ * @param {{ docsDir: string, label: (locale: string, key: string, args?: Record<string, string>, from?: string) => string, commands: string[], shots?: { names: string[], dir: string } }} input
+ *   `shots`: the manifest's shot names and the folder holding `<locale>/<name>.webp`
  * @returns {string[]} one line per problem; empty when the guides are in order
  */
-export function checkGuide({ docsDir, label, commands }) {
+export function checkGuide({ docsDir, label, commands, shots }) {
   /** @type {string[]} */
   const problems = [];
   const pages = readPages(docsDir);
@@ -118,6 +119,30 @@ export function checkGuide({ docsDir, label, commands }) {
         .map((d) => `${d.name}:${d.key}`)
         .sort();
     if (!same(keys(pair.en), keys(pair.ru))) differs("the quoted labels and commands");
+  }
+
+  if (shots) {
+    const used = new Set();
+    for (const page of pages) {
+      for (const [, locale, file] of page.body.matchAll(/shots\/(en|ru)\/([\w.-]+)/g)) {
+        const name = file.replace(/\.webp$/, "");
+        used.add(name);
+        if (locale !== page.locale) {
+          problems.push(`${page.file}: shows the ${locale} screenshot "${name}"`);
+        }
+        if (!shots.names.includes(name)) {
+          problems.push(`${page.file}: screenshot "${name}" is not in shots/manifest.yaml`);
+        }
+      }
+    }
+    for (const name of shots.names) {
+      if (!used.has(name)) problems.push(`screenshot "${name}" is in the manifest but on no page`);
+      for (const locale of ["en", "ru"]) {
+        if (!existsSync(join(shots.dir, locale, `${name}.webp`))) {
+          problems.push(`screenshot ${locale}/${name}.webp is missing: run \`npm run shots\``);
+        }
+      }
+    }
   }
 
   for (const command of commands) {

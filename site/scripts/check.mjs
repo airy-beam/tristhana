@@ -1,18 +1,41 @@
 #!/usr/bin/env node
 // UI-05 guide-check. `node scripts/check.mjs` lists problems and exits 1 if there are any;
 // `--write` also refreshes guide-map.yaml (feature ID → pages).
-import { writeFileSync } from "node:fs";
+import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { checkGuide, guideMap, readMap } from "../src/lib/check.mjs";
 import { createLabels, menuCommands } from "../src/lib/labels.mjs";
+import { readManifest } from "../shots/lib/manifest.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const docsDir = join(site, "src/content/docs");
 const mapFile = join(site, "guide-map.yaml");
 
-const problems = checkGuide({ docsDir, label: createLabels().label, commands: menuCommands() });
+const problems = checkGuide({
+  docsDir,
+  label: createLabels().label,
+  commands: menuCommands(),
+  shots: {
+    names: readManifest(join(site, "shots/manifest.yaml")).map((shot) => shot.name),
+    dir: join(site, "src/assets/shots"),
+  },
+});
+
+// A screenshot is fetched on a phone, often on a slow network: keep each one small.
+const SHOT_BUDGET_KB = 120;
+for (const locale of ["en", "ru"]) {
+  const dir = join(site, "src/assets/shots", locale);
+  for (const file of readdirSync(dir)) {
+    const kb = statSync(join(dir, file)).size / 1024;
+    if (kb > SHOT_BUDGET_KB) {
+      problems.push(
+        `screenshot ${locale}/${file} is ${kb.toFixed(0)} KB (budget ${SHOT_BUDGET_KB})`,
+      );
+    }
+  }
+}
 
 const map = guideMap(docsDir);
 if (process.argv.includes("--write")) {

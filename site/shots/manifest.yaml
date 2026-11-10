@@ -1,0 +1,29 @@
+# UI-05: every guide screenshot. `npm run shots` makes each one in English and Russian and
+# writes src/assets/shots/<lang>/<name>.webp.
+#
+#   name      file name; a guide page shows it as ![…](…/shots/<lang>/<name>.webp)
+#   kind      app = the Mini App in a phone-sized browser · bot = a drawing of the bot's real reply
+#   as        who is looking: student, teacher or newcomer (shots/lib/cast.mjs)
+#   features  requirement IDs; `npm run shots -- --only PR-01` re-shoots by ID
+#   say       bot: the message the person sends
+#   tap       bot: then the buttons they tap, each by a bot Fluent key
+#   click     app: the things they tap after Home loads, each by a Mini App Fluent key
+#   full      app: capture the whole page, not just the first screen
+shots:
+  - name: bot-start
+    kind: bot
+    as: newcomer
+    say: /start
+    features: [UI-01, PR-01]
+
+  - name: app-home
+    kind: app
+    as: student
+    features: [UI-03, PR-01]
+
+  - name: app-my-practice
+    kind: app
+    as: student
+    click: [stats-open]
+    full: true
+    features: [ST-01, ST-02, ST-03]

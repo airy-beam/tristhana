@@ -30,3 +30,18 @@ Never type a button label or a command by hand:
 The keys come from `backend/src/tristhana/infrastructure/i18n/locales/` and `miniapp/src/locales/`. An unknown key or command fails the build and names the page.
 
 Tone: friendly, simple, polite, informal. Russian uses «ты» and avoids gendered past tense. No "streak", "missed", "skipped", «серия».
+
+## Screenshots
+
+```sh
+npm run shots                    # all of them, English and Russian
+npm run shots -- --only PR-01    # by feature ID or by shot name
+```
+
+Needs the local Postgres container (`tristhana-pg`), `uv` and Google Chrome. The script builds a private demo copy of the product and throws it away afterwards: its own database (`tristhana_demo`, dropped and re-created on every run), a backend on port 8010 that never reads `backend/.env` and has no real bot token, and a Mini App dev server on port 5183. Your own dev instance on port 8000 is not touched.
+
+- The list is `shots/manifest.yaml`; the comments at its top explain each field.
+- The demo people and what they logged are in `shots/lib/cast.mjs` and `shots/lib/seed.mjs`. Everything is entered through the real REST API and the real bot webhook.
+- Mini App pictures are a phone-sized Chrome looking at the real app. Bot pictures are drawn from the bot's real reply (text and buttons) in the site's own style; they are drawings, and the guide says so.
+- Dates in the pictures follow the day you run it, so a full re-run changes every file. Use `--only` after a feature change.
+- Files land in `src/assets/shots/<lang>/<name>.webp` and are committed. A page shows one as `![what it shows](../../../assets/shots/en/<name>.webp)` (one more `../` under `ru/`). `npm run check:guide` fails on a shot that is unlisted, unused, in the wrong language, missing or over 120 KB.
