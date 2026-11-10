@@ -44,6 +44,7 @@ A Telegram bot + Telegram Mini App (later web/mobile) for the **Ashtanga yoga** 
 - Brand images: `docs/brand/render.sh SRC OUT W H` (sources in `docs/brand/src/`, see `docs/brand/README.md`)
 - Ops (☁️ ask the owner first): `infra/gcp/bootstrap.sh --dry-run`, then without the flag · `python3 tools/telegram/set_webhook.py [--info]` (webhook + menu button) · container check: `ENGINE=podman infra/ci/container-smoke.sh IMAGE` · catalog review table: `cd backend && uv run python ../tools/catalog/render_review.py <notes-dir>`
 - Prod env vars live only in the deploy step of `.github/workflows/backend.yml` (`--set-env-vars` replaces them all on each deploy); never set them by hand on the service.
+- Platform admins: `PLATFORM_ADMIN_IDS` (account UUIDs, not Telegram ids) in the same deploy step; the bot's `/admin` is in no command menu (ADR-0042).
 
 ## How we work
 - Check `09 Roadmap.md` for the current phase. Work items reference requirement IDs.
