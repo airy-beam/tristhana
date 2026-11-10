@@ -944,6 +944,12 @@ class FakeNotifier:
     mark_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
     cards: list[tuple[Recipient, bytes]] = field(default_factory=list[tuple[Recipient, bytes]])
     card_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])  # ST-07
+    # ID-05: the admins' "a request is waiting" note and the teacher's answer.
+    listing_requests: list[Recipient] = field(default_factory=list[Recipient])
+    listing_checks: list[tuple[Recipient, Any, str, bool]] = field(
+        default_factory=list[tuple[Recipient, Any, str, bool]]
+    )
+    listing_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
 
     @property
     def moon(self) -> list[tuple[Recipient, MoonReminder]]:
@@ -989,6 +995,21 @@ class FakeNotifier:
         return (
             self.card_outcomes.pop(0) if self.card_outcomes else DeliveryResult(DeliveryStatus.SENT)
         )
+
+    def _listing_outcome(self) -> DeliveryResult:
+        if self.listing_outcomes:
+            return self.listing_outcomes.pop(0)
+        return DeliveryResult(DeliveryStatus.SENT)
+
+    async def tell_listing_requested(self, recipient: Recipient) -> DeliveryResult:
+        self.listing_requests.append(recipient)
+        return self._listing_outcome()
+
+    async def tell_listing_checked(
+        self, recipient: Recipient, outcome: Any, name_as_listed: str, was_listed: bool
+    ) -> DeliveryResult:
+        self.listing_checks.append((recipient, outcome, name_as_listed, was_listed))
+        return self._listing_outcome()
 
 
 @dataclass
@@ -1077,6 +1098,7 @@ class InMemoryStorage:
     attendance_repo: Any = None  # SC-05: tests/attendance_fakes.py, loaded on first use
     share_card_repo: Any = None  # ST-07: tests/share_card_fakes.py, loaded on first use
     badge_repo: Any = None  # GM-02: tests/badge_fakes.py, loaded on first use
+    listing_repo: Any = None  # ID-05: tests/directory_listing_fakes.py, loaded on first use
     # PR-08 Phase 3: a test may hand in a progression repo (tests/teacher_mark_fakes.py).
     progression_repo: Any = None
 
@@ -1214,6 +1236,15 @@ class InMemoryStorage:
 
             self.badge_repo = InMemoryBadgeFacts()
         return self.badge_repo
+
+    @property
+    def listings(self) -> Any:  # ID-05
+        if self.listing_repo is None:
+            from tests.directory_listing_fakes import InMemoryListings
+
+            self.listing_repo = InMemoryListings(accounts=self.repo)
+            self.teacher_links.listings = self.listing_repo
+        return self.listing_repo
 
     @property
     def attendance(self) -> Any:  # SC-05

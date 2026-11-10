@@ -22,6 +22,7 @@ from tristhana.application.ports.notifications import (
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.runtime import BotRuntime
+    from tristhana.domain.directory_listing import Outcome
     from tristhana.domain.shalas import ShalaRole
 
 log = logging.getLogger(__name__)
@@ -142,6 +143,43 @@ class TelegramNotifier:
                 request_timeout=JOIN_NOTE_TIMEOUT_S,  # the teacher's ✅ is waiting
             ),
             "mark note",
+        )
+
+    async def tell_listing_requested(self, recipient: Recipient) -> DeliveryResult:
+        """ID-05: to a platform admin, silent; no name in it."""
+        from tristhana.bots.telegram import directory_listing
+
+        screen = directory_listing.requested_note(self._t, recipient.locale)
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                disable_notification=True,
+                request_timeout=JOIN_NOTE_TIMEOUT_S,  # the teacher's Send is waiting
+            ),
+            "listing request note",
+        )
+
+    async def tell_listing_checked(
+        self, recipient: Recipient, outcome: Outcome, name_as_listed: str, was_listed: bool
+    ) -> DeliveryResult:
+        """ID-05: the teacher's answer, silent, in their language. Plain text: the name is
+        theirs, never markup."""
+        from tristhana.bots.telegram import directory_listing
+
+        screen = directory_listing.checked_note(
+            self._t, recipient.locale, outcome, name_as_listed, was_listed
+        )
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                reply_markup=screen.markup,
+                parse_mode=None,
+                disable_notification=True,
+                request_timeout=JOIN_NOTE_TIMEOUT_S,  # the admin's tap is waiting
+            ),
+            "listing answer note",
         )
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:

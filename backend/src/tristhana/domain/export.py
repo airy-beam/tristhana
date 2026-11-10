@@ -16,6 +16,7 @@ from typing import Any
 from tristhana.domain.accounts import NOT_LISTED, Account
 from tristhana.domain.check_in import CheckIn
 from tristhana.domain.days import DayStatus
+from tristhana.domain.directory_listing import Listing
 from tristhana.domain.moon import MoonSource
 from tristhana.domain.notifications import NotificationSettings
 from tristhana.domain.practice import Practice, PracticeLength
@@ -185,6 +186,7 @@ class Snapshot:
     shalas: tuple[ExportShala, ...] = ()
     announcements: tuple[ExportAnnouncement, ...] = ()  # NT-03: sent by me, oldest first
     attendance: tuple[ExportAttendance, ...] = ()  # SC-05: my own marks, oldest first
+    listing: Listing | None = None  # ID-05: my directory request; never who checked it
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,6 +321,21 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
             }
             for a in s.attendance
         ],
+        "directory_listing": _listing(s.listing),
+    }
+
+
+def _listing(found: Listing | None) -> dict[str, object] | None:
+    if found is None:
+        return None
+    return {
+        "status": found.status.value,
+        "name_as_listed": found.name_as_listed,
+        "region": found.region,
+        "declared_level": found.level.value if found.level else None,
+        "note": found.note,
+        "requested_at": _instant(found.requested_at),
+        "checked_on": found.checked_on.isoformat() if found.checked_on else None,
     }
 
 

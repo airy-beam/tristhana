@@ -61,6 +61,8 @@ def _format_date(arg: DateArg, locale: Locale) -> str:
     # fluent.runtime's DATETIME ignores weekday/day/month options, so format with Babel.
     from babel.dates import format_date, format_skeleton
 
+    if arg.style == "month":  # ID-05: "November 2026", «ноябрь 2026» (nominative)
+        return str(format_date(arg.day, "LLLL y", locale=locale))
     if arg.style == "long":  # "15 November", "15 ноября": the genitive month in Russian
         return str(format_date(arg.day, "d MMMM", locale=locale))
     return str(format_skeleton("yMMMEd" if arg.with_year else "MMMEd", arg.day, locale=locale))

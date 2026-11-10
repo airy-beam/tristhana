@@ -189,6 +189,12 @@ export function useMainButton(
   }, [loading, text, visible]);
 }
 
+/** Whether Telegram draws a main button here; without one a form shows its own (dev browser,
+ * older clients). */
+export function mainButtonAvailable(): boolean {
+  return mainButton.setParams.isAvailable();
+}
+
 /** Telegram's native confirm popup with a destructive button (ST-09 delete); resolves true
  * only for that button. Outside Telegram (dev), the browser's confirm. */
 export async function confirmDestructive(

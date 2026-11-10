@@ -6,6 +6,7 @@ every test: `InMemoryStorage.teacher_links` loads it on first use."""
 import asyncio
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from tests.fakes import InMemoryAccounts
@@ -23,6 +24,7 @@ from tristhana.domain.accounts import (
     IdentityProvider,
     NewAccount,
 )
+from tristhana.domain.directory_listing import ListingMark, mark_of
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import TeacherMoon
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS, Linked
@@ -79,6 +81,13 @@ class InMemoryTeacherLinks:
     writes: list[str] = field(default_factory=list[str])
     previews: int = 0
     _tick: int = 0
+    # ID-05: an `InMemoryListings`; a listed teacher's mark rides on `preview` and `overview`.
+    listings: Any = None
+
+    def _mark(self, teacher: UUID) -> ListingMark | None:
+        if self.listings is None:
+            return None
+        return mark_of(self.listings.rows.get(teacher))
 
     # Seeding (not part of the port).
 
@@ -117,6 +126,7 @@ class InMemoryTeacherLinks:
             already=(me, teacher.id) in self.rows,
             my_teachers=len(self.teachers_of(me)),
             their_students=len(self.students_of(teacher.id)),
+            listing=self._mark(teacher.id),
         )
 
     async def accept(self, code: str, me: UUID, caps: Caps, linked_on: date) -> Accepted | None:
@@ -163,6 +173,11 @@ class InMemoryTeacherLinks:
                 for r in self._ordered()
                 if r.student_id == me
             ),
+            listings={
+                r.teacher_id: mark
+                for r in self._ordered()
+                if r.student_id == me and (mark := self._mark(r.teacher_id)) is not None
+            },
             students=tuple(
                 self._linked(r.student_id, r, False)  # a teacher never learns they're main
                 for r in self._ordered()

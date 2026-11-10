@@ -1754,6 +1754,8 @@
           "nothing_to_share",
           "rate_limited",
           "already_sent",
+          "invalid_listing",
+          "listing_wait",
           "unavailable"
         ],
         "type": "string"
@@ -2220,6 +2222,15 @@
         "title": "Length",
         "type": "object"
       },
+      "Level": {
+        "enum": [
+          "authorised",
+          "authorised-1",
+          "authorised-2",
+          "certified"
+        ],
+        "type": "string"
+      },
       "LinksOut": {
         "properties": {
           "students": {
@@ -2242,6 +2253,184 @@
           "students"
         ],
         "title": "LinksOut",
+        "type": "object"
+      },
+      "ListingIn": {
+        "properties": {
+          "declared_level": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Level"
+          },
+          "name_as_listed": {
+            "description": "1-100 characters once cleaned",
+            "maxLength": 400,
+            "title": "Name As Listed",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "At most 300",
+            "title": "Note"
+          },
+          "region": {
+            "description": "1-60 characters once cleaned",
+            "maxLength": 400,
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name_as_listed",
+          "region"
+        ],
+        "title": "ListingIn",
+        "type": "object"
+      },
+      "ListingMarkOut": {
+        "description": "All another person sees of a teacher's listing, and only while it is listed.",
+        "properties": {
+          "checked_on": {
+            "description": "Shown as month and year only",
+            "format": "date",
+            "title": "Checked On",
+            "type": "string"
+          },
+          "declared_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Level"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The teacher's own words, not checked: show it on the teacher card only"
+          },
+          "name_as_listed": {
+            "title": "Name As Listed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name_as_listed",
+          "checked_on",
+          "declared_level"
+        ],
+        "title": "ListingMarkOut",
+        "type": "object"
+      },
+      "ListingOut": {
+        "properties": {
+          "available": {
+            "description": "False: requests aren't taken right now (hide the entry and the form); an existing row can still be read and removed",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_send": {
+            "description": "False: a new request must wait (one a day)",
+            "title": "Can Send",
+            "type": "boolean"
+          },
+          "checked_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked On"
+          },
+          "declared_level": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Level"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name_as_listed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name As Listed"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For the checker only; kept only while pending",
+            "title": "Note"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "requested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "required": [
+          "status",
+          "name_as_listed",
+          "region",
+          "declared_level",
+          "note",
+          "requested_at",
+          "checked_on",
+          "can_send",
+          "available"
+        ],
+        "title": "ListingOut",
         "type": "object"
       },
       "Locale": {
@@ -5755,6 +5944,16 @@
         "title": "StatsOut",
         "type": "object"
       },
+      "Status": {
+        "enum": [
+          "none",
+          "pending",
+          "listed",
+          "not_found",
+          "withdrawn"
+        ],
+        "type": "string"
+      },
       "StopOut": {
         "properties": {
           "key": {
@@ -6046,6 +6245,17 @@
             "format": "date-time",
             "title": "Linked At",
             "type": "string"
+          },
+          "listing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ListingMarkOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ID-05: the directory line, only while listed; else null"
           },
           "name": {
             "anyOf": [
@@ -8489,6 +8699,165 @@
         "summary": "Post Device Timezone",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/directory-listing": {
+      "delete": {
+        "description": "Remove my line and my details (idempotent). No one is told.",
+        "operationId": "delete_directory_listing_api_v1_me_directory_listing_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Directory Listing",
+        "tags": [
+          "directory-listing"
+        ]
+      },
+      "get": {
+        "operationId": "get_directory_listing_api_v1_me_directory_listing_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Directory Listing",
+        "tags": [
+          "directory-listing"
+        ]
+      },
+      "put": {
+        "description": "Send a request, or edit mine. A waiting request and the level change in place; a new\nrequest, or a listed name or region that changed, is looked up by a person (409\n`listing_wait`: at most one a day). 422 `invalid_listing`: empty, too long, unknown level.",
+        "operationId": "put_directory_listing_api_v1_me_directory_listing_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Put Directory Listing",
+        "tags": [
+          "directory-listing"
         ]
       }
     },

@@ -37,6 +37,19 @@ def can_manage_calendar_feed(actor: Account, owner: Account) -> bool:
     return actor.id == owner.id
 
 
+def can_manage_listing(actor: Account, owner: Account) -> bool:
+    """ID-05: a directory listing request is its owner's alone (read, send, edit, remove)."""
+    return actor.id == owner.id
+
+
+def can_check_listings(actor: Account, admins: frozenset[UUID]) -> bool:
+    """ID-05 (ADR-0042): a platform admin answers directory requests. This is the only
+    policy that takes the admin set: an admin sees no one's practice, diary, students or
+    shalas, and cannot export or delete anyone. Every later admin power gets its own named
+    policy and its own decision."""
+    return actor.id in admins
+
+
 def can_view_check_ins(viewer: Account, student: Account) -> bool:
     """Check-ins are the student's own (ADR-0024): no one else sees them, not even whether
     one exists. A per-teacher opt-in would need its own consent and ADR (ADR-0031)."""
@@ -61,7 +74,7 @@ def can_export(viewer: Account, owner: Account) -> bool:
 
 
 def can_delete_account(viewer: Account, owner: Account) -> bool:
-    """Only the owner deletes an account (ST-09); no admin path today."""
+    """Only the owner deletes an account (ST-09); a platform admin can't (ADR-0042)."""
     return viewer.id == owner.id
 
 

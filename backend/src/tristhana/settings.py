@@ -4,6 +4,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
+from uuid import UUID
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,6 +15,7 @@ type TelegramMode = Literal["webhook", "polling"]
 
 # Bot API: secret_token is 1-256 characters of A-Z, a-z, 0-9, _ and -.
 _WEBHOOK_SECRET = re.compile(r"[A-Za-z0-9_-]{1,256}")
+_MAX_ADMINS = 5
 
 # Dev/tests only (repo checkout). An installed package can't find data/seed this way,
 # so the container must set SEED_DIR=/app/data/seed (it does, in backend/Dockerfile).
@@ -62,6 +64,11 @@ class Settings(BaseSettings):
     # Unset: the tick endpoint isn't mounted.
     internal_tick_token: SecretStr | None = None
 
+    # ID-05 (ADR-0042): platform admins, as comma-separated account UUIDs (not Telegram ids;
+    # not a secret). Empty: the directory listing feature is off. They answer directory
+    # requests in the bot (/admin) and can do nothing else.
+    platform_admin_ids: str = ""
+
     # Dev only: GET /dev/telegram-init-data signs initData for ANY user id with the bot token,
     # for the Mini App's browser mock. Explicit opt-in on top of APP_ENV=dev; refused in prod.
     dev_init_data: bool = False
@@ -89,6 +96,25 @@ class Settings(BaseSettings):
                     f"cors_origins: exact origins like https://x.web.app, got {origin!r}"
                 )
         return value
+
+    @field_validator("platform_admin_ids")
+    @classmethod
+    def _admin_uuids(cls, value: str) -> str:
+        ids = [i.strip() for i in value.split(",") if i.strip()]
+        for i in ids:
+            try:
+                parsed = UUID(i)
+            except ValueError:
+                raise ValueError("platform_admin_ids: comma-separated account UUIDs") from None
+            if str(parsed) != i.lower():
+                raise ValueError("platform_admin_ids: comma-separated account UUIDs")
+        if len(ids) > _MAX_ADMINS:
+            raise ValueError(f"platform_admin_ids: at most {_MAX_ADMINS}")
+        return value
+
+    @property
+    def platform_admins(self) -> frozenset[UUID]:
+        return frozenset(UUID(i.strip()) for i in self.platform_admin_ids.split(",") if i.strip())
 
     @property
     def cors_origin_list(self) -> list[str]:

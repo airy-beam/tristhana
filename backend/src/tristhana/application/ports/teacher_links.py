@@ -1,11 +1,13 @@
 """Teacher links (ID-04, ADR-0030). No exception here carries an invite code: a code must
 never reach a log."""
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
 from uuid import UUID
 
+from tristhana.domain.directory_listing import ListingMark
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import MoonFollow, ShalaMoon, TeacherMoon
 from tristhana.domain.teacher_links import Linked
@@ -32,6 +34,7 @@ class InvitePreview:
     already: bool
     my_teachers: int
     their_students: int
+    listing: ListingMark | None = None  # ID-05: the teacher's line, while listed
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +70,8 @@ class Unlinked:
 class Links:
     teachers: tuple[Linked, ...]
     students: tuple[Linked, ...]
+    # ID-05: my teachers' directory lines, by teacher id, only while listed. Never a student.
+    listings: Mapping[UUID, ListingMark] = field(default_factory=dict[UUID, ListingMark])
 
 
 class CodeSource(Protocol):

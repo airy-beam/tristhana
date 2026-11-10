@@ -64,6 +64,15 @@ from tristhana.application.classes import (
 )
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
+from tristhana.application.directory_listing import (
+    DecideListing,
+    GetListing,
+    GetRequest,
+    ListingUseCases,
+    ListRequests,
+    RequestListing,
+    WithdrawListing,
+)
 from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
@@ -524,6 +533,20 @@ class _Services:
             announcements=announcements,
         )
         app.state.links = links
+        listing_repo = self._storage.listings
+        admins = self._settings.platform_admins  # ID-05 (ADR-0042); empty: the feature is off
+        listings = ListingUseCases(
+            get=GetListing(listing_repo),
+            request=RequestListing(listing_repo, self._notifier, clock, admins),
+            withdraw=WithdrawListing(listing_repo),
+            requests=ListRequests(listing_repo, admins),
+            card=GetRequest(listing_repo, admins),
+            decide=DecideListing(listing_repo, self._notifier, clock, admins),
+            admins=admins,
+            clock=clock,
+        )
+        app.state.listings = listings
+        self._bot.listings = listings
         self._bot.ensure_account = ensure
         self._bot.days = days
         self._bot.practices = practices
@@ -570,6 +593,7 @@ class _LazyBot:
         self.progression: ProgressionUseCases | None = None
         self.data: DataUseCases | None = None
         self.links: LinkUseCases | None = None
+        self.listings: ListingUseCases | None = None  # ID-05
 
     def get(self) -> BotRuntime:
         if self._runtime is None:
@@ -603,6 +627,7 @@ class _LazyBot:
                 self.links,
                 self._settings.telegram_bot_username,
                 self.calendar_feed,
+                self.listings,
             )
         return self._runtime
 

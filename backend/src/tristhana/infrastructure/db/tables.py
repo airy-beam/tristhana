@@ -646,3 +646,46 @@ class_attendance = Table(
     Index("class_attendance_shala_id_on_date_idx", "shala_id", "on_date"),
     Index("class_attendance_account_id_on_date_idx", "account_id", "on_date"),
 )
+
+# ID-05 (ADR-0042): one row per account, a manually checked, dated fact ("this name is in the
+# public teachers directory"). Plain columns: public-directory data the checker must read.
+# `note` lives only while pending; `withdrawn` keeps only the timestamps (the 24 h rule).
+directory_listing = Table(
+    "directory_listing",
+    metadata,
+    Column("account_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("status", Text(), nullable=False),
+    Column("name_as_listed", Text()),
+    Column("region", Text()),
+    Column("declared_level", Text()),
+    Column("note", Text()),
+    Column("revision", Integer(), nullable=False, server_default=text("1")),
+    _timestamp("requested_at"),
+    Column("checked_on", Date()),
+    Column("checked_by", Uuid(), ForeignKey(account.c.id, ondelete="SET NULL")),
+    Column("decided_at", DateTime(timezone=True)),
+    PrimaryKeyConstraint("account_id"),
+    CheckConstraint("status IN ('pending', 'listed', 'not_found', 'withdrawn')", name="status"),
+    CheckConstraint(
+        "declared_level IN ('authorised', 'authorised-1', 'authorised-2', 'certified')",
+        name="declared_level",
+    ),
+    CheckConstraint(
+        "char_length(name_as_listed) BETWEEN 1 AND 100"
+        " AND char_length(region) BETWEEN 1 AND 60 AND char_length(note) <= 300",
+        name="lengths",
+    ),
+    CheckConstraint(
+        "(status = 'withdrawn') = (name_as_listed IS NULL)"
+        " AND (status = 'withdrawn') = (region IS NULL)",
+        name="details",
+    ),
+    CheckConstraint("status <> 'listed' OR checked_on IS NOT NULL", name="checked"),
+    CheckConstraint("note IS NULL OR status = 'pending'", name="note"),
+    Index(
+        "directory_listing_pending_idx",
+        "requested_at",
+        postgresql_where=text("status = 'pending'"),
+    ),
+    Index("directory_listing_listed_idx", "checked_on", postgresql_where=text("status = 'listed'")),
+)

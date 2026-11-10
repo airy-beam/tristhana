@@ -908,3 +908,15 @@ share-sent = ✓ Sent to your chat
 share-send-unreachable = The bot can't write to you yet. Open @tristhana_bot, tap Start, then try again.
 share-story-caption = My practice · @tristhana_bot
 share-entry = Share: { $entry }
+
+## ID-05: the SYC directory line (the form is in listing.ftl)
+listing-open = SYC directory listing
+listing-mark = ✔ Listed in the Sharath Yoga Centre teachers directory as { $listed } (checked: { $when })
+listing-level = Level (in the teacher's own words): { $level }
+listing-level-name = { $level ->
+        [authorised-1] Authorised Level 1
+        [authorised-2] Authorised Level 2
+        [certified] Certified
+       *[authorised] Authorised
+    }
+listing-about = The name is in the public teachers directory of Sharath Yoga Centre (SYC); it was looked up by hand on that date. This is not an endorsement by SYC, and Tristhana has no connection with SYC. The level is the teacher's own words: the directory shows no levels. Many experienced teachers are not in this directory; the line says nothing about a teacher who doesn't have it.

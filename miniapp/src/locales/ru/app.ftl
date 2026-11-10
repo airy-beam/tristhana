@@ -926,3 +926,15 @@ share-sent = ✓ Отправлено в чат
 share-send-unreachable = Бот пока не может тебе написать. Открой @tristhana_bot, нажми «Старт» и попробуй ещё раз.
 share-story-caption = Моя практика · @tristhana_bot
 share-entry = Поделиться: { $entry }
+
+## ID-05: строка о списке SYC (форма — в listing.ftl)
+listing-open = Строка о списке SYC
+listing-mark = ✔ { $listed } — в списке учителей Sharath Yoga Centre (сверено: { $when })
+listing-level = Уровень (со слов учителя): { $level }
+listing-level-name = { $level ->
+        [authorised-1] Authorised Level 1 (авторизация, уровень 1)
+        [authorised-2] Authorised Level 2 (авторизация, уровень 2)
+        [certified] Certified (сертификация SYC)
+       *[authorised] Authorised (авторизация)
+    }
+listing-about = Это имя есть в открытом списке учителей Sharath Yoga Centre (SYC); запись сверена вручную в указанную дату. Это не рекомендация от SYC, и Tristhana не имеет отношения к SYC. Уровень указан со слов учителя: в списке уровней нет. Многих опытных учителей в этом списке нет; отсутствие строки ничего не говорит об учителе.

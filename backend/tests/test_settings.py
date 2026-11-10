@@ -93,3 +93,36 @@ def test_prod_database_needs_the_ca_file() -> None:
         field_encryption_keys="1:" + "A" * 43 + "=",  # pyright: ignore[reportArgumentType]
     )
     assert ok.database_ca_file is not None
+
+
+# ID-05 (ADR-0042): platform admins as account UUIDs in the environment.
+_ADMIN_A = "0b0e7f3a-52a4-4c57-9a2d-4a3c1c0d9e11"
+_ADMIN_B = "7d1f6f0c-8f6e-4a0b-b1b5-0f6f2d3c4b5a"
+
+
+def test_platform_admins_default_to_none() -> None:
+    assert Settings(_env_file=None).platform_admins == frozenset()  # pyright: ignore[reportCallIssue]
+
+
+def test_platform_admins_parse_a_comma_separated_list() -> None:
+    from uuid import UUID
+
+    settings = Settings(_env_file=None, platform_admin_ids=f" {_ADMIN_A}, {_ADMIN_B} ,")  # pyright: ignore[reportCallIssue]
+    assert settings.platform_admins == frozenset({UUID(_ADMIN_A), UUID(_ADMIN_B)})
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["123456789", "not-a-uuid", _ADMIN_A.replace("-", ""), f"{_ADMIN_A};{_ADMIN_B}"],
+)
+def test_platform_admins_reject_anything_but_account_uuids(value: str) -> None:
+    with pytest.raises(ValueError, match="platform_admin_ids"):
+        Settings(_env_file=None, platform_admin_ids=value)  # pyright: ignore[reportCallIssue]
+
+
+def test_platform_admins_are_at_most_five() -> None:
+    from uuid import uuid4
+
+    six = ",".join(str(uuid4()) for _ in range(6))
+    with pytest.raises(ValueError, match="at most 5"):
+        Settings(_env_file=None, platform_admin_ids=six)  # pyright: ignore[reportCallIssue]

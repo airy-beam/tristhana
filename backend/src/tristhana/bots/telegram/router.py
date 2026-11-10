@@ -15,6 +15,7 @@ from aiogram.types import (
 
 from tristhana.application.accounts import EnsureAccount
 from tristhana.application.calendar_feed import CalendarFeedUseCases
+from tristhana.application.directory_listing import ListingUseCases
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import days as day_screens
@@ -24,6 +25,7 @@ from tristhana.bots.telegram.calendar_feed import FeedScreens
 from tristhana.bots.telegram.classes import ScheduleScreens, register_classes
 from tristhana.bots.telegram.data import register_data
 from tristhana.bots.telegram.diary import register_diary_reply
+from tristhana.bots.telegram.directory_listing import ListingScreens, register_listing
 from tristhana.bots.telegram.middleware import AccountMiddleware
 from tristhana.bots.telegram.moon import register_moon
 from tristhana.bots.telegram.remind import register_remind
@@ -65,6 +67,7 @@ def build_router(
     links: LinkUseCases | None = None,
     bot_username: str = "",
     calendar: CalendarFeedUseCases | None = None,
+    listings: ListingUseCases | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -85,6 +88,9 @@ def build_router(
     register_start(router, start, invites, shalas)
     if invites is not None:
         register_links(router, invites)
+        if listings is not None:  # ID-05: the status screen, /admin, the line on the cards
+            invites.listings = ListingScreens(listings, translator, miniapp_url)
+            register_listing(router, invites.listings, translator)
         if links is not None and links.announcements is not None and links.shalas is not None:
             ann = AnnouncementScreens(links.announcements, translator, links.shalas.clock)
             invites.announcements = ann  # NT-03: pins and buttons on the cards

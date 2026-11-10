@@ -140,6 +140,14 @@ async def _fill(engine: AsyncEngine, me: UUID, keys: str = KEYS) -> None:
         me, hashlib.sha256(me.bytes).digest(), "year", CardFormat.SQUARE, b"png", NOW + _td(1)
     )
     assert await SqlShareCardRepository(engine).insert(card, NOW - _td(1), 50)
+    # ID-05: my directory request (exported as `directory_listing`, deleted with the account).
+    from tests.directory_listing_fakes import always
+    from tristhana.domain.directory_listing import Step, clean
+    from tristhana.infrastructure.db.directory_listing import SqlListingRepository
+
+    await SqlListingRepository(engine).save(
+        me, clean("Sam Listed", "Kazakhstan", None, None), always(Step.SEND), NOW
+    )
     # NT-03: one I sent (exported as `announcements_sent`, deleted with the account).
     async with engine.connect() as conn:
         await conn.execute(

@@ -55,6 +55,7 @@ from tristhana.infrastructure.db.accounts import ACCOUNT_COLUMNS, to_account
 from tristhana.infrastructure.db.check_in import known_tags
 from tristhana.infrastructure.db.days import Cipher, open_day_status
 from tristhana.infrastructure.db.diary import open_note
+from tristhana.infrastructure.db.directory_listing import LISTING_COLUMNS, to_listing
 from tristhana.infrastructure.db.engine import connection
 from tristhana.infrastructure.db.notifications import settings_over
 from tristhana.infrastructure.db.practice import to_practice
@@ -66,6 +67,7 @@ from tristhana.infrastructure.db.tables import (
     class_attendance,
     day_log,
     diary_note,
+    directory_listing,
     identity,
     notification_delivery,
     notification_settings,
@@ -100,6 +102,7 @@ EXPORTED_TABLES = frozenset(
         "shala_student",
         "announcement",  # as `announcements_sent`, my own only (NT-03)
         "class_attendance",  # my own marks with the shala's name (SC-05, Q193)
+        "directory_listing",  # my own request, never `checked_by` (ID-05)
     }
 )
 EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
@@ -156,6 +159,7 @@ class SqlExportRepository:
             memberships,
             announced,
             attended,
+            listed,
         ) = rows
         return Owned(
             account=to_account(row),
@@ -234,6 +238,7 @@ class SqlExportRepository:
                 ExportAttendance(r.name, r.class_type, r.on_date, r.starts_at, r.zone, r.state)
                 for r in attended
             ),
+            listing=to_listing(listed[0]) if listed else None,
         )
 
     async def claim(self, account_id: UUID, now: datetime, before: datetime) -> datetime | None:
@@ -359,6 +364,7 @@ def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
         .join_from(class_attendance, shala, shala.c.id == class_attendance.c.shala_id)
         .where(class_attendance.c.account_id == account_id)
         .order_by(class_attendance.c.starts_at, class_attendance.c.id),
+        select(*LISTING_COLUMNS).where(directory_listing.c.account_id == account_id),  # ID-05
     ]
 
 

@@ -384,3 +384,35 @@ forbidden_modules = [
     "tristhana.infrastructure.db.attendance",
     "tristhana.infrastructure.crypto",
 ]
+
+[[tool.importlinter.contracts]]
+name = "The directory listing reads no log, diary, check-in, progression or key (ID-05, ADR-0042)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain.directory_listing",
+    "tristhana.application.directory_listing",
+    "tristhana.application.ports.directory_listing",
+    "tristhana.infrastructure.db.directory_listing",
+    "tristhana.api.v1.directory_listing",
+]
+forbidden_modules = [
+    "tristhana.domain.days",
+    "tristhana.domain.diary",
+    "tristhana.domain.check_in",
+    "tristhana.domain.progression",
+    "tristhana.application.days",
+    "tristhana.application.diary",
+    "tristhana.application.check_in",
+    "tristhana.application.progression",
+    "tristhana.application.teacher_view",
+    "tristhana.application.ports.days",
+    "tristhana.application.ports.diary",
+    "tristhana.application.ports.check_in",
+    "tristhana.application.ports.progression",
+    "tristhana.infrastructure.db.days",
+    "tristhana.infrastructure.db.diary",
+    "tristhana.infrastructure.db.check_in",
+    "tristhana.infrastructure.db.progression",
+    "tristhana.infrastructure.crypto",
+]

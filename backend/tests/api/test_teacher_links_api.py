@@ -96,7 +96,15 @@ def test_links_have_exactly_the_agreed_keys(api: TestClient, storage: InMemorySt
 
     assert set(body) == {"teachers", "students"}
     [listed_teacher], [listed_student] = body["teachers"], body["students"]
-    assert set(listed_teacher) == {"id", "name", "primary", "primary_chosen", "linked_at"}
+    assert set(listed_teacher) == {
+        "id",
+        "name",
+        "primary",
+        "primary_chosen",
+        "linked_at",
+        "listing",  # ID-05: null unless the teacher is listed
+    }
+    assert listed_teacher["listing"] is None
     assert (listed_teacher["id"], listed_teacher["name"]) == (str(teacher.id), "Лена")
     assert (listed_teacher["primary"], listed_teacher["primary_chosen"]) == (True, False)
     assert set(listed_student) == {"id", "name", "linked_at"}  # no practice field, no primary
