@@ -231,6 +231,25 @@ def test_same_as_last_time_copies_the_previous_day(
     assert len(storage.day_repo.practice_rows) == 2
 
 
+def test_same_as_last_time_skips_a_led_class(client: TestClient, storage: InMemoryStorage) -> None:
+    # Q27: the line and the button both use the newest practice that was not a led class.
+    before, yesterday, today = (_today() - timedelta(days=n) for n in (2, 1, 0))
+    _tap(client, f"d1:s:{_ymd(before)}:p")
+    _tap(client, f"p1:c:{_ymd(before)}:m")
+    _tap(client, f"d1:s:{_ymd(yesterday)}:p")
+    _tap(client, f"p1:c:{_ymd(yesterday)}:l")
+    _tap(client, f"p1:l:{_ymd(yesterday)}:11:")
+
+    details = _tap(client, f"d1:s:{_ymd(today)}:p")
+    assert "Last time: Mysore" in details["text"]
+    assert "Led" not in details["text"]
+    body = _tap(client, _data(details, "🔁 Same as last time"))
+
+    assert _main(body).endswith("Mysore")
+    [copied] = [p for (_, day), p in storage.day_repo.practice_rows.items() if day == today]
+    assert copied.context is PracticeContext.MYSORE
+
+
 def test_done_shows_a_summary_with_a_details_button(client: TestClient) -> None:
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")

@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from functools import cache
 from pathlib import Path
 from uuid import uuid4
@@ -22,6 +22,7 @@ from tristhana.domain.days import DayStatus
 from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.practice import (
     FULL_PRIMARY,
+    HALF_PRIMARY,
     InvalidLength,
     Practice,
     PracticeCatalog,
@@ -153,6 +154,25 @@ async def test_copy_last_uses_the_newest_earlier_practice_without_start_time(
         90,
         None,
     )
+
+
+async def test_copy_last_skips_a_led_class(days: InMemoryDays) -> None:
+    # Q27: Thursday Mysore, Friday led class, Monday copies Thursday.
+    me = _me()
+    thu = FRI - timedelta(days=1)
+    await _practiced(days, me, thu, FRI, MON)
+    practices = InMemoryPractices(days)
+    save = SavePractice(practices, catalog())
+    await save.execute(
+        me, thu, PracticePatch.full(Practice(PracticeContext.MYSORE, length=HALF_PRIMARY))
+    )
+    await save.execute(
+        me, FRI, PracticePatch.full(Practice(PracticeContext.LED, length=FULL_PRIMARY))
+    )
+
+    copied = (await CopyLastPractice(practices).execute(me, MON)).practice
+
+    assert (copied.context, copied.length) == (PracticeContext.MYSORE, HALF_PRIMARY)
 
 
 async def test_copy_last_errors(days: InMemoryDays) -> None:

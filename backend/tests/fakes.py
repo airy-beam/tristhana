@@ -62,7 +62,7 @@ from tristhana.domain.notifications import (
     defaults_for,
     effective,
 )
-from tristhana.domain.practice import Practice, PracticeContext
+from tristhana.domain.practice import RECENT_LIMIT, Practice, PracticeContext, usual
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
     TIMELINE_LIMIT,
@@ -489,10 +489,10 @@ class InMemoryPractices:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         if not self._practiced(account_id, local_date):
             return None
-        previous = await self.recent(account_id, local_date, 1)
-        if not previous:
+        previous = usual(await self.recent(account_id, local_date, RECENT_LIMIT))
+        if previous is None:
             return None
-        copied = replace(previous[0], start_time=None, timezone=timezone)
+        copied = replace(previous, start_time=None, timezone=timezone)
         before = self.days.practice_rows.get((account_id, local_date))
         self.days.practice_rows[(account_id, local_date)] = copied
         return self._saved(account_id, local_date, copied, before)

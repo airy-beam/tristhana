@@ -12,7 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from tristhana.application.ports.practice import CopiedPractice, SavedPractice
 from tristhana.application.practice_patch import PracticePatch
-from tristhana.domain.practice import InvalidPractice, Practice, PracticeContext, PracticeLength
+from tristhana.domain.practice import (
+    RECENT_LIMIT,
+    InvalidPractice,
+    Practice,
+    PracticeContext,
+    PracticeLength,
+)
 from tristhana.domain.progression import Progression
 from tristhana.infrastructure.db.engine import connection, sqlstate
 from tristhana.infrastructure.db.progression import state_columns, to_progression
@@ -114,7 +120,10 @@ class SqlPracticeRepository:
     async def copy_latest(
         self, account_id: UUID, local_date: date, timezone: str | None
     ) -> SavedPractice | None:
-        prev = practice.alias("prev")
+        # The same window and the same pick as the preview (`domain.practice.usual`, Q27):
+        # among the last RECENT_LIMIT practices, non-Led first (NULL context counts as
+        # non-Led), then the newest.
+        prev = _recent(account_id, local_date, RECENT_LIMIT).subquery("prev")
         copied = ("context", "online", "series", "end_item", "first_part", "duration_min")
         source = (
             select(
@@ -124,14 +133,12 @@ class SqlPracticeRepository:
                 *(prev.c[c] for c in copied),
                 literal(timezone, practice.c.timezone.type),
             )
-            .where(
-                prev.c.account_id == account_id,
-                prev.c.local_date < local_date,
-                has_details(prev),
-                _previous_practiced(prev),
-                practiced(account_id, local_date),
+            .where(practiced(account_id, local_date))
+            .order_by(
+                prev.c.context.is_not_distinct_from("led"),
+                prev.c.local_date.desc(),
+                prev.c.slot.desc(),
             )
-            .order_by(prev.c.local_date.desc(), prev.c.slot.desc())
             .limit(1)
         )
         stmt = insert(practice).from_select(

@@ -91,7 +91,9 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
       <Localized id="practice-title">
         <h3 />
       </Localized>
-      {last && !current.length && (
+      {/* Only while nothing is set, as in the bot: the copy would replace a context the
+          person just chose (Q27). */}
+      {last && !hasDetails && (
         <Localized id="practice-same-as-last">
           <button
             type="button"

@@ -185,6 +185,35 @@ describe("PracticeDetails", () => {
     });
   });
 
+  it("same as last time is offered only while nothing is set", async () => {
+    // Q27: once a context is chosen, the copy would replace it (a led day turned Mysore).
+    stubApi({
+      ...practicedToday,
+      days: [
+        {
+          date: TODAY,
+          status: "practiced",
+          practices: [
+            {
+              slot: 1,
+              context: "led",
+              online: false,
+              length: null,
+              duration_min: null,
+              start_time: null,
+              timezone: null,
+            },
+          ],
+          check_ins: [],
+        },
+      ],
+    });
+    renderCard();
+
+    await screen.findByRole("button", { name: "Led", pressed: true });
+    expect(screen.queryByRole("button", { name: "🔁 Same as last time" })).not.toBeInTheDocument();
+  });
+
   it("shows presets and recent lengths with their labels", async () => {
     stubApi(practicedToday);
     renderCard();
