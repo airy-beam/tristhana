@@ -21,7 +21,7 @@ _Pictures of the bot are drawn from its real messages._
 - **No sign-up.** Your account is created the moment you send :cmd[start]. There are no forms and no password.
 - **Language.** The bot starts in your Telegram language. The button with the other language's name switches it, and you can change it later in :cmd[settings].
 - **Your time zone.** Tap :ftl[start-open-app] once. The app tells the bot your phone's time zone, so your days land on the right date.
-- **A quick look around.** :ftl[tour-open]{from=bot} under :cmd[help] shows the main things in five short steps.
+- **A quick look around.** :ftl[tour-open]{from=bot} under :cmd[help] shows the main things in six short steps.
 
 ## Next
 

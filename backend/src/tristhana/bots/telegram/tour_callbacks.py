@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 PREFIX = "q1"
-STEP_KEYS = ("tour-log", "tour-rest", "tour-remind", "tour-asanas", "tour-app")
+STEP_KEYS = ("tour-log", "tour-rest", "tour-remind", "tour-asanas", "tour-links", "tour-app")
 STEPS = len(STEP_KEYS)
 type Origin = Literal["s", "h"]
 

@@ -172,6 +172,19 @@ def test_every_step_edits_in_place(client: TestClient, n: int, lang: str) -> Non
     assert "🌸" not in body["text"]
 
 
+@pytest.mark.parametrize("lang", ["en", "ru"])
+def test_the_step_before_the_app_is_teachers_and_shalas(client: TestClient, lang: str) -> None:
+    text = _tap(client, step(STEPS - 1, "h"), lang)["text"]
+
+    assert "👥" in text
+    assert "/teachers" in text
+    assert "/schedule" in text
+
+
+def test_the_tour_has_six_steps() -> None:
+    assert STEPS == 6
+
+
 def test_the_first_step_has_no_back(client: TestClient) -> None:
     body = _tap(client, step(1, "s"))
 

@@ -45,10 +45,13 @@ tour-remind =
     If you'd like, /remind asks once a day how it went, with a one-tap log. It comes on your practice days, not on moon days. Out for a few days, say sick or traveling? Log the first day and I'll offer a pause.
 tour-asanas =
     🧘 My asanas
-    /asanas keeps your last asana, so logging a practice takes fewer taps. New asana from your teacher? Mark it there 🎉
+    /asanas keeps your last asana, so logging a practice takes fewer taps. New asana from your teacher? Mark it there, or your teacher can mark it for you 🎉
+tour-links =
+    👥 Teachers and shalas
+    Got a link or a QR code from your teacher or your shala? Open it: before you confirm, I'll show what they will see. /teachers keeps your list, and /schedule shows your shalas' classes in your time zone. Teaching? Invite students from /teachers. On your own? Your log works the same.
 tour-app =
     📊 The app
-    Your year at a glance, month summaries and a calendar for earlier days. Everything you log here is there too. This tour stays in /help.
+    Your year at a glance, month summaries and a calendar for earlier days. Everything you log here is there too. This tour and the full guide stay in /help.
 
 fallback-text = I can't answer messages yet. Try /start or /help 🙏
 

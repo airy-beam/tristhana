@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { useDays, useMoonDays } from "../../api/client";
 import { haptics, useBackButton } from "../../telegram";
 
-const STEPS = ["today", "stats", "asanas", "moon", "settings"] as const;
+/** In Home's order. "students" and "schedule" are rows only some people have. */
+const STEPS = ["today", "stats", "asanas", "students", "schedule", "moon", "settings"] as const;
 type Step = (typeof STEPS)[number];
 
 /** How far into the target the sheet may reach before it moves to the top. */

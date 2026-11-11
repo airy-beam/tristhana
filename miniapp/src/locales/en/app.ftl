@@ -790,9 +790,11 @@ tour-prev = ‹
 tour-done = Done
 tour-today = Log today: practice or rest. After a practice you can add details, how it felt and a private note.
 tour-stats = Your year at a glance, plus a calendar for filling in earlier days.
-tour-asanas = Your last asana. Log a new one here when your teacher gives it.
+tour-asanas = Your last asana. Mark a new one here when your teacher gives it, or your teacher can mark it for you.
+tour-students = Your students: today's mark, the last asana and the last 7 days for each. Their notes, check-ins and reasons for rest stay with them.
+tour-schedule = The week's classes in all your shalas, in your time zone.
 tour-moon = The next moon days: full and new moons, traditional rest days. You pick the city in Settings.
-tour-settings = Your city, weekly day off, reminders and privacy. This tour lives here too.
+tour-settings = Your city, weekly day off, reminders and privacy. Teachers, students and shalas are here too, and so is this tour.
 
 links-title = 👥 Teachers and students
 links-empty = No teachers on your list. Your log works the same either way.

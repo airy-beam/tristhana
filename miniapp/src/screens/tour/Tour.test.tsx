@@ -96,6 +96,22 @@ test("walks all five steps forward and back", async () => {
   await progress("4 of 5");
 });
 
+test("a teacher in a shala also gets the students and schedule steps, in Home's order", async () => {
+  page(["today", "stats", "asanas", "students", "schedule", "moon", "settings"]);
+  renderTour();
+  await progress("1 of 7");
+
+  for (const n of [2, 3, 4]) {
+    next();
+    await progress(`${String(n)} of 7`);
+  }
+  expect(document.getElementById("tour-text")?.textContent).toMatch(/^Your students/);
+
+  next();
+  await progress("5 of 7");
+  expect(document.getElementById("tour-text")?.textContent).toMatch(/all your shalas/);
+});
+
 test("a step with no target drops out, and the count stays honest", async () => {
   page(["today", "stats", "asanas", "settings"]);
   renderTour();
