@@ -17,11 +17,11 @@ Rules, the same as for the bot's profile texts (`botfather.md`):
 
 Tristhana открыта для всех 🙏
 
-Это спутник практики аштанги прямо в Telegram: журнал практики и отдыха, лунные дни и всё, что нужно учителю и шале. Месяц мы тестировали его небольшой группой, теперь бот открыт для всех.
+Это спутник практики аштанги прямо в Telegram: журнал практики и отдыха, лунные дни и всё, что нужно учителю и шале. Несколько недель мы тестировали его небольшой группой, и вот он готов.
 
 Практикующим:
 🧘 Отметить день одним касанием: практика или отдых, в журнал идёт и то, и другое
-📝 Детали по желанию: майсор, лед-класс, 1:1 или самостоятельно, серия до последней асаны, длительность
+📝 Детали по желанию: майсор, лед-класс, индивидуально или самостоятельно, серия до последней асаны, длительность
 🌙 Лунные дни для твоего города и напоминания о них
 📊 Год, месяц и практики подряд, без соревнований и рейтингов
 🧘 Мои асаны: последняя асана и путь по сериям
@@ -36,7 +36,7 @@ Tristhana открыта для всех 🙏
 🗓 Каждый видит занятия по своему времени и может добавить их в календарь телефона
 📋 Посещения занятий, отдельно от личного журнала
 
-Про личное: заметки дневника, самочувствие и причину отдыха видишь только ты. Учитель видит, что день отмечен как практика или отдых, и последнюю асану, и только после твоего согласия.
+Про личное: заметки дневника, самочувствие и причину отдыха видишь только ты. Учитель видит твоё имя, отметки «практика» или «отдых», объём практики и последнюю асану — и только после твоего согласия.
 
 Бесплатно, по-русски и по-английски, с открытым кодом.
 
@@ -53,7 +53,7 @@ Tristhana открыта для всех: журнал практики ашта
 
 Tristhana is open to everyone 🙏
 
-It is a companion for your Ashtanga practice, right in Telegram: a log for practice and rest, moon days, and what a teacher and a shala need. We tested it with a small group for a month, and now the bot is open to all.
+It is a companion for your Ashtanga practice, right in Telegram: a log for practice and rest, moon days, and what a teacher and a shala need. We tested it with a small group for a few weeks, and now it is ready.
 
 For students:
 🧘 Log a day in one tap: practice or rest, both go in your log
@@ -63,16 +63,16 @@ For students:
 🧘 My asanas: your last asana and your way through the series
 
 For teachers:
-👥 Students join by your link or QR code, and each one confirms it themselves
-🎉 A new asana for a student takes two taps
+👥 Students join by your link or QR code, and each confirms for themselves
+🎉 A new asana for a student takes a few taps
 📣 Short announcements to all your students
 
 For shalas:
 🏛 The schedule: Mysore, Led classes, closed days, swaps and substitutes
-🗓 Everyone sees classes in their own time and can add them to their phone's calendar
+🗓 Everyone sees classes in their own time zone and can add them to their phone's calendar
 📋 Class attendance, kept apart from the personal log
 
-About privacy: diary notes, check-ins and the reason for a rest day stay with you. A teacher sees that a day is logged as practice or rest, and your last asana, and only after you agree.
+About privacy: diary notes, check-ins and the reason for a rest day stay with you. A teacher sees your name, practice or rest, how far the practice went and your last asana, and only after you agree.
 
 Free, in English and Russian, open source.
 
