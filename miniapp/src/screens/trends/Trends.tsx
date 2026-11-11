@@ -106,8 +106,12 @@ function Views({ data, locale }: { data: CheckInTrends; locale: Locale }) {
   const byMoon = data.moon;
   const moon: Column[] | null = byMoon
     ? (["full", "new", "other"] as const).map((bucket) => {
-        const label = get(l10n, `trends-moon-${bucket}`);
-        return { key: bucket, head: label, where: label, scales: byMoon[bucket] };
+        return {
+          key: bucket,
+          head: get(l10n, `trends-moon-${bucket}`),
+          where: get(l10n, "trends-moon-spoken", { bucket }),
+          scales: byMoon[bucket],
+        };
       })
     : null;
   const number = useMemo(
@@ -211,7 +215,9 @@ function Strip({ scale, months }: { scale: Scale; months: readonly Column[] }) {
   );
 }
 
-/** Scales down, columns across; each cell is the average with its count under it, or "—". */
+/** Scales down, columns across; each cell is the average with its count under it, or "—".
+ * What is read aloud is real text inside the cell, without emoji: several screen readers
+ * skip an `aria-label` on a plain `td` (Q294). */
 function Grid({
   caption,
   columns,
@@ -246,20 +252,23 @@ function Grid({
                 const found = c.scales[scale];
                 const vars = { scale: name, where: c.where };
                 return found ? (
-                  <td
-                    key={c.key}
-                    aria-label={get(l10n, "trends-cell-label", {
-                      ...vars,
-                      mean: format.format(found.mean),
-                      n: found.n,
-                    })}
-                  >
-                    {format.format(found.mean)}
-                    <small>{found.n}</small>
+                  <td key={c.key}>
+                    <span aria-hidden="true">
+                      {format.format(found.mean)}
+                      <small>{found.n}</small>
+                    </span>
+                    <span className="visually-hidden">
+                      {get(l10n, "trends-cell-label", {
+                        ...vars,
+                        mean: format.format(found.mean),
+                        n: found.n,
+                      })}
+                    </span>
                   </td>
                 ) : (
-                  <td key={c.key} aria-label={get(l10n, "trends-cell-none", vars)}>
-                    {get(l10n, "trends-none")}
+                  <td key={c.key}>
+                    <span aria-hidden="true">{get(l10n, "trends-none")}</span>
+                    <span className="visually-hidden">{get(l10n, "trends-cell-none", vars)}</span>
                   </td>
                 );
               })}

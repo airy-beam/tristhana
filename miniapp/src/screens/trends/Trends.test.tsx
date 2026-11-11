@@ -96,8 +96,12 @@ const plain = (text: string | null | undefined) => (text ?? "").replace(/[⁨⁩
 const says = (text: string) => (_: string, el: Element | null) => plain(el?.textContent) === text;
 const section = (name: string) =>
   screen.getByRole("heading", { name }).closest("section") as HTMLElement;
+/** What a screen reader says for each figure: real text in the cell, not an `aria-label`. */
 const labels = (root: HTMLElement) =>
-  [...root.querySelectorAll("td[aria-label]")].map((td) => plain(td.getAttribute("aria-label")));
+  [...root.querySelectorAll("td > .visually-hidden")].map((el) => plain(el.textContent));
+/** What a sighted person sees in each cell. */
+const shown = (row: Element | null | undefined) =>
+  [...(row?.querySelectorAll("td > [aria-hidden='true']") ?? [])].map((el) => el.textContent);
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -157,9 +161,9 @@ describe("Check-ins over time", () => {
 
     const table = within(section("By month")).getByRole("table", { name: "By month" });
     expect(table.parentElement).toHaveClass("visually-hidden");
-    expect(labels(table)).toContain("⚡ Energy, October 2026: 3.4 on average, 21 check-ins");
-    expect(labels(table)).toContain("💭 Mood, September 2026: 4.5 on average, 5 check-ins");
-    expect(labels(table)).toContain("🔥 Effort, October 2026: no average");
+    expect(labels(table)).toContain("Energy, October 2026: 3.4 on average, 21 check-ins");
+    expect(labels(table)).toContain("Mood, September 2026: 4.5 on average, 5 check-ins");
+    expect(labels(table)).toContain("Effort, October 2026: no average");
   });
 
   it("shows weekdays Monday first, each figure with its count", async () => {
@@ -172,17 +176,9 @@ describe("Check-ins over time", () => {
       .getAllByRole("columnheader")
       .map((th) => th.textContent);
     expect(heads).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
-    const energy = within(table).getByRole("rowheader", { name: "⚡ Energy" }).closest("tr");
-    expect([...(energy?.querySelectorAll("td") ?? [])].map((td) => td.textContent)).toEqual([
-      "3.46",
-      "—",
-      "4.05",
-      "—",
-      "—",
-      "—",
-      "—",
-    ]);
-    expect(labels(table)).toContain("⚡ Energy, Monday: 3.4 on average, 6 check-ins");
+    const energy = within(table).getByRole("rowheader", { name: "Energy" }).closest("tr");
+    expect(shown(energy)).toEqual(["3.46", "—", "4.05", "—", "—", "—", "—"]);
+    expect(labels(table)).toContain("Energy, Monday: 3.4 on average, 6 check-ins");
   });
 
   it("sets days near a full or new moon beside the others, naming the city", async () => {
@@ -196,7 +192,7 @@ describe("Check-ins over time", () => {
         .getAllByRole("columnheader")
         .map((th) => th.textContent),
     ).toEqual(["🌕 Near full moon", "🌑 Near new moon", "Other days"]);
-    expect(labels(moon)).toContain("⚡ Energy, 🌕 Near full moon: 2.5 on average, 5 check-ins");
+    expect(labels(moon)).toContain("Energy, Near full moon: 2.5 on average, 5 check-ins");
     expect(
       await within(moon).findByText(
         says(
@@ -204,6 +200,29 @@ describe("Check-ins over time", () => {
         ),
       ),
     ).toBeVisible();
+  });
+
+  it("reads each figure aloud from text in the cell, without emoji", async () => {
+    stubApi(trends());
+    const { container } = renderTrends();
+    await screen.findByRole("heading", { name: "Near full and new moon" });
+
+    // `aria-label` on a plain cell is ignored by several screen readers (Q294).
+    expect(container.querySelector("td[aria-label]")).toBeNull();
+    const cells = [...container.querySelectorAll("tbody td")];
+    expect(cells.length).toBeGreaterThan(0);
+    for (const td of cells) {
+      expect(td.querySelector(":scope > [aria-hidden='true']")).not.toBeNull();
+      expect(td.querySelector(":scope > .visually-hidden")).not.toBeNull();
+    }
+    for (const label of labels(container)) expect(label).not.toMatch(/\p{Extended_Pictographic}/u);
+    for (const th of container.querySelectorAll("th")) {
+      expect(th.getAttribute("aria-label")).not.toMatch(/\p{Extended_Pictographic}/u);
+    }
+    const moon = section("Near full and new moon");
+    expect(within(moon).getByRole("columnheader", { name: "Near full moon" })).toHaveTextContent(
+      "🌕 Near full moon",
+    );
   });
 
   it("explains the dash only when one is on screen", async () => {
@@ -289,7 +308,7 @@ describe("Check-ins over time", () => {
     await screen.findByRole("heading", { name: "По дням недели" });
 
     const table = within(section("По дням недели")).getByRole("table");
-    expect(labels(table)).toContain("⚡ Энергия, понедельник: в среднем 3,4, 6 отметок");
+    expect(labels(table)).toContain("Энергия, понедельник: в среднем 3,4, 6 отметок");
     expect(
       await screen.findByText(
         says("«Около» — день полнолуния или новолуния, день до и день после. Даты для 📍 Алматы."),
