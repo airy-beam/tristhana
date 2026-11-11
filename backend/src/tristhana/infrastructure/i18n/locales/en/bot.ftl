@@ -871,7 +871,7 @@ shala-moon-policy = { $p ->
         [open] 🌙 Moon days: classes as usual
        *[closed] 🌙 Moon days: the shala is closed
     }
-shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use Hold anyway or Cancel.
+shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use "Hold anyway" or "Cancel this class".
 shala-day-off-line = 😌 Day off: { $days }
 shala-day-off-adopt = 😌 Make { $days } my day off too
 class-cancel-ask = Cancel { $class } on { $day }? It shows on the schedule. No one gets a message.

@@ -256,7 +256,7 @@ def _bot(locale: str) -> dict[str, str]:
             "en",
             "Your log is yours. A teacher on your list sees your name, your last asana and what "
             "you log from the day you added them: practice or rest and your practice length. All "
-            "rest you log looks the same, whatever the reason. If nothing shows for a while, your "
+            "rest you log looks the same, whatever the reason. If nothing shows for a while, the "
             "teacher sees a short note saying just that. A teacher on your list can also mark a "
             "new asana for you: you get a message and can undo it. Check-ins, diary notes and "
             "the reason for a rest stay private. You can remove a teacher from your list any "
@@ -298,7 +298,7 @@ def test_the_old_privacy_sentence_is_gone(gone: str) -> None:
     [
         (
             "en",
-            "How I greet you, and the name your teachers and students here see. Leave it empty "
+            "How I greet you, and the name your teachers and students see here. Leave it empty "
             "to use your Telegram name.",
         ),
         (

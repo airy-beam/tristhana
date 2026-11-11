@@ -100,7 +100,7 @@ CONSENT_RU = (
 PRIVACY_EN = (
     "Your log is yours. A teacher on your list sees your name, your last asana and what you log "
     "from the day you added them: practice or rest and your practice length. All rest you log "
-    "looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short "
+    "looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short "
     "note saying just that. A teacher on your list can also mark a new asana for you: you get a "
     "message and can undo it. Check-ins, diary notes and the reason for a rest stay private. "
     "You can remove a teacher from your list any time."
@@ -278,7 +278,7 @@ def test_the_old_sentences_are_gone(locale: str, gone: str) -> None:
         (
             "en",
             "If nothing shows for a while, { $name } sees a short note saying just that.",
-            "If nothing shows for a while, your teacher sees a short note saying just that.",
+            "If nothing shows for a while, the teacher sees a short note saying just that.",
         ),
         (
             "ru",

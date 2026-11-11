@@ -103,7 +103,7 @@ describe("ST-06 copy", () => {
     const en = format(bundleFor("en"), "settings-privacy-sharing");
     const ru = format(bundleFor("ru"), "settings-privacy-sharing");
     expect(en).toContain(
-      "If nothing shows for a while, your teacher sees a short note saying just that.",
+      "If nothing shows for a while, the teacher sees a short note saying just that.",
     );
     expect(ru).toContain(
       "Если какое-то время показать нечего, учитель увидит об этом короткую пометку.",
