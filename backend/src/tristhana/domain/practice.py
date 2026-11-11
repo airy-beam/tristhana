@@ -201,6 +201,16 @@ class Presets:
     presets: tuple[tuple[str, PracticeLength], ...]  # (kind, length): static, then recent
 
 
+def usual(recent: list[Practice]) -> Practice | None:
+    """What "same as last time" copies (Q27), `recent` newest first: the newest practice that
+    was not a led class (a Friday led class is rarely what someone does on Monday; no context
+    counts as not led), else the newest. The details screen previews it and the repository's
+    `copy_latest` copies the same one, from the same `RECENT_LIMIT` window."""
+    return next(
+        (p for p in recent if p.context is not PracticeContext.LED), recent[0] if recent else None
+    )
+
+
 def derive_presets(
     catalog: PracticeCatalog,
     recent: list[Practice],
@@ -226,4 +236,4 @@ def derive_presets(
     ranked = sorted(counts, key=lambda length: (-counts[length], first_seen[length]))
     recents = tuple(("recent", length) for length in ranked[: max(0, RECENT_PRESETS - len(mine))])
     mines = tuple(("mine", length) for length in mine)
-    return Presets(last=recent[0] if recent else None, presets=STATIC_PRESETS + mines + recents)
+    return Presets(last=usual(recent), presets=STATIC_PRESETS + mines + recents)

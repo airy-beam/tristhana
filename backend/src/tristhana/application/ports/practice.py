@@ -37,15 +37,18 @@ class PracticeRepository(Protocol):
     async def copy_latest(
         self, account_id: UUID, local_date: date, timezone: str | None
     ) -> SavedPractice | None:
-        """Copy context, online, length and duration (not the start time) of the newest
-        practice before `local_date`; None when the day isn't Practiced or there is none."""
+        """Copy context, online, length and duration (not the start time) of the usual
+        practice before `local_date`: the newest non-Led one among the last `RECENT_LIMIT`,
+        else the newest (`domain.practice.usual`, Q27). None when the day isn't Practiced or
+        there is none."""
         ...
 
     async def copy_usual(
         self, account_id: UUID, local_date: date, timezone: str | None
     ) -> CopiedPractice | None:
-        """Like `copy_latest`, but from the newest non-Led practice (a Friday led class is
-        rarely what someone does on Monday); the newest of any kind when there is none."""
+        """The reminder's copy (PR-10): the newest non-Led practice of any age (a Friday led
+        class is rarely what someone does on Monday); the newest of any kind when there is
+        none. Returns the day it was copied from."""
         ...
 
     async def delete(self, account_id: UUID, local_date: date) -> None: ...

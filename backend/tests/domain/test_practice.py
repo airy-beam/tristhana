@@ -136,6 +136,29 @@ def test_presets_without_history() -> None:
     assert presets.presets == STATIC_PRESETS
 
 
+def test_last_is_the_newest_non_led_practice() -> None:
+    # Q27: "same as last time" skips a led class, as the reminder does. Newest first.
+    led = Practice(PracticeContext.LED, length=FULL_PRIMARY)
+    mysore = _p(HALF_PRIMARY)
+
+    assert derive_presets(catalog(), [led, mysore, _p(FULL_PRIMARY)]).last == mysore
+    assert derive_presets(catalog(), [mysore, led]).last == mysore
+
+
+def test_last_falls_back_to_the_newest_when_every_practice_is_led() -> None:
+    newest = Practice(PracticeContext.LED, length=FULL_PRIMARY, duration_min=90)
+    older = Practice(PracticeContext.LED, length=FULL_PRIMARY)
+
+    assert derive_presets(catalog(), [newest, older]).last == newest
+
+
+def test_a_practice_without_a_context_counts_as_not_led() -> None:
+    led = Practice(PracticeContext.LED, length=FULL_PRIMARY)
+    plain = Practice(duration_min=60)
+
+    assert derive_presets(catalog(), [led, plain]).last == plain
+
+
 def test_recent_lengths_are_ranked_by_use_then_recency() -> None:
     usual = L("primary", "intermediate", end="pasasana")
     split = L("intermediate", end="karandavasana")

@@ -8,6 +8,7 @@ New things in Tristhana, newest first.
 
 ## November 2026
 
+- **:ftl[practice-same-as-last]{from=bot}** now skips a led class: after a led day it offers the practice you did before it.
 - **Check-ins over time**: the averages of your after-practice check-ins by month, by weekday and around full and new moon. Yours alone.
 - **This guide**, in English and Russian.
 - **The quick tour** now covers teachers and shalas, in the bot and in the app.

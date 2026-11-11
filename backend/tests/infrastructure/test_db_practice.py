@@ -1,5 +1,5 @@
 import base64
-from datetime import date, time
+from datetime import date, time, timedelta
 from uuid import UUID
 
 import pytest
@@ -12,6 +12,7 @@ from tristhana.domain.accounts import IdentityKey, IdentityProvider, NewAccount
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.practice import (
     FULL_PRIMARY,
+    HALF_PRIMARY,
     SHORT,
     InvalidPractice,
     Practice,
@@ -129,6 +130,25 @@ async def test_copy_latest_in_one_statement_keeps_the_start_time(engine: AsyncEn
         timezone="Asia/Almaty",
     )
     assert await repo.copy_latest(me, FRI, None) is None  # nothing earlier
+
+
+async def test_copy_latest_skips_a_led_class(engine: AsyncEngine) -> None:
+    # Q27: Thursday Mysore, Friday led class; Monday copies Thursday, in one statement.
+    thu = FRI - timedelta(days=1)
+    me, _ = await _setup(engine, thu, FRI, MON)
+    repo = SqlPracticeRepository(engine)
+    await repo.save(
+        me, thu, PracticePatch.full(Practice(PracticeContext.MYSORE, length=HALF_PRIMARY))
+    )
+    await repo.save(me, FRI, PracticePatch.full(Practice(PracticeContext.LED, length=FULL_PRIMARY)))
+
+    copied = await repo.copy_latest(me, MON, None)
+
+    assert copied is not None
+    assert (copied.practice.context, copied.practice.length) == (
+        PracticeContext.MYSORE,
+        HALF_PRIMARY,
+    )
 
 
 async def test_recent_is_newest_first_and_before_the_date(engine: AsyncEngine) -> None:

@@ -6,6 +6,7 @@ the message in place; picker screens need no DB access (the catalog is in memory
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
@@ -271,9 +272,8 @@ class PracticeScreens:
                     self._t.t(
                         locale,
                         "practice-last-time",
-                        summary=self.summary_text(
-                            locale, day, last, self._days.get.home_city(principal)
-                        ),
+                        # Without the start time: the tap doesn't copy it.
+                        summary=self.summary_text(locale, day, replace(last, start_time=None)),
                     )
                 )
                 rows.append([self._button(locale, "practice-same-as-last", _data("same", day))])
