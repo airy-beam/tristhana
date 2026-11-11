@@ -163,7 +163,11 @@ def test_a_teacher_whose_teacher_has_no_city_is_named_nowhere(
 
 
 @pytest.mark.parametrize(
-    ("moon", "shared"), [("almaty", {"chosen": True}), (None, {"chosen": False})]
+    ("moon", "shared"),
+    [
+        ("almaty", {"chosen": True, "staff_shala": False}),
+        (None, {"chosen": False, "staff_shala": False}),
+    ],
 )
 def test_shared_is_only_for_someone_with_students(
     api: TestClient, storage: InMemoryStorage, moon: str | None, shared: dict[str, bool]

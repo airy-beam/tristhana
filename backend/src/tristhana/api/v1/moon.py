@@ -26,7 +26,7 @@ from tristhana.application.moon import (
 )
 from tristhana.application.ports.notifications import PracticePause
 from tristhana.application.settings import PatchNotificationSettings
-from tristhana.domain.accounts import Account, moon_follow_of, moon_shared
+from tristhana.domain.accounts import Account, moon_follow_of, moon_shared, moon_staff_shala
 from tristhana.domain.days import InvalidRange
 from tristhana.domain.moon import Cities, MoonDayKind, MoonFollow
 from tristhana.domain.notifications import (
@@ -54,6 +54,9 @@ class MoonShala(BaseModel):
 
 class MoonShared(BaseModel):
     chosen: bool = Field(description="False: never chose, so students get the default too")
+    staff_shala: bool = Field(
+        description="On the staff of their main shala: students in it follow its calendar"
+    )
 
 
 class Location(BaseModel):
@@ -72,7 +75,9 @@ class Location(BaseModel):
     shala: MoonShala | None = Field(description="The main shala, for source 'shala' (SC-01)")
 
     @classmethod
-    def of(cls, follow: MoonFollow, explicit: bool, shared: bool | None) -> "Location":
+    def of(
+        cls, follow: MoonFollow, explicit: bool, shared: bool | None, staff_shala: bool
+    ) -> "Location":
         t = follow.teacher
         return cls(
             slug=follow.city.slug,
@@ -80,7 +85,7 @@ class Location(BaseModel):
             source=follow.source.value,
             follow_chosen=follow.follow_chosen,
             teacher=MoonTeacher(id=t.id, name=t.name) if t else None,
-            shared=None if shared is None else MoonShared(chosen=shared),
+            shared=(None if shared is None else MoonShared(chosen=shared, staff_shala=staff_shala)),
             shala=(
                 MoonShala(id=follow.shala.id, name=follow.shala.name, staff=follow.shala.staff)
                 if follow.shala
@@ -225,7 +230,7 @@ async def get_moon_days(
     except InvalidRange:
         raise ApiError(422, "invalid_range") from None
     return MoonDays(
-        location=Location.of(view.follow, view.explicit, view.shared),
+        location=Location.of(view.follow, view.explicit, view.shared, view.staff_shala),
         today=view.today,
         days=[
             MoonDayOut(
@@ -252,7 +257,12 @@ async def put_moon_location(
     except UnknownLocation:
         raise ApiError(422, "unknown_location") from None
     follow = moon_follow_of(account, directory)
-    return Location.of(follow, follow.explicit, moon_shared(account, directory))
+    return Location.of(
+        follow,
+        follow.explicit,
+        moon_shared(account, directory),
+        moon_staff_shala(account, directory),
+    )
 
 
 @router.get("/me/notification-settings", responses=error_responses(401, 503))

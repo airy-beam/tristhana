@@ -25,7 +25,7 @@ from tests.shala_fakes import shala_storage
 from tristhana.bots.telegram.shalas_callbacks import short_id
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
-from tristhana.domain.moon import FOLLOW_SHALA
+from tristhana.domain.moon import FOLLOW_SHALA, FOLLOW_TEACHER
 from tristhana.domain.shalas import MAX_STUDENTS, ShalaRole
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.main import create_app
@@ -719,6 +719,40 @@ def test_a_teacher_who_follows_their_shala_isnt_told_like_yours(
         "👥 Students in your shala follow its moon calendar. Your other students get 📍 Mysuru by "
         "default, or your city if you choose one in /moon."
     ) in text
+
+
+def test_a_staff_teacher_with_a_city_is_told_shala_students_keep_its_calendar(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    # Q279: the teacher chose Almaty, but students in their shala follow the shala (Moscow).
+    me = _me(client, storage)
+    storage.shalas.add_shala(me.id, "Moscow Shala", "moscow", code=JOIN)
+    storage.repo.accounts[me.id] = replace(storage.repo.accounts[me.id], moon_location="almaty")
+    storage.teacher_links.add(person(storage, "1006", "Student").id, me.id)
+
+    text = _flat(_command(client, "/moon")["text"])
+
+    assert (
+        "👥 Students in your shala follow its moon calendar. Your other students who haven't "
+        "chosen a city follow yours: 📍 Almaty."
+    ) in text
+    assert _t("moon-teacher-shared", chosen="yes", city="Almaty") not in text
+
+
+def test_a_staff_teacher_who_follows_their_own_teacher_gets_the_shala_line(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    # Q279: "Follow my teacher" shares nothing, and students in the shala keep its calendar.
+    me = _me(client, storage)
+    storage.shalas.add_shala(me.id, "Moscow Shala", "moscow", code=JOIN)
+    storage.repo.accounts[me.id] = replace(
+        storage.repo.accounts[me.id], moon_location=FOLLOW_TEACHER
+    )
+    storage.teacher_links.add(person(storage, "1006", "Student").id, me.id)
+
+    text = _flat(_command(client, "/moon")["text"])
+
+    assert _t("moon-teacher-shared", chosen="shala", city="Mysuru") in text
 
 
 def test_a_teacher_who_is_only_a_student_of_the_shala_gets_the_plain_line(

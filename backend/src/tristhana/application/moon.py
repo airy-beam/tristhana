@@ -15,7 +15,13 @@ from tristhana.application.ports.notifications import (
 )
 from tristhana.application.ports.storage import Clock
 from tristhana.application.settings import PatchNotificationSettings, caller_today
-from tristhana.domain.accounts import Account, home_city_of, moon_follow_of, moon_shared
+from tristhana.domain.accounts import (
+    Account,
+    home_city_of,
+    moon_follow_of,
+    moon_shared,
+    moon_staff_shala,
+)
 from tristhana.domain.days import check_range, local_today, provisional_zone
 from tristhana.domain.moon import (
     FOLLOW_SHALA,
@@ -52,6 +58,7 @@ class MoonView:
     home: City | None = None  # MD-04: the person's own city, when it isn't the followed one
     home_dates: dict[date, date] = field(default_factory=dict[date, date])  # followed → home
     shared: bool | None = None  # None: no students; else whether students follow a choice
+    staff_shala: bool = False  # students in their shala keep its calendar (Q279)
 
     @property
     def city(self) -> City:
@@ -113,6 +120,7 @@ class GetMoonView:
             home,
             pairs,
             moon_shared(account, self._cities),
+            moon_staff_shala(account, self._cities),
         )
 
 

@@ -9,6 +9,7 @@ import json
 import re
 import time
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -649,6 +650,32 @@ def test_the_shala_of_its_own_staff_says_so(api: TestClient, storage: InMemorySt
 
     assert location["source"] == "shala"
     assert location["shala"] == {"id": str(shala), "name": "Moscow Shala", "staff": True}
+
+
+@pytest.mark.parametrize("moon", ["almaty", "-teacher", None])
+def test_shared_says_when_the_teacher_is_on_their_shalas_staff(
+    api: TestClient, storage: InMemoryStorage, moon: str | None
+) -> None:
+    # Q279: students in that shala keep its calendar whatever the teacher chose.
+    me = _me(api, storage)
+    storage.repo.accounts[me] = replace(storage.repo.accounts[me], moon_location=moon)
+    storage.teacher_links.add(_person(storage, "1001", "Student").id, me)
+    _shala(storage, me, name="Moscow Shala", city="moscow")
+
+    assert _location(api)["shared"] == {"chosen": moon == "almaty", "staff_shala": True}
+    put = api.put("/api/v1/me/moon-location", json={"slug": "almaty"}, headers=_auth())
+    assert put.json()["shared"] == {"chosen": True, "staff_shala": True}
+
+
+def test_shared_for_a_student_of_the_shala_is_not_staff(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(api, storage)
+    storage.teacher_links.add(_person(storage, "1002", "Student").id, me)
+    anna = _person(storage, "1001", "Anna")
+    storage.shalas.add_student(_shala(storage, anna.id, city="moscow"), me)
+
+    assert _location(api)["shared"] == {"chosen": False, "staff_shala": False}
 
 
 def test_put_follow_shala_stores_it(api: TestClient, storage: InMemoryStorage) -> None:
