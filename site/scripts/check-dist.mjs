@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // UI-05: the built site must load nothing from other sites (no fonts, scripts, images or
-// styles), and stay inside its page-weight budget. Plain links (<a href>) are fine.
+// styles), stay inside its page-weight budget, and have no link to a page of its own that
+// does not exist. Plain links to other sites (<a href>) are fine.
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
@@ -42,6 +43,24 @@ function weight(/** @type {string} */ page) {
   );
 }
 
+// Links inside the site: a guide page that points at a moved or misspelled page is a dead end.
+let links = 0;
+for (const file of html) {
+  const text = readFileSync(file, "utf8");
+  const here = "/" + relative(dist, file).replace(/index\.html$/, "");
+  for (const [, href] of text.matchAll(/<a\b[^>]*?\shref="([^"]+)"/g)) {
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(href)) continue; // another site, mailto:, #anchor
+    const path = decodeURIComponent(new URL(href, `https://x${here}`).pathname);
+    links++;
+    const target = join(dist, path);
+    const found =
+      statSync(path.endsWith("/") ? join(target, "index.html") : target, {
+        throwIfNoEntry: false,
+      })?.isFile() ?? false;
+    if (!found) problems.push(`${relative(dist, file)}: link to ${href} leads nowhere`);
+  }
+}
+
 for (const page of ["index.html", "ru/index.html"]) {
   const kb = weight(join(dist, page)) / 1024;
   console.log(`${page}: ${kb.toFixed(1)} KB gzip (budget ${LANDING_BUDGET_KB})`);
@@ -50,4 +69,4 @@ for (const page of ["index.html", "ru/index.html"]) {
 
 for (const problem of problems) console.error(`✗ ${problem}`);
 if (problems.length) process.exit(1);
-console.log(`${html.length} pages, no outside requests.`);
+console.log(`${html.length} pages, ${links} inside links, no outside requests.`);

@@ -9,6 +9,7 @@ npm run build          # → dist/
 npm test               # label macros and guide-check
 npm run check:guide    # guides vs the product and vs each other
 npm run check:guide -- --write   # also refresh guide-map.yaml
+npm run check:guide -- --stale   # also list pages older than the specs of their features
 npm run typecheck
 npm run format:check   # fix with: npx prettier --write .
 node scripts/check-dist.mjs      # after a build: no outside requests, page weight
@@ -30,6 +31,10 @@ Never type a button label or a command by hand:
 The keys come from `backend/src/tristhana/infrastructure/i18n/locales/` and `miniapp/src/locales/`. An unknown key or command fails the build and names the page.
 
 Tone: friendly, simple, polite, informal. Russian uses «ты» and avoids gendered past tense. No "streak", "missed", "skipped", «серия».
+
+## Keeping the guides current
+
+Two Claude Code skills do the routine work: `/guide-update <ID>` after a feature changed what a person sees (pages in both languages, pictures, a What's new line, checks), and `/guide-check` to see what is out of step. `/feature` and `/wrapup` call on them.
 
 ## Screenshots
 

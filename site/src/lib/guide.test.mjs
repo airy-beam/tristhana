@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
-import { checkGuide, directivesIn, guideMap } from "./check.mjs";
+import { checkGuide, directivesIn, guideMap, stalePages } from "./check.mjs";
 import { guideDirectives } from "./directives.mjs";
 import { LabelError, createLabels, localeOfPath, menuCommands } from "./labels.mjs";
 
@@ -206,5 +206,31 @@ describe("guideMap", () => {
     write("docs/b.mdx", page("x", "[PR-01]"));
     write("docs/ru/a/one.md", page("x", "[ZZ-99]"));
     expect(guideMap(join(root, "docs"))).toEqual({ "PR-01": ["a/one", "b"], "PR-02": ["a/one"] });
+  });
+});
+
+describe("stalePages", () => {
+  const map = {
+    "PR-01": ["students/log-practice"],
+    "SC-05": ["staff/attendance", "students/my-shala"],
+  };
+  const times = (
+    /** @type {Record<string, number>} */ pages,
+    /** @type {Record<string, number>} */ specs,
+  ) => ({
+    pageTime: (/** @type {string} */ slug) => pages[slug] ?? null,
+    specTime: (/** @type {string} */ id) => specs[id] ?? null,
+  });
+
+  it("names the pages whose feature spec changed after the page did", () => {
+    const pages = { "students/log-practice": 50, "staff/attendance": 10, "students/my-shala": 30 };
+    expect(stalePages(map, times(pages, { "PR-01": 40, "SC-05": 20 }))).toEqual([
+      { slug: "staff/attendance", features: ["SC-05"] },
+    ]);
+  });
+
+  it("says nothing about a feature without a spec or a page git has not seen", () => {
+    expect(stalePages(map, times({ "staff/attendance": 10 }, { "PR-01": 99 }))).toEqual([]);
+    expect(stalePages(map, times({}, { "SC-05": 99 }))).toEqual([]);
   });
 });

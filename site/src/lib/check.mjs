@@ -172,3 +172,28 @@ export function guideMap(/** @type {string} */ docsDir) {
 export function readMap(/** @type {string} */ file) {
   return existsSync(file) ? (parse(readFileSync(file, "utf8")) ?? {}) : {};
 }
+
+/**
+ * Pages that may be behind the product: a spec of one of their features changed after the
+ * page did. A hint for a person to look, never a failure: a spec can change without the
+ * screens changing.
+ * @param {Record<string, string[]>} map feature ID → page slugs (`guideMap`)
+ * @param {{ pageTime: (slug: string) => number | null, specTime: (id: string) => number | null }} times
+ *   when a page (in either language) and a feature's spec last changed; null = unknown
+ * @returns {{ slug: string, features: string[] }[]}
+ */
+export function stalePages(map, { pageTime, specTime }) {
+  /** @type {Record<string, string[]>} */
+  const behind = {};
+  for (const [id, slugs] of Object.entries(map)) {
+    const spec = specTime(id);
+    if (spec === null) continue;
+    for (const slug of slugs) {
+      const page = pageTime(slug);
+      if (page !== null && page < spec) (behind[slug] ??= []).push(id);
+    }
+  }
+  return Object.keys(behind)
+    .sort()
+    .map((slug) => ({ slug, features: behind[slug].sort() }));
+}
