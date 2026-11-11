@@ -213,7 +213,7 @@ describe("client", () => {
 });
 
 describe("seedCast", () => {
-  it("sets the city, logs 91 days around moon days and links the teacher through the bot", async () => {
+  it("sets the city, logs 91 days, links the teacher and joins the shala through the bot", async () => {
     /** @type {string[]} */
     const done = [];
     const client = {
@@ -229,6 +229,9 @@ describe("seedCast", () => {
         if (path.startsWith("/me/moon-days")) return { days: [{ date: "2026-11-10" }] };
         if (path === "/me/invite") return { url: "https://t.me/tristhana_bot?start=t_abc123" };
         if (path === "/me/links") return { teachers: [{}] };
+        if (path === "/shalas") return { id: "s1" };
+        if (path === "/shalas/s1/join-link") return { url: "https://t.me/x?start=h_xyz" };
+        if (path === "/me/shalas") return [{}];
         return null;
       },
       say: async (/** @type {any} */ user, /** @type {string} */ text) => {
@@ -256,10 +259,13 @@ describe("seedCast", () => {
     expect(done).toContain("Maya PUT /me/days/2026-11-10 moon");
     expect(done).toContain("Maya PUT /me/days/2026-11-11 practiced");
     expect(done).toContain("Maya PUT /me/days/2026-11-11/practices/1");
+    expect(done).toContain("Maya says /start t_abc123");
+    expect(done).toContain("Maya POST /me/progression/events");
+    expect(done.filter((line) => line === "Arjun POST /shalas/s1/classes")).toHaveLength(2);
     expect(done.slice(-3)).toEqual([
-      "Maya says /start t_abc123",
+      "Maya says /start h_xyz",
       "Maya taps ✅",
-      "Maya GET /me/links",
+      "Maya GET /me/shalas",
     ]);
   });
 
