@@ -13,7 +13,7 @@ GM-02 adds a persistent badge collection (spec `docs/specs/GM-02-badges.md`). Ev
 - Dates are true to the log ("the 108th practice was on …"), and they move if earlier days are backfilled or cleared.
 - A correction can make a day-based badge disappear (accepted; tone: no message, no "lost").
 - A future earn-time note (bot line or push) would need a "seen" ledger after all; revisit then (supersede this ADR).
-- Read cost grows with history: one per-account aggregate over ≤ ~9 000 days and ≤ hundreds of events, then O(n) in memory. The DB test asserts the statement < 30 ms on a 9 000-day account.
+- Read cost grows with history: one per-account aggregate over ≤ ~9 000 days and ≤ hundreds of events, then O(n) in memory. The DB test asserts the statement < 60 ms on a 9 000-day account (30 ms until 2026-11-11, Q283).
 ## Alternatives considered
 - **A `badge` ledger written in the day write** (ADR-0028 style CTEs): Mandala (a 40-practice run over rest and auto-rest days), Return and the context badges need more than a count, which turns the hot statement into several aggregates on every 🧘 tap. Practice details (context, start time) are saved by a different write, so a second hook would be needed too.
 - **A ledger latched on read** (GET inserts newly derived badges): keeps badges forever, but turns a GET into a write, needs a migration and export, and would latch a mis-tapped asana give that was later undone.
