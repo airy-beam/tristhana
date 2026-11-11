@@ -6,6 +6,9 @@
 
 export const CITY = { slug: "almaty", zone: "Asia/Almaty" };
 
+/** The demo shala, run by the demo teacher. */
+export const SHALA = { en: "Morning Mysore", ru: "Утренний Майсор" };
+
 /** @type {Record<"en" | "ru", Cast>} */
 export const CAST = {
   en: {

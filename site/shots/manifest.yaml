@@ -10,20 +10,23 @@
 #   click     app: the things they tap after Home loads, each by a Mini App Fluent key
 #   full      app: capture the whole page, not just the first screen
 shots:
-  - name: bot-start
-    kind: bot
-    as: newcomer
-    say: /start
-    features: [UI-01, PR-01]
+  # Start here
+  - {name: bot-start, kind: bot, as: newcomer, say: /start, features: [UI-01, PR-01]}
+  - {name: app-home, kind: app, as: student, features: [UI-03, PR-01]}
 
-  - name: app-home
-    kind: app
-    as: student
-    features: [UI-03, PR-01]
-
-  - name: app-my-practice
-    kind: app
-    as: student
-    click: [stats-open]
-    full: true
-    features: [ST-01, ST-02, ST-03]
+  # For students
+  - {name: bot-log-practice, kind: bot, as: newcomer, say: /log, tap: [status-practiced], features: [PR-01, PR-02, PR-03, PR-05, PR-06]}
+  - {name: bot-pause, kind: bot, as: newcomer, say: /log, tap: [status-sick], features: [WH-01]}
+  - {name: bot-moon, kind: bot, as: student, say: /moon, features: [MD-03, MD-04, MD-02]}
+  - {name: bot-remind, kind: bot, as: student, say: /remind, features: [PR-10, NT-01]}
+  - {name: app-my-practice, kind: app, as: student, click: [stats-open], full: true, features: [ST-01, ST-02, ST-03]}
+  - {name: app-badges, kind: app, as: student, click: [stats-open, badges-open], features: [GM-02]}
+  - {name: bot-asanas, kind: bot, as: student, say: /asanas, features: [PR-08]}
+  - {name: app-my-asanas, kind: app, as: student, click: [progression-open], features: [PR-08, ST-04]}
+  - {name: bot-note, kind: bot, as: student, say: /log, tap: [diary-button], features: [PR-07]}
+  - {name: bot-teachers, kind: bot, as: student, say: /teachers, features: [ID-04, SC-01]}
+  - {name: bot-schedule, kind: bot, as: student, say: /schedule, features: [SC-03, SC-05, SC-06]}
+  - {name: app-schedule, kind: app, as: student, click: [my-schedule-open], features: [SC-03]}
+  - {name: bot-settings, kind: bot, as: student, say: /settings, features: [ID-06]}
+  - {name: app-settings, kind: app, as: student, click: [settings-open], features: [ID-06]}
+  - {name: bot-my-data, kind: bot, as: student, say: /settings, tap: [settings-data-button], features: [ST-09]}

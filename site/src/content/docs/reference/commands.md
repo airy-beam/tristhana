@@ -13,8 +13,8 @@ Every command of the bot, with one line on what it does. You can type a command 
 | :cmd[asanas]   | Your asanas: the last one, and marking a new one.                |
 | :cmd[remind]   | The daily practice reminder: on or off, and at what time.        |
 | :cmd[moon]     | Upcoming moon days and their reminders.                          |
-| :cmd[teachers] | Your teachers and your students.                                 |
-| :cmd[schedule] | Classes of all your shalas, shown in your time.                  |
+| :cmd[teachers] | Your teachers and shalas, and your students if you teach.        |
+| :cmd[schedule] | Classes of all your shalas, shown in your time zone.             |
 | :cmd[classes]  | The classes you teach this week.                                 |
 | :cmd[settings] | Language, city and reminders.                                    |
 | :cmd[help]     | A short list of what the bot can do, and the quick tour.         |

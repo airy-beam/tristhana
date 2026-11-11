@@ -68,6 +68,8 @@ export async function startStack(log = console.log) {
     MINIAPP_URL: "https://tristhana.web.app",
     FIELD_ENCRYPTION_KEYS: `1:${randomBytes(32).toString("base64")}`,
     INTERNAL_TICK_TOKEN: DEMO.secret,
+    // Turns the calendar subscription on; `.invalid` never resolves, so the links lead nowhere.
+    PUBLIC_API_URL: "https://demo.invalid",
   };
   const uv = ["run", "--project", join(REPO, "backend")];
 
