@@ -17,7 +17,7 @@ const group = (
 });
 
 export default defineConfig({
-  site: "https://tristhana-guide.web.app",
+  site: "https://tristhana.app",
   trailingSlash: "always",
   markdown: {
     processor: satteri({ features: { directive: true }, mdastPlugins: [guideDirectives()] }),

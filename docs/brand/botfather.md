@@ -46,5 +46,5 @@ layout; `docs/brand/render.sh` makes one from a source in `docs/brand/src/` (not
 - The same tone as the product: friendly, plain, no "streak", "missed" or "skipped".
 - 🌸 is not named here: it is a private topic and these texts are public.
 - Privacy lines say only what the code does today.
-- When the guide moves to its own domain (Q270), change the address in all four texts. The Russian about text has 10 characters to spare.
+- The guide's address in the texts is `tristhana.app` (Q270, 2026-11-11). If it ever changes, change all four texts and run the command again.
 - Telegram makes the bare address tappable (checked on a phone, 2026-11-11), so the texts need no `https://`.

@@ -108,7 +108,7 @@ def test_help_keeps_its_text_and_offers_the_tour(client: TestClient) -> None:
     assert _data(body) == [step(1, "h")]
 
 
-GUIDE = "https://tristhana-guide.web.app"
+GUIDE = "https://tristhana.app"
 
 
 def _links(body: Any) -> list[tuple[str, str]]:
@@ -146,7 +146,7 @@ def test_done_from_the_tour_brings_the_guide_link_back(storage: InMemoryStorage)
 
 def test_the_guide_address_must_be_https() -> None:
     with pytest.raises(ValueError, match="must be an https://"):
-        Settings(app_env="test", public_site_url="http://tristhana-guide.web.app")
+        Settings(app_env="test", public_site_url="http://tristhana.app")
 
 
 def test_start_offers_the_tour_last_and_leaves_the_rest_alone(client: TestClient) -> None:

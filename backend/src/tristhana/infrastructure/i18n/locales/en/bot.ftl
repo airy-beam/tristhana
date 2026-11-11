@@ -117,8 +117,8 @@ bot-description =
 
     Your log is yours. A teacher sees only what you agree to.
 
-    Guide: tristhana-guide.web.app
-bot-about = Your Ashtanga companion: a log for practice and rest, moon days, your asanas. Guide: tristhana-guide.web.app
+    Guide: tristhana.app
+bot-about = Your Ashtanga companion: a log for practice and rest, moon days, your asanas. Guide: tristhana.app
 
 ## Practice details (PR-02, PR-03, PR-05). Asana names come from the catalog, not from here.
 
