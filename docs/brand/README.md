@@ -1,6 +1,6 @@
 # Brand assets
 
-Palette and motif from the notes (`10 Naming & Branding`): deep indigo, saffron/ochre, off-white paper; three dots for breath · bandha · drishti under a crescent moon.
+Palette and motif from the notes (`10 Naming & Branding`): deep indigo, saffron/ochre, off-white paper; three dots for asana · breath · drishti under a crescent moon.
 
 - `botfather.md`: the bot's description and about texts in English and Russian (UI-05); the owner sets them in @BotFather.
 - `launch.md`: the public launch post texts in Russian and English; the owner posts them by hand.
