@@ -147,6 +147,7 @@ moon-teacher-shared =
     { $chosen ->
         [yes] 👥 Students who haven't chosen a city follow yours: 📍 { $city }.
         [follow] 👥 Your students' moon days are for 📍 { $city }. You can keep it or choose your own city.
+        [shala] 👥 Students in your shala follow its moon calendar. Your other students get 📍 { $city } by default, or your city if you choose one.
        *[no] 👥 Your students' moon days are for 📍 { $city }, like yours. You can keep it or choose your own city.
     }
 

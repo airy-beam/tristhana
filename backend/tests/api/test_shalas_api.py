@@ -636,8 +636,19 @@ def test_never_chose_follows_the_shala(api: TestClient, storage: InMemoryStorage
         "shala",
         False,
     )
-    assert location["shala"] == {"id": str(shala), "name": "Moscow Shala"}
+    # `staff` tells the Mini App which line a teacher gets about their students (Q274).
+    assert location["shala"] == {"id": str(shala), "name": "Moscow Shala", "staff": False}
     assert location["teacher"] is None
+
+
+def test_the_shala_of_its_own_staff_says_so(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, name="Moscow Shala", city="moscow")
+
+    location = _location(api)
+
+    assert location["source"] == "shala"
+    assert location["shala"] == {"id": str(shala), "name": "Moscow Shala", "staff": True}
 
 
 def test_put_follow_shala_stores_it(api: TestClient, storage: InMemoryStorage) -> None:

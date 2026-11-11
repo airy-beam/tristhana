@@ -412,7 +412,7 @@ describe("Follow my shala in Settings", () => {
     follow_chosen: false,
     teacher: null,
     shared: null,
-    shala: { id: SHALA, name: "Moscow Shala" },
+    shala: { id: SHALA, name: "Moscow Shala", staff: false },
   };
 
   it("is an option only with a shala, and sends follow: shala", async () => {

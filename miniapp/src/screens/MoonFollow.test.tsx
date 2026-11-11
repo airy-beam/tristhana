@@ -49,10 +49,11 @@ const CITIES = [
 interface Location {
   slug: string;
   explicit: boolean;
-  source: "chosen" | "teacher" | "default";
+  source: "chosen" | "teacher" | "shala" | "default";
   follow_chosen: boolean;
   teacher: { id: string; name: string | null } | null;
   shared: { chosen: boolean } | null;
+  shala?: { id: string; name: string; staff: boolean } | null;
 }
 
 const location = (over: Partial<Location> = {}): Location => ({
@@ -276,6 +277,35 @@ describe("The moon card names the source", () => {
     expect(screen.getByText(exact(text))).toBeInTheDocument();
   });
 });
+
+it.each([
+  [
+    true,
+    "👥 Students in your shala follow its moon calendar. Your other students get 📍 Mysuru by default, or your city if you choose one.",
+  ],
+  // Only a student of the shala: their students in it would move to a city they choose.
+  [
+    false,
+    "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your own city.",
+  ],
+])(
+  'doesn\'t say "like yours" to a teacher whose own moon days follow their shala (Q274, staff: %s)',
+  async (staff, text) => {
+    stubApi(
+      location({
+        slug: "almaty",
+        source: "shala",
+        shala: { id: "5b1e7d0c-0000-4000-8000-000000000001", name: "Ashtanga Almaty", staff },
+        shared: { chosen: false },
+      }),
+    );
+    renderWith(<MoonCard locale="en" />);
+
+    await screen.findByRole("heading");
+    expect(screen.getByText((_, el) => plain(el?.textContent ?? "") === text)).toBeInTheDocument();
+    expect(screen.queryByText(/like yours/)).not.toBeInTheDocument();
+  },
+);
 
 it("names the default for students of a teacher who follows their own teacher", async () => {
   // One hop: this teacher sees Almaty from their teacher, their students get Mysuru.

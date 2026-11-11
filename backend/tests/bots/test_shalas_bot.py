@@ -702,6 +702,46 @@ def test_follow_my_shala_comes_after_follow_my_teacher(
     assert teacher < shala_i
 
 
+def test_a_teacher_who_follows_their_shala_isnt_told_like_yours(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    # Q274: never chose a city, but on the staff of a shala, so their own dates are the
+    # shala's (Moscow). Their students without a city get the default: not "like yours".
+    me = _me(client, storage)
+    storage.shalas.add_shala(me.id, "Moscow Shala", "moscow", code=JOIN)
+    storage.teacher_links.add(person(storage, "1006", "Student").id, me.id)
+
+    text = _flat(_command(client, "/moon")["text"])
+
+    assert _t("moon-source-shala", shala="Moscow Shala") in text
+    assert "like yours" not in text
+    assert (
+        "👥 Students in your shala follow its moon calendar. Your other students get 📍 Mysuru by "
+        "default, or your city if you choose one in /moon."
+    ) in text
+
+
+def test_a_teacher_who_is_only_a_student_of_the_shala_gets_the_plain_line(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    # Their own dates are the shala's, so not "like yours"; but they aren't on its staff, so
+    # their students in it would move to a city they choose: the shala sentence would mislead.
+    me = _me(client, storage)
+    shala = storage.shalas.add_shala(_owner(storage).id, "Moscow Shala", "moscow", code=JOIN).id
+    storage.shalas.add_student(shala, me.id)
+    storage.teacher_links.add(person(storage, "1006", "Student").id, me.id)
+
+    text = _flat(_command(client, "/moon")["text"])
+
+    assert _t("moon-source-shala", shala="Moscow Shala") in text
+    assert "like yours" not in text
+    assert "Students in your shala" not in text
+    assert (
+        "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your city "
+        "in /moon."
+    ) in text
+
+
 def test_tapping_follow_my_shala_stores_it(client: TestClient, storage: InMemoryStorage) -> None:
     me = _me(client, storage, "en")
     shala = storage.shalas.add_shala(_owner(storage).id, "Moscow Shala", "moscow", code=JOIN).id
