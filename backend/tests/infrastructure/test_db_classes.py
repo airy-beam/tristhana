@@ -9,6 +9,7 @@ port shapes documented in `tests/schedule_fakes.py`."""
 
 import asyncio
 import itertools
+import re
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, time, timedelta
@@ -688,3 +689,29 @@ async def test_a_held_write_replaces_unless_it_keeps(engine: AsyncEngine) -> Non
 
     assert tuple(kept) == ("held", teacher.id)
     assert tuple(replaced) == ("held", None)
+
+
+async def test_the_window_names_only_its_own_staff(engine: AsyncEngine) -> None:
+    owner, shala = await _owned(engine)
+    other, _ = await _person(engine, "Boris")
+    await _shala(engine, other.id)
+
+    window = await SqlScheduleRepository(engine).window(shala, owner, NOV[9], NOV[15])
+
+    assert window is not None
+    assert window.staff == {owner: "Anna"}
+
+
+async def test_the_window_reads_no_other_shala(engine: AsyncEngine) -> None:
+    """A table listed after a comma in a FROM is an uncorrelated subquery: it reads the
+    rows of every shala (the staff list once did)."""
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+
+    with _statements(engine) as seen:
+        await repo.window(shala, owner, NOV[9], NOV[15])
+        await repo.member_windows(owner, NOV[9], NOV[15])
+
+    assert len(seen) == 2
+    for statement in seen:
+        assert re.search(r"FROM [^\n]*, tristhana\.\w+ *(\n|$)", statement) is None

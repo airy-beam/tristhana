@@ -14,6 +14,7 @@ from sqlalchemy import (
     func,
     insert,
     literal,
+    null,
     or_,
     select,
     true,
@@ -133,7 +134,7 @@ _AS_STUDENT = (
 )
 MAIN_SHALA = func.coalesce(_AS_STAFF, _AS_STUDENT).cast(JSONB).label("main_shala")
 
-_COLUMNS = (
+_STORED = (
     account.c.id,
     account.c.display_name,
     account.c.locale,
@@ -150,9 +151,16 @@ _COLUMNS = (
     account.c.hide_ladies,
     account.c.offer_check_in,
     account.c.home_city,
-    _TEACHES,
-    _MAIN_TEACHER,
-    MAIN_SHALA,
+)
+_COLUMNS = (*_STORED, _TEACHES, _MAIN_TEACHER, MAIN_SHALA)
+# The same row shape for an INSERT's RETURNING. The subqueries above cannot be used there:
+# an INSERT gives them no `account` to correlate to, so they would read every account's
+# links and hand a new account somebody else's teacher and shala. A new account has none.
+_NEW_COLUMNS = (
+    *_STORED,
+    false().label("teaches"),
+    null().cast(JSONB).label("main_teacher"),
+    null().cast(JSONB).label("main_shala"),
 )
 
 
@@ -188,7 +196,7 @@ class SqlAccountRepository:
         created = (
             insert(account)
             .values(display_name=new.display_name, locale=new.locale)
-            .returning(*_COLUMNS)
+            .returning(*_NEW_COLUMNS)
             .cte("created")
         )
         linked = (

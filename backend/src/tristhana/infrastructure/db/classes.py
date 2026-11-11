@@ -318,7 +318,11 @@ def _attendance_columns(me: UUID, lo: date, hi: date) -> tuple[Any, ...]:
         )
         .where(
             *in_window,
-            exists().where(shala_staff.c.shala_id == _S.c.id, shala_staff.c.account_id == me),
+            # Correlated by hand: inside this derived table an EXISTS does not see the outer
+            # `shala` by itself, it would cross-join it and mean "staff of any shala".
+            exists()
+            .where(shala_staff.c.shala_id == _S.c.id, shala_staff.c.account_id == me)
+            .correlate(_S),
             is_member(a.c.shala_id, a.c.account_id),
         )
         .group_by(a.c.class_id, a.c.occurrence_key)
