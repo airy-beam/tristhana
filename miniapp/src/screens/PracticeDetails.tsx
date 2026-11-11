@@ -1,4 +1,4 @@
-import { Localized, useLocalization } from "@fluent/react";
+import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
 import { useState } from "react";
 
 import {
@@ -93,6 +93,12 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
       </Localized>
       {/* Only while nothing is set, as in the bot: the copy would replace a context the
           person just chose (Q27). */}
+      {/* What the tap will copy, as in the bot (Q23); with its day when it is old (Q296). */}
+      {last && !hasDetails && catalog && (
+        <p className="hint small">
+          {lastTimeText(l10n, catalog, last, presets.last_date ?? null, date, locale)}
+        </p>
+      )}
       {last && !hasDetails && (
         <Localized id="practice-same-as-last">
           <button
@@ -336,6 +342,41 @@ function ranges(catalog: Catalog): Range[] {
     }
   }
   return out;
+}
+
+const OLD_AFTER_DAYS = 14; // as the bot and the reminder: older practices say which day
+const utcDay = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+
+/** "Last time: Mysore · Full Primary · 90 min", or "Last time (Thu, Oct 1): …" when the
+ * practice is more than 14 days older than the day being logged. Never the start time:
+ * the tap doesn't copy it. */
+export function lastTimeText(
+  l10n: ReactLocalization,
+  catalog: Catalog,
+  last: Practice,
+  lastDate: string | null,
+  day: string,
+  locale: Locale,
+): string {
+  const parts: string[] = [];
+  if (last.context) {
+    const context = get(l10n, `context-${last.context}`);
+    parts.push(last.online ? `${context} ${get(l10n, "practice-online-suffix")}` : context);
+  }
+  if (last.length) parts.push(lengthText(l10n, catalog, last.length, locale));
+  if (last.duration_min) parts.push(get(l10n, "duration-min", { min: last.duration_min }));
+  const summary = parts.join(" · ");
+  if (lastDate === null || utcDay(day) - utcDay(lastDate) <= OLD_AFTER_DAYS * 86_400_000) {
+    return get(l10n, "practice-last-time", { summary });
+  }
+  const when = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: lastDate.slice(0, 4) === day.slice(0, 4) ? undefined : "numeric",
+    timeZone: "UTC",
+  }).format(utcDay(lastDate));
+  return get(l10n, "practice-last-time-dated", { date: when, summary });
 }
 
 const rangeKey = (r: Range) => `${String(r.first)}${String(r.last)}${r.firstPart ?? ""}`;

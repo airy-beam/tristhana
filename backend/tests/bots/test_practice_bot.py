@@ -250,6 +250,20 @@ def test_same_as_last_time_skips_a_led_class(client: TestClient, storage: InMemo
     assert copied.context is PracticeContext.MYSORE
 
 
+def test_last_time_names_the_day_only_when_the_practice_is_old(client: TestClient) -> None:
+    # Q296: more than 14 days before the day being logged, as on the reminder.
+    old, today = _today() - timedelta(days=15), _today()
+    _tap(client, f"d1:s:{_ymd(old)}:p")
+    _tap(client, f"p1:c:{_ymd(old)}:m")
+
+    dated = _tap(client, f"d1:s:{_ymd(today)}:p")
+    assert f"Last time ({old:%a, %b} {old.day}): Mysore" in dated["text"]
+
+    near = today - timedelta(days=1)  # 14 days after `old`: not old yet
+    recent = _tap(client, f"d1:s:{_ymd(near)}:p")
+    assert "Last time: Mysore" in recent["text"]
+
+
 def test_done_shows_a_summary_with_a_details_button(client: TestClient) -> None:
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")

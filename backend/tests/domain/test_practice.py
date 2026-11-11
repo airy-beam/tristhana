@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import date, time
 from functools import cache
 from pathlib import Path
 
@@ -157,6 +157,17 @@ def test_a_practice_without_a_context_counts_as_not_led() -> None:
     plain = Practice(duration_min=60)
 
     assert derive_presets(catalog(), [led, plain]).last == plain
+
+
+def test_last_day_is_the_day_of_the_practice_that_would_be_copied() -> None:
+    # Q296: the "Last time" line can say which day when that practice is old.
+    led = Practice(PracticeContext.LED, length=FULL_PRIMARY)
+    fri, thu = date(2026, 10, 16), date(2026, 10, 15)
+
+    assert derive_presets(catalog(), [led, _p(HALF_PRIMARY)], days=[fri, thu]).last_day == thu
+    assert derive_presets(catalog(), [led], days=[fri]).last_day == fri
+    assert derive_presets(catalog(), [led]).last_day is None  # the caller gave no days
+    assert derive_presets(catalog(), [], days=[]).last_day is None
 
 
 def test_recent_lengths_are_ranked_by_use_then_recency() -> None:

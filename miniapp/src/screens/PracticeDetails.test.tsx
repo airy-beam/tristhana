@@ -78,8 +78,14 @@ const echo = async (request: Request) =>
   json({ slot: 1, timezone: null, ...((await request.json()) as object) });
 let putResponse: (request: Request) => Response | Promise<Response> = echo;
 
+const plain = (text: string | null | undefined) => (text ?? "").replace(/[\u2068\u2069]/g, "");
+const says = (text: string) => (_: string, el: Element | null) =>
+  el?.tagName === "P" && plain(el.textContent) === text;
+const daysBefore = (iso: string, n: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+
 /** A fake server that remembers the last saved practice (GET /me/days reflects it). */
-function stubApi(days: Days): Request[] {
+function stubApi(days: Days, presets: PracticePresets = PRESETS): Request[] {
   const seen: Request[] = [];
   let saved: unknown = null;
   vi.stubGlobal(
@@ -96,7 +102,7 @@ function stubApi(days: Days): Request[] {
       if (path === "/api/v1/me/moon-days")
         return json({ location: { slug: "mysuru", explicit: false }, today: TODAY, days: [] });
       if (path === "/api/v1/moon/cities") return json([]);
-      if (path.endsWith("/practice-presets")) return json(PRESETS);
+      if (path.endsWith("/practice-presets")) return json(presets);
       if (!saved) return json(days);
       return json({
         ...days,
@@ -183,6 +189,33 @@ describe("PracticeDetails", () => {
       duration_min: 90,
       start_time: null,
     });
+  });
+
+  it("says what same as last time will copy, without a date while it is recent", async () => {
+    stubApi(practicedToday);
+    renderCard();
+
+    expect(await screen.findByText(says("Last time: Led · Full Primary · 90 min"))).toBeVisible();
+  });
+
+  it("names the day when that practice is more than 14 days old", async () => {
+    stubApi(practicedToday, { ...PRESETS, last_date: daysBefore(TODAY, 15) });
+    renderCard();
+
+    expect(
+      await screen.findByText(
+        (_, el) =>
+          el?.tagName === "P" &&
+          /^Last time \(\w{3}, \w{3} \d{1,2}\): Led/.test(plain(el.textContent)),
+      ),
+    ).toBeVisible();
+  });
+
+  it("gives no date at exactly 14 days", async () => {
+    stubApi(practicedToday, { ...PRESETS, last_date: daysBefore(TODAY, 14) });
+    renderCard();
+
+    expect(await screen.findByText(says("Last time: Led · Full Primary · 90 min"))).toBeVisible();
   });
 
   it("same as last time is offered only while nothing is set", async () => {

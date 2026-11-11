@@ -47,6 +47,11 @@ today-load-failed = Couldn't load today's status. Try again in a moment.
 
 # Practice details on a practiced day (PR-02, PR-03, PR-05). Matches the bot's wording.
 practice-title = Practice
+# What "Same as last time" will copy (the bot shows the same line).
+practice-last-time = Last time: { $summary }
+# The practice is more than 14 days older than the day being logged (Q296).
+practice-last-time-dated = Last time ({ $date }): { $summary }
+practice-online-suffix = online
 practice-same-as-last = 🔁 Same as last time
 context-mysore = Mysore
 context-led = Led

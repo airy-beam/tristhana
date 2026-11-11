@@ -288,20 +288,21 @@ async def test_presets_read_progression_in_one_statement(engine: AsyncEngine) ->
     days = SqlDayLogRepository(engine, FieldCipher(KEYS))
     practices, repo = SqlPracticeRepository(engine), SqlProgressionRepository(engine)
     with _statements(engine) as seen:
-        none, unset = await practices.recent_with_progression(me, ON, 60)
-    assert (none, unset, len(seen)) == ([], None, 1)
+        none, unset, no_days = await practices.recent_with_progression(me, ON, 60)
+    assert (none, unset, no_days, len(seen)) == ([], None, [], 1)
 
     start = await repo.apply(me, _start(NAVASANA), None, me, before=None)
     assert start is not None
-    _, set_only = await practices.recent_with_progression(me, ON, 60)
+    _, set_only, _ = await practices.recent_with_progression(me, ON, 60)
     assert set_only is not None
     assert set_only.position == NAVASANA
 
     await days.upsert(me, DayLog(MON, DayStatus.PRACTICED), "Asia/Almaty")
     length = PracticeLength(("primary",), "kurmasana")
     await practices.save(me, MON, PracticePatch.of(length=length))
-    recent, found = await practices.recent_with_progression(me, ON, 60)
+    recent, found, on = await practices.recent_with_progression(me, ON, 60)
     assert [p.length for p in recent] == [length]
+    assert on == [MON]
     assert found is not None
     assert found.position == NAVASANA
     assert recent == await practices.recent(me, ON, 60)

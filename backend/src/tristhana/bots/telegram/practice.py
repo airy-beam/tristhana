@@ -37,6 +37,7 @@ from tristhana.domain.check_in import CheckIn, offer_mood_row
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
+from tristhana.domain.notifications import COPIED_DATE_AFTER
 from tristhana.domain.practice import (
     FULL_PRIMARY,
     HALF_PRIMARY,
@@ -266,16 +267,17 @@ class PracticeScreens:
             lines.append(question)
             rows.append(answers)
         if not has_details(practice):  # only then is "same as last time" offered
-            last = (await self._p.presets.execute(principal, day)).last
+            presets = await self._p.presets.execute(principal, day)
+            last, on = presets.last, presets.last_day
             if last is not None and has_details(last):
-                lines.append(
-                    self._t.t(
-                        locale,
-                        "practice-last-time",
-                        # Without the start time: the tap doesn't copy it.
-                        summary=self.summary_text(locale, day, replace(last, start_time=None)),
-                    )
-                )
+                # Without the start time: the tap doesn't copy it.
+                summary = self.summary_text(locale, day, replace(last, start_time=None))
+                if on is not None and day - on > COPIED_DATE_AFTER:  # old: say which day (Q296)
+                    when = DateArg(on, with_year=on.year != day.year)
+                    line = self._t.t(locale, "practice-last-time-dated", date=when, summary=summary)
+                else:
+                    line = self._t.t(locale, "practice-last-time", summary=summary)
+                lines.append(line)
                 rows.append([self._button(locale, "practice-same-as-last", _data("same", day))])
         current = practice.context if practice else None
         for pair in _CONTEXT_ROWS:

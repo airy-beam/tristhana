@@ -218,7 +218,7 @@ class SqlPracticeRepository:
 
     async def recent_with_progression(
         self, account_id: UUID, before: date, limit: int
-    ) -> tuple[list[Practice], Progression | None]:
+    ) -> tuple[list[Practice], Progression | None, list[date]]:
         recent = _recent(account_id, before, limit).lateral("recent")
         one = select(literal(1).label("one")).subquery("one")
         joined = one.outerjoin(progression, progression.c.account_id == account_id).outerjoin(
@@ -231,8 +231,12 @@ class SqlPracticeRepository:
         )
         async with connection(self._engine) as conn:
             rows = (await conn.execute(stmt)).all()
-        found = [to_practice(r) for r in rows if r.local_date is not None]
-        return found, to_progression(rows[0])
+        found = [r for r in rows if r.local_date is not None]
+        return (
+            [to_practice(r) for r in found],
+            to_progression(rows[0]),
+            [r.local_date for r in found],
+        )
 
     async def _with_check_in(
         self, upsert: Any, account_id: UUID, local_date: date

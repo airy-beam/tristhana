@@ -4337,6 +4337,19 @@
             ],
             "description": "For 'same as last time'"
           },
+          "last_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The day `last` was practised; null when there is none",
+            "title": "Last Date"
+          },
           "presets": {
             "items": {
               "$ref": "#/components/schemas/Preset"

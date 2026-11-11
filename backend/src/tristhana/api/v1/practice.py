@@ -99,6 +99,9 @@ class Preset(BaseModel):
 
 class PracticePresets(BaseModel):
     last: PracticeOut | None = Field(description="For 'same as last time'")
+    last_date: dt.date | None = Field(
+        default=None, description="The day `last` was practised; null when there is none"
+    )
     presets: list[Preset]
 
 
@@ -197,6 +200,7 @@ async def get_presets(
     presets = await use_case.execute(principal, date)
     return PracticePresets(
         last=PracticeOut.of(presets.last) if presets.last else None,
+        last_date=presets.last_day,
         presets=[Preset(kind=k, length=Length.of(length)) for k, length in presets.presets],  # type: ignore[arg-type]
     )
 

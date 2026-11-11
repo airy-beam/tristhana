@@ -127,6 +127,8 @@ bot-about = Your Ashtanga companion: a log for practice and rest, moon days, you
 
 practice-details-prompt = Add details? Optional, one tap is enough.
 practice-last-time = Last time: { $summary }
+# The practice is more than 14 days older than the day being logged (Q296).
+practice-last-time-dated = Last time ({ $date }): { $summary }
 practice-same-as-last = 🔁 Same as last time
 context-mysore = Mysore
 context-led = Led
@@ -871,7 +873,6 @@ shala-moon-policy = { $p ->
         [open] 🌙 Moon days: classes as usual
        *[closed] 🌙 Moon days: the shala is closed
     }
-shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use "Hold anyway" or "Cancel this class".
 shala-day-off-line = 😌 Day off: { $days }
 shala-day-off-adopt = 😌 Make { $days } my day off too
 class-cancel-ask = Cancel { $class } on { $day }? It shows on the schedule. No one gets a message.

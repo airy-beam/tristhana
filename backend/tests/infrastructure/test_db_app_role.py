@@ -120,7 +120,7 @@ async def test_progression_writes_work_as_the_app_role(app_engine: AsyncEngine) 
     )
     assert saved is not None
     assert saved.progression is not None
-    _, found = await practices.recent_with_progression(me, date(2026, 10, 28), 60)
+    _, found, _ = await practices.recent_with_progression(me, date(2026, 10, 28), 60)
     assert found is not None
 
 
