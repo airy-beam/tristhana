@@ -174,6 +174,7 @@ remind-weekday = { $d ->
 stats-open = 📊 Моя практика
 stats-title = Моя практика
 badges-open = 🏅 Значки
+trends-open = ✨ Самочувствие за год
 stats-year-total = { $year }: { $n ->
         [one] { $n } практика
         [few] { $n } практики

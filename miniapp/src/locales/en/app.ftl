@@ -171,6 +171,7 @@ remind-weekday = { $d ->
 stats-open = 📊 My practice
 stats-title = My practice
 badges-open = 🏅 Badges
+trends-open = ✨ Check-ins over time
 stats-year-total = { $n ->
         [one] { $n } practice in { $year }
        *[other] { $n } practices in { $year }

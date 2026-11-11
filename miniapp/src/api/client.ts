@@ -54,6 +54,9 @@ export type Me = components["schemas"]["Me"];
 // GM-02: fetched inside the lazy Badges chunk (screens/badges), so no hook here.
 export type Badge = components["schemas"]["BadgeOut"];
 export type Badges = components["schemas"]["BadgesOut"];
+// ST-05: fetched inside the lazy Trends chunk (screens/trends), so no hook here.
+export type CheckInTrends = components["schemas"]["CheckInTrendsOut"];
+export type TrendScales = components["schemas"]["ScalesOut"];
 export type ErrorCode = components["schemas"]["ErrorCode"];
 
 /** A non-2xx answer from the API, with the stable `code` when the body has one. */

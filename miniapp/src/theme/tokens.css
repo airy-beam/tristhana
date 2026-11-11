@@ -711,6 +711,64 @@ body {
   margin: 0 0 8px 40px;
 }
 
+/* Check-ins over time (ST-05): dots and figures only, no colour for high or low. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.trend-strip {
+  margin: 8px 0 12px;
+}
+.trend-strip svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.trend-strip line {
+  stroke: var(--c-hint);
+  stroke-width: 0.5;
+  opacity: 0.4;
+}
+.trend-strip circle {
+  fill: var(--c-text);
+}
+.trend-strip text {
+  fill: var(--c-hint);
+  font-size: 8px;
+  text-anchor: middle;
+}
+.trend-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.trend-grid th {
+  padding: 4px 0;
+  font-weight: normal;
+  font-size: 12px;
+  color: var(--c-hint);
+}
+.trend-grid thead td {
+  width: 2em;
+}
+.trend-grid th[scope="row"] {
+  font-size: 16px;
+}
+.trend-grid td {
+  padding: 4px 0;
+}
+.trend-grid td small {
+  display: block;
+  color: var(--c-hint);
+  font-size: 11px;
+}
+
 /* ID-05: the directory line under a teacher's name (plain text colour, never a pill), and its
    form. */
 .listing-mark {

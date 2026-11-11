@@ -106,6 +106,18 @@ function stubApi(data: StatsData = stats()): Request[] {
       if (url.pathname === "/api/v1/me/notification-settings")
         return json({ ...NOTIFY, day_off_question: question });
       if (url.pathname === "/api/v1/me/badges") return json({ badges: [] });
+      if (url.pathname === "/api/v1/me/check-in-trends")
+        return json({
+          from: "2025-12-01",
+          to: "2026-11-11",
+          total: 0,
+          enough: false,
+          min_total: 10,
+          min_bucket: 5,
+          months: [],
+          weekdays: null,
+          moon: null,
+        });
       if (url.pathname === "/api/v1/catalog")
         return json({ version: "v1", series: [], milestone_items: [], check_in_tags: [] });
       return json({});
@@ -437,6 +449,33 @@ describe("Share cards (ST-07)", () => {
     renderStats();
     await screen.findByRole("heading", { name: "2026" });
     expect(screen.queryByRole("button", { name: /^Share/ })).toBeNull();
+  });
+});
+
+describe("Check-ins over time entry (ST-05)", () => {
+  it("opens the lazy screen from My practice and comes back to the same month", async () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+    vi.stubGlobal("scrollY", 300);
+    backButton.available = false; // so the screen shows its own back link
+    const seen = stubApi();
+    renderStats();
+    await screen.findByText(byText("This month: 1 practice"));
+    fireEvent.click(screen.getByRole("button", { name: "September" }));
+    expect(seen.some((r) => r.url.includes("/me/check-in-trends"))).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "✨ Check-ins over time" }));
+
+    expect(await screen.findByRole("heading", { name: "Check-ins over time" })).toBeVisible();
+    expect(await screen.findByText(/Nothing here yet/)).toBeVisible();
+    expect(seen.some((r) => r.url.includes("/me/check-in-trends"))).toBe(true);
+    expect(screen.queryByRole("heading", { name: "September 2026" })).toBeNull(); // hidden
+
+    fireEvent.click(screen.getByRole("button", { name: /Back/ }));
+
+    expect(screen.queryByRole("heading", { name: "Check-ins over time" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "September 2026" })).toBeVisible();
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 300 });
   });
 });
 

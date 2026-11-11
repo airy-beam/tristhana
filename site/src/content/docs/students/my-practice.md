@@ -1,7 +1,7 @@
 ---
 title: "My practice: calendar, month, badges"
 description: "Your year at a glance, a summary of each month, quiet badges, and cards you can share if you feel like it."
-features: [ST-01, ST-02, ST-03, GM-01, GM-02, ST-07]
+features: [ST-01, ST-02, ST-03, GM-01, GM-02, ST-07, ST-05]
 ---
 
 Your year at a glance, a summary of each month, quiet badges, and cards you can share if you feel like it.
@@ -26,6 +26,14 @@ Tap a day in the month calendar to log it or change it.
 Tap :ftl[badges-open] at the bottom. You see only the badges you have earned, and when. They are just for you: teachers don't see them, and there is no ranking.
 
 ![The badges screen with a few earned badges](../../../assets/shots/en/app-badges.webp)
+
+## Check-ins over time
+
+Tap :ftl[trends-open] at the bottom. It shows the averages of your after-practice check-ins for the last 12 months: by month, by weekday, and on the days around a full or new moon next to all other days. The small number under each average is how many check-ins it comes from.
+
+![The Check-ins over time screen: averages by month, by weekday and near full and new moon](../../../assets/shots/en/app-trends.webp)
+
+The screen shows your numbers and draws no conclusions from them. Averages appear from 10 check-ins. A month, a weekday or a moon column needs 5, and shows a dash until then. This screen is yours alone: teachers and shalas don't see it.
 
 ## Share a card
 

@@ -38,6 +38,15 @@ export async function seedCast(client, locale, options = {}) {
     await client.call(student, "PUT", `/me/days/${date}`, { status: day.status });
     if (day.practice) {
       await client.call(student, "PUT", `/me/days/${date}/practices/1`, day.practice);
+      // ST-05: a check-in on most practice days, so "Check-ins over time" has figures. Not on
+      // the last two days: Home and the bot would then show today's check-in.
+      if (back > 1 && back % 5 !== 3) {
+        await client.call(student, "PUT", `/me/days/${date}/check-ins/1`, {
+          mood: 3 + ((back * 7) % 3),
+          energy: 2 + ((back * 5) % 4),
+          effort: 2 + ((back * 2) % 3),
+        });
+      }
     }
     logged++;
   }

@@ -19,6 +19,7 @@ from tristhana.application.ports.attendance import AttendanceRepository
 from tristhana.application.ports.badges import BadgeFactsRepository
 from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
+from tristhana.application.ports.check_in_trends import CheckInTrendsRepository
 from tristhana.application.ports.classes import ClassCaps, ClassDraft
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
@@ -121,6 +122,7 @@ class PostgresStorage:
         self._attendance: AttendanceRepository | None = None
         self._share_cards: ShareCardRepository | None = None
         self._badges: BadgeFactsRepository | None = None
+        self._check_in_trends: CheckInTrendsRepository | None = None
         self._listings: ListingRepository | None = None
 
     async def start(self) -> None:
@@ -130,6 +132,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.badges import SqlBadgeFactsRepository
         from tristhana.infrastructure.db.calendar_feed import SqlCalendarFeedRepository
         from tristhana.infrastructure.db.check_in import SqlCheckInRepository
+        from tristhana.infrastructure.db.check_in_trends import SqlCheckInTrendsRepository
         from tristhana.infrastructure.db.classes import SqlScheduleRepository
         from tristhana.infrastructure.db.days import SqlDayLogRepository
         from tristhana.infrastructure.db.diary import SqlDiaryRepository
@@ -171,6 +174,7 @@ class PostgresStorage:
         self._attendance = SqlAttendanceRepository(self._engine)
         self._share_cards = SqlShareCardRepository(self._engine)
         self._badges = SqlBadgeFactsRepository(self._engine)
+        self._check_in_trends = SqlCheckInTrendsRepository(self._engine)
         self._listings = SqlListingRepository(self._engine)
         # One warm connection, so the first tap doesn't pay for TCP + TLS + auth.
         started = time.perf_counter()
@@ -297,6 +301,12 @@ class PostgresStorage:
         return self._badges
 
     @property
+    def check_in_trends(self) -> CheckInTrendsRepository:
+        if self._check_in_trends is None:
+            raise RuntimeError("storage not started")
+        return self._check_in_trends
+
+    @property
     def listings(self) -> ListingRepository:
         if self._listings is None:
             raise RuntimeError("storage not started")
@@ -364,6 +374,10 @@ class UnconfiguredStorage:
     @property
     def badges(self) -> BadgeFactsRepository:
         return _UnavailableBadges()
+
+    @property
+    def check_in_trends(self) -> CheckInTrendsRepository:
+        return _UnavailableCheckInTrends()
 
     @property
     def listings(self) -> ListingRepository:
@@ -821,6 +835,11 @@ class _UnavailableListings:
 
 class _UnavailableBadges:
     async def facts(self, account_id: UUID, moon_location: str, today: date) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableCheckInTrends:
+    async def facts(self, account_id: UUID, moon_location: str, start: date, end: date) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 

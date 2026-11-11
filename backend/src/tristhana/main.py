@@ -46,6 +46,7 @@ from tristhana.application.calendar_feed import (
     RevokeFeedLink,
 )
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
+from tristhana.application.check_in_trends import GetCheckInTrends
 from tristhana.application.classes import (
     AddClosure,
     AddSwap,
@@ -385,6 +386,9 @@ class _Services:
             track,
             cities,
             clock,
+        )
+        app.state.check_in_trends = GetCheckInTrends(  # ST-05
+            self._storage.check_in_trends, cities, clock
         )
         notification_settings = NotificationSettingsUseCase(self._storage.notifications, clock)
         app.state.notification_settings = notification_settings

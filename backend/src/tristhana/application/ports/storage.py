@@ -7,6 +7,7 @@ from tristhana.application.ports.attendance import AttendanceRepository
 from tristhana.application.ports.badges import BadgeFactsRepository
 from tristhana.application.ports.calendar_feed import CalendarFeedRepository
 from tristhana.application.ports.check_in import CheckInRepository
+from tristhana.application.ports.check_in_trends import CheckInTrendsRepository
 from tristhana.application.ports.classes import ScheduleRepository
 from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.diary import DiaryRepository
@@ -98,6 +99,9 @@ class Storage(Protocol):
 
     @property
     def badges(self) -> BadgeFactsRepository: ...
+
+    @property
+    def check_in_trends(self) -> CheckInTrendsRepository: ...
 
     @property
     def listings(self) -> ListingRepository: ...
