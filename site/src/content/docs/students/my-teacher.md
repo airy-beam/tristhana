@@ -34,7 +34,7 @@ Accept only if you know the person: anyone can type any name.
 
 ![The list of teachers and shalas in the bot](../../../assets/shots/en/bot-teachers.webp)
 
-- You can have several teachers. ⭐ marks your main one. If you haven't chosen a city yourself, your moon days follow the city they chose.
+- You can have several teachers. ⭐ marks your main one. If you haven't chosen a city yourself, your moon days follow the city they chose. If your main teacher teaches at your shala, the shala's calendar comes first.
 - Tap a name, then :ftl[links-remove]{from=bot} to take them off your list. Nobody gets a message.
 
 ## Messages from your teacher

@@ -17,7 +17,7 @@ A student who hasn't chosen a moon city follows the city their main teacher chos
 
 ![The teacher's moon days in the bot, with the line about students](../../../assets/shots/en/bot-teacher-moon.webp)
 
-The line with 👥 says what your students follow now.
+The line with 👥 says what your students follow now. If you are on a shala's team, it also says that students in that shala follow the shala's calendar, whichever city you choose.
 
 ## What a student follows, in order
 

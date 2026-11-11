@@ -44,6 +44,10 @@ Your name, practice or rest from the day you added them, your practice length an
 
 :cmd[settings] → :ftl[settings-data-button]. You can download your data first. See [Your data](../../students/your-data/).
 
+## Where do I find this guide again?
+
+In the bot, send :cmd[help] and tap :ftl[help-guide]{from=bot}. In the app, open :ftl[settings-open] and tap :ftl[guide-open]. Both open the guide in your language.
+
 ## Something isn't working, or I have an idea
 
 Tristhana is open source. You can open an issue on [GitHub](https://github.com/airy-beam/tristhana/issues).
