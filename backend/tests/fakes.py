@@ -524,6 +524,9 @@ class InMemoryPractices:
         self.days.practice_rows.pop((account_id, local_date), None)
 
     async def recent(self, account_id: UUID, before: date, limit: int) -> list[Practice]:
+        return [p for _, p in self._recent(account_id, before, limit)]
+
+    def _recent(self, account_id: UUID, before: date, limit: int) -> list[tuple[date, Practice]]:
         self.days._check()  # pyright: ignore[reportPrivateUsage]
         rows = sorted(
             (
@@ -534,13 +537,14 @@ class InMemoryPractices:
             key=lambda r: r[0],
             reverse=True,
         )
-        return [p for _, p in rows[:limit]]
+        return rows[:limit]
 
     async def recent_with_progression(
         self, account_id: UUID, before: date, limit: int
-    ) -> tuple[list[Practice], Progression | None]:
-        recent = await self.recent(account_id, before, limit)
-        return recent, self.days.progression_rows.get(account_id)
+    ) -> tuple[list[Practice], Progression | None, list[date]]:
+        rows = self._recent(account_id, before, limit)
+        progression = self.days.progression_rows.get(account_id)
+        return [p for _, p in rows], progression, [when for when, _ in rows]
 
 
 def position_event_of(oldest_first: list[ProgressionEvent]) -> ProgressionEvent | None:

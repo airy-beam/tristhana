@@ -7,7 +7,7 @@ ADR-0010; validated against the in-memory catalog, ADR-0017).
 
 from collections import Counter
 from dataclasses import dataclass, replace
-from datetime import time
+from datetime import date, time
 from enum import StrEnum
 from typing import Literal
 
@@ -199,6 +199,7 @@ STATIC_PRESETS: tuple[tuple[str, PracticeLength], ...] = (
 class Presets:
     last: Practice | None  # for "same as last time"
     presets: tuple[tuple[str, PracticeLength], ...]  # (kind, length): static, then recent
+    last_day: date | None = None  # the day `last` was practised, when the caller knows it
 
 
 def usual(recent: list[Practice]) -> Practice | None:
@@ -206,19 +207,25 @@ def usual(recent: list[Practice]) -> Practice | None:
     was not a led class (a Friday led class is rarely what someone does on Monday; no context
     counts as not led), else the newest. The details screen previews it and the repository's
     `copy_latest` copies the same one, from the same `RECENT_LIMIT` window."""
-    return next(
-        (p for p in recent if p.context is not PracticeContext.LED), recent[0] if recent else None
-    )
+    i = _usual_index(recent)
+    return None if i is None else recent[i]
+
+
+def _usual_index(recent: list[Practice]) -> int | None:
+    not_led = (i for i, p in enumerate(recent) if p.context is not PracticeContext.LED)
+    return next(not_led, 0 if recent else None)
 
 
 def derive_presets(
     catalog: PracticeCatalog,
     recent: list[Practice],
     mine: tuple[PracticeLength, ...] = (),
+    days: list[date] | None = None,
 ) -> Presets:
-    """`recent` newest first. Recent lengths are ranked by use (ties: newest), so a weekly
-    Friday Primary doesn't push out the usual length; statics and stale keys are skipped.
-    `mine` ("🧘 My practice", PR-08) come first and take recent slots."""
+    """`recent` newest first; `days` are their dates in the same order (for `last_day`).
+    Recent lengths are ranked by use (ties: newest), so a weekly Friday Primary doesn't push
+    out the usual length; statics and stale keys are skipped. `mine` ("🧘 My practice",
+    PR-08) come first and take recent slots."""
     static = {length for _, length in STATIC_PRESETS} | set(mine)
     counts: Counter[PracticeLength] = Counter()
     first_seen: dict[PracticeLength, int] = {}
@@ -236,4 +243,9 @@ def derive_presets(
     ranked = sorted(counts, key=lambda length: (-counts[length], first_seen[length]))
     recents = tuple(("recent", length) for length in ranked[: max(0, RECENT_PRESETS - len(mine))])
     mines = tuple(("mine", length) for length in mine)
-    return Presets(last=usual(recent), presets=STATIC_PRESETS + mines + recents)
+    i = _usual_index(recent)
+    return Presets(
+        last=None if i is None else recent[i],
+        presets=STATIC_PRESETS + mines + recents,
+        last_day=days[i] if days is not None and i is not None else None,
+    )

@@ -3094,6 +3094,11 @@ export interface components {
         PracticePresets: {
             /** @description For 'same as last time' */
             last: components["schemas"]["PracticeOut"] | null;
+            /**
+             * Last Date
+             * @description The day `last` was practised; null when there is none
+             */
+            last_date?: string | null;
             /** Presets */
             presets: components["schemas"]["Preset"][];
         };

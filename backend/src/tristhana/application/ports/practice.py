@@ -59,6 +59,7 @@ class PracticeRepository(Protocol):
 
     async def recent_with_progression(
         self, account_id: UUID, before: date, limit: int
-    ) -> tuple[list[Practice], Progression | None]:
-        """`recent` plus the progression state (PR-08 presets), still one statement."""
+    ) -> tuple[list[Practice], Progression | None, list[date]]:
+        """`recent`, the progression state (PR-08 presets) and the days of those practices in
+        the same order (Q296: "Last time" says which day when it is old), one statement."""
         ...

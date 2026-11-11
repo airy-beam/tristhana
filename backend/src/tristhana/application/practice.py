@@ -92,8 +92,8 @@ class GetPracticePresets:
 
     async def execute(self, principal: Principal, local_date: date) -> Presets:
         """One statement: the recent practices with the progression ("🧘 My practice")."""
-        recent, progression = await self._practices.recent_with_progression(
+        recent, progression, days = await self._practices.recent_with_progression(
             principal.account.id, local_date, RECENT_LIMIT
         )
         mine = my_presets(self._track, progression, recent)
-        return derive_presets(self._catalog, recent, mine)
+        return derive_presets(self._catalog, recent, mine, days)

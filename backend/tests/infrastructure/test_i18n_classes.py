@@ -29,7 +29,6 @@ BOT_KEYS = (
     "schedule-day-off",
     "schedule-empty",
     "shala-moon-policy",
-    "shala-moon-policy-note",
     "shala-day-off-line",
     "shala-day-off-adopt",
     "class-cancel-ask",
@@ -106,14 +105,6 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         {"class": "Mysore", "day": "Tue 10 Nov"},
         "Cancel Mysore on Tue 10 Nov? It shows on the schedule. No one gets a message.",
         "Отменить Mysore Tue 10 Nov? Отмена будет видна в расписании. Сообщений никто не получит.",
-    ),
-    (
-        "shala-moon-policy-note",
-        {},
-        "Dates follow the shala's moon city (lunar day at sunrise). If your shala observes "
-        'another day, use "Hold anyway" or "Cancel this class".',
-        "Даты считаются по лунному городу шалы (лунные сутки на восходе). Если в шале отмечают "
-        "другой день, используй «Всё равно провести» или «Отменить».",
     ),
 ]
 TYPES = {

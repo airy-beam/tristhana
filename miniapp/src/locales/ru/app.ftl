@@ -48,6 +48,11 @@ today-load-failed = Не получилось загрузить отметку 
 
 # Детали практики (PR-02, PR-03, PR-05). Совпадают с формулировками бота.
 practice-title = Практика
+# Что скопирует «Как в прошлый раз» (в боте та же строка).
+practice-last-time = В прошлый раз: { $summary }
+# Практика старше дня отметки больше чем на 14 дней (Q296).
+practice-last-time-dated = В прошлый раз ({ $date }): { $summary }
+practice-online-suffix = онлайн
 practice-same-as-last = 🔁 Как в прошлый раз
 context-mysore = Майсор
 context-led = Лед-класс
