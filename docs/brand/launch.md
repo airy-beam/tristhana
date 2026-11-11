@@ -2,13 +2,17 @@
 
 Texts for the public launch posts, in Russian and English. The owner posts them by hand;
 nothing here is sent automatically. The matching story images are made from
-`src/story_launch_ru.html` and `src/story_launch_en.html` (see `README.md`).
+`src/story_launch_ru.html` / `story_launch_en.html` (what it does) and
+`src/story_launch_about_ru.html` / `story_launch_about_en.html` (free, open source, private,
+not for profit), see `README.md`.
 
 Rules, the same as for the bot's profile texts (`botfather.md`):
 
 - The product's tone: friendly, plain, no "streak", "missed" or "skipped".
 - 🌸 is not named: it is a private topic and these texts are public.
 - Privacy lines say only what the code does today.
+- "Free, and it will stay free" and "not for profit" are the owner's promise (2026-11-11); keep
+  them in every public text.
 - The guide's address is `tristhana.app` (Russian pages: `tristhana.app/ru/`).
 
 ## Russian
@@ -38,14 +42,20 @@ Tristhana открыта для всех 🙏
 
 Про личное: заметки дневника, самочувствие и причину отдыха видишь только ты. Учитель видит твоё имя, отметки «практика» или «отдых», объём практики и последнюю асану — и только после твоего согласия.
 
-Бесплатно, по-русски и по-английски, с открытым кодом.
+О проекте:
+🤍 Бесплатно — и так и останется
+🔓 Открытый код: лицензия AGPL-3.0, всё лежит на github.com/airy-beam/tristhana
+🔒 Личное остаётся личным: заметки дневника зашифрованы, а свои данные можно выгрузить или удалить в любой момент
+🙏 Это некоммерческий хобби-проект для сообщества аштанги, а не стартап с подпиской: сделан практикующим для практикующих, без рейтингов и соревнований
+
+Работает по-русски и по-английски.
 
 Начать: @tristhana_bot → /start
 Справка с картинками: tristhana.app/ru/
 
 ### Коротко (сторис, статус)
 
-Tristhana открыта для всех: журнал практики аштанги в Telegram. Практика и отдых в одно касание, лунные дни для твоего города, ученики и расписание шалы. @tristhana_bot · tristhana.app/ru/
+Tristhana открыта для всех: журнал практики аштанги в Telegram. Практика и отдых в одно касание, лунные дни для твоего города, ученики и расписание шалы. Бесплатно — и так и останется. Открытый код. Некоммерческий хобби-проект для сообщества аштанги. @tristhana_bot · tristhana.app/ru/
 
 ## English
 
@@ -74,11 +84,17 @@ For shalas:
 
 About privacy: diary notes, check-ins and the reason for a rest day stay with you. A teacher sees your name, practice or rest, how far the practice went and your last asana, and only after you agree.
 
-Free, in English and Russian, open source.
+About the project:
+🤍 Free, and it will stay free
+🔓 Open source: AGPL-3.0, all the code is at github.com/airy-beam/tristhana
+🔒 Private things stay private: diary notes are encrypted, and you can export or delete your data at any time
+🙏 A not-for-profit hobby project for the Ashtanga community, not a startup with a subscription: made by a practitioner for practitioners, with no rankings and no competition
+
+It works in English and Russian.
 
 Start: @tristhana_bot → /start
 Guide with pictures: tristhana.app
 
 ### Short (story, status)
 
-Tristhana is open to everyone: an Ashtanga practice log in Telegram. Practice and rest in one tap, moon days for your city, students and a shala schedule. @tristhana_bot · tristhana.app
+Tristhana is open to everyone: an Ashtanga practice log in Telegram. Practice and rest in one tap, moon days for your city, students and a shala schedule. Free, and it will stay free. Open source. A not-for-profit hobby project for the Ashtanga community. @tristhana_bot · tristhana.app
