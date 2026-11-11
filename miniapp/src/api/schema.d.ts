@@ -2536,6 +2536,11 @@ export interface components {
              * @description False: never chose, so students get the default too
              */
             chosen: boolean;
+            /**
+             * Staff Shala
+             * @description On the staff of their main shala: students in it follow its calendar
+             */
+            staff_shala: boolean;
         };
         /** MoonTeacher */
         MoonTeacher: {

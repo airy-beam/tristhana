@@ -56,6 +56,8 @@ otherwise                                        → 📍 Mysuru default        
 
 `moon-calc-note` ("…follow your teacher") stays true. In the Mini App, `moon-teacher-shared` [no] ends "…or choose your own city." / «…или выбрать свой город.», since /moon is a bot command (ux-writer, 2026-11-07). A `[follow]` variant drops "like yours" / «как и у тебя» for a teacher who chose "Follow my teacher" (owner, 2026-11-07). `$name` falls back to `link-no-name`.
 
+**Amended 2026-11-11 (Q279).** A teacher on the staff of their main shala (with a listed moon city) is told that students in it keep its calendar, whatever the teacher chose: a `[shala-chosen]` variant when the teacher chose a city ("👥 Students in your shala follow its moon calendar. Your other students who haven't chosen a city follow yours: 📍 { $city }."), and the existing `[shala]` variant also for "Follow my teacher". The API's `location.shared` gains `staff_shala: bool` (`moon_staff_shala` in `domain/accounts.py`); the bot and the Mini App pick the variant from it.
+
 ## 3. Domain, use cases, ports
 `domain/moon.py` (pure):
 ```python

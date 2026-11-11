@@ -52,7 +52,7 @@ interface Location {
   source: "chosen" | "teacher" | "shala" | "default";
   follow_chosen: boolean;
   teacher: { id: string; name: string | null } | null;
-  shared: { chosen: boolean } | null;
+  shared: { chosen: boolean; staff_shala?: boolean } | null;
   shala?: { id: string; name: string; staff: boolean } | null;
 }
 
@@ -296,7 +296,7 @@ it.each([
         slug: "almaty",
         source: "shala",
         shala: { id: "5b1e7d0c-0000-4000-8000-000000000001", name: "Ashtanga Almaty", staff },
-        shared: { chosen: false },
+        shared: { chosen: false, staff_shala: staff },
       }),
     );
     renderWith(<MoonCard locale="en" />);
@@ -304,6 +304,38 @@ it.each([
     await screen.findByRole("heading");
     expect(screen.getByText((_, el) => plain(el?.textContent ?? "") === text)).toBeInTheDocument();
     expect(screen.queryByText(/like yours/)).not.toBeInTheDocument();
+  },
+);
+
+it.each([
+  [
+    "a city of their own",
+    location({
+      slug: "almaty",
+      source: "chosen",
+      explicit: true,
+      shared: { chosen: true, staff_shala: true },
+    }),
+    "👥 Students in your shala follow its moon calendar. Your other students who haven't chosen a city follow yours: 📍 Almaty.",
+  ],
+  [
+    "their own teacher",
+    {
+      ...FOLLOWING,
+      explicit: true,
+      follow_chosen: true,
+      shared: { chosen: false, staff_shala: true },
+    },
+    "👥 Students in your shala follow its moon calendar. Your other students get 📍 Mysuru by default, or your city if you choose one.",
+  ],
+])(
+  "tells a teacher on a shala's staff who follows %s that its students keep its calendar (Q279)",
+  async (_, loc, text) => {
+    stubApi(loc);
+    renderWith(<MoonCard locale="en" />);
+
+    await screen.findByRole("heading");
+    expect(screen.getByText((_c, el) => plain(el?.textContent ?? "") === text)).toBeInTheDocument();
   },
 );
 

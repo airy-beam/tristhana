@@ -99,6 +99,17 @@ def moon_shared(account: Account, cities: Cities) -> bool | None:
     return cities.find(account.moon_location) is not None if account.teaches else None
 
 
+def moon_staff_shala(account: Account, cities: Cities) -> bool:
+    """On the staff of their main shala, and it has a listed moon city: their students in it
+    who never chose follow the shala whatever this person chooses (`moon_follow`, Q279)."""
+    shala = account.shala
+    return (
+        shala is not None
+        and shala.staff
+        and (cities.find(shala.moon_city) or cities.find(shala.city)) is not None
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class NewAccount:
     display_name: str | None

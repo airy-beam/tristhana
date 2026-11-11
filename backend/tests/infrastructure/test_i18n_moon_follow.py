@@ -78,6 +78,14 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     ),
     (
         "moon-teacher-shared",
+        {"chosen": "shala-chosen", "city": "Almaty"},
+        "👥 Students in your shala follow its moon calendar. Your other students who haven't "
+        "chosen a city follow yours: 📍 Almaty.",
+        "👥 У учеников из твоей шалы лунные дни считаются по её календарю. У остальных, кто не "
+        "выбрал город, лунные дни как у тебя: 📍 Almaty.",
+    ),
+    (
+        "moon-teacher-shared",
         {"chosen": "no", "city": "Mysuru"},
         "👥 Your students' moon days are for 📍 Mysuru, like yours. You can keep it or choose "
         "your city in /moon.",

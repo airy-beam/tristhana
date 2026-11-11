@@ -3024,10 +3024,16 @@
             "description": "False: never chose, so students get the default too",
             "title": "Chosen",
             "type": "boolean"
+          },
+          "staff_shala": {
+            "description": "On the staff of their main shala: students in it follow its calendar",
+            "title": "Staff Shala",
+            "type": "boolean"
           }
         },
         "required": [
-          "chosen"
+          "chosen",
+          "staff_shala"
         ],
         "title": "MoonShared",
         "type": "object"
