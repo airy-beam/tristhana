@@ -47,4 +47,4 @@ layout; `docs/brand/render.sh` makes one from a source in `docs/brand/src/` (not
 - 🌸 is not named here: it is a private topic and these texts are public.
 - Privacy lines say only what the code does today.
 - When the guide moves to its own domain (Q270), change the address in all four texts. The Russian about text has 10 characters to spare.
-- Check on a phone that Telegram makes the bare address tappable; if not, add `https://` (8 characters, still within every limit).
+- Telegram makes the bare address tappable (checked on a phone, 2026-11-11), so the texts need no `https://`.
