@@ -24,6 +24,9 @@ help-text =
     ⚙️ /settings: language, city, reminders
     📊 Your practice log and stats live in the app (the button next to the message field).
 
+# UI-05: a link under /help to the public guide site, in the person's language.
+help-guide = 📖 Guide
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Quick tour

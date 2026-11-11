@@ -628,6 +628,7 @@ class _LazyBot:
                 self._settings.telegram_bot_username,
                 self.calendar_feed,
                 self.listings,
+                site_url=self._settings.public_site_url,
             )
         return self._runtime
 

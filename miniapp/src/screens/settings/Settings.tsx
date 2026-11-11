@@ -18,7 +18,8 @@ import {
   type NotificationSettings,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
+import { guideUrl } from "../../guide";
+import { backButtonAvailable, haptics, openLink, useBackButton } from "../../telegram";
 import { cityName, MoonSource } from "../MoonCard";
 import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
@@ -76,6 +77,16 @@ export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) 
       </Localized>
       <Localized id="tour-open">
         <button type="button" className="row-button" onClick={onTour} />
+      </Localized>
+      <Localized id="guide-open">
+        <button
+          type="button"
+          className="row-button"
+          onClick={() => {
+            haptics.selection();
+            openLink(guideUrl(me.locale));
+          }}
+        />
       </Localized>
       <Privacy me={me} />
       <MyData />

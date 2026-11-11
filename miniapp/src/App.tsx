@@ -128,7 +128,7 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
   if (!inTelegram) {
     return (
       <L10nProvider locale={locale}>
-        <NotInTelegram />
+        <NotInTelegram locale={locale} />
       </L10nProvider>
     );
   }

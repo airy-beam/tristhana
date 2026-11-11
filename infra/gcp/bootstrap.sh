@@ -26,6 +26,7 @@ WIF_PROVIDER="github-actions"
 BUDGET_NAME="tristhana-monthly"
 TICK_JOB="tristhana-tick" # every 10 min: reminders + calendars; also keeps an instance warm
 HOSTING_SITE="tristhana" # https://tristhana.web.app (Mini App, UI-03)
+GUIDE_SITE="tristhana-guide" # https://tristhana-guide.web.app (public site and guides, UI-05)
 BACKUP_SA="tristhana-backup"
 BACKUP_JOB="tristhana-backup"
 BACKUP_SCHEDULE="tristhana-backup-weekly"
@@ -116,8 +117,9 @@ run "${gc[@]}" artifacts repositories add-iam-policy-binding "$AR_REPO" --locati
   --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/artifactregistry.writer
 
 step "Workload Identity Federation (GitHub, ${GITHUB_REPO} main only)"
-# Only these workflows on main may deploy: backend (Cloud Run) and miniapp (Firebase Hosting).
-WIF_CONDITION="assertion.repository_id == '${GITHUB_REPO_ID}' && assertion.ref == 'refs/heads/main' && (assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/backend.yml@') || assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/miniapp.yml@'))"
+# Only these workflows on main may deploy: backend (Cloud Run), and miniapp and site (Firebase
+# Hosting).
+WIF_CONDITION="assertion.repository_id == '${GITHUB_REPO_ID}' && assertion.ref == 'refs/heads/main' && (assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/backend.yml@') || assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/miniapp.yml@') || assertion.workflow_ref.startsWith('${GITHUB_REPO}/.github/workflows/site.yml@'))"
 if ! exists "${gc[@]}" iam workload-identity-pools describe "$WIF_POOL" --location global; then
   run "${gc[@]}" iam workload-identity-pools create "$WIF_POOL" --location global \
     --display-name "GitHub Actions"
@@ -247,7 +249,7 @@ else
 fi
 unset tick_token
 
-step "Firebase Hosting for the Mini App (site ${HOSTING_SITE})"
+step "Firebase Hosting: the Mini App (site ${HOSTING_SITE}) and the public site (${GUIDE_SITE})"
 # No gcloud commands exist for these, so they use the REST APIs with the caller's token.
 firebase_api() { # METHOD URL [JSON]
   local token
@@ -259,11 +261,13 @@ if $DRY_RUN || ! firebase_api GET "https://firebase.googleapis.com/v1beta1/proje
   run firebase_api POST "https://firebase.googleapis.com/v1beta1/projects/${PROJECT_ID}:addFirebase" "{}"
   $DRY_RUN || sleep 30 # addFirebase is a long-running operation
 fi
-if $DRY_RUN || ! firebase_api GET \
-  "https://firebasehosting.googleapis.com/v1beta1/projects/${PROJECT_ID}/sites/${HOSTING_SITE}" >/dev/null 2>&1; then
-  run firebase_api POST \
-    "https://firebasehosting.googleapis.com/v1beta1/projects/${PROJECT_ID}/sites?siteId=${HOSTING_SITE}" "{}"
-fi
+for site in "$HOSTING_SITE" "$GUIDE_SITE"; do
+  if $DRY_RUN || ! firebase_api GET \
+    "https://firebasehosting.googleapis.com/v1beta1/projects/${PROJECT_ID}/sites/${site}" >/dev/null 2>&1; then
+    run firebase_api POST \
+      "https://firebasehosting.googleapis.com/v1beta1/projects/${PROJECT_ID}/sites?siteId=${site}" "{}"
+  fi
+done
 run "${gc[@]}" projects add-iam-policy-binding "$PROJECT_ID" \
   --member "serviceAccount:${DEPLOY_SA_EMAIL}" --role roles/firebasehosting.admin --condition None
 

@@ -33,12 +33,13 @@ def storage() -> InMemoryStorage:
     return InMemoryStorage()
 
 
-def _client(storage: InMemoryStorage, miniapp_url: str) -> TestClient:
+def _client(storage: InMemoryStorage, miniapp_url: str, public_site_url: str = "") -> TestClient:
     settings = Settings(
         app_env="test",
         telegram_bot_token=SecretStr(TOKEN),
         telegram_webhook_secret=SecretStr(SECRET),
         miniapp_url=miniapp_url,
+        public_site_url=public_site_url,
     )
     return TestClient(create_app(settings, storage))
 
@@ -105,6 +106,47 @@ def test_help_keeps_its_text_and_offers_the_tour(client: TestClient) -> None:
     assert "/remind: practice reminder" in body["text"]
     assert _rows(body) == [["🧭 Quick tour"]]
     assert _data(body) == [step(1, "h")]
+
+
+GUIDE = "https://tristhana-guide.web.app"
+
+
+def _links(body: Any) -> list[tuple[str, str]]:
+    return [
+        (b["text"], b["url"])
+        for row in body["reply_markup"]["inline_keyboard"]
+        for b in row
+        if "url" in b
+    ]
+
+
+@pytest.mark.parametrize(
+    ("lang", "label", "url"),
+    [("en", "📖 Guide", f"{GUIDE}/"), ("ru", "📖 Справка", f"{GUIDE}/ru/")],
+)
+def test_help_links_to_the_guide_in_the_persons_language(
+    storage: InMemoryStorage, lang: str, label: str, url: str
+) -> None:
+    # UI-05: a trailing slash in the setting doesn't double up.
+    with _client(storage, "https://tristhana.web.app", f"{GUIDE}/") as client:
+        body = _command(client, "/help", lang)
+
+    assert _rows(body)[-1] == [label]
+    assert _links(body) == [(label, url)]
+    assert _data(body) == [step(1, "h")]  # the tour stays, above the link
+
+
+def test_done_from_the_tour_brings_the_guide_link_back(storage: InMemoryStorage) -> None:
+    with _client(storage, "https://tristhana.web.app", GUIDE) as client:
+        _command(client, "/help")
+        body = _tap(client, done("h"))
+
+    assert _links(body) == [("📖 Guide", f"{GUIDE}/")]
+
+
+def test_the_guide_address_must_be_https() -> None:
+    with pytest.raises(ValueError, match="must be an https://"):
+        Settings(app_env="test", public_site_url="http://tristhana-guide.web.app")
 
 
 def test_start_offers_the_tour_last_and_leaves_the_rest_alone(client: TestClient) -> None:

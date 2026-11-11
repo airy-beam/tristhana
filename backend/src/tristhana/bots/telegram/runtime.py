@@ -193,6 +193,7 @@ def build_runtime(
     bot_username: str = "",
     calendar: CalendarFeedUseCases | None = None,
     listings: ListingUseCases | None = None,
+    site_url: str = "",
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -219,6 +220,7 @@ def build_runtime(
             bot_username,
             calendar,
             listings,
+            site_url=site_url,
         )
     )
     return BotRuntime(
