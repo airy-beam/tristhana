@@ -208,11 +208,7 @@ describe("Stats", () => {
       screen.getByText(byText("⏱ 1 h 30 min in total · about 90 min per practice")),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: (n) => plain(n).startsWith("September") }));
-    expect(
-      await screen.findByText(
-        byText("Nothing logged this month yet. Days you log will show up here."),
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(byText("Nothing logged this month yet."))).toBeInTheDocument();
   });
 
   it("opens the day editor and logs a past day", async () => {

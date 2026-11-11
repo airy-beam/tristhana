@@ -62,7 +62,7 @@ describe("ID-04 copy", () => {
 
   it("the name hint and the delete explanation mention the lists", () => {
     expect(format(bundleFor("en"), "settings-name-hint")).toContain(
-      "the name your teachers and students here see",
+      "the name your teachers and students see here",
     );
     expect(format(bundleFor("ru"), "settings-name-hint")).toContain(
       "это имя видят твои учителя и ученики",

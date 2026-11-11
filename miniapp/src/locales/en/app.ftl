@@ -226,7 +226,7 @@ stats-unlogged = { $n ->
         [one] { $n } day not logged: tap a day to add it
        *[other] { $n } days not logged: tap a day to add it
     }
-stats-month-empty = Nothing logged this month yet. Days you log will show up here.
+stats-month-empty = Nothing logged this month yet.
 stats-load-failed = Couldn't load your stats. Try again in a moment.
 stats-editor-done = Done
 stats-prev = ‹
@@ -238,7 +238,7 @@ stats-next = ›
 settings-open = ⚙️ Settings
 settings-title = Settings
 settings-name = Name
-settings-name-hint = How I greet you, and the name your teachers and students here see. Leave it empty to use your Telegram name.
+settings-name-hint = How I greet you, and the name your teachers and students see here. Leave it empty to use your Telegram name.
 settings-language = Language
 language-auto = As in Telegram
 language-en = English
@@ -269,7 +269,7 @@ settings-cap = { $n ->
     }
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
-settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, your teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
+settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
 # MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
 settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
 settings-save-failed = Couldn't save. Try again in a moment.
@@ -681,7 +681,7 @@ shala-moon-policy-option = { $p ->
         [open] Classes as usual
        *[closed] The shala is closed
     }
-shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use Hold anyway or Cancel.
+shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use "Hold anyway" or "Cancel this class".
 shala-day-off-label = 😌 Day off (up to two)
 shala-day-off-line = 😌 Day off: { $days }
 shala-day-off-adopt = 😌 Make { $days } my day off too
