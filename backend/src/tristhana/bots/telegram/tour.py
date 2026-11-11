@@ -1,4 +1,5 @@
-"""`/help` and the quick tour (UI-02): a side door, offered under /start and /help. One
+"""`/help` and the quick tour (UI-02): a side door, offered under /start and /help. /help
+also links to the public guide (UI-05) in the person's language, when its address is set. One
 message edited in place; ✓ Done on every step goes back to where the tour was opened.
 Static text, so a step costs nothing beyond the middleware's account read."""
 
@@ -26,9 +27,13 @@ from tristhana.domain.locale import Locale
 
 
 def register_tour(
-    router: Router, start: StartScreens, translator: Translator, miniapp_url: str = ""
+    router: Router,
+    start: StartScreens,
+    translator: Translator,
+    miniapp_url: str = "",
+    site_url: str = "",
 ) -> None:
-    screens = TourScreens(start, translator, miniapp_url)
+    screens = TourScreens(start, translator, miniapp_url, site_url)
 
     @router.message(Command("help"))
     async def on_help(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
@@ -46,16 +51,23 @@ def register_tour(
 
 
 class TourScreens:
-    def __init__(self, start: StartScreens, translator: Translator, app: str) -> None:
+    def __init__(
+        self, start: StartScreens, translator: Translator, app: str, site: str = ""
+    ) -> None:
         self._start = start
         self._t = translator
         self._app = app
+        self._site = site
 
     def help(self, locale: Locale) -> Screen:
-        button = tour_button(self._t, locale, "h")
-        return Screen(
-            self._t.t(locale, "help-text"), InlineKeyboardMarkup(inline_keyboard=[[button]])
-        )
+        rows = [[tour_button(self._t, locale, "h")]]
+        if self._site:
+            # The guide's English pages are at the root, the Russian ones under /ru/.
+            path = "/ru/" if locale == "ru" else "/"
+            rows.append(
+                [InlineKeyboardButton(text=self._t.t(locale, "help-guide"), url=self._site + path)]
+            )
+        return Screen(self._t.t(locale, "help-text"), InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def tapped(self, principal: Principal, tap: TourTap) -> Screen:
         locale = principal.account.locale

@@ -9,7 +9,8 @@ import { TravelPrompt } from "./TravelPrompt";
 
 vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
+  openLink: vi.fn(),
   useBackButton: vi.fn(),
   backButtonAvailable: vi.fn(() => true),
 }));
@@ -173,6 +174,23 @@ describe("Settings", () => {
 
     expect(onTour).toHaveBeenCalledOnce();
   });
+
+  it.each([
+    ["en", "📖 Guide", "https://tristhana-guide.web.app/"],
+    ["ru", "📖 Справка", "https://tristhana-guide.web.app/ru/"],
+  ] as const)(
+    "opens the guide in the person's language from a row under the tour (UI-05, %s)",
+    async (locale, label, url) => {
+      stubApi();
+      const { openLink } = await import("../../telegram");
+      renderWith(
+        <Settings me={{ ...ME, locale }} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />,
+        locale,
+      );
+      fireEvent.click(await screen.findByRole("button", { name: label }));
+      expect(openLink).toHaveBeenLastCalledWith(url);
+    },
+  );
 
   it("saves a name on blur, and blank goes back to the Telegram name", async () => {
     const seen = stubApi();

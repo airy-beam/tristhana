@@ -163,9 +163,9 @@ def test_runtime_is_preloaded_at_startup(monkeypatch: pytest.MonkeyPatch) -> Non
     built: list[str] = []
     real = tristhana.main.build_runtime
 
-    def recording(*args: Any) -> Any:
+    def recording(*args: Any, **kwargs: Any) -> Any:
         built.append("runtime")
-        return real(*args)
+        return real(*args, **kwargs)
 
     monkeypatch.setattr(tristhana.main, "build_runtime", recording)
     app = create_app(_settings(), InMemoryStorage())
@@ -288,8 +288,8 @@ def test_callback_with_database_down_gets_a_toast(
     storage.repo.down = True
     real = router_module.build_router
 
-    def with_callback_handler(*args: Any) -> Router:
-        router = real(*args)
+    def with_callback_handler(*args: Any, **kwargs: Any) -> Router:
+        router = real(*args, **kwargs)
         router.callback_query.register(lambda *_: None)  # pyright: ignore[reportUnknownLambdaType]
         return router
 

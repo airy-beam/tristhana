@@ -24,6 +24,9 @@ help-text =
     ⚙️ /settings: язык, город, напоминания
     📊 Журнал практики и статистика — в приложении (кнопка рядом с полем ввода).
 
+# UI-05: a link under /help to the public guide site, in the person's language.
+help-guide = 📖 Справка
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Знакомство

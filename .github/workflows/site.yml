@@ -13,6 +13,8 @@ on:
       - ".github/workflows/site.yml"
   pull_request:
     paths: *paths
+  # Lets the owner deploy again from main without a commit (for example after bootstrap.sh).
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -44,4 +46,46 @@ jobs:
       - run: npm run build
       - name: no requests to other sites
         run: node scripts/check-dist.mjs
-  # Deploy job: added with the Hosting site (UI-05 step 6, an owner cloud step).
+
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # WIF; the provider only accepts tokens from refs/heads/main
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      # The Hosting site is named in site/firebase.json. It is created once by hand
+      # (infra/gcp/bootstrap.sh); until it exists this step fails and nothing else is touched.
+      - name: deploy to Firebase Hosting (tristhana-guide.web.app)
+        env:
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+        run: >-
+          npx --yes firebase-tools@15.32.1 deploy --only hosting --project "$PROJECT"
+          --non-interactive --message "$GITHUB_SHA"
+      - name: smoke (both languages served, pages not cached, assets immutable)
+        run: |
+          base=https://tristhana-guide.web.app
+          html="$(curl -fsS "$base/")"
+          curl -fsS -o /dev/null "$base/ru/"
+          curl -fsS -o /dev/null "$base/students/log-practice/"
+          curl -fsSI "$base/" | grep -i '^cache-control: .*no-cache'
+          asset="$(grep -o '/_astro/[^"]*\.css' <<<"$html" | head -1)"
+          [[ -n "$asset" ]] || { echo "no stylesheet in index.html" >&2; exit 1; }
+          curl -fsSI "$base$asset" | grep -i '^cache-control: .*immutable'
+          curl -fsS -o /dev/null -w 'first load (index): %{time_total} s\n' "$base/"

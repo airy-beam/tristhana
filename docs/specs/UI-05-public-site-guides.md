@@ -72,6 +72,8 @@ All generated, stored as files in `site/src/assets/shots/{en,ru}/<name>.webp`, c
 - Mini App Settings: a "📖 Guide" row opening the link with Telegram's `openLink`. Also on the `NotInTelegram` screen.
 - BotFather description, about text and the three promo screenshots are prepared in `docs/brand/` from the same shots; the owner sets them (☁️).
 
+**As built (step 6, 2026-11-11).** Bot: `PUBLIC_SITE_URL` (https only, empty = no button) adds a URL button `help-guide` under `/help`, to `/` or `/ru/` by the person's language. Mini App: the address is a constant in `miniapp/src/guide.ts` (public, and it avoids a second build-time variable); a `guide-open` row under the quick tour in Settings opens it with `openLink`, and the `NotInTelegram` screen shows it as a plain link. BotFather texts are in `docs/brand/botfather.md`; the owner sets them. Deploy: a `deploy` job in `site.yml` (main only, WIF, `firebase deploy --only hosting`, smoke check of both languages and the cache headers). `infra/gcp/bootstrap.sh` creates the `tristhana-guide` site and lets `site.yml` use the deploy identity; the owner runs it once (☁️). `site/firebase.json` now sends `no-cache` for everything outside `/_astro/`: pages are served at clean addresses, so the old `**/*.html` rule never matched.
+
 ## 8. Delivery plan
 1. **Skeleton:** `site/` with Starlight, landing page draft, sidebar with empty pages, macros plugin, `check.mjs`, CI build (no deploy yet). ADR-0043.
 2. **Demo seed + shot pipeline** with three proof shots (one app, one bot, one RU).

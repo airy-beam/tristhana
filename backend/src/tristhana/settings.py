@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # hidden). Published links depend on it: keep the host serving /ical/v1 once it's used.
     public_api_url: str = ""
 
+    # UI-05: the public guide site's https base. The bot's /help links to it (empty: no link).
+    public_site_url: str = ""
+
     # Exact browser origins allowed to call the API (comma-separated; empty = CORS off).
     cors_origins: str = ""
 
@@ -85,6 +88,13 @@ class Settings(BaseSettings):
     def _public_https(cls, value: str) -> str:
         if value and not value.startswith("https://"):
             raise ValueError("public_api_url must be an https:// URL (calendar feed links)")
+        return value.rstrip("/")
+
+    @field_validator("public_site_url")
+    @classmethod
+    def _site_https(cls, value: str) -> str:
+        if value and not value.startswith("https://"):
+            raise ValueError("public_site_url must be an https:// URL (the guide link)")
         return value.rstrip("/")
 
     @field_validator("cors_origins")

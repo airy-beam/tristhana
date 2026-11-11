@@ -68,6 +68,7 @@ def build_router(
     bot_username: str = "",
     calendar: CalendarFeedUseCases | None = None,
     listings: ListingUseCases | None = None,
+    site_url: str = "",
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -119,7 +120,7 @@ def build_router(
                 )
                 register_attendance(router, attendance)
             register_classes(router, schedule)
-    register_tour(router, start, translator, miniapp_url)
+    register_tour(router, start, translator, miniapp_url, site_url=site_url)
     entry = calendar is not None and calendar.available  # SC-06: "📅 Add to calendar" rows
     register_moon(router, moon, translator, entry)
     remind_screens = register_remind(router, remind, screens, translator, rest)

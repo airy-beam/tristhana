@@ -797,6 +797,9 @@ feed-off-confirm = Календарь перестанет обновлятьс�
 feed-failed = Не получилось. Попробуй чуть позже.
 feed-off-done = Отключено.
 
+# UI-05: opens the public guide site in the browser (Settings, and outside Telegram).
+guide-open = 📖 Справка
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Знакомство

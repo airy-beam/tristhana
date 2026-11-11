@@ -773,6 +773,9 @@ feed-off-confirm = Your calendar apps will stop updating. Events already there s
 feed-failed = That didn't work. Try again in a moment.
 feed-off-done = Turned off.
 
+# UI-05: opens the public guide site in the browser (Settings, and outside Telegram).
+guide-open = 📖 Guide
+
 ## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
 
 tour-open = 🧭 Quick tour
