@@ -22,7 +22,7 @@ It opens inside Telegram: tap the button next to the message field, or :ftl[star
 
 - see your year at a glance and each month in detail;
 - fill in or change earlier days from a calendar;
-- look at your badges and make a card to share;
+- look at your badges and your check-ins over time, and make a card to share;
 - change your name, city, day off, reminders and quiet hours.
 
 ![The app's first screen with today's card](../../../assets/shots/en/app-home.webp)
@@ -32,6 +32,7 @@ It opens inside Telegram: tap the button next to the message field, or :ftl[star
 - Everything you log in the bot shows up in the app, and the other way round.
 - You don't need the app to use the bot, or the bot to use the app. Reminders, though, always come from the bot.
 - The app follows your Telegram theme, light or dark.
+- Want a quick look around? :ftl[tour-open]{from=bot} under :cmd[help] walks through the bot in six short steps, teachers and shalas included. The app has its own :ftl[tour-open] in :ftl[settings-open]: it points at what is on your screen, so a teacher or a shala member sees a step or two more.
 
 ## Next
 

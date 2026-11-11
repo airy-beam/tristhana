@@ -44,6 +44,10 @@ Tristhana показывает время в твоём часовом пояс�
 
 :cmd[settings] → :ftl[settings-data-button]. Перед этим данные можно скачать. Смотри [Твои данные](../../students/your-data/).
 
+## Как снова открыть эту справку?
+
+В боте отправь :cmd[help] и нажми :ftl[help-guide]{from=bot}. В приложении открой :ftl[settings-open] и нажми :ftl[guide-open]. Справка откроется на твоём языке.
+
 ## Что-то не работает или есть идея
 
 У Tristhana открытый код. Написать о проблеме или идее можно на [GitHub](https://github.com/airy-beam/tristhana/issues).
