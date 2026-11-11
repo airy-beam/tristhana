@@ -131,7 +131,7 @@ class _Canvas:
         return y
 
     def mark(self, x: int, y: int, size: int) -> None:
-        """The brand mark: a crescent over three points (breath, bandha, drishti)."""
+        """The brand mark: a crescent over three points (asana, breath, drishti)."""
         s = size / 640
         ring = Image.new("L", (size, size), 0)
         md = ImageDraw.Draw(ring)
