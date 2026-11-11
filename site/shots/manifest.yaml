@@ -6,8 +6,9 @@
 #   as        who is looking: student, teacher or newcomer (shots/lib/cast.mjs)
 #   features  requirement IDs; `npm run shots -- --only PR-01` re-shoots by ID
 #   say       bot: the message the person sends
-#   tap       bot: then the buttons they tap, each by a bot Fluent key
-#   click     app: the things they tap after Home loads, each by a Mini App Fluent key
+#   tap       bot: then the buttons they tap, each by a bot Fluent key; `=student`, `=teacher`
+#             or `=shala` is that name in the demo cast, "#2" is the second button
+#   click     app: the things they tap after Home loads, each by a Mini App Fluent key or `=name`
 #   full      app: capture the whole page, not just the first screen
 shots:
   # Start here
@@ -30,3 +31,21 @@ shots:
   - {name: bot-settings, kind: bot, as: student, say: /settings, features: [ID-06]}
   - {name: app-settings, kind: app, as: student, click: [settings-open], features: [ID-06]}
   - {name: bot-my-data, kind: bot, as: student, say: /settings, tap: [settings-data-button], features: [ST-09]}
+
+  # For teachers
+  - {name: bot-invite, kind: bot, as: teacher, say: /teachers, tap: [links-invite], features: [ID-03, ID-04]}
+  - {name: bot-students, kind: bot, as: teacher, say: /teachers, tap: [link-students-open], features: [ST-06]}
+  - {name: bot-student-card, kind: bot, as: teacher, say: /teachers, tap: [link-students-open, =student], features: [ST-06, WH-02]}
+  - {name: app-student-card, kind: app, as: teacher, click: [settings-open, links-title, link-students-open, =student], features: [ST-06]}
+  - {name: bot-mark-asana, kind: bot, as: teacher, say: /teachers, tap: [link-students-open, =student, students-give], features: [PR-08]}
+  - {name: app-announce, kind: app, as: teacher, click: [settings-open, links-title, link-students-open, ann-announce], features: [NT-03]}
+  - {name: bot-teacher-moon, kind: bot, as: teacher, say: /moon, features: [MD-02]}
+
+  # For shala staff
+  - {name: bot-shala, kind: bot, as: teacher, say: /teachers, tap: [=shala], features: [SC-01]}
+  - {name: bot-staff-invite, kind: bot, as: teacher, say: /teachers, tap: [=shala, shala-invite-staff], features: [SC-01]}
+  - {name: app-shala, kind: app, as: teacher, click: [settings-open, links-title, =shala], features: [SC-01, SC-02]}
+  - {name: app-class-form, kind: app, as: teacher, click: [settings-open, links-title, =shala, schedule-add-class], features: [SC-02]}
+  - {name: bot-classes, kind: bot, as: teacher, say: /classes, features: [SC-02, SC-03]}
+  - {name: bot-attendance, kind: bot, as: teacher, say: /classes, tap: [attend-staff-open, "#1"], features: [SC-05]}
+  - {name: app-shala-announce, kind: app, as: teacher, click: [settings-open, links-title, =shala, ann-announce], features: [NT-03]}

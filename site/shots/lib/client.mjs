@@ -8,11 +8,13 @@
 
 export class DemoError extends Error {}
 
-/** @param {{ api: string, secret: string, fetch?: typeof fetch }} options */
-export function createClient({ api, secret, fetch: fetchFn = fetch }) {
+/** @param {{ api: string, secret: string, fetch?: typeof fetch, firstUpdate?: number }} options */
+export function createClient({ api, secret, fetch: fetchFn = fetch, firstUpdate = 1000 }) {
   /** @type {Map<number, string>} */
   const signed = new Map();
-  let updateId = 1000;
+  // The bot ignores an update id it has already seen, so a second client on the same stack
+  // starts higher.
+  let updateId = firstUpdate;
   let messageId = 100;
 
   const from = (/** @type {DemoUser} */ user) => ({
@@ -103,14 +105,18 @@ export function createClient({ api, secret, fetch: fetchFn = fetch }) {
     });
   }
 
-  /** `user` taps the button of `reply` whose label contains `label`. */
+  /** `user` taps the button of `reply` whose label contains `label`, or button number `label`. */
   function tap(
     /** @type {DemoUser} */ user,
     /** @type {BotReply} */ reply,
-    /** @type {string} */ label,
+    /** @type {string | number} */ label,
   ) {
     const buttons = (reply.reply_markup?.inline_keyboard ?? []).flat();
-    const button = buttons.find((b) => b.text.includes(label) && b.callback_data);
+    const tappable = buttons.filter((b) => b.callback_data);
+    const button =
+      typeof label === "number"
+        ? tappable[label - 1]
+        : (tappable.find((b) => b.text === label) ?? tappable.find((b) => b.text.includes(label)));
     if (!button) {
       throw new DemoError(
         `no button "${label}" among: ${buttons.map((b) => b.text).join(" · ") || "(none)"}`,
