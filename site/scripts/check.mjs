@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 // UI-05 guide-check. `node scripts/check.mjs` lists problems and exits 1 if there are any;
-// `--write` also refreshes guide-map.yaml (feature ID → pages).
+// `--write` also refreshes guide-map.yaml (feature ID → pages); `--stale` also lists pages
+// that may be behind the product (a feature's spec changed after the page did). That list is
+// a hint and never fails the check; it needs the git history, so CI does not ask for it.
+import { execFileSync } from "node:child_process";
 import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { checkGuide, guideMap, readMap } from "../src/lib/check.mjs";
+import { checkGuide, guideMap, readMap, stalePages } from "../src/lib/check.mjs";
 import { createLabels, menuCommands } from "../src/lib/labels.mjs";
 import { readManifest } from "../shots/lib/manifest.mjs";
 
@@ -51,3 +54,40 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(`Guides OK: ${Object.keys(map).length} features mapped.`);
+
+if (process.argv.includes("--stale")) {
+  const repo = resolve(site, "..");
+  /** The newest commit that touched any of `paths`, in seconds; null if git knows none. */
+  const lastChange = (/** @type {string[]} */ paths) => {
+    if (paths.length === 0) return null;
+    try {
+      const out = execFileSync("git", ["log", "-1", "--format=%ct", "--", ...paths], {
+        cwd: repo,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      return out ? Number(out) : null;
+    } catch {
+      return null;
+    }
+  };
+  const specs = readdirSync(join(repo, "docs/specs"));
+  const behind = stalePages(map, {
+    pageTime: (slug) =>
+      lastChange(
+        ["", "ru/"].flatMap((lang) =>
+          ["md", "mdx"].map((ext) => `site/src/content/docs/${lang}${slug}.${ext}`),
+        ),
+      ),
+    specTime: (id) =>
+      lastChange(specs.filter((f) => f.startsWith(`${id}-`)).map((f) => `docs/specs/${f}`)),
+  });
+  for (const { slug, features } of behind) {
+    console.log(`? ${slug}: the spec of ${features.join(", ")} changed after this page`);
+  }
+  console.log(
+    behind.length
+      ? `${behind.length} page(s) to look at: run the guide-update skill for those features.`
+      : "No page is older than the specs of its features.",
+  );
+}

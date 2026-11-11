@@ -30,4 +30,5 @@ Follow these steps in order. Keep the user informed with one line per step.
 ## 5. Wrap up
 - Summarise for the user: what changed, how to try it (commands / bot steps), and the test results (honestly, including failures or skipped steps).
 - Suggest a commit message (`<ID>: <imperative summary>`). Commit only if the user asks.
+- If the feature changed what a person sees (a screen, a button, a message, a rule they would notice), run `/guide-update <ID>` so the public guides in `site/` follow. Skip it for internal changes, and say that you skipped it.
 - Use the **notes-keeper** agent to update the roadmap status and decision log.
