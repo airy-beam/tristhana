@@ -81,3 +81,43 @@ def test_command_menu_is_localized_from_the_bot_ftl() -> None:
     assert ru["language_code"] == "ru"
     assert all(c["description"] for c in default["commands"] + ru["commands"])
     assert default["commands"][0]["description"] != ru["commands"][0]["description"]
+
+
+def test_profile_texts_come_from_the_bot_ftl_in_both_languages() -> None:
+    # UI-05: English is the default; Russian is set for clients whose Telegram is in Russian.
+    payloads = _tool().profile_payloads()
+
+    assert [(method, body.get("language_code")) for method, body in payloads] == [
+        ("setMyDescription", None),
+        ("setMyShortDescription", None),
+        ("setMyDescription", "ru"),
+        ("setMyShortDescription", "ru"),
+    ]
+    en, en_about, ru, ru_about = (body for _, body in payloads)
+    assert en["description"].startswith(
+        "Tristhana is a companion for your Ashtanga practice.\n\n🧘"
+    )
+    assert en["description"].endswith("Guide: tristhana-guide.web.app")
+    assert ru["description"].startswith("Тристхана — спутник")
+    assert ru["description"].endswith("tristhana-guide.web.app/ru/")
+    assert "\n\nЖурнал — твой." in ru["description"]  # noqa: RUF001 - blank lines inside the text survive
+    assert en_about["short_description"].startswith("Your Ashtanga companion")
+    assert "\n" not in ru_about["short_description"]
+
+
+def test_profile_texts_fit_telegrams_limits_and_stay_public() -> None:
+    for _, body in _tool().profile_payloads():
+        assert len(body.get("description", "")) <= 512
+        assert len(body.get("short_description", "")) <= 120
+        text = (body.get("description") or body["short_description"]).lower()
+        for word in ("🌸", "streak", "missed", "skipped", "серия", "пропус"):
+            assert word not in text
+
+
+def test_a_missing_profile_text_is_an_error_not_an_empty_profile(tmp_path: Path) -> None:
+    for locale in ("en", "ru"):
+        (tmp_path / locale).mkdir()
+        (tmp_path / locale / "bot.ftl").write_text("bot-about = Hi\n", encoding="utf-8")
+
+    with pytest.raises(KeyError, match="bot-description"):
+        _tool().profile_payloads(tmp_path)

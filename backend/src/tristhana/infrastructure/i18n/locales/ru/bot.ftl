@@ -104,6 +104,22 @@ command-log = Отметить сегодня или прошедший день
 command-help = Что я умею
 command-start = Начать
 
+## The bot's profile (UI-05), set by tools/telegram/set_webhook.py --texts, not shown by
+## the bot itself. Description: the empty chat above Start, up to 512 characters. About: the
+## profile, one line, up to 120. Public texts: 🌸 is never named here.
+bot-description =
+    Тристхана — спутник твоей практики аштанги.
+
+    🧘 Отмечай практику или отдых одним нажатием
+    🌙 Лунные дни для твоего города, с напоминаниями
+    📊 Твой год, твой месяц, твои асаны
+    👥 Учителя и шалы: расписание, посещения, объявления
+
+    Журнал — твой. Учитель видит только то, на что ты соглашаешься.
+
+    Справка: tristhana-guide.web.app/ru/
+bot-about = Твой спутник в аштанге: журнал практики и отдыха, лунные дни, твои асаны. Справка: tristhana-guide.web.app/ru/
+
 ## Детали практики (PR-02, PR-03, PR-05). Названия асан берутся из каталога.
 
 practice-details-prompt = Добавишь детали? Это необязательно, хватит одного нажатия.
