@@ -1,63 +1,33 @@
 # BotFather texts (UI-05)
 
-What people see before they press Start, and on the bot's profile. The owner sets them in
-@BotFather; nothing here is applied automatically.
+What people see before they press Start, and on the bot's profile. The owner sets them with
+one command; nothing is applied automatically.
 
-| Where | BotFather command | Limit |
+The texts live in the bot's own string files, next to the command menu: `bot-description`
+and `bot-about` in `backend/src/tristhana/infrastructure/i18n/locales/{en,ru}/bot.ftl`.
+English is the default; people whose Telegram is in Russian see the Russian ones.
+
+| Text | Where people see it | Limit |
 |---|---|---|
-| The empty chat, above the Start button | `/setdescription` | 512 characters |
-| The bot's profile, and when the bot is shared | `/setabouttext` | 120 characters |
-| A picture above the description | `/setdescriptionpic` | 640×360 |
+| `bot-description` | The empty chat, above the Start button | 512 characters |
+| `bot-about` | The bot's profile, and when the bot is shared | 120 characters |
 
-BotFather sets one text for every language. To show Russian to people whose Telegram is in
-Russian, set the English text as the default and the Russian one for `ru` with the Bot API
-methods `setMyDescription` and `setMyShortDescription` (`language_code: "ru"`).
+## Setting them
 
-## Description
-
-English (316 characters):
-
-```
-Tristhana is a companion for your Ashtanga practice.
-
-🧘 Log practice or rest in one tap
-🌙 Moon days for your city, with reminders
-📊 Your year, your month, your asanas
-👥 Teachers and shalas: schedule, attendance, announcements
-
-Your log is yours. A teacher sees only what you agree to.
-
-Guide: tristhana-guide.web.app
+```sh
+python3 tools/telegram/set_webhook.py --texts
 ```
 
-Russian (326 characters):
+It reads the bot token from Secret Manager with your gcloud login, sets the four texts and
+touches nothing else (the webhook and the menus stay as they are). A full run of the script
+without flags sets them too. @BotFather's own `/setdescription` and `/setabouttext` set one
+text for every language, so they can't do the Russian ones; a text set there is replaced by
+the next run of the script.
 
-```
-Тристхана — спутник твоей практики аштанги.
+To change a text, edit both `bot.ftl` files and run the command again. A test keeps them
+within the limits.
 
-🧘 Отмечай практику или отдых одним нажатием
-🌙 Лунные дни для твоего города, с напоминаниями
-📊 Твой год, твой месяц, твои асаны
-👥 Учителя и шалы: расписание, посещения, объявления
-
-Журнал — твой. Учитель видит только то, на что ты соглашаешься.
-
-Справка: tristhana-guide.web.app/ru/
-```
-
-## About
-
-English (108 characters):
-
-```
-Your Ashtanga companion: a log for practice and rest, moon days, your asanas. Guide: tristhana-guide.web.app
-```
-
-Russian (110 characters):
-
-```
-Твой спутник в аштанге: журнал практики и отдыха, лунные дни, твои асаны. Справка: tristhana-guide.web.app/ru/
-```
+A picture above the description (640×360) is set in @BotFather with `/setdescriptionpic`.
 
 ## Pictures
 

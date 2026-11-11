@@ -104,6 +104,22 @@ command-log = Log today or an earlier day
 command-help = What I can do
 command-start = Start
 
+## The bot's profile (UI-05), set by tools/telegram/set_webhook.py --texts, not shown by
+## the bot itself. Description: the empty chat above Start, up to 512 characters. About: the
+## profile, one line, up to 120. Public texts: 🌸 is never named here.
+bot-description =
+    Tristhana is a companion for your Ashtanga practice.
+
+    🧘 Log practice or rest in one tap
+    🌙 Moon days for your city, with reminders
+    📊 Your year, your month, your asanas
+    👥 Teachers and shalas: schedule, attendance, announcements
+
+    Your log is yours. A teacher sees only what you agree to.
+
+    Guide: tristhana-guide.web.app
+bot-about = Your Ashtanga companion: a log for practice and rest, moon days, your asanas. Guide: tristhana-guide.web.app
+
 ## Practice details (PR-02, PR-03, PR-05). Asana names come from the catalog, not from here.
 
 practice-details-prompt = Add details? Optional, one tap is enough.

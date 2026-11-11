@@ -1,8 +1,10 @@
-"""Register (or inspect) the prod bot's webhook, Mini App menu button and command menu. Run
+"""Register (or inspect) the prod bot's webhook, Mini App menu button, command menu and
+profile texts. Run
 after a deploy that has the secrets.
 
     python3 tools/telegram/set_webhook.py          # setWebhook
     python3 tools/telegram/set_webhook.py --info   # getWebhookInfo
+    python3 tools/telegram/set_webhook.py --texts  # only the profile texts (description, about)
 
 Reads the bot token and webhook secret from Secret Manager with your gcloud login and
 never prints them; the webhook URL never contains the token. Stdlib only.
@@ -94,6 +96,51 @@ def commands_payloads(locales_dir: Path = LOCALES_DIR) -> list[dict[str, Any]]:
     return payloads
 
 
+def ftl_message(text: str, key: str) -> str:
+    """One message from a Fluent file: the rest of its line, or the indented block under it
+    (blank lines inside the block are kept). Plain text only: no placeables or selectors."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if not line.startswith(f"{key} ="):
+            continue
+        first = line.split("=", 1)[1].strip()
+        if first:
+            return first
+        block: list[str] = []
+        for following in lines[i + 1 :]:
+            if following.strip() and not following.startswith("    "):
+                break
+            block.append(following[4:])
+        return "\n".join(block).strip()
+    raise KeyError(key)
+
+
+def profile_payloads(locales_dir: Path = LOCALES_DIR) -> list[tuple[str, dict[str, Any]]]:
+    """(method, body) for the bot's description (the empty chat, above Start) and about text
+    (its profile): English as the default, Russian for ru clients (UI-05)."""
+    payloads: list[tuple[str, dict[str, Any]]] = []
+    for locale in ("en", "ru"):
+        text = (locales_dir / locale / "bot.ftl").read_text(encoding="utf-8")
+        language: dict[str, Any] = {} if locale == "en" else {"language_code": locale}
+        description = ftl_message(text, "bot-description")
+        about = ftl_message(text, "bot-about")
+        if not description or not about:
+            raise KeyError(f"bot-description or bot-about is empty ({locale})")
+        payloads.append(("setMyDescription", {"description": description, **language}))
+        payloads.append(("setMyShortDescription", {"short_description": about, **language}))
+    return payloads
+
+
+def set_profile_texts(token: str) -> bool:
+    for method, payload in profile_payloads():
+        result = call(token, method, payload)
+        label = payload.get("language_code", "default")
+        print(f"{method} ({label}):", "ok" if result.get("ok") else result.get("description"))
+        if not result.get("ok"):
+            return False
+    return True
+
+
 def call(token: str, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     request = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/{method}",
@@ -113,9 +160,16 @@ def call(token: str, method: str, payload: dict[str, Any] | None = None) -> dict
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--info", action="store_true", help="only print getWebhookInfo")
+    parser.add_argument(
+        "--texts",
+        action="store_true",
+        help="only set the profile texts (description and about); the webhook is not touched",
+    )
     args = parser.parse_args()
 
     token = secret("telegram-bot-token")
+    if args.texts:
+        return 0 if set_profile_texts(token) else 1
     if not args.info:
         url = gcloud(
             "run", "services", "describe", SERVICE, "--region", REGION,
@@ -136,6 +190,8 @@ def main() -> int:
             print(f"setMyCommands ({label}):", outcome)
             if not result.get("ok"):
                 return 1
+        if not set_profile_texts(token):
+            return 1
 
     info = call(token, "getWebhookInfo").get("result", {})
     for key in ("url", "pending_update_count", "last_error_date", "last_error_message"):
