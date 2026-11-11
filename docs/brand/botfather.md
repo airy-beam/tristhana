@@ -38,8 +38,11 @@ The guide's screenshots are made by `cd site && npm run shots` and live in
 2. `app-my-practice.webp`: the year, the month and practices in a row.
 3. `bot-moon.webp`: the next moon days for a city.
 
-They are phone-shaped (390 wide). The description picture is 640×360, so it needs its own
-layout; `docs/brand/render.sh` makes one from a source in `docs/brand/src/` (not made yet).
+They are phone-shaped (390 wide). The description picture is 640×360, so it has its own
+layout: `docs/brand/description-640x360.png`, made from `src/description_pic.html` with
+`./render.sh src/description_pic.html description-640x360.png 640 360`. Telegram shows one
+picture for every language, so its few words are in English only (the name, the tagline and
+"A companion for your Ashtanga practice").
 
 ## Rules for these texts
 
