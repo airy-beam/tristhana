@@ -28,6 +28,7 @@ Tristhana открыта для всех 🙏
 📝 Детали по желанию: майсор, лед-класс, индивидуально или самостоятельно, серия до последней асаны, длительность
 🌙 Лунные дни для твоего города и напоминания о них
 📊 Год, месяц и практики подряд, без соревнований и рейтингов
+✨ Самочувствие после практики и средние за год: всё это видишь только ты
 🧘 Мои асаны: последняя асана и путь по сериям
 
 Учителям:
@@ -70,6 +71,7 @@ For students:
 📝 Details if you want them: Mysore, Led, 1:1 or self-practice, the series up to your last asana, the duration
 🌙 Moon days for your city, with reminders
 📊 Your year, your month and practices in a row, with no competition and no rankings
+✨ Check-ins after practice and their averages over time, for your eyes only
 🧘 My asanas: your last asana and your way through the series
 
 For teachers:
