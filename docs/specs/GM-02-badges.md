@@ -66,7 +66,7 @@ def validate(defs, track) -> None   # loader: unique keys, params present, serie
 - **Use case** `GetBadges(badges, track, cities, clock).execute(principal) -> BadgesView(earned)`. Owner only: `can_view_milestones` (Q59; no new policy). Zone = account zone or provisional; `today` local; moon location = `moon_follow_of(account, cities).city.slug` (MD-02, incl. the Mysuru default); `joined(account, zone)` and `account.day_off` passed to `earned`.
 - **Port** `application/ports/badges.py`: `BadgeFactsRepository.facts(account_id, moon_location, today) -> BadgeFacts`, on `Storage.badges`. **One statement**, scalar subqueries: `(local_date, status)` from `day_log` (PK range; `sealed_status` never selected), Led/self/early dates (`practice` slot 1 by PK), rest-period date ranges (plain dates only; sealed kind never selected), the effective calendar's `moon_day` dates from the first logged date to today, GM-01 ledger thresholds, position and item events incl. removals (index `(account_id, id)`).
 - **Seed** `infrastructure/seed/badges_yaml.py`: strict pydantic loader (as `milestones_yaml.py`), loaded at startup, `validate` against the `Track`. A backend test checks every YAML key has `badge-<key>` (+ `.about`) in the Mini App's en and ru `badges.ftl` (Q244).
-- **Cost:** realistic accounts (≤ 1 000 days) ~2–5 ms; DB test asserts < 30 ms on a 9 000-day account, then O(n) in memory. Bot and day write: **no change**.
+- **Cost:** realistic accounts (≤ 1 000 days) ~2–5 ms; DB test asserts < 60 ms on a 9 000-day account (30 ms until 2026-11-11: it measured 23–37 ms locally, Q283), then O(n) in memory. Bot and day write: **no change**.
 
 ## 5. API, privacy, export
 | Method, path | Auth / policy | Response |
