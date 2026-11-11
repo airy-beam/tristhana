@@ -56,7 +56,7 @@ function StudentsRow({ onOpen }: { onOpen: () => void }) {
   if (!data?.students.length) return null;
   return (
     <Localized id="link-students-open">
-      <button type="button" className="row-button" onClick={onOpen} />
+      <button type="button" className="row-button" data-tour="students" onClick={onOpen} />
     </Localized>
   );
 }
@@ -67,7 +67,7 @@ function MyScheduleRow({ onOpen }: { onOpen: () => void }) {
   if (!data?.length) return null;
   return (
     <Localized id="my-schedule-open">
-      <button type="button" className="row-button" onClick={onOpen} />
+      <button type="button" className="row-button" data-tour="schedule" onClick={onOpen} />
     </Localized>
   );
 }

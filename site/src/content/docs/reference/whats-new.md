@@ -9,6 +9,7 @@ New things in Tristhana, newest first.
 ## November 2026
 
 - **This guide**, in English and Russian.
+- **The quick tour** now covers teachers and shalas, in the bot and in the app.
 - **Teachers and students.** A teacher shares a link, a student confirms, and the teacher sees a small card: practice or rest, practice length, the last asana.
 - **A teacher can mark a new asana** for a student, and the student can undo it.
 - **Shalas**: a team with roles, a weekly schedule, closures, moon-day swaps and substitutes.

@@ -123,3 +123,12 @@
 5. **🌸:** not mentioned in either tour, for the reasons in §2? The alternative is one neutral privacy line on the logging step. Recommended: not mentioned, confirmed by ashtanga-expert.
 6. **Coach-mark reach:** Home only, targets not tappable, the Settings step describing what's inside? The alternative is walking into Stats and Settings, which adds navigation and loading states for little gain. Recommended: Home only.
 7. **Copy ⚑:** the §2 drafts, including the name ("Quick tour" / «🧭 Знакомство», chosen by the owner 2026-11-06), go to ux-writer and ashtanga-expert before release? Recommended: yes.
+
+## Amendment 2026-11-11: teachers and shalas
+
+The tour was written before Phase 3. Owner decision (2026-11-11): add steps, no tour by role.
+
+- **Bot:** six steps. New step 5, `tour-links` "👥 Teachers and shalas" (a link or QR code from a teacher or a shala, `/teachers`, `/schedule`, inviting students), between `tour-asanas` and `tour-app`. `tour-asanas` says a teacher can mark the asana too; `tour-app` says the guide is under `/help`. Callback data is unchanged (`q1:<n>:<origin>`); an old keyboard's step 5 now shows the new step, and a step past the end still shows the last one.
+- **Mini App:** two more coach-marks, `tour-students` on the "My students" row and `tour-schedule` on the "My schedule" row. Those rows exist only for people who have students or are in a shala, so the existing rule (steps without a target drop out) keeps the count honest: most people still see five steps, a teacher in a shala sees seven. `tour-settings` names teachers, students and shalas.
+- **Not changed:** no step for staff work (classes, attendance, announcements); the guide covers it. 🌸 stays unnamed.
+
