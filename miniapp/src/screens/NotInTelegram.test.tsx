@@ -13,6 +13,6 @@ it("points to the bot when opened outside Telegram", () => {
   // UI-05: someone who landed here from a search can still read what Tristhana is.
   expect(screen.getByRole("link", { name: "📖 Справка" })).toHaveAttribute(
     "href",
-    "https://tristhana-guide.web.app/ru/",
+    "https://tristhana.app/ru/",
   );
 });

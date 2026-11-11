@@ -97,9 +97,9 @@ def test_profile_texts_come_from_the_bot_ftl_in_both_languages() -> None:
     assert en["description"].startswith(
         "Tristhana is a companion for your Ashtanga practice.\n\n🧘"
     )
-    assert en["description"].endswith("Guide: tristhana-guide.web.app")
+    assert en["description"].endswith("Guide: tristhana.app")
     assert ru["description"].startswith("Тристхана — спутник")
-    assert ru["description"].endswith("tristhana-guide.web.app/ru/")
+    assert ru["description"].endswith("tristhana.app/ru/")
     assert "\n\nЖурнал — твой." in ru["description"]  # noqa: RUF001 - blank lines inside the text survive
     assert en_about["short_description"].startswith("Your Ashtanga companion")
     assert "\n" not in ru_about["short_description"]

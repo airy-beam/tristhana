@@ -25,7 +25,7 @@ for (const file of html) {
     /<(script|link|img|source|iframe|video|audio)\b[^>]*?\s(?:src|href|srcset)="(https?:\/\/[^"]+)"/g,
   )) {
     // <link rel="canonical|alternate|sitemap"> point at this site itself.
-    if (tag === "link" && url.startsWith("https://tristhana-guide.web.app")) continue;
+    if (tag === "link" && url.startsWith("https://tristhana.app")) continue;
     problems.push(`${file}: <${tag}> loads ${url}`);
   }
   if (/@import\s+url\(["']?https?:/.test(text)) problems.push(`${file}: remote @import`);

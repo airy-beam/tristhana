@@ -176,8 +176,8 @@ describe("Settings", () => {
   });
 
   it.each([
-    ["en", "📖 Guide", "https://tristhana-guide.web.app/"],
-    ["ru", "📖 Справка", "https://tristhana-guide.web.app/ru/"],
+    ["en", "📖 Guide", "https://tristhana.app/"],
+    ["ru", "📖 Справка", "https://tristhana.app/ru/"],
   ] as const)(
     "opens the guide in the person's language from a row under the tour (UI-05, %s)",
     async (locale, label, url) => {

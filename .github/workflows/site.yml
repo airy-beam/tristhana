@@ -72,7 +72,7 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SA }}
       # The Hosting site is named in site/firebase.json. It is created once by hand
       # (infra/gcp/bootstrap.sh); until it exists this step fails and nothing else is touched.
-      - name: deploy to Firebase Hosting (tristhana-guide.web.app)
+      - name: deploy to Firebase Hosting (site tristhana-guide, served at tristhana.app)
         env:
           PROJECT: ${{ vars.GCP_PROJECT_ID }}
         run: >-
@@ -80,7 +80,8 @@ jobs:
           --non-interactive --message "$GITHUB_SHA"
       - name: smoke (both languages served, pages not cached, assets immutable)
         run: |
-          base=https://tristhana-guide.web.app
+          # The custom domain; the site's own tristhana-guide.web.app address keeps working too.
+          base=https://tristhana.app
           html="$(curl -fsS "$base/")"
           curl -fsS -o /dev/null "$base/ru/"
           curl -fsS -o /dev/null "$base/students/log-practice/"

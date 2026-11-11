@@ -34,7 +34,7 @@ Tone: friendly, simple, polite, informal. Russian uses «ты» and avoids gende
 
 ## Deploy
 
-A push to `main` that touches the site, a locale file or the bot's command menu runs `.github/workflows/site.yml`: the checks, then `firebase deploy` to the Hosting site `tristhana-guide` (https://tristhana-guide.web.app) and a smoke check. Nothing deploys from a pull request. The Hosting site and the deploy permission are created once by `infra/gcp/bootstrap.sh`.
+A push to `main` that touches the site, a locale file or the bot's command menu runs `.github/workflows/site.yml`: the checks, then `firebase deploy` to the Hosting site `tristhana-guide`, served at https://tristhana.app (the site's own `tristhana-guide.web.app` address works too) and a smoke check. Nothing deploys from a pull request. The Hosting site and the deploy permission are created once by `infra/gcp/bootstrap.sh`.
 
 ## Keeping the guides current
 
