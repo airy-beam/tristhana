@@ -3003,11 +3003,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "staff": {
+            "description": "The person is on this shala's staff, not a student of it",
+            "title": "Staff",
+            "type": "boolean"
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "staff"
         ],
         "title": "MoonShala",
         "type": "object"

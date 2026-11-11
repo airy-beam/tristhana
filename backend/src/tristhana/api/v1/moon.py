@@ -49,6 +49,7 @@ class MoonTeacher(BaseModel):
 class MoonShala(BaseModel):
     id: UUID
     name: str
+    staff: bool = Field(description="The person is on this shala's staff, not a student of it")
 
 
 class MoonShared(BaseModel):
@@ -80,7 +81,11 @@ class Location(BaseModel):
             follow_chosen=follow.follow_chosen,
             teacher=MoonTeacher(id=t.id, name=t.name) if t else None,
             shared=None if shared is None else MoonShared(chosen=shared),
-            shala=MoonShala(id=follow.shala.id, name=follow.shala.name) if follow.shala else None,
+            shala=(
+                MoonShala(id=follow.shala.id, name=follow.shala.name, staff=follow.shala.staff)
+                if follow.shala
+                else None
+            ),
         )
 
 

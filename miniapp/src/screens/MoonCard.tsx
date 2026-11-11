@@ -46,8 +46,18 @@ export function MoonSource({
         <Localized
           id="moon-teacher-shared"
           vars={{
-            // "like yours" is untrue for one who follows their own teacher.
-            chosen: location.shared.chosen ? "yes" : location.follow_chosen ? "follow" : "no",
+            // "Like yours" holds only on the default: one who follows their own teacher or
+            // their shala has other dates than their students (Q274). On a shala's staff,
+            // students in it keep its calendar whatever the teacher chooses.
+            chosen: location.shared.chosen
+              ? "yes"
+              : location.follow_chosen
+                ? "follow"
+                : location.source === "shala"
+                  ? location.shala?.staff
+                    ? "shala"
+                    : "follow"
+                  : "no",
             city: location.shared.chosen ? city : fallback,
           }}
         >

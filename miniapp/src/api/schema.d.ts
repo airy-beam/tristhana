@@ -2523,6 +2523,11 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Staff
+             * @description The person is on this shala's staff, not a student of it
+             */
+            staff: boolean;
         };
         /** MoonShared */
         MoonShared: {

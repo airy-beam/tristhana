@@ -37,6 +37,20 @@ def _data(**kw: object) -> str:
     return encode(MoonCallback(**kw))  # type: ignore[arg-type]
 
 
+def _shared_variant(shared: bool, follow: MoonFollow) -> str:
+    """Which `moon-teacher-shared` text is true. "Like yours" holds only for a teacher on the
+    default; one who follows their own teacher or their shala gets other dates than their
+    students (Q274). On a shala's staff, students in it keep its calendar whatever the
+    teacher chooses, and the line says so."""
+    if shared:
+        return "yes"
+    if follow.follow_chosen:
+        return "follow"
+    if follow.source is MoonSource.SHALA:
+        return "shala" if follow.shala is not None and follow.shala.staff else "follow"
+    return "no"
+
+
 def reminder_screen(
     t: Translator, locale: Locale, r: MoonReminder, status: str | None = None
 ) -> Screen:
@@ -210,8 +224,7 @@ class MoonScreens:
         if v.shared is not None:  # MD-02: told to anyone with students
             # What the students get: this choice, else the default (one hop, never inherited).
             theirs = city if v.shared else self._m.cities.default.name(locale)
-            # "like yours" is untrue for one who follows their own teacher.
-            chosen = "yes" if v.shared else "follow" if v.follow.follow_chosen else "no"
+            chosen = _shared_variant(v.shared, v.follow)
             lines.append(self._t.t(locale, "moon-teacher-shared", chosen=chosen, city=theirs))
         lines.append(self._status(locale, v, principal.account))
         rows = [
