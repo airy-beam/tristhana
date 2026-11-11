@@ -52,6 +52,7 @@ from tristhana.domain.shalas import (
     MAX_STUDENT_OF,
     MAX_STUDENTS,
     Membership,
+    ShalaPatch,
     ShalaRole,
 )
 from tristhana.domain.teacher_links import MAX_STUDENTS as LINK_STUDENTS
@@ -925,3 +926,76 @@ async def test_the_export_holds_my_memberships_only(engine: AsyncEngine, side: s
     for code in codes:
         assert code not in everything
     assert str(shala) not in everything
+
+
+# The card's staff list stays inside its own shala (privacy, ADR-0033)
+
+
+async def test_a_card_lists_only_its_own_staff_oldest_first(engine: AsyncEngine) -> None:
+    anna, _ = await _person(engine, "Anna")
+    boris, _ = await _person(engine, "Boris")
+    vera, _ = await _person(engine, "Vera")
+    first = await _shala(engine, anna.id, name="First")
+    second = await _shala(engine, boris.id, name="Second")
+    await _staff(engine, second, boris.id, vera.id, ASSISTANT)
+    repo = SqlShalaRepository(engine)
+
+    one = await repo.card(first, anna.id)
+    two = await repo.card(second, boris.id)
+
+    assert one is not None
+    assert two is not None
+    assert [(s.id, s.name, s.owner, s.roles) for s in one.staff] == [
+        (anna.id, "Anna", True, frozenset({TEACHER}))
+    ]
+    assert [(s.id, s.name, s.owner, s.roles) for s in two.staff] == [
+        (boris.id, "Boris", True, frozenset({TEACHER})),
+        (vera.id, "Vera", False, frozenset({ASSISTANT})),
+    ]
+
+
+async def test_the_staff_order_is_by_joining_time_not_by_row_order(engine: AsyncEngine) -> None:
+    anna, _ = await _person(engine, "Anna")
+    vera, _ = await _person(engine, "Vera")
+    gleb, _ = await _person(engine, "Gleb")
+    shala = await _shala(engine, anna.id)
+    await _staff(engine, shala, anna.id, vera.id, ASSISTANT)
+    await _staff(engine, shala, anna.id, gleb.id, OFFICE)
+    await _sql(
+        engine,
+        "UPDATE tristhana.shala_staff SET created_at = created_at - interval '1 day'"
+        " WHERE account_id = :who",
+        who=gleb.id,
+    )
+
+    card = await SqlShalaRepository(engine).card(shala, anna.id)
+
+    assert card is not None
+    assert [s.name for s in card.staff] == ["Gleb", "Anna", "Vera"]
+
+
+async def test_an_updated_card_lists_only_its_own_staff(engine: AsyncEngine) -> None:
+    anna, _ = await _person(engine, "Anna")
+    boris, _ = await _person(engine, "Boris")
+    first = await _shala(engine, anna.id, name="First")
+    await _shala(engine, boris.id, name="Second")
+
+    changed = await SqlShalaRepository(engine).update(first, anna.id, ShalaPatch(name="Renamed"))
+
+    assert changed.value is not None
+    assert [s.name for s in changed.value.staff] == ["Anna"]
+
+
+async def test_a_new_account_starts_with_no_one_elses_teacher_or_shala(
+    engine: AsyncEngine,
+) -> None:
+    anna, _ = await _person(engine, "Anna")
+    sam, _ = await _person(engine, "Sam")
+    await _shala(engine, anna.id)
+    await _link(engine, sam.id, anna.id)
+
+    fresh, key = await _person(engine, "Fresh")
+    loaded = await _find(engine, key)
+
+    assert (fresh.teaches, fresh.main_teacher, fresh.shala) == (False, None, None)
+    assert (loaded.teaches, loaded.main_teacher, loaded.shala) == (False, None, None)

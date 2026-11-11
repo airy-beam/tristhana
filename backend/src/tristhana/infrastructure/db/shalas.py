@@ -31,7 +31,7 @@ from sqlalchemy import (
     union_all,
     update,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, insert
+from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by, insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.types import Text
 
@@ -194,31 +194,19 @@ def _card_columns() -> tuple[Any, ...]:
 
 
 def _ordered_staff(shala_id: Any) -> Any:
-    """`[{id, name, roles}]`, oldest first."""
-    inner = (
-        select(
-            account.c.id,
-            account.c.display_name.label("name"),
-            shala_staff.c.roles,
-            shala_staff.c.created_at,
-        )
+    """`[{id, name, roles}]` of the shala in `shala_id`, oldest first.
+
+    One correlated scalar subquery with the order inside the aggregate. Not an ordered
+    FROM-subquery: a derived table does not correlate to the caller's `shala` by itself, it
+    cross-joins it, and every card then lists the staff of every shala."""
+    member = func.jsonb_build_object(
+        "id", account.c.id, "name", account.c.display_name, "roles", shala_staff.c.roles
+    )
+    oldest_first = aggregate_order_by(member, shala_staff.c.created_at, shala_staff.c.account_id)
+    return (
+        select(func.coalesce(func.jsonb_agg(oldest_first), func.jsonb_build_array()))
         .select_from(shala_staff.join(account, account.c.id == shala_staff.c.account_id))
         .where(shala_staff.c.shala_id == shala_id)
-        .order_by(shala_staff.c.created_at, shala_staff.c.account_id)
-        .subquery()
-    )
-    return (
-        select(
-            func.coalesce(
-                func.jsonb_agg(
-                    func.jsonb_build_object(
-                        "id", inner.c.id, "name", inner.c.name, "roles", inner.c.roles
-                    )
-                ),
-                func.jsonb_build_array(),
-            )
-        )
-        .select_from(inner)
         .scalar_subquery()
     )
 
