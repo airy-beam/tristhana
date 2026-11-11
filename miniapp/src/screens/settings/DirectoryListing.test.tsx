@@ -228,7 +228,7 @@ const sent = async (seen: Request[]) =>
 
 const NAME = "Name, exactly as in the directory";
 const REGION = "Country or region, as in the directory";
-const LEVEL = "Level (optional)";
+const LEVEL = "Level, in your own words (optional)";
 const NOTE = "How can we tell it's you? (optional)";
 const INTRO = /^If your name is in the Sharath Yoga Centre teachers directory/;
 const LINE_EN =
@@ -487,7 +487,9 @@ describe("the form", () => {
     type(NOTE, "annayoga.example");
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("You can send it again in a day.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Requests can be sent once a day. Try again a little later.",
+    );
     expect(value(NAME)).toBe("Anna Petrova");
     expect(value(REGION)).toBe("Kazakhstan");
     expect(value(NOTE)).toBe("annayoga.example");
@@ -531,7 +533,9 @@ describe("the form", () => {
     await openListing();
     await screen.findByLabelText(NAME);
 
-    expect(screen.getByText(says("You can send it again in a day."))).toBeInTheDocument();
+    expect(
+      screen.getByText(says("Requests can be sent once a day. Try again a little later.")),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     expect(telegram.main?.visible).toBe(false);
     act(() => {

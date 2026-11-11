@@ -414,6 +414,6 @@ describe("staff roster", () => {
     renderRoster("ru");
 
     expect(await screen.findByText("✅ 1 · 🙋 3 ждут подтверждения")).toBeInTheDocument();
-    expect(screen.getByText("сотрудник")).toBeInTheDocument();
+    expect(screen.getByText("из команды")).toBeInTheDocument();
   });
 });

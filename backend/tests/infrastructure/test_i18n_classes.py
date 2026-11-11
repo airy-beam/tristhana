@@ -112,7 +112,7 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         {},
         "Dates follow the shala's moon city (lunar day at sunrise). If your shala observes "
         "another day, use Hold anyway or Cancel.",
-        "Даты считаются по лунному городу шалы (лунный день на восходе). Если в шале отмечают "
+        "Даты считаются по лунному городу шалы (лунные сутки на восходе). Если в шале отмечают "
         "другой день, используй «Всё равно провести» или «Отменить».",
     ),
 ]
