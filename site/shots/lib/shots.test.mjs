@@ -303,6 +303,11 @@ describe("seedCast", () => {
     expect(done).toContain("Maya PUT /me/days/2026-11-10 moon");
     expect(done).toContain("Maya PUT /me/days/2026-11-11 practiced");
     expect(done).toContain("Maya PUT /me/days/2026-11-11/practices/1");
+    // ST-05: check-ins on most practice days, never on the last two (Home would show them).
+    const checkIns = done.filter((line) => /check-ins\/1$/.test(line));
+    expect(checkIns.length).toBeGreaterThan(40);
+    expect(checkIns).not.toContain("Maya PUT /me/days/2026-11-11/check-ins/1");
+    expect(checkIns).not.toContain("Maya PUT /me/days/2026-11-10/check-ins/1");
     expect(done).toContain("Maya says /start t_abc123");
     expect(done).toContain("Maya POST /me/progression/events");
     expect(done.filter((line) => line === "Arjun POST /shalas/s1/classes")).toHaveLength(2);

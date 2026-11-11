@@ -30,6 +30,8 @@ import { MonthView } from "./MonthView";
 
 // GM-02: its own chunk (with its copy), so My practice doesn't pay for it.
 const Badges = lazy(() => import("../badges/Badges"));
+// ST-05: likewise.
+const Trends = lazy(() => import("../trends/Trends"));
 
 interface Props {
   locale: Locale;
@@ -44,23 +46,29 @@ interface Props {
 export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
   useBackButton(onBack);
   const [year, setYear] = useState<number | undefined>(undefined);
-  // Badges open over My practice, which stays mounted (hidden): Back returns to the same month,
-  // editor and scroll position.
-  const [badges, setBadges] = useState(false);
+  // Badges and Check-ins over time open over My practice, which stays mounted (hidden): Back
+  // returns to the same month, editor and scroll position.
+  const [over, setOver] = useState<"badges" | "trends" | null>(null);
   const scroll = useRef<number | null>(null);
-  const openBadges = useCallback(() => {
+  const open = useCallback((screen: "badges" | "trends") => {
     scroll.current = window.scrollY;
-    setBadges(true);
+    setOver(screen);
     window.scrollTo({ top: 0 });
   }, []);
-  const closeBadges = useCallback(() => {
-    setBadges(false);
+  const openBadges = useCallback(() => {
+    open("badges");
+  }, [open]);
+  const openTrends = useCallback(() => {
+    open("trends");
+  }, [open]);
+  const closeOver = useCallback(() => {
+    setOver(null);
   }, []);
   useEffect(() => {
-    if (badges || scroll.current === null) return;
+    if (over || scroll.current === null) return;
     window.scrollTo({ top: scroll.current });
     scroll.current = null;
-  }, [badges]);
+  }, [over]);
   const query = useStats(year);
   const stats = query.data;
   // Outside Telegram (or on clients without its Back button) the screen needs its own.
@@ -86,9 +94,13 @@ export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
   };
   return (
     <>
-      {badges && (
+      {over && (
         <Suspense fallback={<main className="screen" aria-busy="true" />}>
-          <Badges locale={locale} onBack={closeBadges} />
+          {over === "badges" ? (
+            <Badges locale={locale} onBack={closeOver} />
+          ) : (
+            <Trends locale={locale} onBack={closeOver} />
+          )}
         </Suspense>
       )}
       <Loaded
@@ -99,7 +111,8 @@ export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
         onYear={pick}
         onDayOff={onDayOff}
         onBadges={openBadges}
-        hidden={badges}
+        onTrends={openTrends}
+        hidden={over !== null}
         back={back}
       />
     </>
@@ -113,6 +126,7 @@ function Loaded({
   onYear,
   onDayOff,
   onBadges,
+  onTrends,
   hidden,
   back,
 }: {
@@ -122,6 +136,7 @@ function Loaded({
   onYear: (year: number) => void;
   onDayOff: () => void;
   onBadges: () => void;
+  onTrends: () => void;
   hidden: boolean;
   back: ReactNode;
 }) {
@@ -295,6 +310,9 @@ function Loaded({
 
       <Localized id="badges-open">
         <button type="button" className="row-button" onClick={onBadges} />
+      </Localized>
+      <Localized id="trends-open">
+        <button type="button" className="row-button" onClick={onTrends} />
       </Localized>
     </main>
   );

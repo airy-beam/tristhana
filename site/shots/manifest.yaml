@@ -22,6 +22,7 @@ shots:
   - {name: bot-remind, kind: bot, as: student, say: /remind, features: [PR-10, NT-01]}
   - {name: app-my-practice, kind: app, as: student, click: [stats-open], full: true, features: [ST-01, ST-02, ST-03]}
   - {name: app-badges, kind: app, as: student, click: [stats-open, badges-open], features: [GM-02]}
+  - {name: app-trends, kind: app, as: student, click: [stats-open, trends-open], full: true, features: [ST-05]}
   - {name: bot-asanas, kind: bot, as: student, say: /asanas, features: [PR-08]}
   - {name: app-my-asanas, kind: app, as: student, click: [progression-open], features: [PR-08, ST-04]}
   - {name: bot-note, kind: bot, as: student, say: /log, tap: [diary-button], features: [PR-07]}

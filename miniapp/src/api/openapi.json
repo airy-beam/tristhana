@@ -212,6 +212,26 @@
         "title": "AutoKind",
         "type": "string"
       },
+      "AvgOut": {
+        "properties": {
+          "mean": {
+            "description": "The average on the 1-5 scale, to one decimal",
+            "title": "Mean",
+            "type": "number"
+          },
+          "n": {
+            "description": "How many check-ins it comes from",
+            "title": "N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mean",
+          "n"
+        ],
+        "title": "AvgOut",
+        "type": "object"
+      },
       "BadgeOut": {
         "properties": {
           "at_record_start": {
@@ -752,6 +772,85 @@
           "group"
         ],
         "title": "CheckInTagOut",
+        "type": "object"
+      },
+      "CheckInTrendsOut": {
+        "properties": {
+          "enough": {
+            "description": "False: under `min_total`, so nothing else is sent",
+            "title": "Enough",
+            "type": "boolean"
+          },
+          "from": {
+            "description": "The window's first day",
+            "format": "date",
+            "title": "From",
+            "type": "string"
+          },
+          "min_bucket": {
+            "title": "Min Bucket",
+            "type": "integer"
+          },
+          "min_total": {
+            "title": "Min Total",
+            "type": "integer"
+          },
+          "months": {
+            "description": "12, oldest first; empty unless `enough`",
+            "items": {
+              "$ref": "#/components/schemas/TrendsMonthOut"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "moon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrendsMoonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "to": {
+            "format": "date",
+            "title": "To",
+            "type": "string"
+          },
+          "total": {
+            "description": "Check-ins with at least one scale in the window",
+            "title": "Total",
+            "type": "integer"
+          },
+          "weekdays": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ScalesOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "7, Monday first",
+            "title": "Weekdays"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "total",
+          "enough",
+          "min_total",
+          "min_bucket",
+          "months",
+          "weekdays",
+          "moon"
+        ],
+        "title": "CheckInTrendsOut",
         "type": "object"
       },
       "CityOut": {
@@ -4774,6 +4873,48 @@
         "title": "Runs",
         "type": "object"
       },
+      "ScalesOut": {
+        "description": "Null: fewer than `min_bucket` check-ins carry that scale there.",
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvgOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "energy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvgOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mood": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvgOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "mood",
+          "energy",
+          "effort"
+        ],
+        "title": "ScalesOut",
+        "type": "object"
+      },
       "ScheduleDayOut": {
         "properties": {
           "date": {
@@ -6431,6 +6572,82 @@
         "title": "TimelineOut",
         "type": "object"
       },
+      "TrendsMonthOut": {
+        "properties": {
+          "effort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvgOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "energy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvgOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "month": {
+            "description": "YYYY-MM",
+            "pattern": "^\\d{4}-\\d{2}$",
+            "title": "Month",
+            "type": "string"
+          },
+          "mood": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AvgOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "mood",
+          "energy",
+          "effort",
+          "month"
+        ],
+        "title": "TrendsMonthOut",
+        "type": "object"
+      },
+      "TrendsMoonOut": {
+        "properties": {
+          "full": {
+            "$ref": "#/components/schemas/ScalesOut",
+            "description": "The full-moon day, the day before and the day after"
+          },
+          "location": {
+            "description": "The city slug the moon days were read for",
+            "title": "Location",
+            "type": "string"
+          },
+          "new": {
+            "$ref": "#/components/schemas/ScalesOut",
+            "description": "The new-moon day, the day before and the day after"
+          },
+          "other": {
+            "$ref": "#/components/schemas/ScalesOut"
+          }
+        },
+        "required": [
+          "location",
+          "full",
+          "new",
+          "other"
+        ],
+        "title": "TrendsMoonOut",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -7688,6 +7905,53 @@
         "summary": "Rotate Calendar Feed",
         "tags": [
           "calendar-feed"
+        ]
+      }
+    },
+    "/api/v1/me/check-in-trends": {
+      "get": {
+        "description": "Owner only (teachers and shalas never see check-ins). Averages only, never a date of a\npractice or a rest; an average with too few check-ins behind it is null.",
+        "operationId": "get_my_check_in_trends_api_v1_me_check_in_trends_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckInTrendsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get My Check In Trends",
+        "tags": [
+          "check-ins"
         ]
       }
     },

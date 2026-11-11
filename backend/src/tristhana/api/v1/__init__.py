@@ -9,6 +9,7 @@ from tristhana.api.v1 import (
     badges,
     calendar_feed,
     check_in,
+    check_in_trends,
     classes,
     days,
     diary,
@@ -38,6 +39,7 @@ router.include_router(progression.router)
 router.include_router(moon.router)
 router.include_router(stats.router)
 router.include_router(badges.router)
+router.include_router(check_in_trends.router)
 router.include_router(links.router)
 router.include_router(shalas.router)
 router.include_router(classes.router)

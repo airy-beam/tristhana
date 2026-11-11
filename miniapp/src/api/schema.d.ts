@@ -247,6 +247,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/check-in-trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Check In Trends
+         * @description Owner only (teachers and shalas never see check-ins). Averages only, never a date of a
+         *     practice or a rest; an average with too few check-ins behind it is null.
+         */
+        get: operations["get_my_check_in_trends_api_v1_me_check_in_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/classes": {
         parameters: {
             query?: never;
@@ -1407,6 +1428,19 @@ export interface components {
          * @enum {string}
          */
         AutoKind: "moon" | "day_off";
+        /** AvgOut */
+        AvgOut: {
+            /**
+             * Mean
+             * @description The average on the 1-5 scale, to one decimal
+             */
+            mean: number;
+            /**
+             * N
+             * @description How many check-ins it comes from
+             */
+            n: number;
+        };
         /** BadgeOut */
         BadgeOut: {
             /**
@@ -1618,6 +1652,45 @@ export interface components {
              */
             group: "body" | "mind";
             key: components["schemas"]["CheckInTag"];
+        };
+        /** CheckInTrendsOut */
+        CheckInTrendsOut: {
+            /**
+             * Enough
+             * @description False: under `min_total`, so nothing else is sent
+             */
+            enough: boolean;
+            /**
+             * From
+             * Format: date
+             * @description The window's first day
+             */
+            from: string;
+            /** Min Bucket */
+            min_bucket: number;
+            /** Min Total */
+            min_total: number;
+            /**
+             * Months
+             * @description 12, oldest first; empty unless `enough`
+             */
+            months: components["schemas"]["TrendsMonthOut"][];
+            moon: components["schemas"]["TrendsMoonOut"] | null;
+            /**
+             * To
+             * Format: date
+             */
+            to: string;
+            /**
+             * Total
+             * @description Check-ins with at least one scale in the window
+             */
+            total: number;
+            /**
+             * Weekdays
+             * @description 7, Monday first
+             */
+            weekdays: components["schemas"]["ScalesOut"][] | null;
         };
         /** CityOut */
         CityOut: {
@@ -3244,6 +3317,15 @@ export interface components {
              */
             longest: number;
         };
+        /**
+         * ScalesOut
+         * @description Null: fewer than `min_bucket` check-ins carry that scale there.
+         */
+        ScalesOut: {
+            effort: components["schemas"]["AvgOut"] | null;
+            energy: components["schemas"]["AvgOut"] | null;
+            mood: components["schemas"]["AvgOut"] | null;
+        };
         /** ScheduleDayOut */
         ScheduleDayOut: {
             /**
@@ -3947,6 +4029,30 @@ export interface components {
              * @description Older entries were left out (only the newest 1,000)
              */
             truncated: boolean;
+        };
+        /** TrendsMonthOut */
+        TrendsMonthOut: {
+            effort: components["schemas"]["AvgOut"] | null;
+            energy: components["schemas"]["AvgOut"] | null;
+            /**
+             * Month
+             * @description YYYY-MM
+             */
+            month: string;
+            mood: components["schemas"]["AvgOut"] | null;
+        };
+        /** TrendsMoonOut */
+        TrendsMoonOut: {
+            /** @description The full-moon day, the day before and the day after */
+            full: components["schemas"]["ScalesOut"];
+            /**
+             * Location
+             * @description The city slug the moon days were read for
+             */
+            location: string;
+            /** @description The new-moon day, the day before and the day after */
+            new: components["schemas"]["ScalesOut"];
+            other: components["schemas"]["ScalesOut"];
         };
         /** ValidationError */
         ValidationError: {
@@ -4824,6 +4930,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarFeedOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_check_in_trends_api_v1_me_check_in_trends_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckInTrendsOut"];
                 };
             };
             /** @description Unauthorized */
