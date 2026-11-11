@@ -9,13 +9,11 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 from aiogram import F, Router
-from aiogram.methods import SendMessage
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from tristhana.application.check_in_patch import CheckInPatch
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
-from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.practice import DayNotPracticed
 from tristhana.bots.telegram.check_in_callbacks import PREFIX, CheckInCallback, decode, encode
 from tristhana.bots.telegram.diary import note_button
@@ -35,11 +33,7 @@ def register_check_in(router: Router, screens: CheckInScreens) -> None:
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
     async def on_check_in(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
-        try:
-            screen = await answered(callback, screens.handle(Principal(account), cb))
-        except StorageUnavailable:  # the account loaded, then the database went away
-            text = screens.t.t(account.locale, "error-temporary")
-            return SendMessage(chat_id=callback.from_user.id, text=text)
+        screen = await answered(callback, screens.handle(Principal(account), cb))
         return show(callback, screen) if screen else None
 
 

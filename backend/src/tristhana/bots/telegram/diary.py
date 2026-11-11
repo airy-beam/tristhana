@@ -24,7 +24,6 @@ from aiogram.types import (
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, Translator
-from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.bots.telegram.diary_callbacks import PREFIX, DiaryCallback, Origin, decode, encode
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.domain.accounts import Account
@@ -46,11 +45,7 @@ def register_diary(router: Router, screens: DiaryScreens) -> None:
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
     async def on_diary(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
-        try:
-            reply = await answered(callback, screens.handle(Principal(account), cb))
-        except StorageUnavailable:  # the account loaded, then the database went away
-            text = screens.t.t(account.locale, "error-temporary")
-            return SendMessage(chat_id=callback.from_user.id, text=text)
+        reply = await answered(callback, screens.handle(Principal(account), cb))
         if isinstance(reply, Prompt):  # ForceReply can't go on an edit: a new message
             return SendMessage(
                 chat_id=callback.from_user.id, text=reply.text, reply_markup=reply.markup
@@ -75,10 +70,7 @@ def register_diary_reply(router: Router, screens: DiaryScreens) -> None:
         locale = account.locale
         if message.text is None:  # voice, photo, sticker, a caption
             return message.answer(screens.t.t(locale, "diary-text-only"))
-        try:
-            screen = await screens.save(Principal(account), day, message.text)
-        except StorageUnavailable:
-            return message.answer(screens.t.t(locale, "error-temporary"))
+        screen = await screens.save(Principal(account), day, message.text)
         return message.answer(screen.text, reply_markup=screen.markup)
 
 
