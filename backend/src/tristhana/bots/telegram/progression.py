@@ -21,7 +21,6 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.notifications import AsanaMarked
 from tristhana.application.ports.progression import ProgressionView
-from tristhana.application.ports.storage import StorageUnavailable
 from tristhana.application.progression import ChangeResult, NotLatest, ProgressionChanged
 from tristhana.bots.telegram.practice import GRID_PAGE
 from tristhana.bots.telegram.progression_callbacks import (
@@ -142,20 +141,13 @@ def _is_mark(view: ProgressionView, event_id: int) -> bool:
 def register_progression(router: Router, screens: ProgressionScreens) -> None:
     @router.message(Command("asanas"))
     async def on_asanas(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        try:
-            screen = await screens.open(Principal(account))
-        except StorageUnavailable:
-            return message.answer(screens.t.t(account.locale, "error-temporary"))
+        screen = await screens.open(Principal(account))
         return message.answer(screen.text, reply_markup=screen.markup)
 
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
     async def on_progression(callback: CallbackQuery, account: Account) -> Reply | None:  # pyright: ignore[reportUnusedFunction]
         cb = decode(callback.data)
-        try:
-            screen = await answered(callback, screens.handle(Principal(account), cb))
-        except StorageUnavailable:  # the account loaded, then the database went away
-            text = screens.t.t(account.locale, "error-temporary")
-            return SendMessage(chat_id=callback.from_user.id, text=text)
+        screen = await answered(callback, screens.handle(Principal(account), cb))
         return show(callback, screen) if screen else None
 
 
