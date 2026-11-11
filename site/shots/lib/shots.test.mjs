@@ -205,6 +205,29 @@ describe("client", () => {
     expect(() => client.tap(maya, reply, "Open")).toThrow(DemoError); // a link, not a tap
   });
 
+  it("prefers the exact label, and taps by number", async () => {
+    const { fetchFn, calls } = fakeFetch({
+      "POST /telegram/webhook": () => ({ method: "editMessageText", text: "ok" }),
+    });
+    const client = createClient({ api: "http://x", secret: "s", fetch: fetchFn, firstUpdate: 50 });
+    const reply = {
+      method: "sendMessage",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Open", url: "u" }],
+          [{ text: "📣 Announcements", callback_data: "a:list" }],
+          [{ text: "📣 Announce", callback_data: "a:new" }],
+        ],
+      },
+    };
+    await client.tap(maya, reply, "📣 Announce");
+    await client.tap(maya, reply, 1); // links don't count: the first button that can be tapped
+    const sent = calls.map((c) => JSON.parse(c.init.body));
+    expect(sent.map((u) => u.callback_query.data)).toEqual(["a:new", "a:list"]);
+    expect(sent[0].update_id).toBeGreaterThan(50);
+    expect(() => client.tap(maya, reply, 3)).toThrow(/no button "3"/);
+  });
+
   it("fails when the bot gives no reply", async () => {
     const { fetchFn } = fakeFetch({ "POST /telegram/webhook": () => "" });
     const client = createClient({ api: "http://x", secret: "s", fetch: fetchFn });
@@ -213,7 +236,7 @@ describe("client", () => {
 });
 
 describe("seedCast", () => {
-  it("sets the city, logs 91 days, links the teacher and joins the shala through the bot", async () => {
+  it("sets the city, logs 91 days, links the teacher and fills the shala through the bot", async () => {
     /** @type {string[]} */
     const done = [];
     const client = {
@@ -230,8 +253,26 @@ describe("seedCast", () => {
         if (path === "/me/invite") return { url: "https://t.me/tristhana_bot?start=t_abc123" };
         if (path === "/me/links") return { teachers: [{}] };
         if (path === "/shalas") return { id: "s1" };
+        if (path === "/shalas/s1") {
+          const joined = done.includes("Lila taps ✅");
+          return {
+            staff: [{ id: "a1", owner: true }, ...(joined ? [{ id: "a2", owner: false }] : [])],
+          };
+        }
+        if (path === "/shalas/s1/classes") return { id: `c${done.length}` };
         if (path === "/shalas/s1/join-link") return { url: "https://t.me/x?start=h_xyz" };
+        if (path === "/shalas/s1/staff-invites") return { url: "https://t.me/x?start=hs_one" };
         if (path === "/me/shalas") return [{}];
+        if (path.startsWith("/me/schedule")) {
+          const row = { class_id: "c1", can_claim: true };
+          return {
+            occurrences: [
+              { ...row, key: "2026-11-10", starts_at: "2026-11-10T01:00:00Z" },
+              { ...row, key: "2026-11-11", starts_at: "2026-11-11T01:00:00Z" },
+              { ...row, key: "2026-11-12", starts_at: "2026-11-12T01:00:00Z" },
+            ],
+          };
+        }
         return null;
       },
       say: async (/** @type {any} */ user, /** @type {string} */ text) => {
@@ -247,7 +288,10 @@ describe("seedCast", () => {
         return { method: "editMessageText" };
       },
     };
-    await seedCast(/** @type {any} */ (client), "en", { today: "2026-11-11" });
+    await seedCast(/** @type {any} */ (client), "en", {
+      today: "2026-11-11",
+      now: new Date("2026-11-11T06:00:00Z"),
+    });
     expect(done.slice(0, 5)).toEqual([
       "Maya POST /me/device-timezone",
       "Maya PATCH /me",
@@ -262,11 +306,18 @@ describe("seedCast", () => {
     expect(done).toContain("Maya says /start t_abc123");
     expect(done).toContain("Maya POST /me/progression/events");
     expect(done.filter((line) => line === "Arjun POST /shalas/s1/classes")).toHaveLength(2);
-    expect(done.slice(-3)).toEqual([
-      "Maya says /start h_xyz",
-      "Maya taps ✅",
-      "Maya GET /me/shalas",
+    expect(done).toContain("Arjun PUT /me/moon-location");
+    expect(done).toContain("Maya says /start h_xyz");
+    // The assistant joins by a one-time staff link and covers the first Mysore morning two
+    // or more days ahead (Nov 13 is a Friday, Nov 14 the day off, so Sunday Nov 15).
+    expect(done).toContain("Lila says /start hs_one");
+    expect(done.filter((line) => line.includes("/occurrences/"))).toEqual([
+      expect.stringMatching(/^Arjun PUT \/shalas\/s1\/classes\/c\d+\/occurrences\/2026-11-15$/),
     ]);
+    expect(done).toContain("Arjun POST /shalas/s1/closures");
+    expect(done).toContain("Arjun POST /me/announcements");
+    // The student marks the latest class that has already started, never a future one.
+    expect(done.at(-1)).toBe("Maya PUT /me/attendance/c1/2026-11-11");
   });
 
   const stub = (/** @type {{ date: string }[]} */ days) => ({

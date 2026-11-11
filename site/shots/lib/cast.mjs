@@ -2,7 +2,7 @@
 // language and the screenshots exist in both. Telegram ids are from a made-up range.
 
 /** @typedef {import("./client.mjs").DemoUser} DemoUser */
-/** @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser }} Cast */
+/** @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser, assistant: DemoUser }} Cast */
 
 export const CITY = { slug: "almaty", zone: "Asia/Almaty" };
 
@@ -15,12 +15,20 @@ export const CAST = {
     student: { id: 9001, name: "Maya", lang: "en" },
     teacher: { id: 9002, name: "Arjun", lang: "en" },
     newcomer: { id: 9003, name: "Maya", lang: "en" },
+    assistant: { id: 9004, name: "Lila", lang: "en" },
   },
   ru: {
     student: { id: 9101, name: "Майя", lang: "ru" },
     teacher: { id: 9102, name: "Арджун", lang: "ru" },
     newcomer: { id: 9103, name: "Майя", lang: "ru" },
+    assistant: { id: 9104, name: "Лила", lang: "ru" },
   },
+};
+
+/** The demo shala's one announcement: no "tomorrow", as the product's own hint asks. */
+export const NEWS = {
+  en: "New: a Led class every Friday at 6:30. Mysore on the other mornings stays as it is 🙏",
+  ru: "Новое: лед-класс каждую пятницу в 6:30. Майсор в остальные утра без изменений 🙏",
 };
 
 /** `YYYY-MM-DD` of the day `back` days before `today` (both in the demo city's zone). */
