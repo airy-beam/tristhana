@@ -5,7 +5,7 @@ No Node/mermaid-cli needed: loads mermaid from jsDelivr inside Chrome,
 measures the SVG in a first pass, screenshots at exact size in a second.
 
 Usage:
-    python3 tools/render_diagrams.py                 # all tristhana_bot_*.mmd in the notes attachments
+    python3 tools/render_diagrams.py                 # all tristhana_bot_*.mmd in the notes (attachments/tristhana_bot/diagrams)
     python3 tools/render_diagrams.py path/to/x.mmd   # specific files
 """
 import html
@@ -18,7 +18,7 @@ from pathlib import Path
 
 from PIL import Image
 
-ATTACHMENTS = Path("/home/pumpkin_vibe/Documents/pumpkin_notes/attachments/tristhana_bot")
+ATTACHMENTS = Path("/home/pumpkin_vibe/Documents/pumpkin_notes/attachments/tristhana_bot/diagrams")
 CHROME = "google-chrome"
 MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"
 SCALE = 2

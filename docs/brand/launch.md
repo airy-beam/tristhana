@@ -108,7 +108,7 @@ is one thing the product does, with a real screenshot from the guide. Sources: t
 layout are in `src/carousel_launch_gen.py`; render both languages into the notes with
 
 ```sh
-python3 docs/brand/src/carousel_launch_gen.py ~/Documents/pumpkin_notes/attachments/tristhana_bot
+python3 docs/brand/src/carousel_launch_gen.py ~/Documents/pumpkin_notes/attachments/tristhana_bot/carousel
 ```
 
 (files `tristhana_carousel_launch_<lang>_<NN>.png`). Slides 1–11 are for students, 12–14 for
