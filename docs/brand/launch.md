@@ -100,3 +100,63 @@ Guide with pictures: tristhana.app
 ### Short (story, status)
 
 Tristhana is open to everyone: an Ashtanga practice log in Telegram. Practice and rest in one tap, moon days for your city, students and a shala schedule. Free, and it will stay free. Open source. A not-for-profit hobby project for the Ashtanga community. @tristhana_bot · tristhana.app
+
+## Instagram carousel (feed post, 20 slides)
+
+A regular post, not a story: 20 slides of 1080×1350 (4:5), the most a carousel takes. Each slide
+is one thing the product does, with a real screenshot from the guide. Sources: the texts and the
+layout are in `src/carousel_launch_gen.py`; render both languages into the notes with
+
+```sh
+python3 docs/brand/src/carousel_launch_gen.py ~/Documents/pumpkin_notes/attachments/tristhana_bot
+```
+
+(files `tristhana_carousel_launch_<lang>_<NN>.png`). Slides 1–11 are for students, 12–14 for
+teachers, 15–18 for shalas, 19–20 about the project and how to start.
+
+In an Instagram caption `@tristhana_bot` would point at an Instagram account of that name, not
+at the Telegram bot, so the captions below write the bot's address as `t.me/tristhana_bot`.
+Links in captions are not tappable: put `tristhana.app` in the profile. Five hashtags per
+caption: Instagram has been limiting posts to five since December 2025 (as reported; check
+when posting). Spares: `#ashtangavinyasa`, `#mysorepractice`, `#ashtangateacher`, `#mysoreshala`.
+
+### Подпись (RU)
+
+Tristhana открыта для всех 🙏
+
+Это спутник практики аштанги прямо в Telegram: журнал практики и отдыха, лунные дни и всё, что нужно учителю и шале. Листай карусель — там всё по порядку.
+
+🧘 Практика или отдых в одно касание, детали по желанию
+🌙 Лунные дни для твоего города и напоминания
+📊 Год, месяц, практики подряд и самочувствие — без соревнований и рейтингов
+👥 Учителям: ученики по ссылке, новая асана для ученика, объявления
+🏛 Шалам: расписание, посещения, объявления
+🔒 Заметки, самочувствие и причину отдыха видишь только ты
+
+Бесплатно — и так и останется. Открытый код. Некоммерческий хобби-проект для сообщества аштанги: сделан практикующим для практикующих.
+
+Начать: t.me/tristhana_bot → /start
+Справка с картинками: tristhana.app/ru (ссылка в профиле)
+
+#аштанга #аштангайога #майсоркласс #аштангавиньяса #ashtangayoga
+
+### Caption (EN)
+
+Tristhana is open to everyone 🙏
+
+It is a companion for your Ashtanga practice, right in Telegram: a log for practice and rest, moon days, and what a teacher and a shala need. Swipe through: it is all there, in order.
+
+🧘 Practice or rest in one tap, details if you want them
+🌙 Moon days for your city, with reminders
+📊 Your year, your month, practices in a row and check-ins, with no competition and no rankings
+👥 For teachers: students join by link, a new asana for a student, announcements
+🏛 For shalas: a schedule, attendance, announcements
+🔒 Notes, check-ins and the reason for a rest day stay with you
+
+Free, and it will stay free. Open source. A not-for-profit hobby project for the Ashtanga community: made by a practitioner for practitioners.
+
+Start: t.me/tristhana_bot → /start
+Guide with pictures: tristhana.app (link in profile)
+
+#ashtanga #ashtangayoga #mysorestyle #ashtangapractice #moonday
+

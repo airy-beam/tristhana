@@ -61,3 +61,31 @@ h1 { font-family: "Noto Serif Display", "Noto Serif", serif; font-weight: 600; f
 .cards .c .cd b { color: var(--saffron); font-weight: 400; }
 .made { margin-top: 30px; font-size: 33px; line-height: 1.4; color: #e9e3f2; }
 .made b { color: var(--saffron); }
+
+/* Instagram carousel slides (feed post, 4:5): a headline, one or two lines and a screenshot. */
+.slide { position: relative; width: 1080px; height: 1350px; padding: 60px 76px 0; display: flex; flex-direction: column; overflow: hidden; }
+.slide .top { display: flex; align-items: center; justify-content: space-between; }
+.slide .mark { gap: 16px; }
+.slide .mark svg { width: 58px; height: 58px; }
+.slide .brand { font-size: 40px; }
+.slide .num { font-size: 28px; letter-spacing: 3px; color: var(--saffron); font-weight: 700; }
+.slide .kicker { margin-top: 40px; font-size: 26px; padding: 9px 22px; }
+.slide h1 { font-size: 70px; margin-top: 22px; }
+.slide .lead { font-size: 35px; margin-top: 20px; line-height: 1.34; }
+.slide .lead b { color: var(--saffron); font-weight: 700; }
+.slide .shot { flex: 1; min-height: 0; margin-top: 40px; align-self: center; width: 660px; border-radius: 46px 46px 0 0; overflow: hidden;
+  border: 9px solid rgba(243,233,214,0.22); border-bottom: none; background: #ffffff; box-shadow: 0 -10px 60px rgba(0,0,0,0.35); }
+.slide .shot img { display: block; width: 100%; }
+.slide .shot.chat { background: #efe6d5; }
+.slide .list.steps { margin-top: 44px; gap: 26px; }
+.slide .list.steps li { font-size: 40px; align-items: center; }
+.slide .list.steps .e { width: 64px; height: 64px; border-radius: 50%; background: var(--saffron); color: var(--ink); font-weight: 900; font-size: 34px; display: flex; align-items: center; justify-content: center; }
+.slide .cards { margin-top: 40px; gap: 22px; }
+.slide .cards .c { padding: 28px 34px; }
+.slide .cards .c .ct { font-size: 44px; }
+.slide .cards .c .cd { font-size: 34px; margin-top: 8px; }
+.slide .cta { margin: auto 0 64px; }
+.slide .swipe { margin-top: 26px; font-size: 30px; color: var(--saffron); letter-spacing: 2px; font-weight: 700; }
+.slide.cover h1 { font-size: 88px; margin-top: 26px; }
+.slide.cover .lead { font-size: 38px; }
+.slide .moon { top: 120px; right: -180px; }
