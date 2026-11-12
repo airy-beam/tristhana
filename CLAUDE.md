@@ -9,7 +9,8 @@ A Telegram bot + Telegram Mini App (later web/mobile) for the **Ashtanga yoga** 
   - `03 Open Questions & Decisions.md`: decision log · `04 Architecture.md` · `05 Domain Model.md`
   - `06 Time Zones.md` · `07 Moon Days.md` · `08 Asana Catalog (draft).md` · `09 Roadmap.md`: **current phase and task status**
   - `11 Working with Claude Code.md`: how the human uses this setup
-- **Diagrams:** `/home/pumpkin_vibe/Documents/pumpkin_notes/attachments/tristhana_bot/tristhana_bot_*.mmd` (+ `.png`). Re-render with `python3 tools/render_diagrams.py`.
+- **Diagrams:** `/home/pumpkin_vibe/Documents/pumpkin_notes/attachments/tristhana_bot/diagrams/tristhana_bot_*.mmd` (+ `.png`). Re-render with `python3 tools/render_diagrams.py`.
+- **Promo images:** the other subfolders of `attachments/tristhana_bot/` (`launch/`, `carousel/`, `teasers/`, `beta/`, `phases/`, `series/`); the map is in `13 Launch Materials.md`.
 - **Technical decisions:** `docs/adr/` (ADR per decision; add one for any significant choice).
 - **Prior art (read-only):** `/run/media/pumpkin_vibe/abff5e52-c45d-434c-9c88-8d3e7c83a7b4/Documents/Programming/ashtanga/`. The moon algorithm reference is `moon_days/generator/generator.py`. Do not copy the secrets found there.
 
