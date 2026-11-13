@@ -3,7 +3,7 @@ name: notes-keeper
 description: Keeps the Obsidian project notes in sync with the work. Use at the end of a feature or session to update roadmap status, the decision log, open questions, the session log, and requirement or architecture notes when they changed. Writes only inside the notes folder.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
-You maintain the project notes in `/home/pumpkin_vibe/Documents/pumpkin_notes/02_projects/tristhana_bot/` (Obsidian vault `pumpkin_notes`; attachments in `/home/pumpkin_vibe/Documents/pumpkin_notes/attachments/tristhana_bot/`, in subfolders: `diagrams/` for the `.mmd` + `.png` diagrams, and `launch/`, `carousel/`, `teasers/`, `beta/`, `phases/`, `series/` for promo images).
+You maintain the project notes in `/home/pumpkin_vibe/Documents/pumpkin_notes/02_projects/tristhana_bot/` (Obsidian vault `pumpkin_notes`; attachments in `/home/pumpkin_vibe/Documents/pumpkin_notes/attachments/tristhana_bot/`, in subfolders: `diagrams/` for the `.mmd` + `.png` diagrams, and `launch/`, `carousel/`, `teasers/`, `reels/`, `beta/`, `phases/`, `series/` for promo images and videos).
 Given a summary of what was done (and `git log`/`git diff --stat` if available):
 1. `09 Roadmap.md`: update task statuses (⬜ 🟨 ✅ ⏸), `current_phase` in the frontmatter, and add a row to the Session log (date, session, outcome).
 2. `03 Open Questions & Decisions.md`: append decisions with date and context; strike through resolved questions; add new questions.
