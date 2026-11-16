@@ -1,5 +1,13 @@
 # Тексты Mini App (ru). Ключи совпадают с locales/en/app.ftl. Префикс ключа — экран.
 
+## Shell (UI-06): tabs as the bot's Menu rows; tab-shala is also that tab's heading.
+tab-today = 📝 Сегодня
+tab-practice = 📊 Практика
+tab-shala = 🏛 Шала
+tabs-label = Разделы
+chunk-failed = Не получилось загрузить экран. Проверь связь и попробуй ещё раз.
+chunk-retry = Попробовать ещё раз
+
 # Главный экран: приветствие по имени из Telegram (только для показа).
 home-greeting = Намасте, { $name } 🙏
 home-greeting-anon = Намасте 🙏
@@ -176,7 +184,6 @@ remind-weekday = { $d ->
     }
 
 ## Статистика (ST-01..03). Только «подряд», никогда «серия», «полоса», «пропуск».
-stats-open = 📊 Моя практика
 stats-title = Моя практика
 badges-open = 🏅 Значки
 trends-open = ✨ Самочувствие за год
@@ -250,7 +257,9 @@ stats-next = ›
     .aria-label = Следующий год
 
 ## Настройки (ID-06).
-settings-open = ⚙️ Настройки
+# The gear: its icon, and its name for screen readers.
+settings-open = ⚙️
+    .aria-label = Настройки
 settings-title = Настройки
 settings-name = Имя
 settings-name-hint = Так я к тебе обращаюсь, и это имя видят твои учителя и ученики. Оставь пустым, и я возьму имя из Telegram.
@@ -808,27 +817,12 @@ feed-off-done = Отключено.
 # UI-05: opens the public guide site in the browser (Settings, and outside Telegram).
 guide-open = 📖 Справка
 
-## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
-
-tour-open = 🧭 Знакомство
-tour-offer = Показать, что здесь где? Это займёт минуту.
-tour-offer-yes = Покажи
-tour-offer-no = Не сейчас
-tour-progress = { $n } из { $total }
-tour-next = Дальше
-tour-prev = ‹
-    .aria-label = Предыдущий шаг
-tour-done = Готово
-tour-today = Практика или отдых? После практики можно добавить детали, самочувствие и личную заметку.
-tour-stats = Весь твой год на одном экране и календарь, чтобы дополнить прошлые дни.
-tour-asanas = Твоя последняя асана. Новая асана от учителя? Отметь её здесь, это может сделать и учитель.
-tour-students = Твои ученики: у каждого отметка за сегодня, последняя асана и последние 7 дней. Заметки, самочувствие и причина отдыха остаются у них.
-tour-schedule = Занятия всех твоих шал на неделю, по твоему времени.
-tour-moon = Ближайшие лунные дни: полнолуние и новолуние, традиционные дни отдыха. Город — в настройках.
-tour-settings = Твой город, выходной, напоминания и приватность. Здесь же учителя, ученики и шалы, а ещё это знакомство.
-
-links-title = 👥 Учителя и ученики
-links-empty = Учителей в списке нет. Журнал практики работает и так.
+## Shala tab (UI-06; ID-04, SC-01). shala-empty and the two starts: nobody on the lists yet;
+## the starts carry the bot's labels.
+shala-empty = Здесь пока никого нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют.
+shala-start-invite = Пригласить учеников
+shala-start-shala = Шала и занятия
+links-empty = Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют. Журнал практики работает и так.
 links-no-students = Учеников в списке нет.
 links-primary-hint = ⭐ — твой основной учитель. Поменять можно в любой момент.
 links-main-chosen = ⭐ Основной учитель: { $name }

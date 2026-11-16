@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Me } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
-import { MoonCard } from "./MoonCard";
+import MoonScreen from "./moon/MoonScreen";
 import Links from "./settings/Links";
 import Settings from "./settings/Settings";
 
@@ -128,9 +128,7 @@ const plain = (text: string) => text.replace(/[\u2068\u2069]/g, "");
 /** The one element that holds exactly `text` (not its ancestors, not an <option>). */
 const exact = (text: string) => (_: string, el: Element | null) =>
   !!el && el.childElementCount === 0 && el.tagName !== "OPTION" && plain(el.textContent) === text;
-const settings = (locale: Locale = "en") => (
-  <Settings me={{ ...ME, locale }} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />
-);
+const settings = (locale: Locale = "en") => <Settings me={{ ...ME, locale }} onBack={vi.fn()} />;
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -223,7 +221,7 @@ describe("Follow my teacher in Settings", () => {
 describe("The moon card names the source", () => {
   it("says it follows the main teacher", async () => {
     stubApi(FOLLOWING);
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     expect(plain((await screen.findByRole("heading")).textContent)).toBe(
       "🌙 Moon days · 📍 Almaty",
@@ -241,7 +239,7 @@ describe("The moon card names the source", () => {
         teacher: { id: ANNA, name: "Anna" },
       }),
     );
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     await screen.findByRole("heading");
     expect(
@@ -253,7 +251,7 @@ describe("The moon card names the source", () => {
 
   it("has no source line for a chosen city or the default", async () => {
     stubApi(location({ slug: "moscow", source: "chosen", explicit: true }));
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     await screen.findByRole("heading");
     expect(screen.queryByText(/👥/)).not.toBeInTheDocument();
@@ -271,7 +269,7 @@ describe("The moon card names the source", () => {
         ? location({ slug: "almaty", source: "chosen", explicit: true, shared: { chosen } })
         : location({ shared: { chosen } }),
     );
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     await screen.findByRole("heading");
     expect(screen.getByText(exact(text))).toBeInTheDocument();
@@ -299,7 +297,7 @@ it.each([
         shared: { chosen: false, staff_shala: staff },
       }),
     );
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     await screen.findByRole("heading");
     expect(screen.getByText((_, el) => plain(el?.textContent ?? "") === text)).toBeInTheDocument();
@@ -332,7 +330,7 @@ it.each([
   "tells a teacher on a shala's staff who follows %s that its students keep its calendar (Q279)",
   async (_, loc, text) => {
     stubApi(loc);
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     await screen.findByRole("heading");
     expect(screen.getByText((_c, el) => plain(el?.textContent ?? "") === text)).toBeInTheDocument();
@@ -342,7 +340,7 @@ it.each([
 it("names the default for students of a teacher who follows their own teacher", async () => {
   // One hop: this teacher sees Almaty from their teacher, their students get Mysuru.
   stubApi({ ...FOLLOWING, explicit: true, follow_chosen: true, shared: { chosen: false } });
-  renderWith(<MoonCard locale="en" />);
+  renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
   await screen.findByRole("heading");
   expect(
@@ -371,7 +369,7 @@ describe("Make main and Remove refetch the moon days, days and stats", () => {
     stubApi(FOLLOWING, links);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const spy = vi.spyOn(client, "invalidateQueries");
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />, "en", client);
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />, "en", client);
 
     fireEvent.click(await screen.findByRole("button", { name: (n) => /Make main/.test(plain(n)) }));
 
@@ -385,7 +383,7 @@ describe("Make main and Remove refetch the moon days, days and stats", () => {
     stubApi(FOLLOWING);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const spy = vi.spyOn(client, "invalidateQueries");
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />, "en", client);
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />, "en", client);
 
     fireEvent.click(await screen.findByRole("button", { name: (n) => /Remove/.test(plain(n)) }));
 

@@ -468,80 +468,85 @@ body {
   padding-left: 20px;
 }
 
-/* UI-02: the quick tour. Theme colours only; the spotlight's shadow is the dim. */
-[data-tour] {
-  scroll-margin-top: 12px;
+/* UI-06: the shell. Three tabs and a gear on the roots; a screen with Back has neither
+   (ADR-0047). Theme colours only. */
+.shell {
+  --tabbar: 50px;
+  --shell-bottom: max(env(safe-area-inset-bottom), var(--tg-viewport-safe-area-inset-bottom, 0px));
+  position: relative;
 }
 
-.tour-blocker {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
+.shell.tabs > .screen {
+  padding-bottom: calc(var(--space) * 1.5 + var(--tabbar) + var(--shell-bottom));
 }
 
-.tour-blocker.dim {
-  background: rgb(0 0 0 / 55%);
+/* The heading leaves room for the gear. Focused by the shell after a tab switch. */
+.shell.tabs > .screen > h1 {
+  padding-right: 40px;
 }
 
-.tour-spot {
-  position: fixed;
-  z-index: 101;
-  border-radius: 12px;
-  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 55%);
-  outline: 2px solid var(--c-accent);
-  pointer-events: none;
-  transition:
-    top 0.2s,
-    left 0.2s,
-    width 0.2s,
-    height 0.2s;
-}
-
-.tour-sheet {
-  position: fixed;
-  right: 8px;
-  bottom: calc(100vh - var(--tg-viewport-stable-height, 100vh) + 8px + env(safe-area-inset-bottom));
-  left: 8px;
-  z-index: 102;
-  padding: var(--space);
-  border-radius: 12px;
-  background: var(--c-bg);
-  color: var(--c-text);
-}
-
-.tour-sheet.top {
-  top: calc(8px + env(safe-area-inset-top));
-  bottom: auto;
-}
-
-.tour-sheet p {
+.screen h1:focus {
   outline: none;
 }
 
-.tour-sheet .row {
+.gear {
+  position: absolute;
+  top: calc(var(--space) * 1.5 - 7px);
+  right: calc(var(--space) - 10px);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Raised by the part of the page Telegram has not revealed, and clear of the home indicator. */
+.tabbar {
+  position: fixed;
+  right: 0;
+  bottom: calc(100vh - var(--tg-viewport-stable-height, 100vh));
+  left: 0;
+  z-index: 50;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  padding-bottom: var(--shell-bottom);
+  border-top: 1px solid color-mix(in srgb, var(--c-hint) 30%, transparent);
+  background: var(--tg-theme-bottom-bar-bg-color, var(--c-surface));
 }
 
-.tour-sheet .row button {
-  min-width: 44px;
-  min-height: 44px;
+.tabbar button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tabbar);
+  padding: 4px 2px;
+  border: 0;
+  border-top: 2px solid transparent;
+  background: none;
+  color: var(--c-hint);
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
-.tour-sheet .chip {
-  background: var(--c-accent);
-  color: var(--c-accent-text);
+/* Active: weight and a top line as well as colour. */
+.tabbar button[aria-current="page"] {
+  border-top-color: var(--c-accent);
+  color: var(--c-text);
+  font-weight: 600;
 }
 
-.tour-sheet .row button:last-child {
-  margin-left: auto;
+/* While a text field has the focus the bar is out of the way, so it never rides on the
+   keyboard: iOS lays the keyboard over the page, Android resizes the page. */
+:root:has(textarea:focus, input:not([type="checkbox"], [type="radio"]):focus) .tabbar {
+  display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tour-spot {
-    transition: none;
-  }
+/* A start that is offered, not pressed on anyone (the empty Shala tab). */
+.row-button.quiet {
+  background: none;
+  padding-left: 0;
 }
 
 /* Teachers and students (ID-04). A QR needs a white quiet zone in the dark theme too. */

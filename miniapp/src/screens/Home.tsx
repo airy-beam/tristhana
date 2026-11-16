@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode, type Ref } from "react";
 
 import { useHealth } from "../api/client";
 import { haptics, useMainButton } from "../telegram";
@@ -12,9 +12,19 @@ interface HomeProps {
   onGreetingLongPress?: () => void;
   /** Cards shown under the subtitle (e.g. today's status). */
   children?: ReactNode;
+  /** The shell focuses the heading after a tab switch. */
+  headingRef?: Ref<HTMLHeadingElement> | undefined;
 }
 
-export function Home({ firstName, showDetails, onGreetingLongPress, children }: HomeProps) {
+/** The Today tab's root (UI-06): the greeting, then what the shell puts under it. In the first
+ * chunk, never lazy: logging must not wait for a second request. */
+export function Home({
+  firstName,
+  showDetails,
+  onGreetingLongPress,
+  children,
+  headingRef,
+}: HomeProps) {
   const { l10n } = useLocalization();
   const health = useHealth();
   const { refetch } = health;
@@ -42,11 +52,11 @@ export function Home({ firstName, showDetails, onGreetingLongPress, children }: 
     <main className="screen">
       {firstName ? (
         <Localized id="home-greeting" vars={{ name: firstName }}>
-          <h1 {...pressHandlers} />
+          <h1 ref={headingRef} tabIndex={-1} {...pressHandlers} />
         </Localized>
       ) : (
         <Localized id="home-greeting-anon">
-          <h1 {...pressHandlers} />
+          <h1 ref={headingRef} tabIndex={-1} {...pressHandlers} />
         </Localized>
       )}
       <Localized id="home-subtitle">

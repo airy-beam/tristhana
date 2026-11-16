@@ -1,14 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
 
 import {
   useMe,
@@ -19,8 +10,9 @@ import {
   type StatsSummary,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
-import { cityName } from "../MoonCard";
+import { lazyRetry } from "../../shell/lazyRetry";
+import { haptics } from "../../telegram";
+import { cityName } from "../cityName";
 import { DayOffQuestion } from "../DayOffQuestion";
 import { autoDays, loadShowLadies, moonDates, parse, saveShowLadies } from "./cells";
 import { DayEditor } from "./DayEditor";
@@ -29,22 +21,25 @@ import { ShareButton } from "../share/ShareButton";
 import { MonthView } from "./MonthView";
 
 // GM-02: its own chunk (with its copy), so My practice doesn't pay for it.
-const Badges = lazy(() => import("../badges/Badges"));
+const Badges = lazyRetry(() => import("../badges/Badges"));
 // ST-05: likewise.
-const Trends = lazy(() => import("../trends/Trends"));
+const Trends = lazyRetry(() => import("../trends/Trends"));
 
 interface Props {
   locale: Locale;
   zone: string | null;
-  onBack: () => void;
+  /** My asanas (PR-08), the first row. */
+  onAsanas: () => void;
   /** Settings, scrolled to the day off (the stats question's "Other…" and link). */
   onDayOff: () => void;
+  /** The shell focuses the heading after a tab switch. */
+  headingRef?: Ref<HTMLHeadingElement> | undefined;
 }
 
-/** "My practice": consistency, the year heatmap, a month calendar and its summary
- * (ST-01..03). Loaded lazily, so Home stays light. */
-export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
-  useBackButton(onBack);
+/** The Practice tab's root (UI-06): My asanas, consistency, the year heatmap, a month calendar
+ * and its summary (ST-01..03). A root registers no Back layer; its inner layers (Badges,
+ * Check-ins, the day editor) do. Loaded lazily, so Today stays light. */
+export default function Stats({ locale, zone, onAsanas, onDayOff, headingRef }: Props) {
   const [year, setYear] = useState<number | undefined>(undefined);
   // Badges and Check-ins over time open over My practice, which stays mounted (hidden): Back
   // returns to the same month, editor and scroll position.
@@ -71,26 +66,9 @@ export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
   }, [over]);
   const query = useStats(year);
   const stats = query.data;
-  // Outside Telegram (or on clients without its Back button) the screen needs its own.
-  const back = backButtonAvailable() ? null : (
-    <Localized id="stats-back">
-      <button type="button" className="link" onClick={onBack} />
-    </Localized>
-  );
-  if (query.isError) {
-    return (
-      <main className="screen">
-        {back}
-        <Localized id="stats-load-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      </main>
-    );
-  }
-  if (!stats) return <main className="screen" aria-busy="true" />;
   const pick = (y: number) => {
     // The current year is cached as "current": going back to it needs no refetch.
-    setYear(y === Number(stats.today.slice(0, 4)) ? undefined : y);
+    setYear(stats && y === Number(stats.today.slice(0, 4)) ? undefined : y);
   };
   return (
     <>
@@ -103,18 +81,44 @@ export default function Stats({ locale, zone, onBack, onDayOff }: Props) {
           )}
         </Suspense>
       )}
-      <Loaded
-        key={stats.year}
-        stats={stats}
-        locale={locale}
-        zone={zone}
-        onYear={pick}
-        onDayOff={onDayOff}
-        onBadges={openBadges}
-        onTrends={openTrends}
+      <main
+        className="screen stats"
         hidden={over !== null}
-        back={back}
-      />
+        aria-busy={!stats && !query.isError ? true : undefined}
+      >
+        <Localized id="stats-title">
+          <h1 ref={headingRef} tabIndex={-1} />
+        </Localized>
+        {/* Above the data, so it is there while stats load and when they fail. */}
+        <Localized id="progression-open">
+          <button
+            type="button"
+            className="row-button"
+            onClick={() => {
+              haptics.selection();
+              onAsanas();
+            }}
+          />
+        </Localized>
+        {query.isError ? (
+          <Localized id="stats-load-failed">
+            <p className="status" role="alert" />
+          </Localized>
+        ) : (
+          stats && (
+            <Loaded
+              key={stats.year}
+              stats={stats}
+              locale={locale}
+              zone={zone}
+              onYear={pick}
+              onDayOff={onDayOff}
+              onBadges={openBadges}
+              onTrends={openTrends}
+            />
+          )
+        )}
+      </main>
     </>
   );
 }
@@ -127,8 +131,6 @@ function Loaded({
   onDayOff,
   onBadges,
   onTrends,
-  hidden,
-  back,
 }: {
   stats: StatsData;
   locale: Locale;
@@ -137,8 +139,6 @@ function Loaded({
   onDayOff: () => void;
   onBadges: () => void;
   onTrends: () => void;
-  hidden: boolean;
-  back: ReactNode;
 }) {
   const { l10n } = useLocalization();
   const cities = useMoonCities().data;
@@ -186,12 +186,7 @@ function Loaded({
   const first = stats.first_year ?? currentYear;
 
   return (
-    <main className="screen stats" hidden={hidden}>
-      {back}
-      <Localized id="stats-title">
-        <h1 />
-      </Localized>
-
+    <>
       {isCurrent && <Consistency stats={stats} onDayOff={onDayOff} />}
 
       <section className="card" aria-labelledby="year-title">
@@ -314,7 +309,7 @@ function Loaded({
       <Localized id="trends-open">
         <button type="button" className="row-button" onClick={onTrends} />
       </Localized>
-    </main>
+    </>
   );
 }
 

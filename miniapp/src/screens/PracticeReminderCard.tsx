@@ -63,7 +63,7 @@ export function PracticeReminderCard({
   };
 
   return (
-    <section className="card" aria-labelledby="remind-title">
+    <section className="card" id="remind" aria-labelledby="remind-title">
       <Localized id="remind-card-title">
         <h2 id="remind-title" />
       </Localized>

@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   useLinks,
@@ -19,8 +19,10 @@ import {
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { guideUrl } from "../../guide";
+import type { SettingsFocus } from "../../shell/nav";
 import { backButtonAvailable, haptics, openLink, useBackButton } from "../../telegram";
-import { cityName, MoonSource } from "../MoonCard";
+import { cityName } from "../cityName";
+import { MoonSource } from "../moon/MoonScreen";
 import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
 import { MyData } from "./MyData";
@@ -36,21 +38,25 @@ const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")
 interface Props {
   me: Me;
   onBack: () => void;
-  /** Opens the quick tour on Home (UI-02). */
-  onTour: () => void;
-  /** Opens "Teachers and students" (ID-04). */
-  onLinks: () => void;
-  /** Open scrolled to a section (the stats "Set your weekly day off" link). */
-  focus?: "day-off" | undefined;
+  /** Open scrolled to a section: the stats "Set your weekly day off" link, or the practice
+   * reminder (UI-06). */
+  focus?: SettingsFocus | undefined;
 }
 
 /** Everything in one place (ID-06): profile, time zone, moon days, reminders, privacy.
- * Loaded lazily, so Home stays light. */
-export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) {
+ * Pushed by the gear and by Telegram's ⋯ item (UI-06). Loaded lazily, so Today stays light. */
+export default function Settings({ me, onBack, focus }: Props) {
   useBackButton(onBack);
+  // Once, when the section is there: the reminder card mounts after its settings load.
+  const loaded = useNotificationSettings().isSuccess;
+  const scrolled = useRef(false);
   useEffect(() => {
-    if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
-  }, [focus]);
+    if (!focus || scrolled.current) return;
+    const section = document.getElementById(focus);
+    if (!section) return;
+    scrolled.current = true;
+    section.scrollIntoView({ block: "start" });
+  }, [focus, loaded]);
   return (
     <main className="screen settings">
       {!backButtonAvailable() && (
@@ -72,12 +78,6 @@ export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) 
       <Quiet zone={me.timezone} />
       <AnnouncementsSwitch />
       <CalendarFeedCard locale={me.locale} />
-      <Localized id="links-title">
-        <button type="button" className="row-button" onClick={onLinks} />
-      </Localized>
-      <Localized id="tour-open">
-        <button type="button" className="row-button" onClick={onTour} />
-      </Localized>
       <Localized id="guide-open">
         <button
           type="button"

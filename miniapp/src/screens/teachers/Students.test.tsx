@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-import appSource from "../../App.tsx?raw";
+import shellSource from "../../shell/Shell.tsx?raw";
 import homeSource from "../Home.tsx?raw";
 import linksSource from "../settings/Links.tsx?raw";
 
@@ -13,10 +13,11 @@ declare const process: {
   };
 };
 
-// ST-06 (spec §2, §5, §8): the neutral Home row, the list (name and today's mark, nothing else),
-// the card (7 days, last asana, one quiet note), Show more, a 404 falling back to the list, and
-// Remove dropping the cache. Driven through App, so the file doesn't care how the screen is
-// reached. App keeps one QueryClient per module, so each test imports a fresh App.
+// ST-06 (spec §2, §5, §8): the neutral My students row, the list (name and today's mark, nothing
+// else), the card (7 days, last asana, one quiet note), Show more, a 404 falling back to the
+// list, and Remove dropping the cache. Driven through App. Since UI-06 stage 2 the row lives in
+// the students card on the Shala tab (the Home row was deleted, not duplicated).
+// App keeps one QueryClient per module, so each test imports a fresh App.
 
 const telegram = vi.hoisted(() => ({
   openSettings: vi.fn() as () => void,
@@ -31,6 +32,7 @@ vi.mock("../../telegram", () => ({
   useBackButton: (onBack: () => void) => {
     telegram.back = onBack;
   },
+  useBackShown: vi.fn(() => false),
   backButtonAvailable: vi.fn(() => true),
   markReady: vi.fn(),
   useMainButton: vi.fn(),
@@ -217,15 +219,24 @@ function stubApi({ rows = () => ROWS, total, card: found = () => card(), answer 
 }
 
 const plain = (text: string | null | undefined) => (text ?? "").replace(/[⁨⁩]/g, "");
-const pageText = () => plain(document.body.textContent);
+/** The screen's own text: the tab bar and the gear are the shell's. */
+const pageText = () =>
+  plain([...document.querySelectorAll("main")].map((main) => main.textContent).join(" "));
 const calls = (seen: Request[], method: string, path: string) =>
   seen.filter((r) => r.method === method && new URL(r.url).pathname === path);
 const heading = () => plain(screen.getByRole("heading", { level: 1 }).textContent);
 const labelled = (end: string) => screen.queryAllByLabelText((label) => plain(label).endsWith(end));
 
-const homeLoaded = () => screen.findByRole("button", { name: /^⚙️ / });
-const homeRow = (locale: "en" | "ru" = "en") =>
-  screen.findByRole("button", { name: locale === "en" ? "👥 My students" : "👥 Мои ученики" });
+/** Today has loaded: the account is known. */
+const homeLoaded = () => screen.findByRole("heading", { level: 2, name: /^(Today|Сегодня)$/ });
+const ROW = { en: "👥 My students", ru: "👥 Мои ученики" } as const;
+const shalaTab = (locale: "en" | "ru" = "en") =>
+  screen.getByRole("button", { name: locale === "en" ? "🏛 Shala" : "🏛 Шала" });
+/** The row in the students card on the Shala tab, opening that tab if need be. */
+const homeRow = async (locale: "en" | "ru" = "en") => {
+  if (!screen.queryByRole("heading", { level: 1, name: /^🏛 / })) fireEvent.click(shalaTab(locale));
+  return screen.findByRole("button", { name: ROW[locale] });
+};
 
 async function renderApp(locale: "en" | "ru" = "en") {
   accountLocale = locale;
@@ -249,7 +260,6 @@ async function openCard(name: RegExp | string = /Anna/, locale: "en" | "ru" = "e
 
 beforeEach(() => {
   localStorage.clear();
-  localStorage.setItem("onboard.tour", "1");
   confirmDestructive.mockReset();
   confirmDestructive.mockResolvedValue(false);
   vi.stubGlobal(
@@ -268,7 +278,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("the Home row", () => {
+describe("the My students row", () => {
   test("is there with students, and carries no figure", async () => {
     stubApi();
 
@@ -284,31 +294,26 @@ describe("the Home row", () => {
 
     await renderApp();
 
+    expect(screen.queryByRole("button", { name: /My students/ })).toBeNull(); // not on Today
+    fireEvent.click(shalaTab());
     await waitFor(() => {
       expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(1);
     });
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.queryByRole("button", { name: /students/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /My students/ })).toBeNull();
   });
 
-  test("never holds Home back: it arrives after first paint", async () => {
-    let release: (response: Response) => void = () => undefined;
-    stubApi({
-      answer: (request) =>
-        new URL(request.url).pathname === "/api/v1/me/links"
-          ? new Promise<Response>((r) => {
-              release = r;
-            })
-          : undefined,
-    });
+  test("Today never waits for the lists: they are read when the Shala tab opens", async () => {
+    const seen = stubApi();
 
     await renderApp();
 
     expect(screen.queryByRole("button", { name: "👥 My students" })).toBeNull();
-    release(json({ teachers: [], students: [linked(ANNA, "Anna")] }));
+    expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(0);
     await homeRow();
+    expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(1);
   });
 
   test("reads no one's activity until it's opened", async () => {
@@ -320,17 +325,18 @@ describe("the Home row", () => {
     expect(calls(seen, "GET", "/api/v1/me/students")).toHaveLength(0);
   });
 
-  test("shares useLinks with the Settings screen, so nothing is fetched twice", async () => {
+  test("coming back from the list to the Shala tab reads the lists once", async () => {
     const seen = stubApi();
     await renderApp();
-    await homeRow();
+    fireEvent.click(await homeRow());
+    await screen.findByRole("button", { name: /Maria/ });
 
     act(() => {
-      telegram.openSettings();
+      telegram.back();
     });
-    fireEvent.click(await screen.findByRole("button", { name: "👥 Teachers and students" }));
 
-    await screen.findByRole("heading", { name: "👥 Teachers and students" });
+    await screen.findByRole("heading", { level: 1, name: "🏛 Shala" });
+    await homeRow();
     expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(1);
   });
 });
@@ -458,17 +464,11 @@ describe("the list", () => {
     expect(pageText()).toContain("Couldn't load your students. Try again in a moment.");
   });
 
-  test("opens from the Students part of Teachers and students too", async () => {
+  test("opens from the students card on the Shala tab", async () => {
     stubApi();
     await renderApp();
-    await homeRow();
-    act(() => {
-      telegram.openSettings();
-    });
-    fireEvent.click(await screen.findByRole("button", { name: "👥 Teachers and students" }));
-    await screen.findByRole("heading", { name: "👥 Teachers and students" });
 
-    fireEvent.click(await screen.findByRole("button", { name: /^👥 My students/ }));
+    fireEvent.click(await homeRow());
 
     await screen.findByRole("button", { name: /Maria/ });
     expect(pageText()).toContain("Days follow each student's own time zone.");
@@ -680,7 +680,7 @@ describe("Remove", () => {
     expect(calls(seen, "GET", "/api/v1/me/students").length).toBeGreaterThan(1);
   });
 
-  test("removing from the Teachers and students screen drops the list's cache too", async () => {
+  test("removing from the Shala tab's students card drops the list's cache too", async () => {
     confirmDestructive.mockResolvedValue(true);
     let removed = false;
     stubApi({
@@ -696,12 +696,7 @@ describe("Remove", () => {
     act(() => {
       telegram.back();
     });
-    await homeRow();
-    act(() => {
-      telegram.openSettings();
-    });
-    fireEvent.click(await screen.findByRole("button", { name: "👥 Teachers and students" }));
-    await screen.findByRole("heading", { name: "👥 Teachers and students" });
+    await screen.findByRole("heading", { level: 1, name: "🏛 Shala" });
     const person = (await screen.findByText("Anna")).closest(".link-person") as HTMLElement;
 
     fireEvent.click(within(person).getByRole("button", { name: "Remove…" }));
@@ -823,12 +818,14 @@ describe("Russian", () => {
 });
 
 describe("the chunk", () => {
-  test("Students is lazy, so initial JS gains only the Home row", () => {
-    expect(appSource).toMatch(/lazy\(\(\) => import\("\.\/screens\/teachers\/Students"\)\)/);
+  test("Students is lazy, so initial JS gains nothing from it", () => {
+    expect(shellSource).toMatch(
+      /lazyRetry\(\(\) => import\("\.\.\/screens\/teachers\/Students"\)\)/,
+    );
   });
 
   test.each([
-    ["App.tsx", appSource],
+    ["Shell.tsx", shellSource],
     ["Home.tsx", homeSource],
     ["Links.tsx", linksSource],
   ])("%s has no static import of it", (_, source) => {

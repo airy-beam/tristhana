@@ -184,25 +184,32 @@ describe("the Shalas part of Teachers and students", () => {
   it("lists my shalas, then Create a shala", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
     await screen.findByText(/Ashtanga Almaty/);
     expect(screen.getByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
   });
 
-  it("offers Create a shala with no shalas", async () => {
+  // UI-06 stage 2: with nobody on the lists and no shala there are no empty cards; the quiet
+  // "Shala and classes" start opens the layout with the form.
+  it("with no shalas and nobody on the lists, Shala and classes leads to the form", async () => {
     stubApi({ mine: [] });
 
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    const start = await screen.findByRole("button", { name: "Shala and classes" });
+    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
+    fireEvent.click(start);
 
-    expect(await screen.findByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(await screen.findByRole("textbox")).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "🏛 Shalas" })).toBeInTheDocument();
   });
 });
 
 describe("the create form", () => {
+  /** Someone with nobody on the lists yet: the quiet start opens the form. */
   async function openForm() {
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "🏛 Create a shala" }));
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Shala and classes" }));
     return screen.findByRole("textbox");
   }
 
@@ -250,23 +257,24 @@ describe("the create form", () => {
   it("starts open with the name focused when asked to (create)", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links create onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
     expect(await screen.findByRole("textbox")).toHaveFocus();
     expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
   });
 
   it("doesn't take the focus when the form is opened by its button", async () => {
-    stubApi();
+    stubApi({ mine: MINE });
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
-    const name = await openForm();
+    fireEvent.click(await screen.findByRole("button", { name: "🏛 Create a shala" }));
 
-    expect(name).not.toHaveFocus();
+    expect(await screen.findByRole("textbox")).not.toHaveFocus();
   });
 
   it("opens only once: back from the new shala's card the form is closed", async () => {
     stubApi();
-    renderWith(<Links create onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
     const name = await screen.findByRole("textbox");
     fireEvent.change(name, { target: { value: "Ashtanga Almaty" } });
     fireEvent.submit(name.closest("form") as HTMLFormElement);
@@ -441,9 +449,7 @@ describe("the shala card", () => {
 });
 
 describe("Follow my shala in Settings", () => {
-  const settings = (locale: Locale = "en") => (
-    <Settings me={{ ...ME, locale }} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />
-  );
+  const settings = (locale: Locale = "en") => <Settings me={{ ...ME, locale }} onBack={vi.fn()} />;
   const shalaLocation = {
     slug: "moscow",
     explicit: false,

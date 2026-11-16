@@ -1,6 +1,5 @@
 // What this device remembers about first steps. Blocked storage counts as done: never nag.
 const LOGGED_KEY = "onboard.logged";
-const TOUR_KEY = "onboard.tour";
 
 function seen(key: string): boolean {
   try {
@@ -21,8 +20,4 @@ function remember(key: string): void {
 export const loggedBefore = () => seen(LOGGED_KEY);
 export const markLogged = () => {
   remember(LOGGED_KEY);
-};
-export const tourSeen = () => seen(TOUR_KEY);
-export const markTourSeen = () => {
-  remember(TOUR_KEY);
 };

@@ -1,16 +1,12 @@
 import { Localized, useLocalization } from "@fluent/react";
 
-import { useMoonCities, useMoonDays, type City, type MoonDays } from "../api/client";
-import type { Locale } from "../i18n/negotiate";
+import { useMoonCities, useMoonDays, type MoonDays } from "../../api/client";
+import type { Locale } from "../../i18n/negotiate";
+import { backButtonAvailable, useBackButton } from "../../telegram";
+import { cityName } from "../cityName";
+import { moonDate, moonDayLine } from "../moonText";
 
 const UPCOMING = 3;
-
-const DAY_MS = 86_400_000;
-const daysBetween = (from: string, to: string) =>
-  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
-
-export const cityName = (city: City | undefined, slug: string, locale: Locale) =>
-  city ? (locale === "ru" ? city.name_ru : city.name_en) : slug;
 
 /** Where the city comes from (MD-02): the main teacher, and for a teacher what students get. */
 export function MoonSource({
@@ -68,12 +64,30 @@ export function MoonSource({
   );
 }
 
-/** Upcoming moon days of the followed city (MD-03); the city and reminders are in Settings. */
-export function MoonCard({ locale }: { locale: Locale }) {
+interface Props {
+  locale: Locale;
+  onBack: () => void;
+}
+
+/** Upcoming moon days of the followed city (MD-03), behind the moon row on Today (UI-06): the
+ * former Home card, whole. The city and reminders are in Settings. Loaded lazily. */
+export default function MoonScreen({ locale, onBack }: Props) {
+  useBackButton(onBack);
   const { l10n } = useLocalization();
   const moon = useMoonDays().data;
   const cities = useMoonCities().data;
-  if (!moon) return null;
+  const back = !backButtonAvailable() && (
+    <Localized id="stats-back">
+      <button type="button" className="link" onClick={onBack} />
+    </Localized>
+  );
+  if (!moon) {
+    return (
+      <main className="screen" aria-busy="true">
+        {back}
+      </main>
+    );
+  }
 
   const slug = moon.location.slug;
   const city = cityName(
@@ -81,56 +95,50 @@ export function MoonCard({ locale }: { locale: Locale }) {
     slug,
     locale,
   );
-  const dateFormat = new Intl.DateTimeFormat(locale, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
+  const date = moonDate(locale);
   const upcoming = moon.days.slice(0, UPCOMING);
 
   return (
-    <section className="card" data-tour="moon" aria-labelledby="moon-title">
+    <main className="screen">
+      {back}
       <Localized id="moon-title" vars={{ city }}>
-        <h2 id="moon-title" />
+        <h1 id="moon-title" />
       </Localized>
-      <MoonSource
-        location={moon.location}
-        city={city}
-        fallback={cityName(cities?.[0], "mysuru", locale)}
-      />
-      {upcoming.length ? (
-        <ul className="moon-days">
-          {upcoming.map((d) => (
-            <li key={d.date}>
-              {l10n.getString("moon-day-line", {
-                phase: l10n.getString("moon-phase-long", { phase: d.phase }),
-                date: dateFormat.format(new Date(`${d.date}T00:00:00Z`)),
-                in: l10n.getString("moon-in-days", { n: daysBetween(moon.today, d.date) }),
-              })}
-              {/* MD-04: the person's own city, only where its date differs (±1 day). */}
-              {moon.home && d.home_date && (
-                <Localized
-                  id="moon-home-fyi"
-                  vars={{
-                    city: cityName(moon.home, moon.home.slug, locale),
-                    date: dateFormat.format(new Date(`${d.home_date}T00:00:00Z`)),
-                  }}
-                >
-                  <span className="hint small moon-home" />
-                </Localized>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Localized id="moon-none">
-          <p className="hint" />
+      <section className="card" aria-labelledby="moon-title">
+        <MoonSource
+          location={moon.location}
+          city={city}
+          fallback={cityName(cities?.[0], "mysuru", locale)}
+        />
+        {upcoming.length ? (
+          <ul className="moon-days">
+            {upcoming.map((d) => (
+              <li key={d.date}>
+                {moonDayLine(l10n, d, moon.today, date)}
+                {/* MD-04: the person's own city, only where its date differs (±1 day). */}
+                {moon.home && d.home_date && (
+                  <Localized
+                    id="moon-home-fyi"
+                    vars={{
+                      city: cityName(moon.home, moon.home.slug, locale),
+                      date: date(d.home_date),
+                    }}
+                  >
+                    <span className="hint small moon-home" />
+                  </Localized>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Localized id="moon-none">
+            <p className="hint" />
+          </Localized>
+        )}
+        <Localized id="moon-calc-note" vars={{ city }}>
+          <p className="hint small" />
         </Localized>
-      )}
-      <Localized id="moon-calc-note" vars={{ city }}>
-        <p className="hint small" />
-      </Localized>
-    </section>
+      </section>
+    </main>
   );
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import type { City, Me, NotificationSettings } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
@@ -143,7 +143,7 @@ describe("Settings", () => {
   it("has the NT-03 announcements switch once there is a teacher, off = false, on = null", async () => {
     teachers = [{ id: "t1", name: "Anna", primary: true, primary_chosen: false, linked_at: "x" }];
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
 
     const toggle = await screen.findByRole("checkbox", {
       name: "📣 Announcements from teachers and shalas",
@@ -158,35 +158,47 @@ describe("Settings", () => {
 
   it("has no announcements switch with no teacher or shala", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
-    await screen.findByRole("button", { name: "🧭 Quick tour" });
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    await screen.findByRole("button", { name: "📖 Guide" });
     expect(
       screen.queryByRole("checkbox", { name: "📣 Announcements from teachers and shalas" }),
     ).not.toBeInTheDocument();
   });
 
-  it("re-opens the quick tour from a row above Privacy", async () => {
+  // UI-06 stage 2: the tour is retired (Q331), and teachers, students and shalas are the
+  // Shala tab (Q300). Neither has a row here any more.
+  it("has no quick tour row and no Teachers and students row", async () => {
     stubApi();
-    const onTour = vi.fn();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={onTour} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    await screen.findByRole("button", { name: "📖 Guide" });
 
-    fireEvent.click(await screen.findByRole("button", { name: "🧭 Quick tour" }));
+    expect(screen.queryByRole("button", { name: /tour/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Teachers and students/ })).toBeNull();
+  });
 
-    expect(onTour).toHaveBeenCalledOnce();
+  it("opens scrolled to the practice reminder when asked (UI-06)", async () => {
+    stubApi();
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    renderWith(<Settings me={ME} onBack={vi.fn()} focus="remind" />);
+
+    // The card mounts once its settings have loaded; the scroll waits for it, and runs once.
+    await waitFor(() => {
+      expect(scrolled).toHaveBeenCalledOnce();
+    });
+    expect(scrolled.mock.contexts[0]).toBe(document.getElementById("remind"));
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 
   it.each([
     ["en", "📖 Guide", "https://tristhana.app/"],
     ["ru", "📖 Справка", "https://tristhana.app/ru/"],
   ] as const)(
-    "opens the guide in the person's language from a row under the tour (UI-05, %s)",
+    "opens the guide in the person's language from a row above Privacy (UI-05, %s)",
     async (locale, label, url) => {
       stubApi();
       const { openLink } = await import("../../telegram");
-      renderWith(
-        <Settings me={{ ...ME, locale }} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />,
-        locale,
-      );
+      renderWith(<Settings me={{ ...ME, locale }} onBack={vi.fn()} />, locale);
       fireEvent.click(await screen.findByRole("button", { name: label }));
       expect(openLink).toHaveBeenLastCalledWith(url);
     },
@@ -194,7 +206,7 @@ describe("Settings", () => {
 
   it("saves a name on blur, and blank goes back to the Telegram name", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
     const name = await screen.findByRole("textbox", { name: "Name" });
     expect(name).toHaveAttribute("placeholder", "Ash");
 
@@ -206,14 +218,7 @@ describe("Settings", () => {
 
   it("switches the language and back to Telegram's", async () => {
     const seen = stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, locale_from_telegram: false }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, locale_from_telegram: false }} onBack={vi.fn()} />);
 
     expect(
       await screen.findByRole("button", { name: "English", pressed: true }),
@@ -226,14 +231,7 @@ describe("Settings", () => {
   it("lists every city, plus 'not listed' that offers the phone's time or UTC", async () => {
     deviceZoneIs("Asia/Bangkok");
     const seen = stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, home_city: ALMATY }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
     const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
     expect([...select.querySelectorAll("option")].map((o) => o.value)).toEqual([
       "",
@@ -261,7 +259,7 @@ describe("Settings", () => {
 
   it("won't let quiet hours swallow an active reminder, and sets the cap", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
 
     const from = await screen.findByRole("combobox", { name: "Quiet from" });
     const option = (h: string) => from.querySelector(`option[value="${h}"]`) as HTMLOptionElement;
@@ -276,7 +274,7 @@ describe("Settings", () => {
 
   it("explains privacy and shares the 🌸 switch with Stats", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
 
     expect(await screen.findByText(/stored encrypted/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" }));
@@ -379,12 +377,7 @@ describe("My city (MD-04)", () => {
   it("marks the stored city, not another one in its zone, and saves the slug", async () => {
     const seen = stubApi();
     renderWith(
-      <Settings
-        me={{ ...ME, timezone: "Europe/Moscow", home_city: SOCHI }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
+      <Settings me={{ ...ME, timezone: "Europe/Moscow", home_city: SOCHI }} onBack={vi.fn()} />,
     );
     const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
 
@@ -402,14 +395,7 @@ describe("My city (MD-04)", () => {
       name_ru: "Астана",
       timezone: "Asia/Almaty",
     };
-    renderWith(
-      <Settings
-        me={{ ...ME, home_city: astana }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, home_city: astana }} onBack={vi.fn()} />);
 
     // My own city: its name, no offset (ADR-0044).
     expect(
@@ -421,7 +407,7 @@ describe("My city (MD-04)", () => {
 
   it("says what the clock is, offset and all, while no city is chosen", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
 
     expect(
       await screen.findByText(
@@ -433,14 +419,7 @@ describe("My city (MD-04)", () => {
 
   it("nudges once: Not now answers it and keeps the zone", async () => {
     const seen = stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, home_city_chosen: false }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, home_city_chosen: false }} onBack={vi.fn()} />);
 
     expect(
       await screen.findByText("Pick your city if you like: times will then show its name."),
@@ -452,7 +431,7 @@ describe("My city (MD-04)", () => {
 
   it("has no nudge once answered", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
     await screen.findByRole("combobox", { name: "Which city do you live in?" });
 
     expect(
@@ -468,7 +447,7 @@ describe("My city (MD-04)", () => {
     client.setQueryData(["moon-cities"], CITIES);
     function Live() {
       const me = client.getQueryData<Me>(["me"]) ?? ME;
-      return <Settings me={me} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />;
+      return <Settings me={me} onBack={vi.fn()} />;
     }
     render(
       <QueryClientProvider client={client}>
@@ -487,14 +466,7 @@ describe("My city (MD-04)", () => {
 
   it("offers 'Same as my city' first in the moon calendar picker", async () => {
     const seen = stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, home_city: ALMATY }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
     const select = await screen.findByRole("combobox", { name: "City for the calendar" });
 
     const first = select.querySelector("option");
@@ -512,14 +484,7 @@ describe("Day off (PR-09)", () => {
 
   it("starts with nothing pressed and takes up to two days off", async () => {
     const seen = stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, day_off: null }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
     const group = await screen.findByRole("group", { name: "Day off" });
     const chip = (name: string) =>
       within(group).getByRole("button", { name: (n) => plain(n) === name });
@@ -545,14 +510,7 @@ describe("Day off (PR-09)", () => {
   it("rolls back when the save fails", async () => {
     dayOffFails = true;
     stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, day_off: null }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
     const group = await screen.findByRole("group", { name: "Day off" });
     fireEvent.click(within(group).getByRole("button", { name: "No fixed day off" }));
 
@@ -574,7 +532,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("is on by default, explains itself, and saves at once", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={shown} onBack={vi.fn()} />);
 
     const box = await toggle();
     expect(box).toBeChecked();
@@ -589,14 +547,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("reads the stored choice", async () => {
     stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, hide_ladies: true }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, hide_ladies: true }} onBack={vi.fn()} />);
 
     expect(await toggle()).not.toBeChecked();
   });
@@ -604,7 +555,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
   it("rolls back when the save fails", async () => {
     meFails = true;
     stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={shown} onBack={vi.fn()} />);
     const box = await toggle();
 
     fireEvent.click(box);
@@ -616,7 +567,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("is separate from the device-only 🌸 days switch", async () => {
     stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={shown} onBack={vi.fn()} />);
     fireEvent.click(await toggle());
 
     expect(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" })).not.toBeChecked();
@@ -634,7 +585,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
 
   it("is on by default, explains itself, and saves at once", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={offered} onBack={vi.fn()} />);
 
     const box = await toggle();
     expect(box).toBeChecked();
@@ -651,14 +602,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
 
   it("reads the stored choice and turns it back on", async () => {
     const seen = stubApi();
-    renderWith(
-      <Settings
-        me={{ ...offered, offer_check_in: false }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...offered, offer_check_in: false }} onBack={vi.fn()} />);
 
     const box = await toggle();
     expect(box).not.toBeChecked();
@@ -670,7 +614,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
   it("rolls back when the save fails", async () => {
     meFails = true;
     stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={offered} onBack={vi.fn()} />);
     const box = await toggle();
 
     fireEvent.click(box);
@@ -682,7 +626,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
 
   it("is in Russian too", async () => {
     stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />, "ru");
+    renderWith(<Settings me={offered} onBack={vi.fn()} />, "ru");
 
     expect(
       await screen.findByRole("checkbox", {

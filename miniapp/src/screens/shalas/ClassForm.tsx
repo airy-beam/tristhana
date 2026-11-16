@@ -11,7 +11,7 @@ import {
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
-import { cityName } from "../MoonCard";
+import { cityName } from "../cityName";
 import { labelOf } from "../settings/zones";
 import { WEEKDAYS, hmOf, minutesOf, plain, todayIn } from "./scheduleText";
 

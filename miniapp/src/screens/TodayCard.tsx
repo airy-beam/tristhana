@@ -19,7 +19,7 @@ import { AutoNote } from "./AutoNote";
 import { CheckIn } from "./CheckIn";
 import { DiaryNote } from "./DiaryNote";
 import { loggedBefore, markLogged } from "./onboard";
-import { cityName } from "./MoonCard";
+import { cityName } from "./cityName";
 import { PauseOffer, PeriodLine } from "./PauseOffer";
 import { PracticeDetails } from "./PracticeDetails";
 import { CountCelebration } from "./progression/CountCelebration";
@@ -91,7 +91,7 @@ export function TodayCard({ zone, locale }: Props) {
   };
 
   return (
-    <section className="card" data-tour="today" aria-labelledby="today-title">
+    <section className="card" aria-labelledby="today-title">
       <Localized id="today-title">
         <h2 id="today-title" />
       </Localized>

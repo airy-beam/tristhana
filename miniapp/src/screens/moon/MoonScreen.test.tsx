@@ -1,17 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import type { City, Me, MoonDays, NotificationSettings } from "../api/client";
-import { L10nProvider } from "../i18n/L10nProvider";
-import type { Locale } from "../i18n/negotiate";
-import { MoonCard } from "./MoonCard";
-import { PracticeReminderCard } from "./PracticeReminderCard";
-import Settings from "./settings/Settings";
-import { TodayCard } from "./TodayCard";
+import type { City, Me, MoonDays, NotificationSettings } from "../../api/client";
+import { L10nProvider } from "../../i18n/L10nProvider";
+import type { Locale } from "../../i18n/negotiate";
+import MoonScreen from "./MoonScreen";
+import { PracticeReminderCard } from "../PracticeReminderCard";
+import Settings from "../settings/Settings";
+import { TodayCard } from "../TodayCard";
+import { MoonRow } from "../TodayRows";
 
-vi.mock("../telegram", () => ({
+vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
   backButtonAvailable: vi.fn(() => true),
 }));
@@ -120,10 +121,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("MoonCard", () => {
+// UI-06 stage 2: the Home card is now a screen behind Today's moon row, whole.
+describe("MoonScreen", () => {
   it("lists upcoming moon days for the followed city", async () => {
     stubApi();
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     expect(visible(await screen.findByRole("heading"))).toBe("🌙 Moon days · 📍 Mysuru");
     const items = screen.getAllByRole("listitem").map(visible);
@@ -143,7 +145,7 @@ describe("MoonCard", () => {
         { date: "2026-11-06", kind: "kshaya_amavasya", phase: "amavasya", home_date: null },
       ],
     });
-    renderWith(<MoonCard locale="ru" />, "ru");
+    renderWith(<MoonScreen locale="ru" onBack={vi.fn()} />, "ru");
 
     await screen.findByRole("heading");
     const items = screen.getAllByRole("listitem").map(visible);
@@ -153,7 +155,7 @@ describe("MoonCard", () => {
 
   it("still renders a payload from before MD-04", async () => {
     stubApi(MOON);
-    renderWith(<MoonCard locale="en" />);
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
 
     await screen.findByRole("heading");
     expect(screen.getAllByRole("listitem").map(visible).join(" ")).not.toMatch(/ℹ/);
@@ -161,7 +163,7 @@ describe("MoonCard", () => {
 
   it("changes the city", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
     const select = await screen.findByRole("combobox", { name: "City for the calendar" });
 
     fireEvent.change(select, { target: { value: "almaty" } });
@@ -176,7 +178,7 @@ describe("MoonCard", () => {
 
   it("toggles reminder offsets", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+    renderWith(<Settings me={ME} onBack={vi.fn()} />);
 
     fireEvent.click(
       await screen.findByRole("button", {
@@ -195,14 +197,7 @@ describe("MoonCard", () => {
 
   it("explains that reminders need a time zone", async () => {
     stubApi();
-    renderWith(
-      <Settings
-        me={{ ...ME, timezone: null }}
-        onBack={vi.fn()}
-        onTour={vi.fn()}
-        onLinks={vi.fn()}
-      />,
-    );
+    renderWith(<Settings me={{ ...ME, timezone: null }} onBack={vi.fn()} />);
 
     expect(await screen.findByText(/once your time zone is known/)).toBeInTheDocument();
     expect(
@@ -212,10 +207,48 @@ describe("MoonCard", () => {
 
   it("uses Russian city names and plurals", async () => {
     stubApi();
-    renderWith(<MoonCard locale="ru" />, "ru");
+    renderWith(<MoonScreen locale="ru" onBack={vi.fn()} />, "ru");
 
     expect(visible(await screen.findByRole("heading"))).toBe("🌙 Лунные дни · 📍 Майсур");
     expect(visible(screen.getAllByRole("listitem")[0] as HTMLElement)).toContain("через 3 дня");
+  });
+});
+
+describe("Today's moon row (UI-06)", () => {
+  it("is the next moon day, and opens the screen", async () => {
+    stubApi();
+    const onOpen = vi.fn();
+    renderWith(<MoonRow locale="en" onOpen={onOpen} />);
+
+    const row = await screen.findByRole("button");
+    expect(visible(row)).toBe("🌕 Full moon (Purnima) · Thu, Oct 22 · in 3 days");
+    fireEvent.click(row);
+
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
+
+  it("counts the days from the server's today, in Russian too", async () => {
+    stubApi();
+    renderWith(<MoonRow locale="ru" onOpen={vi.fn()} />, "ru");
+
+    expect(visible(await screen.findByRole("button"))).toContain("через 3 дня");
+  });
+
+  it("with no day in the window, the row is the card's title: the screen stays reachable", async () => {
+    stubApi({ ...MOON, days: [] });
+    renderWith(<MoonRow locale="en" onOpen={vi.fn()} />);
+
+    expect(visible(await screen.findByRole("button"))).toBe("🌙 Moon days · 📍 Mysuru");
+  });
+
+  it("is absent until the moon days have loaded", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => undefined)),
+    );
+    renderWith(<MoonRow locale="en" onOpen={vi.fn()} />);
+
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });
 

@@ -28,7 +28,7 @@ import {
   openTelegramLink,
   useBackButton,
 } from "../../telegram";
-import { cityName } from "../MoonCard";
+import { cityName } from "../cityName";
 import { labelOf } from "../settings/zones";
 import ShalaSchedule from "./ShalaSchedule";
 import { WEEKDAYS } from "./scheduleText";

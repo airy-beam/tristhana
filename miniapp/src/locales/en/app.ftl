@@ -1,5 +1,13 @@
 # Mini App copy (en). Keys must match locales/ru/app.ftl. Keys are prefixed by screen.
 
+## Shell (UI-06): tabs as the bot's Menu rows; tab-shala is also that tab's heading.
+tab-today = 📝 Today
+tab-practice = 📊 Practice
+tab-shala = 🏛 Shala
+tabs-label = Sections
+chunk-failed = Couldn't load this screen. Check your connection and try again.
+chunk-retry = Try again
+
 # Home: greeting with the Telegram first name (display only).
 home-greeting = Namaste, { $name } 🙏
 home-greeting-anon = Namaste 🙏
@@ -173,7 +181,6 @@ remind-weekday = { $d ->
     }
 
 ## Stats (ST-01..03). Runs say "in a row", never "streak"/"broken"/"missed".
-stats-open = 📊 My practice
 stats-title = My practice
 badges-open = 🏅 Badges
 trends-open = ✨ Check-ins over time
@@ -240,7 +247,9 @@ stats-next = ›
     .aria-label = Next year
 
 ## Settings (ID-06).
-settings-open = ⚙️ Settings
+# The gear: its icon, and its name for screen readers.
+settings-open = ⚙️
+    .aria-label = Settings
 settings-title = Settings
 settings-name = Name
 settings-name-hint = How I greet you, and the name your teachers and students see here. Leave it empty to use your Telegram name.
@@ -784,27 +793,12 @@ feed-off-done = Turned off.
 # UI-05: opens the public guide site in the browser (Settings, and outside Telegram).
 guide-open = 📖 Guide
 
-## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
-
-tour-open = 🧭 Quick tour
-tour-offer = Want a quick look around? It takes a minute.
-tour-offer-yes = Show me
-tour-offer-no = Not now
-tour-progress = { $n } of { $total }
-tour-next = Next
-tour-prev = ‹
-    .aria-label = Previous step
-tour-done = Done
-tour-today = Log today: practice or rest. After a practice you can add details, how it felt and a private note.
-tour-stats = Your year at a glance, plus a calendar for filling in earlier days.
-tour-asanas = Your last asana. Mark a new one here when your teacher gives it, or your teacher can mark it for you.
-tour-students = Your students: today's mark, the last asana and the last 7 days for each. Their notes, check-ins and reasons for rest stay with them.
-tour-schedule = The week's classes in all your shalas, in your time zone.
-tour-moon = The next moon days: full and new moons, traditional rest days. You pick the city in Settings.
-tour-settings = Your city, weekly day off, reminders and privacy. Teachers, students and shalas are here too, and so is this tour.
-
-links-title = 👥 Teachers and students
-links-empty = No teachers on your list. Your log works the same either way.
+## Shala tab (UI-06; ID-04, SC-01). shala-empty and the two starts: nobody on the lists yet;
+## the starts carry the bot's labels.
+shala-empty = Nobody here yet. To add a teacher or join a shala, open the link they send you.
+shala-start-invite = Invite students
+shala-start-shala = Shala and classes
+links-empty = No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.
 links-no-students = No students on your list.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }

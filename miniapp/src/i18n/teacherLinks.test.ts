@@ -5,7 +5,7 @@ import { LOCALES } from "./negotiate";
 // keys is pinned for the bot in backend/tests/infrastructure/test_i18n_teacher_links.py.
 
 const KEYS = [
-  "links-title",
+  "tab-shala",
   "links-empty",
   "links-no-students",
   "links-primary-hint",
