@@ -975,6 +975,31 @@ def test_tapping_follow_my_shala_stores_it(client: TestClient, storage: InMemory
     assert _t("moon-source-shala", shala="Moscow Shala") in _flat(body["text"])
 
 
+def test_an_old_follow_my_shala_button_after_leaving_keeps_the_city(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """`m1:h` under an old picker, tapped when the person is in no shala any more: it used
+    to store "Follow my shala", which moved a chosen city back to Mysuru."""
+    me = _me(client, storage, "en")
+    storage.repo.accounts[me.id] = replace(storage.repo.accounts[me.id], moon_location="minsk")
+
+    body = _tap(client, "m1:h")
+
+    assert body["method"] == "editMessageText"
+    note, screen = body["text"].split("\n\n", 1)
+    assert _flat(note) == _t("moon-nothing-to-follow", source="shala")
+    assert "Minsk" in screen.split("\n")[0]
+    assert storage.repo.accounts[me.id].moon_location == "minsk"
+
+
+@pytest.mark.parametrize("source", ["teacher", "shala"])
+def test_the_nothing_to_follow_line_names_what_is_missing_in_both_languages(source: str) -> None:
+    en, ru = (_t("moon-nothing-to-follow", locale, source=source) for locale in ("en", "ru"))
+
+    assert ("shala" in en) is (source == "shala")
+    assert ("шал" in ru) is (source == "shala")
+
+
 # Callback data and the order of replies
 
 

@@ -33,8 +33,10 @@ from tristhana.application.days import GetDays
 from tristhana.application.export import SendMyExport
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
+    FollowMoonSource,
     GetMoonView,
     KeepMoonCity,
+    NothingToFollow,
     SetMoonLocation,
     UnknownLocation,
 )
@@ -310,6 +312,37 @@ async def test_follow_my_teacher_works_with_no_teacher_yet(world: World) -> None
 
     assert view.follow == MoonFollow(cities().default, MoonSource.DEFAULT, None, True)
     assert view.explicit is True
+
+
+# FollowMoonSource: the bot's "Follow my teacher" button, which can outlive the teacher.
+
+
+async def test_the_follow_button_stores_follow_my_teacher_while_there_is_a_teacher(
+    world: World,
+) -> None:
+    me = world.person("42", "Ash", "moscow")
+    world.link(me, world.teacher("1001", "Anna", "almaty"))
+    follow = FollowMoonSource(SetMoonLocation(cities(), world.accounts))
+
+    saved = await follow.execute(world.me(me), "teacher")
+
+    assert saved.moon_location == FOLLOW_TEACHER
+    assert world.stored(me) == FOLLOW_TEACHER
+
+
+@pytest.mark.parametrize("own", ["almaty", None])
+async def test_the_follow_button_writes_nothing_once_the_teacher_is_gone(
+    world: World, own: str | None
+) -> None:
+    """The button sits under an old message; the teacher was removed since. A chosen city
+    must not fall back to the default."""
+    me = world.person("42", "Ash", own)
+    follow = FollowMoonSource(SetMoonLocation(cities(), world.accounts))
+
+    with pytest.raises(NothingToFollow):
+        await follow.execute(world.me(me), "teacher")
+
+    assert world.stored(me) == own
 
 
 async def test_the_sentinel_is_no_slug(world: World) -> None:

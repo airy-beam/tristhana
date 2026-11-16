@@ -143,6 +143,34 @@ class SetMoonLocation:
         return await self._accounts.set_moon_location(principal.account.id, stored)
 
 
+class NothingToFollow(Exception):
+    """ "Follow my teacher" / "Follow my shala" was tapped with no teacher, or no shala."""
+
+    def __init__(self, source: Literal["teacher", "shala"]) -> None:
+        super().__init__(source)
+        self.source = source
+
+
+class FollowMoonSource:
+    """The bot's "Follow my teacher" and "Follow my shala" buttons. They stay under old
+    messages, so one can be tapped after the teacher or the shala is gone: storing the
+    choice then would drop a chosen city for the default without a word. Nothing is written
+    in that case. (The API's `PUT /me/moon-location` keeps MD-02's "works with no teacher
+    yet": there the choice is made on a live form.)"""
+
+    def __init__(self, set_location: SetMoonLocation) -> None:
+        self._set = set_location
+
+    async def execute(self, principal: Principal, source: Literal["teacher", "shala"]) -> Account:
+        """Raises `NothingToFollow`. No read: the account is loaded with its main teacher
+        and its shala."""
+        account = principal.account
+        there = account.main_teacher if source == "teacher" else account.shala
+        if there is None:
+            raise NothingToFollow(source)
+        return await self._set.execute(principal, None, follow=source)
+
+
 @dataclass(frozen=True, slots=True)
 class KeepResult:
     kept: bool  # False: a choice was made in the meantime, nothing written

@@ -18,7 +18,8 @@ class StartRestPeriod:
     async def execute(
         self, principal: Principal, start: date, days: int, kind: DayStatus
     ) -> Placed:
-        """Raises `InvalidRestPeriod`, `DateInFuture`. One statement (also says whether
+        """Raises `InvalidRestPeriod` (`StartTooLate` for a day count chosen days after
+        its question, nothing written), `DateInFuture`. One statement (also says whether
         practice reminders are on, for the wording). `period` None: the start day is logged
         as something else by now (a stale day count), nothing written."""
         account = principal.account

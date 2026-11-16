@@ -15,6 +15,7 @@ from tristhana.domain.rest_periods import (
     InvalidRestPeriod,
     PauseOffer,
     RestPeriod,
+    StartTooLate,
     check_period,
     check_restore,
     covered_days,
@@ -110,6 +111,21 @@ def test_check_period_rejects_kinds_that_do_not_pause(kind: DayStatus) -> None:
 def test_check_period_never_backfills() -> None:
     with pytest.raises(InvalidRestPeriod):
         check_period(_d(-2), 3, K, NOW, ZONE)
+
+
+def test_a_backfilled_start_is_told_apart_as_too_late() -> None:
+    """A day count offered on that day and tapped two days on: valid data, only late."""
+    with pytest.raises(StartTooLate):
+        check_period(_d(-2), 3, K, NOW, ZONE)
+    assert check_period(_d(-1), 3, K, NOW, ZONE) == _p(-1, 1, K)  # yesterday still starts one
+
+
+@pytest.mark.parametrize(("days", "kind"), [(10, L), (3, R)])
+def test_a_count_or_kind_no_screen_offers_is_not_just_late(days: int, kind: DayStatus) -> None:
+    with pytest.raises(InvalidRestPeriod) as refused:
+        check_period(_d(-2), days, kind, NOW, ZONE)
+
+    assert not isinstance(refused.value, StartTooLate)
 
 
 def test_check_period_refuses_a_future_start() -> None:

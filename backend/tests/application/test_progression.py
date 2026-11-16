@@ -14,9 +14,14 @@ import pytest
 from tests.fakes import FixedClock, InMemoryDays, InMemoryPractices, InMemoryProgression
 from tristhana.application import policies
 from tristhana.application.policies import Principal
-from tristhana.application.practice import GetPracticePresets, SavePractice
+from tristhana.application.practice import (
+    DayNotPracticed,
+    GetPracticePresets,
+    SavePractice,
+)
 from tristhana.application.practice_patch import PracticePatch
 from tristhana.application.progression import (
+    ConfirmNewAsana,
     DismissNewAsanaHint,
     GetProgression,
     MarkItem,
@@ -86,6 +91,7 @@ class Env:
         self.get = GetProgression(self.repo, self.practices, track(), clock)
         self.set = SetPractice(self.repo, track(), clock)
         self.give = MarkNewAsana(self.repo, track(), clock)
+        self.confirm = ConfirmNewAsana(self.days, self.give)
         self.item = MarkItem(self.repo, track(), clock)
         self.undo = UndoProgression(self.repo)
         self.dismiss = DismissNewAsanaHint(self.repo)
@@ -125,6 +131,59 @@ async def test_new_asana_celebrates_and_the_view_is_built_in_memory() -> None:
         Celebration(CelebrationKind.NEW_ASANA, "primary", "bhujapidasana"),
     )
     assert result.view == (await env.repo.get(me.account.id))
+
+
+# "Yes, new" under a practice's details (the bot's question on P).
+
+
+async def test_yes_new_under_a_practiced_day_gives_the_asana_on_that_day() -> None:
+    env, me = Env(), _me()
+    await env.set.execute(me, NAVASANA)
+    env.days.rows[(me.account.id, MON)] = (DayLog(MON, DayStatus.PRACTICED), "Asia/Almaty")
+    env.days.practice_rows[(me.account.id, MON)] = Practice(PracticeContext.MYSORE)
+
+    given = await env.confirm.execute(me, BHUJA, MON)
+
+    assert given.result.event is not None
+    assert given.result.event.occurred_on == MON
+    assert given.result.celebrations == (
+        Celebration(CelebrationKind.NEW_ASANA, "primary", "bhujapidasana"),
+    )
+    # The day as read before the write, so the caller's screen needs no second read.
+    assert given.day.practices == (Practice(PracticeContext.MYSORE),)
+
+
+@pytest.mark.parametrize("status", [DayStatus.REST, DayStatus.SICK, None])
+async def test_yes_new_once_the_day_is_no_longer_practice_writes_nothing(
+    status: DayStatus | None,
+) -> None:
+    """The question outlived its practice: the day became rest, or was cleared. Giving the
+    asana anyway would move the last asana forward for a practice that is not there."""
+    env, me = Env(), _me()
+    await env.set.execute(me, NAVASANA)
+    if status is not None:
+        env.days.rows[(me.account.id, MON)] = (DayLog(MON, status), "Asia/Almaty")
+    env.repo.calls.clear()
+
+    with pytest.raises(DayNotPracticed):
+        await env.confirm.execute(me, BHUJA, MON)
+
+    assert env.repo.calls == []  # not even read
+    view = await env.repo.get(me.account.id)
+    assert view.progression is not None
+    assert view.progression.position == NAVASANA
+
+
+async def test_a_new_asana_from_my_asanas_needs_no_practice_on_that_day() -> None:
+    """Only the answer under a practice is tied to its day; `MarkNewAsana` itself (My
+    asanas, the Mini App) still takes any loggable date."""
+    env, me = Env(), _me()
+    await env.set.execute(me, NAVASANA)
+
+    result = await env.give.execute(me, BHUJA, on=MON)
+
+    assert result.event is not None
+    assert result.event.occurred_on == MON
 
 
 async def test_new_asana_needs_a_position_and_must_go_forward() -> None:

@@ -23,6 +23,7 @@ from tristhana.bots.telegram import remind_callbacks, settings_callbacks
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.notifications import DEFAULTS
 from tristhana.domain.rest_periods import RestPeriod
+from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -373,13 +374,51 @@ def test_counts_outside_the_kinds_set_are_ignored(
     assert _periods(storage, me) == []
 
 
-def test_a_stale_start_for_two_days_ago_changes_nothing(
+@pytest.mark.parametrize("lang", ["en", "ru"])
+def test_a_day_count_tapped_two_days_later_starts_nothing_and_opens_that_day(
+    client: TestClient, storage: InMemoryStorage, lang: str
+) -> None:
+    """The "for how many days?" question stayed in the chat. A real chip tapped too late
+    starts no pause, and it is not only answered (UI-06 §5): that day's editor, with a line
+    saying why nothing changed."""
+    me = _me(client, storage, lang)
+    _log(storage, me, -2, K)
+
+    body = _tap(client, f"a1:p:{_ymd(-2)}:k:3", lang)
+
+    assert _periods(storage, me) == []
+    assert body["method"] == "editMessageText"
+    note, screen = body["text"].split("\n\n", 1)
+    assert note == FluentTranslator().t("ru" if lang == "ru" else "en", "pause-too-late")
+    assert _until(-2, lang) in screen.split("\n")[0]  # the day itself, by its date
+    assert f"d1:s:{_ymd(-2)}:p" in _data(body)  # its editor: 🧘, 😌, Other reason
+    assert f"d1:x:{_ymd(-2)}" in _data(body)  # logged, so it can be cleared
+
+
+def test_a_late_day_count_opens_the_day_even_when_nothing_is_logged_on_it(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
 
-    _tap(client, f"a1:p:{_ymd(-2)}:k:3")
+    body = _tap(client, f"a1:p:{_ymd(-5)}:l:5")
 
+    assert _periods(storage, me) == []
+    assert body["text"].startswith(FluentTranslator().t("en", "pause-too-late"))
+    assert f"d1:s:{_ymd(-5)}:p" in _data(body)
+
+
+def test_a_forged_start_on_a_day_to_come_is_only_answered(
+    client: TestClient, storage: InMemoryStorage, outbound: list[str]
+) -> None:
+    """No screen ever offered a day count for a day that has not come: forged, so nothing
+    is shown."""
+    me = _me(client, storage)
+    outbound.clear()
+
+    body = _tap(client, f"a1:p:{_ymd(2)}:k:3")
+
+    assert body is None or body["method"] == "answerCallbackQuery"
+    assert outbound in ([], ["answerCallbackQuery"])
     assert _periods(storage, me) == []
 
 

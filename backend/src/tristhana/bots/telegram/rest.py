@@ -5,7 +5,8 @@
 Every tap answers the callback first and edits the message in place. Other… / Back are a
 pure render; starting or keeping a pause is one statement; ending early also re-reads
 today's picker. A stale or forged tap changes nothing; an old "Keep the pause" with nothing
-left to keep shows its day as it is now (UI-06 §5: never only an answer).
+left to keep, and a day count tapped days after its question, show the day as it is now
+(UI-06 §5: never only an answer). Forged data is only answered.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from tristhana.bots.telegram.runtime import RemindUseCases, RestUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DateInFuture
-from tristhana.domain.rest_periods import InvalidRestPeriod, RestPeriod
+from tristhana.domain.rest_periods import InvalidRestPeriod, RestPeriod, StartTooLate
 
 
 def register_rest(
@@ -78,8 +79,12 @@ class RestScreens:
                 case "end_remind":
                     await self._rest.end.execute(principal, cb.day)
                     return await self._remind_screens.settings(principal)
+        except StartTooLate:
+            # A real day count, tapped days after the question: no pause starts. That day's
+            # editor, with a line saying so.
+            return await self._days.status(principal, cb.day, note="pause-too-late")
         except (InvalidRestPeriod, DateInFuture):
-            return None  # stale (e.g. two days later) or forged: nothing changes
+            return None  # forged (no screen offers it): nothing changes, only the answer
 
     async def _start(self, principal: Principal, cb: RestCallback) -> Screen:
         assert cb.kind is not None  # noqa: S101

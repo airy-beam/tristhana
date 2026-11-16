@@ -82,6 +82,11 @@ Rules for every screen: plain text; the callback is answered first; the message 
 
 A frozen list of every callback string shipped before UI-06 is added as a test fixture (§8). After a rollback, `w1:` buttons only stop the spinner until the roll forward.
 
+**A stale tap also writes nothing it should not** (found by the frozen list, fixed on its own, 2026-11-16):
+- `m1:f` / `m1:h` ("Follow my teacher" / "Follow my shala") with no teacher or shala left: the stored moon city stays; the moon screen opens with `moon-nothing-to-follow` on top (`FollowMoonSource`; the API's `PUT /me/moon-location` keeps MD-02's "works with no teacher yet").
+- `a1:p` (a day count from "for how many days?") tapped more than a day after its day: no period starts; that day's editor opens with `pause-too-late` (`StartTooLate`). A count or a future day no screen offers is forged: only answered.
+- `g1:g:…:<date>` ("Yes, new" under a practice) once that day is no longer Practiced: nothing is given; that day's editor opens with `practice-day-not-practiced` (`ConfirmNewAsana`).
+
 **Existing people, first `/start` after the release.** With activity (a logged day, a teacher, a student or a shala): T0 with the one-time line `today-menu-hint` ("everything else is under Menu"), then plain T0. Without any activity: F0, once. People who never send `/start` again meet the new screens through whatever they tap; nobody gets a message.
 
 ## 6. Migration and ops

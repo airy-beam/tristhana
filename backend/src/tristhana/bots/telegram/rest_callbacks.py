@@ -1,7 +1,8 @@
 """Callback data for rest periods (WH-01 part 2, ADR-0023), versioned `a1:`. Stateless,
 absolute values, at most 34 bytes. Kind codes are PR-01's (`l` 🌸, `k` 🤒, `t` ✈️).
 
-    a1:p:20261026:l:5            start a period on that day for 5 days (in the kind's set)
+    a1:p:20261026:l:5            start a period on that day for 5 days (in the kind's set);
+                                 tapped more than a day later: nothing starts, the day opens
     a1:m:20261026:l:1            the "Other…" day counts (last digit: reminders on); no DB
     a1:b:20261026:l:1            back to the first day counts; no DB
     a1:o:20261026:l              just that day: no pause (removes one starting that day)

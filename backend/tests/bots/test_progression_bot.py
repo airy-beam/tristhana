@@ -291,22 +291,27 @@ def test_not_new_is_remembered_for_that_asana(client: TestClient, storage: InMem
     assert _state(storage).position == Position("primary", "navasana")
 
 
+@pytest.mark.parametrize("since", ["r", "x"], ids=["became rest", "cleared"])
 @pytest.mark.parametrize("answer", ["Not new", "Yes, new"])
 def test_the_new_asana_question_on_a_day_no_longer_practiced_opens_that_days_editor(
-    client: TestClient, answer: str
+    client: TestClient, storage: InMemoryStorage, answer: str, since: str
 ) -> None:
-    """The question sits under the details; the day became rest in another message. Either
-    answer used to fail without a reply."""
+    """The question sits under the details; the day became rest, or was cleared, in another
+    message. Either answer used to fail without a reply, and "Yes, new" still moved the last
+    asana forward for a practice that is no longer there."""
     _set(client, 1, "navasana")
     d = _mysore_day(client)
     body = _tap(client, f"p1:l:{d}:11:kurmasana")
-    _tap(client, f"d1:s:{d}:r")
+    _tap(client, f"d1:s:{d}:r" if since == "r" else f"d1:x:{d}")
+    events = len(storage.day_repo.progression_events)
 
     reply = _tap(client, _data(body, answer))
 
     assert reply["method"] == "editMessageText"
     assert reply["text"].startswith("This day isn't marked as practice anymore.")
     assert _data(reply, "🧘 Practiced") == f"d1:s:{d}:p"  # that day's editor
+    assert _state(storage).position == Position("primary", "navasana")  # nothing given
+    assert len(storage.day_repo.progression_events) == events
 
 
 @pytest.mark.parametrize("context", ["l", "s"])

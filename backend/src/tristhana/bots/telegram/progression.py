@@ -209,8 +209,8 @@ class ProgressionScreens:
         except NotForward:  # a stale keyboard or a double tap
             return await self.open(principal, [self.t.t(locale, "progression-already")])
         except DayNotPracticed:
-            # "New asana?" sat under a practice whose day is no longer Practiced: that
-            # day's editor, saying so (as the details' own buttons do).
+            # "New asana?" sat under a practice whose day is no longer Practiced: nothing
+            # is given, and that day's editor says so (as the details' own buttons do).
             if cb.day is None:
                 return await self.open(principal)
             return await self._day_screens.status(
@@ -240,11 +240,19 @@ class ProgressionScreens:
             result = await self._g.give.execute(principal, target)
             return await self.open(principal, self._given_lines(locale, result), result)
         try:
-            result = await self._g.give.execute(principal, target, on=day)
+            # Only while that day is still Practiced: else `DayNotPracticed`, nothing given.
+            given = await self._g.confirm.execute(principal, target, day)
         except NotForward:
             return await self._practice.details(principal, day)
-        lines = self._given_lines(locale, result)
-        return await self._practice.details(principal, day, lead=lines)
+        lines = self._given_lines(locale, given.result)
+        practices = given.day.practices
+        return await self._practice.details(
+            principal,
+            day,
+            practice=practices[0] if practices else None,
+            check_ins=given.day.check_ins,
+            lead=lines,
+        )
 
     def _given_lines(self, locale: Locale, result: ChangeResult) -> list[str]:
         if result.celebrations:

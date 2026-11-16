@@ -23,7 +23,12 @@ from tests.shala_fakes import (
     StaffNotifier,
 )
 from tests.teacher_link_fakes import FixedCodes
-from tristhana.application.moon import SetMoonLocation, UnknownLocation
+from tristhana.application.moon import (
+    FollowMoonSource,
+    NothingToFollow,
+    SetMoonLocation,
+    UnknownLocation,
+)
 from tristhana.application.policies import (
     NotAllowed,
     NotFound,
@@ -895,6 +900,29 @@ async def test_set_moon_location_with_a_slug_ignores_follow(world: World) -> Non
     )
 
     assert saved.moon_location == "moscow"
+
+
+async def test_the_follow_my_shala_button_stores_it_while_in_a_shala(world: World) -> None:
+    anna, ash = world.person("1", "Anna"), world.person("2", "Ash", moon="minsk")
+    world.shalas.add_student(world.shala(anna, "moscow"), ash.id)
+    follow = FollowMoonSource(SetMoonLocation(cities(), world.accounts))
+
+    saved = await follow.execute(world.me(ash), "shala")
+
+    assert saved.moon_location == FOLLOW_SHALA
+
+
+async def test_the_follow_my_shala_button_writes_nothing_once_the_shala_is_gone(
+    world: World,
+) -> None:
+    """An old button, tapped after leaving the shala: the chosen city stays."""
+    ash = world.person("2", "Ash", moon="minsk")
+    follow = FollowMoonSource(SetMoonLocation(cities(), world.accounts))
+
+    with pytest.raises(NothingToFollow):
+        await follow.execute(world.me(ash), "shala")
+
+    assert world.accounts.accounts[ash.id].moon_location == "minsk"
 
 
 async def test_the_account_load_carries_the_main_shala(world: World) -> None:
