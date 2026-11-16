@@ -505,8 +505,12 @@ def test_an_old_write_button_for_a_date_after_a_split_writes_nothing(
     )
     assert patched.status_code == 200, patched.text
     storage.schedule.writes.clear()
+    storage.shalas.reads.clear()
 
     done = _tap(client, f"c1:{kind}:{s}:{c}:20261110")
+
+    # The write's own guard refuses the date: no read before it, one for the week after.
+    assert storage.shalas.reads.count("window") == 1
 
     assert done["method"] == "editMessageText"
     text = " ".join(done["text"].split())

@@ -8,7 +8,7 @@ import { haptics } from "../telegram";
 import { NextStep } from "./NextStep";
 
 // UI-06 stage 2 (spec §6): one suggestion at a time from GET /me/next-steps, the first the
-// person has not put off on this device. "Not now" never reaches the server (Q333).
+// person has not put off on this device. "Not now" never reaches the server (Q334).
 
 vi.mock("../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),

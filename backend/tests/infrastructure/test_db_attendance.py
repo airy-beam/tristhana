@@ -39,6 +39,7 @@ from tristhana.domain.attendance import (
     Counts,
     InvalidAttendance,
     NotAttendable,
+    Snapshot,
 )
 from tristhana.domain.classes import ClassType
 from tristhana.domain.shalas import ShalaRole
@@ -241,6 +242,42 @@ async def test_a_second_claim_after_a_split_does_not_double_the_row(w: W) -> Non
     assert len(await w.rows()) == 1
 
 
+async def test_a_claim_that_lost_a_race_with_a_split_writes_nothing(w: W) -> None:
+    """Review fix: the read saw Monday on the old id, then the class was changed "from
+    Monday". The write's guard knows the series' span: no mark on an id that has no such
+    date any more (it would sit beside the carried ones, out of every roster)."""
+    snap = Snapshot(w.shala, w.mysore, MON, MON, NOW, "Asia/Almaty", ClassType.MYSORE)
+    await _split(w, MON)
+
+    claimed = await w.repo.claim(w.sam.id, snap, K)
+    await w.repo.mark(w.tara.id, snap, [w.vera.id], [], False)
+
+    assert claimed.me is not None
+    assert (claimed.done, claimed.value) == (True, None)
+    assert await w.rows() == []
+
+
+async def test_regulars_are_counted_across_a_change_of_the_class(w: W) -> None:
+    """Review fix: "regular" (Q191) is a mark on this kind of class in this shala in the
+    last 28 days. A class changed "from today" has a new id, and yesterday's marks stay on
+    the old one: they still count. A mark on a class of another type does not."""
+    zed = await w.person("Zed")
+    await _student(w.engine, w.shala, w.owner.id, zed.id)
+    led = await w.add_class(type=ClassType.LED, start=time(18, 0), minutes=90)
+    tara = await w.me(w.tara)
+    await w.claim().execute(await w.me(zed), w.mysore, SUN)
+    await w.mark().execute(tara, led, SUN, present=[w.vera.id])
+
+    new = await _split(w, MON)
+
+    r = await w.roster().execute(tara, new, MON)
+    assert [(p.name, p.regular) for p in r.people] == [
+        ("Zed", True),
+        ("Sam", False),
+        ("Vera", False),
+    ]
+
+
 async def test_a_split_leaves_marks_on_dates_the_new_rule_drops(w: W) -> None:
     """From Sun 8 Nov the class runs on weekdays only: Sunday's mark stays on the ended
     series (history by shala and date still reads it), Monday's follows."""
@@ -316,8 +353,6 @@ async def test_a_demoted_staff_member_is_refused_by_the_guard(w: W) -> None:
     assert target is not None
     shalas = SqlShalaRepository(w.engine)
     assert (await shalas.remove_staff(w.shala, w.owner.id, w.tara.id)).done
-    from tristhana.domain.attendance import Snapshot
-
     snap = Snapshot(w.shala, w.mysore, MON, MON, NOW, "Asia/Almaty", ClassType.MYSORE)
     written = await w.repo.mark(w.tara.id, snap, [w.sam.id], [], False)
     assert written.me is None

@@ -140,7 +140,7 @@ describe("DayEditor: the day's read fails", () => {
   });
 });
 
-// UI-06 stage 2 (Q335): the day editor is the same day card as Today's, for that date.
+// UI-06 stage 2 (Q336): the day editor is the same day card as Today's, for that date.
 describe("DayEditor: the three-choice card", () => {
   const controls = () =>
     within(screen.getByRole("region", { name: "Mar 1" }))

@@ -30,6 +30,8 @@ vi.mock("../../telegram", () => ({
   openTelegramLink: vi.fn(),
   useMainButton: vi.fn(),
   mainButtonAvailable: vi.fn(() => false),
+  enableClosingConfirmation: vi.fn(),
+  disableClosingConfirmation: vi.fn(),
 }));
 
 const ME: Me = {
@@ -390,7 +392,7 @@ describe("the shala card", () => {
     expect(seen).toBeDefined();
   });
 
-  // Q337: Teacher is set without asking when the shala is created, so the owner can change it.
+  // Q338: Teacher is set without asking when the shala is created, so the owner can change it.
   it("lets the owner change their own roles from their row, never to Manager", async () => {
     const after = shalaOut(
       { ...OWNER, roles: ["assistant"] },
@@ -611,7 +613,7 @@ describe("opened for one thing", () => {
   );
 });
 
-// UI-06 stage 4 (Q339): the owner's first steps, from the server's `setup` (the same rule as
+// UI-06 stage 4 (Q340): the owner's first steps, from the server's `setup` (the same rule as
 // Today's next step). One step is the button; "I teach alone" is remembered on the device.
 describe("the setup list", () => {
   const scrolled = vi.fn();
@@ -641,7 +643,10 @@ describe("the setup list", () => {
     expect(list()).toBeInTheDocument();
     expect(current()).toEqual(["Add a class"]);
     expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Invite teachers (optional)" })).toBeInTheDocument();
+    // Two or three words on the row; "optional" is its quiet second line.
+    const third = screen.getByRole("button", { name: "Invite teachers" });
+    expect(third).toHaveAccessibleDescription("Optional");
+    expect(third.textContent).toBe("Invite teachers");
     expect(screen.queryByRole("img", { name: "done" })).toBeNull();
     expect(screen.queryByRole("button", { name: "I teach alone" })).toBeNull();
 
@@ -666,17 +671,38 @@ describe("the setup list", () => {
     expect((scrolled.mock.contexts[0] as HTMLElement).contains(qr)).toBe(true);
   });
 
-  it("with a class and a student: Invite teachers opens the role picker", async () => {
+  it("with a class and a student: Invite teachers opens the role picker on Teacher", async () => {
+    const seen = stubApi({ card: owns(["invite_staff"]) });
+    renderWith(card());
+    await loaded();
+
+    expect(current()).toEqual(["Invite teachers"]);
+    expect(screen.getByRole("button", { name: "Invite teachers" })).toHaveAccessibleDescription(
+      "Optional",
+    );
+    expect(screen.getAllByRole("img", { name: "done" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Invite teachers" }));
+
+    const hint = await screen.findByText("Choose a role. The link adds one person with that role.");
+    expect((scrolled.mock.contexts[0] as HTMLElement).contains(hint)).toBe(true);
+    // The step is about teachers: that role is the one marked and under the finger. Nothing
+    // is made until it is tapped (a staff link works once).
+    const teacher = screen.getByRole("button", { name: "Teacher" });
+    expect(teacher).toHaveAttribute("aria-current", "true");
+    expect(teacher).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Assistant" })).not.toHaveAttribute("aria-current");
+    expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/staff-invites`)).toHaveLength(0);
+  });
+
+  it("opened from its own row, the role picker marks no role", async () => {
     stubApi({ card: owns(["invite_staff"]) });
     renderWith(card());
     await loaded();
 
-    expect(current()).toEqual(["Invite teachers (optional)"]);
-    expect(screen.getAllByRole("img", { name: "done" })).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "Invite teachers (optional)" }));
+    fireEvent.click(screen.getByRole("button", { name: "➕ Invite staff" }));
 
-    const hint = await screen.findByText("Choose a role. The link adds one person with that role.");
-    expect((scrolled.mock.contexts[0] as HTMLElement).contains(hint)).toBe(true);
+    await screen.findByText("Choose a role. The link adds one person with that role.");
+    expect(screen.getByRole("button", { name: "Teacher" })).not.toHaveAttribute("aria-current");
   });
 
   it("I teach alone puts the list away, on this device, for good", async () => {
@@ -700,7 +726,7 @@ describe("the setup list", () => {
     await loaded();
 
     expect(current()).toEqual(["Add a class"]);
-    expect(screen.queryByRole("button", { name: "Invite teachers (optional)" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Invite teachers" })).toBeNull();
   });
 
   it("blocked storage counts as I teach alone: never a list that cannot be put away", async () => {

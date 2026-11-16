@@ -62,6 +62,7 @@ from tristhana.domain.classes import (
     check_swap,
     expand,
     local_date,
+    rule_dates,
     shifts,
     split_start,
 )
@@ -224,6 +225,11 @@ def _merged(current: ClassDraft, patch: ClassPatch) -> ClassDraft:
     }
     kept: dict[str, Any] = {f.name: getattr(current, f.name) for f in fields(ClassDraft)}
     return ClassDraft(**(kept | sent))
+
+
+def _runs_before(c: ClassDraft, day: date) -> bool:
+    """Whether the series has a date before `day`."""
+    return next(rule_dates(_rule(c), c.starts_on, day - _DAY), None) is not None
 
 
 def _within(day: date, today: date) -> None:
@@ -503,10 +509,15 @@ class UpdateClass:
         after `from_date`. A class that has not started by then, and a one-off, change
         whole and keep their id and their own start. None changes every date in place.
 
-        Raises `NotFound` (also for a series that ended before `from_date`: for this edit
-        it is gone), `NotAllowed`, `InvalidClass`, `UnknownLocation`. Two statements: the
-        shala's classes, then the write. The write decides between a split and a whole
-        change on the row as it is then, so a `from_date` that splits nothing costs one more.
+        A series with no date before `from_date` (its first date has passed, its first
+        class has not come) has nothing earlier to keep: it changes whole too and starts on
+        that date, so no predecessor without a single date is left behind.
+
+        Raises `NotFound` (also for a series that ended before `from_date`, or that someone
+        else ended between this read and this write: for this edit it is gone), `NotAllowed`,
+        `InvalidClass`, `UnknownLocation`. Two statements: the shala's classes, then the
+        write. The write decides between a split and a whole change on the row as it is
+        then, so a `from_date` that splits nothing costs one more.
         """
         me = principal.account.id
         found = _unwrap(await self._schedule.classes_of(shala, me)) or ()
@@ -522,8 +533,16 @@ class UpdateClass:
                 raise NotFound  # ended already, perhaps split by someone else a moment ago
             if draft.ends_on is not None and draft.ends_on < start:
                 raise InvalidClass("until")
+            if start > current.starts_on and not _runs_before(current, start):
+                # Never ran before that date: nothing to split off. The row changes whole and
+                # starts on the date asked, so the new rule adds no date before it either.
+                if patch.starts_on is KEEP:
+                    draft = replace(draft, starts_on=start)
+                start = current.starts_on
         draft = _checked(draft, self._cities)
-        updated = _unwrap(await self._schedule.update(shala, me, class_id, draft, start))
+        updated = _unwrap(
+            await self._schedule.update(shala, me, class_id, draft, start, current.ends_on)
+        )
         if updated is None:
             raise NotFound
         return updated
@@ -551,8 +570,9 @@ class SetOverride:
         keep: bool = False,
     ) -> None:
         """`key` = the rule's date. The override replaces the date's changes; `keep` (the
-        bot's quick hold or cancel) sets the status only. Raises `InvalidClass`, `NotFound`,
-        `NotAllowed`."""
+        bot's quick hold or cancel) sets the status only. Raises `InvalidClass`, `NotAllowed`,
+        and `NotFound` for an unknown class or a date outside its series: the old id of a
+        class changed "from a date" has no later date (ADR-0048), and nothing is written."""
         _within(key, caller_today(principal, self._clock))
         o = replace(override, on_date=key)
         changes = (o.moved_to, o.start, o.minutes, o.teacher_id)
@@ -581,7 +601,11 @@ class ClearOverride:
         self._schedule = schedule
 
     async def execute(self, principal: Principal, shala: UUID, class_id: UUID, key: date) -> None:
-        _unwrap(await self._schedule.clear_override(shala, principal.account.id, class_id, key))
+        """Idempotent for a date the series has. Raises `NotAllowed`, and `NotFound` for an
+        unknown class or a date outside its series (as `SetOverride`)."""
+        me = principal.account.id
+        if not _unwrap(await self._schedule.clear_override(shala, me, class_id, key)):
+            raise NotFound
 
 
 class AddClosure:

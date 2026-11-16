@@ -1475,21 +1475,38 @@ function useScheduleWrite<T, R>(id: string, write: (vars: T) => Promise<R>) {
   });
 }
 
+async function fetchClasses(id: string): Promise<ClassSeries[]> {
+  const { data, error, response } = await api.GET("/api/v1/shalas/{id}/classes", {
+    params: { path: { id } },
+  });
+  if (!data) fail(response, error);
+  return data;
+}
+
 /** The shala's class series, as saved (the edit form fills itself from one). For those who
- * manage classes; asked for only when a class is opened for a change. */
+ * manage classes; asked for only when a class is opened for a change, and read again each
+ * time: the form waits for a list fetched after it opened (`isFetchedAfterMount`). */
 export function useClasses(id: string, enabled = true) {
   return useQuery({
     enabled,
     queryKey: classesKey(id),
-    queryFn: async (): Promise<ClassSeries[]> => {
-      const { data, error, response } = await api.GET("/api/v1/shalas/{id}/classes", {
-        params: { path: { id } },
-      });
-      if (!data) fail(response, error);
-      return data;
-    },
+    queryFn: () => fetchClasses(id),
     retry: false,
+    refetchOnMount: "always",
   });
+}
+
+/** The class series as they are now, past the cache: for a write that follows from one
+ * series' own dates and must not act on an old picture of it. */
+export function useReadClasses(id: string) {
+  const client = useQueryClient();
+  return () =>
+    client.query({
+      queryKey: classesKey(id),
+      queryFn: () => fetchClasses(id),
+      staleTime: 0,
+      retry: false,
+    });
 }
 
 export function useCreateClass(id: string) {

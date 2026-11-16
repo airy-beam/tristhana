@@ -1,7 +1,7 @@
 """SC-05 attendance use cases on fakes (spec §3, §8; ADR-0039). A frozen clock: Mon 9 Nov
 2026, 08:00 in Almaty."""
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -227,6 +227,29 @@ class TestRemove:
         await RemoveMyAttendance(w.attendance).execute(w.me(cast.sam), cast.mysore, MON)
 
 
+async def test_a_claim_that_loses_a_race_with_a_class_change_is_not_attendable(
+    cast: Cast, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review fix (ADR-0048): the class is changed "from Monday" between the claim's read
+    and its write. The old id has no Monday any more: the same answer as a tap a moment
+    later, and no mark left on the ended series."""
+    w = cast.w
+    read = w.attendance.occurrence
+
+    async def then_the_class_changes(me: UUID, class_id: UUID, key: date) -> Any:
+        target = await read(me, class_id, key)
+        old = w.schedule.classes[class_id][1]
+        w.schedule.classes[class_id] = (cast.shala, replace(old, ends_on=SUN))
+        return target
+
+    monkeypatch.setattr(w.attendance, "occurrence", then_the_class_changes)
+
+    with pytest.raises(NotAttendable):
+        await w.claim().execute(w.me(cast.sam), cast.mysore, MON)
+
+    assert w.attendance.rows == {}
+
+
 class TestRoster:
     async def test_order_claims_regulars_then_names(self, cast: Cast) -> None:
         w = cast.w
@@ -241,6 +264,30 @@ class TestRoster:
         assert r.counts == Counts(0, 1)
         assert r.attendable
         assert not r.more
+
+    async def test_regulars_are_counted_across_a_change_of_the_class(self, cast: Cast) -> None:
+        """Review fix: the class changed "from Monday" has a new id; Sunday's mark on the
+        old one still makes Zed a regular. A mark on a class of another type does not."""
+        w = cast.w
+        zed = w.person("7", "Zed")
+        w.shalas.add_student(cast.shala, zed.id)
+        led = w.schedule.add_class(
+            cast.shala, type=ClassType.LED, weekdays=EVERY_DAY, starts_on=date(2026, 10, 1),
+            start=time(18, 0), minutes=90,
+        )  # fmt: skip
+        await w.claim().execute(w.me(zed), cast.mysore, SUN)
+        await w.mark().execute(w.me(cast.anna), led.id, SUN, present=[cast.vera.id])
+        old = w.schedule.classes[cast.mysore][1]
+        w.schedule.classes[cast.mysore] = (cast.shala, replace(old, ends_on=SUN))
+        new = w.schedule.add_class(cast.shala, weekdays=EVERY_DAY, starts_on=MON)
+
+        r = await w.roster().execute(w.me(cast.olga), new.id, MON)
+
+        assert [(p.name, p.regular) for p in r.people] == [
+            ("Zed", True),
+            ("Sam", False),
+            ("Vera", False),
+        ]
 
     async def test_staff_who_practise_here_appear(self, cast: Cast) -> None:
         w = cast.w

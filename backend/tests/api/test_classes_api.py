@@ -682,6 +682,24 @@ def test_cancel_then_restore(api: TestClient, storage: InMemoryStorage) -> None:
     assert (cls, MON) not in storage.schedule.overrides
 
 
+def test_a_date_of_an_ended_series_is_404_and_leaves_no_override(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    """Review fix (ADR-0048): the sheet was open when someone changed the class "from 9 Nov".
+    Its old id ends on 8 Nov: cancel and restore both answer 404, and nothing is written."""
+    me = _me(api, storage)
+    shala = _shala(storage, me, "teacher")
+    cls = storage.schedule.add_class(shala, ends_on=date(2026, 11, 8)).id
+    url = f"/api/v1/shalas/{shala}/classes/{cls}/occurrences/2026-11-09"
+
+    cancelled = api.put(url, json={"status": "cancelled"}, headers=_auth())
+    restored = api.delete(url, headers=_auth())
+
+    assert (cancelled.status_code, cancelled.json()) == (404, {"code": "not_found"})
+    assert (restored.status_code, restored.json()) == (404, {"code": "not_found"})
+    assert storage.schedule.overrides == {}
+
+
 def test_hold_anyway_on_a_moon_day(api: TestClient, storage: InMemoryStorage) -> None:
     me = _me(api, storage)
     shala = _shala(storage, me, "office")

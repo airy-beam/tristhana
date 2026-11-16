@@ -3,17 +3,21 @@ import {
   appliesFrom,
   bodyOf,
   changed,
+  defaultFrom,
   defaultTeacher,
   draftOf,
   endOf,
   hasStarted,
   minutesUntil,
   newDraft,
+  nextDate,
   problemOf,
   retyped,
+  runsBefore,
+  runsOn,
   teacherChoices,
 } from "./classForm";
-import { hmOf, weekdayShort } from "./scheduleText";
+import { fullDate, hmOf, spanName, weekdayShort } from "./scheduleText";
 
 // UI-06 stage 4 (spec §4, §5; ADR-0048): the class form's rules, pure.
 
@@ -182,9 +186,75 @@ describe("the form's texts", () => {
     expect([1, 6, 7].map((d) => weekdayShort(d, "ru"))).toEqual(["пн", "сб", "вс"]);
   });
 
+  it("names a week in one short line, also across a month and a year", () => {
+    const span = (a: string, b: string, locale: "en" | "ru") =>
+      spanName(a, b, locale).replace(/\s/g, " ");
+    expect(span("2026-11-16", "2026-11-22", "en")).toBe("Nov 16 – 22");
+    expect(span("2026-11-16", "2026-11-22", "ru")).toBe("16–22 нояб.");
+    expect(span("2026-11-30", "2026-12-06", "ru")).toBe("30 нояб. – 6 дек.");
+    expect(span("2026-12-28", "2027-01-03", "en")).toBe("Dec 28 – Jan 3"); // no years
+  });
+
+  it("names a date with its year where the year matters", () => {
+    expect(fullDate("2026-01-05", "en")).toBe("Jan 5, 2026");
+    expect(fullDate("2026-01-05", "ru")).toBe("5 янв. 2026 г.");
+  });
+
   it("shows an end as a time of day, also one before the start", () => {
     expect(hmOf(570)).toBe("09:30");
     expect(hmOf(1440)).toBe("00:00");
     expect(hmOf(-60)).toBe("23:00");
+  });
+});
+
+// Review fixes: the last date against the first (or the apply) date; the class's own dates,
+// and the date a change is proposed from when today's class has already begun.
+describe("the last date and the class's own dates", () => {
+  it("stops a last date before the first one, or before the apply date", () => {
+    const draft = { ...newDraft(shala(), TODAY, ANNA), from: "2026-11-20", end: "2026-11-19" };
+
+    expect(problemOf(draft)).toBe("end");
+    expect(problemOf({ ...draft, end: "2026-11-20" })).toBeNull(); // the same day is a class
+    expect(problemOf({ ...draft, end: "" })).toBeNull();
+    // A class that has run: its first date is long past; the apply date is what counts.
+    const running = { ...draft, from: "2026-10-02", end: "2026-11-30" };
+    expect(problemOf(running, "2026-11-23")).toBeNull();
+    expect(problemOf(running, "2026-12-01")).toBe("end");
+    expect(problemOf({ ...draft, once: true })).toBeNull(); // one date has no last date
+  });
+
+  it("knows the saved rule's dates, as the server counts them", () => {
+    const fridays = saved(); // Fridays from Fri 2 Oct
+    expect(runsOn(fridays, "2026-11-20")).toBe(true);
+    expect(runsOn(fridays, "2026-11-19")).toBe(false);
+    expect(runsOn(fridays, "2026-09-25")).toBe(false); // before its first date
+    expect(runsOn(saved({ ends_on: "2026-11-13" }), "2026-11-20")).toBe(false);
+    // Every 2 weeks: weeks count from the first date's own week (2 Oct, 16 Oct, …, 13 Nov).
+    const fortnightly = saved({ every: 2 });
+    expect(runsOn(fortnightly, "2026-11-13")).toBe(true);
+    expect(runsOn(fortnightly, "2026-11-20")).toBe(false);
+    expect(runsOn(saved({ weekdays: [], starts_on: "2026-11-20" }), "2026-11-20")).toBe(true);
+
+    expect(runsBefore(fridays, "2026-10-02")).toBe(false); // its first date
+    expect(runsBefore(fridays, "2026-10-09")).toBe(true);
+    // First date set to a Monday, classes on Fridays: nothing before the first Friday.
+    expect(runsBefore(saved({ starts_on: "2026-09-28" }), "2026-10-02")).toBe(false);
+    expect(runsBefore(saved({ weekdays: [], starts_on: "2026-11-20" }), "2026-11-20")).toBe(false);
+
+    expect(nextDate(fridays, "2026-11-20")).toBe("2026-11-27");
+    expect(nextDate(fortnightly, "2026-11-13")).toBe("2026-11-27");
+    expect(nextDate(saved({ ends_on: "2026-11-20" }), "2026-11-20")).toBeNull();
+  });
+
+  it("proposes the class's next date once the tapped date's class has begun", () => {
+    const daily = saved({ weekdays: [1, 2, 3, 4, 5, 7] }); // no Saturday
+    expect(defaultFrom(daily, TODAY, TODAY, false)).toBe(TODAY);
+    expect(defaultFrom(daily, TODAY, TODAY, true)).toBe("2026-11-17");
+    expect(defaultFrom(daily, "2026-11-20", "2026-11-20", true)).toBe("2026-11-22"); // Fri → Sun
+    expect(defaultFrom(daily, "2026-11-13", TODAY, true)).toBe("2026-11-17"); // last week's date
+    // Today is not one of its days: nothing has begun today.
+    expect(defaultFrom(saved(), TODAY, TODAY, true)).toBe(TODAY);
+    // Its last date is today: there is no next one to move to.
+    expect(defaultFrom(saved({ ...daily, ends_on: TODAY }), TODAY, TODAY, true)).toBe(TODAY);
   });
 });

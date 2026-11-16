@@ -1,4 +1,4 @@
-"""UI-06 stage 4 (spec §5, Q339): a shala's setup list, and the Today card built on the same
+"""UI-06 stage 4 (spec §5, Q340): a shala's setup list, and the Today card built on the same
 rule so the two cannot disagree. Pure: three counts in, the steps still due out."""
 
 from dataclasses import replace
@@ -41,7 +41,7 @@ def test_the_list_order_is_the_enums_order() -> None:
         (0, 0, 1, [S.ADD_CLASS, S.INVITE_STUDENTS, S.INVITE_STAFF]),  # a new shala
         (1, 0, 1, [S.INVITE_STUDENTS, S.INVITE_STAFF]),
         (0, 1, 1, [S.ADD_CLASS, S.INVITE_STAFF]),  # students came before the first class
-        (1, 1, 1, [S.INVITE_STAFF]),  # the optional step alone (Q339)
+        (1, 1, 1, [S.INVITE_STAFF]),  # the optional step alone (Q340)
         (0, 0, 2, [S.ADD_CLASS, S.INVITE_STUDENTS]),
         (1, 0, 2, [S.INVITE_STUDENTS]),
         (0, 1, 2, [S.ADD_CLASS]),

@@ -121,6 +121,35 @@ def test_my_list_and_a_claim_in_place(client: TestClient, storage: InMemoryStora
     assert any(line.endswith("· 🙋") for line in _lines(week))
 
 
+def test_an_old_remove_button_after_the_class_changed_says_nothing_untrue(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """Review fix (ADR-0048): the class was changed "from today" after I marked it, so my mark
+    now sits on the new id. The old [🙋 …] button names the ended one: nothing is removed, so
+    the bot does not say "removed"; it shows the list as it is, where the mark still stands
+    on a button that can remove it."""
+    me, shala, mysore = _setup(client, storage, None)
+    listing = _tap(client, cb.my_list())
+    claimed = _tap_on(client, listing, cb.mark("i", mysore, MON))
+    old = storage.schedule.classes[mysore][1]
+    storage.schedule.classes[mysore] = (shala, replace(old, ends_on=SUN))
+    new = storage.schedule.add_class(shala, weekdays=EVERY_DAY, starts_on=MON, start=time(7))
+
+    def from_today(key: date) -> bool:
+        return key >= MON
+
+    storage.attendance.carry(mysore, new.id, from_today)
+
+    body = _tap_on(client, claimed, cb.mark("u", mysore, MON))
+
+    assert "removed" not in body["text"]
+    assert _lines(body)[0].startswith("🙋 Mark a class you came to")
+    assert storage.attendance.state_of(new.id, MON, me.id) is AttendanceState.CLAIMED
+    assert cb.mark("u", new.id, MON) in _datas(body)
+    assert cb.mark("u", mysore, MON) not in _datas(body)
+    _check_text(body)
+
+
 def test_conference_offers_no_log_day(client: TestClient, storage: InMemoryStorage) -> None:
     _, shala, _ = _setup(client, storage, None)
     conf = storage.schedule.add_class(shala, weekdays=EVERY_DAY, type=ClassType.CONFERENCE,

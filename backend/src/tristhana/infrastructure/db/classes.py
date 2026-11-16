@@ -131,6 +131,17 @@ def _produces(on: Any, starts_on: date, ends_on: date | None, weekdays: int, eve
     )
 
 
+def _spans(shala: UUID, class_id: UUID, key: date) -> Any:
+    """SQL: the shala has this series and `key` lies within its span. A series changed "from
+    a date" ends the day before (ADR-0048): its old id has no later date to change."""
+    return exists().where(
+        _C.c.id == class_id,
+        _C.c.shala_id == shala,
+        _C.c.starts_on <= key,
+        or_(_C.c.ends_on.is_(None), _C.c.ends_on >= key),
+    )
+
+
 def _class_values(draft: ClassDraft) -> dict[str, Any]:
     return {
         "type": draft.type.value,
@@ -510,11 +521,17 @@ class SqlScheduleRepository:
         return Guarded(m, True, _stored(row) if row.wrote else None)
 
     async def update(
-        self, shala: UUID, me: UUID, class_id: UUID, draft: ClassDraft, from_date: date | None
+        self,
+        shala: UUID,
+        me: UUID,
+        class_id: UUID,
+        draft: ClassDraft,
+        from_date: date | None,
+        read_ends_on: date | None = None,
     ) -> Guarded[StoredClass]:
         whole = true()
         if from_date is not None:
-            split = await self._split(shala, me, class_id, draft, from_date)
+            split = await self._split(shala, me, class_id, draft, from_date, read_ends_on)
             if split.value is not None or not split.done:
                 return split
             # Not split. A series that starts on or after `from`, or is one date, changes
@@ -550,14 +567,22 @@ class SqlScheduleRepository:
         return Guarded(m, True, _stored(row) if row.wrote else None)
 
     async def _split(
-        self, shala: UUID, me: UUID, class_id: UUID, draft: ClassDraft, from_date: date
+        self,
+        shala: UUID,
+        me: UUID,
+        class_id: UUID,
+        draft: ClassDraft,
+        from_date: date,
+        read_ends_on: date | None,
     ) -> Guarded[StoredClass]:
         """The old series ends the day before `from`; a new one starts on it and takes the
         overrides on or after it that its rule produces (the rest are deleted), and the
         attendance rows on those dates, so a mark keeps its place on the roster and a second
         claim meets the row instead of doubling it (ADR-0048). Attendance on dates the new
         rule drops stays on the ended series; no snapshot is rewritten. A series that ended
-        before `from` is not split a second time: nothing is written."""
+        before `from` is not split a second time, and neither is one whose last date is no
+        longer the one the caller read (someone else ended it meanwhile, from a later date:
+        a second successor would run beside theirs): nothing is written."""
         cur = _cur(shala, me)
         values = _class_values(draft) | {"starts_on": from_date}
         ended = (
@@ -568,6 +593,7 @@ class SqlScheduleRepository:
                 _C.c.starts_on < from_date,
                 _C.c.weekdays > 0,
                 or_(_C.c.ends_on.is_(None), _C.c.ends_on >= from_date),
+                _C.c.ends_on.is_not_distinct_from(literal(read_ends_on, Date)),
                 _allowed(cur),
             )
             .values(
@@ -668,7 +694,7 @@ class SqlScheduleRepository:
                 else literal(v).label(k)
                 for k, v in values.items()
             )
-        ).where(exists().where(_C.c.id == class_id, _C.c.shala_id == shala), _allowed(cur))
+        ).where(_spans(shala, class_id, o.on_date), _allowed(cur))
         stmt_insert = insert(_O).from_select(list(values), source)
         upsert = (
             stmt_insert.on_conflict_do_update(
@@ -690,21 +716,25 @@ class SqlScheduleRepository:
 
     async def clear_override(
         self, shala: UUID, me: UUID, class_id: UUID, on_date: date
-    ) -> Guarded[None]:
+    ) -> Guarded[bool]:
         cur = _cur(shala, me)
+        spans = _spans(shala, class_id, on_date)
         gone = (
             delete(_O)
             .where(
                 _O.c.class_id == class_id,
                 _O.c.on_date == on_date,
                 _O.c.shala_id == shala,
+                spans,
                 _allowed(cur),
             )
             .returning(_O.c.class_id)
             .cte("gone")
         )
-        m, done, _ = await self._write(shala, me, cur, gone)
-        return Guarded(m, done)
+        m, done, row = await self._write(shala, me, cur, gone, spans.label("spans"))
+        if not done or row is None:
+            return Guarded(m, False)
+        return Guarded(m, True, bool(row.spans))
 
     async def add_closure(
         self, shala: UUID, me: UUID, start: date, end: date, caps: ClassCaps, today: date

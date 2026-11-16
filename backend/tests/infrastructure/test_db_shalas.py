@@ -340,7 +340,7 @@ async def test_every_card_answer_carries_the_class_count(engine: AsyncEngine) ->
 
 
 async def test_the_owner_sets_their_own_roles(engine: AsyncEngine) -> None:
-    """Q337: the SQL guard follows the policy's new branch; a manager still cannot, and
+    """Q338: the SQL guard follows the policy's new branch; a manager still cannot, and
     Manager is not a role an owner takes."""
     owner, _ = await _person(engine, "Anna")
     dana, _ = await _person(engine, "Dana")

@@ -30,7 +30,7 @@ type PinDays = 0 | 7 | 30;
 
 export type AnnouncementsMode =
   // `shala` null: all my students. `draft`: a text to start from, edited before it is sent
-  // (Q338: "Tell students…" after a class is cancelled).
+  // (Q339: "Tell students…" after a class is cancelled).
   | { view: "compose"; shala: string | null; draft?: string | undefined }
   | { view: "feed"; shala: string | null }; // null: every teacher and shala of mine
 

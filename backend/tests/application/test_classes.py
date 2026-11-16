@@ -465,6 +465,64 @@ async def test_editing_an_unknown_class_is_not_found(world: World, cast: Cast) -
     assert (world.schedule.reads, world.schedule.writes) == (["classes_of"], [])
 
 
+async def test_an_edit_before_the_first_class_changes_whole(world: World, cast: Cast) -> None:
+    """Review fix: Mondays, first date set to Tue 3 Nov, so the first class is Mon 9 Nov.
+    Changed "from 9 Nov" before it has ever run: there is nothing earlier to keep, so the
+    row itself changes. No predecessor with no dates is left behind. The row now starts on
+    the date asked, so a new weekday (Wednesday) adds no class on a day already past."""
+    old = world.schedule.add_class(cast.shala, weekdays=frozenset({1}), starts_on=NOV[3])
+    patch = ClassPatch(start=time(7, 0), weekdays=frozenset({1, 3}))
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, patch, from_date=NOV[9]
+    )
+
+    assert (new.id, new.start, new.starts_on, new.ends_on) == (old.id, time(7, 0), NOV[9], None)
+    assert world.schedule.of(cast.shala) == [new]
+    out = await world.get().execute(world.me(cast.owner), cast.shala, NOV[2], 14)
+    assert [o.on for o in out.occurrences] == [NOV[9], NOV[11]]  # no Wed 4 Nov
+
+
+async def test_an_edit_after_the_first_class_still_splits(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(cast.shala, weekdays=frozenset({1}), starts_on=NOV[3])
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(start=time(7, 0)), from_date=NOV[10]
+    )
+
+    assert new.id != old.id
+    assert len(world.schedule.of(cast.shala)) == 2
+
+
+async def test_a_stale_edit_from_an_earlier_date_does_not_double_the_class(
+    world: World, cast: Cast, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review fix: two people edit the same class. The first applies "from 23 Nov" between
+    the second's read and write; the second asks "from 16 Nov" with the row as it was read
+    (no last date). The write requires the last date that was read: `NotFound`, and no
+    second successor running beside the first from 23 Nov."""
+    old = world.schedule.add_class(cast.shala, starts_on=NOV[2])
+    read = world.schedule.classes_of
+
+    async def then_someone_else_saves(shala: UUID, me: UUID) -> Any:
+        found = await read(shala, me)
+        monkeypatch.setattr(world.schedule, "classes_of", read)
+        await world.update().execute(
+            world.me(cast.teacher), shala, old.id, ClassPatch(start=time(7, 0)), NOV[23]
+        )
+        return found
+
+    monkeypatch.setattr(world.schedule, "classes_of", then_someone_else_saves)
+
+    with pytest.raises(NotFound):
+        await world.update().execute(
+            world.me(cast.owner), cast.shala, old.id, ClassPatch(minutes=180), from_date=NOV[16]
+        )
+
+    spans = sorted((c.starts_on, c.ends_on, c.minutes) for c in world.schedule.of(cast.shala))
+    assert spans == [(NOV[2], NOV[22], 210), (NOV[23], None, 210)]
+
+
 # UI-06 stage 4 (spec §3, §6; ADR-0048): the use case owns the read and the merge, an edit
 # applies from a date, and the past is not rewritten.
 
@@ -837,6 +895,37 @@ async def test_an_assistant_may_not_cancel(world: World, cast: Cast) -> None:
             NOV[9],
             _ov(NOV[9], OverrideStatus.CANCELLED),
         )
+
+
+@pytest.mark.parametrize(
+    ("starts_on", "ends_on"), [(NOV[2], NOV[8]), (NOV[16], None)], ids=["ended", "not-started"]
+)
+async def test_a_date_outside_the_series_is_not_found_and_writes_nothing(
+    world: World, cast: Cast, starts_on: date, ends_on: date | None
+) -> None:
+    """Review fix (ADR-0048): an old id after "change from a date" names a series that ended
+    the day before. Its later dates belong to the successor: no orphan override on the old
+    id, and a restore says the same, so every adapter can show "this class has changed"."""
+    row = world.schedule.add_class(cast.shala, starts_on=starts_on, ends_on=ends_on)
+    me = world.me(cast.teacher)
+
+    with pytest.raises(NotFound):
+        await world.override().execute(
+            me, cast.shala, row.id, NOV[9], _ov(NOV[9], OverrideStatus.CANCELLED)
+        )
+    with pytest.raises(NotFound):
+        await ClearOverride(world.schedule).execute(me, cast.shala, row.id, NOV[9])
+
+    assert world.schedule.overrides == {}
+    assert world.schedule.writes == []
+
+
+async def test_a_restore_with_nothing_to_restore_is_quiet(world: World, cast: Cast) -> None:
+    row = world.schedule.add_class(cast.shala)
+
+    await ClearOverride(world.schedule).execute(world.me(cast.office), cast.shala, row.id, NOV[9])
+
+    assert world.schedule.writes == []
 
 
 # Closures

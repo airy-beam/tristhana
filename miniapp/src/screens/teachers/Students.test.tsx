@@ -238,6 +238,20 @@ const homeRow = async (locale: "en" | "ru" = "en") => {
   return screen.findByRole("button", { name: ROW[locale] });
 };
 
+// The screens opened here are lazy chunks, and `renderApp()` resets the modules: loading
+// each once fills the transform cache, so no test's first open outlasts `findBy…` (1 s).
+beforeAll(async () => {
+  await Promise.all([
+    import("../../App"),
+    import("../settings/Links"),
+    import("../settings/Settings"),
+    import("../settings/DirectoryListing"),
+    import("../shalas/ShalaScreen"),
+    import("../teachers/Students"),
+    import("../announcements/Announcements"),
+  ]);
+}, 60_000);
+
 async function renderApp(locale: "en" | "ru" = "en") {
   accountLocale = locale;
   vi.resetModules();

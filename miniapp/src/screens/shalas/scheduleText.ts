@@ -29,6 +29,30 @@ export function dayName(day: string, locale: Locale): string {
   }).format(new Date(`${day}T00:00:00Z`));
 }
 
+/** "Jan 5, 2026" / «5 янв. 2026 г.»: a date that may lie in another year. */
+export function fullDate(day: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${day}T00:00:00Z`));
+}
+
+/** "Nov 16 – 22" / «16–22 нояб.»: a span of days, short enough for one line at 320px. */
+export function spanName(first: string, last: string, locale: Locale): string {
+  const format = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+  const [a, b] = [new Date(`${first}T00:00:00Z`), new Date(`${last}T00:00:00Z`)];
+  // Across New Year the range would name both years: two plain dates say enough.
+  return first.slice(0, 4) === last.slice(0, 4)
+    ? format.formatRange(a, b)
+    : `${format.format(a)} ${DASH} ${format.format(b)}`;
+}
+
 /** HH:MM of an instant in a zone. */
 export function timeIn(instant: string, zone: string): string {
   return new Intl.DateTimeFormat("en-GB", {

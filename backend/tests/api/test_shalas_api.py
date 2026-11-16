@@ -164,7 +164,7 @@ def test_two_fields_are_enough_to_create(api: TestClient, storage: InMemoryStora
     assert (body["days_off"], body["me"]["roles"]) == (None, [])
 
 
-# The setup list (UI-06 stage 4, spec §5-§6; Q339)
+# The setup list (UI-06 stage 4, spec §5-§6; Q340)
 
 
 def _setup(api: TestClient, shala: UUID, user_id: int = ME_TG) -> list[str] | None:
@@ -189,7 +189,7 @@ def test_the_owners_setup_list_shrinks_as_the_shala_fills(
     storage.schedule.add_class(shala)
     assert _setup(api, shala) == ["invite_students", "invite_staff"]
     storage.shalas.add_student(shala, _person(storage, "2001", "Bea").id)
-    assert _setup(api, shala) == ["invite_staff"]  # the optional step alone (Q339)
+    assert _setup(api, shala) == ["invite_staff"]  # the optional step alone (Q340)
     storage.shalas.add_staff(shala, _person(storage, "2002", "Boris").id, ShalaRole.TEACHER)
     assert _setup(api, shala) == []  # set up: the list leaves
 
@@ -572,7 +572,7 @@ def test_put_roles_on_the_owner_is_403(api: TestClient, storage: InMemoryStorage
 
 
 def test_the_owner_puts_their_own_roles(api: TestClient, storage: InMemoryStorage) -> None:
-    """Q337 (UI-06 stage 4): the owner's row in "Teachers and staff" is theirs to change."""
+    """Q338 (UI-06 stage 4): the owner's row in "Teachers and staff" is theirs to change."""
     me = _me(api, storage)
     shala = _shala(storage, me)
     url = f"/api/v1/shalas/{shala}/staff/{me}"

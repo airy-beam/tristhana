@@ -218,7 +218,7 @@ describe("compose", () => {
     });
   });
 
-  // Q338: "Tell students…" after a class is cancelled opens the screen with a text to start
+  // Q339: "Tell students…" after a class is cancelled opens the screen with a text to start
   // from. It is a draft: edited, then sent through the usual confirm, never by itself.
   it("starts from a draft, which is edited and sent like any other text", async () => {
     stubApi();

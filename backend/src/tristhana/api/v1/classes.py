@@ -570,7 +570,8 @@ async def put_occurrence(
     response: Response,
 ) -> ScheduleOccurrenceOut:
     """`key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,
-    or name a substitute; silent (Q122)."""
+    or name a substitute; silent (Q122). 404 also for a date outside the series: a class
+    changed "from a date" ends the day before, and its later dates have a new id (ADR-0048)."""
     response.headers.update(_NO_STORE)
     override = Override(
         on_date=key,
@@ -601,7 +602,8 @@ async def delete_occurrence(
     use_cases: UseCases,
     response: Response,
 ) -> None:
-    """Restore: the occurrence follows its rule again. Idempotent."""
+    """Restore: the occurrence follows its rule again. Idempotent for a date the series has;
+    404 for a date outside it (as `PUT`)."""
     await _run(use_cases.clear.execute(principal, id, class_id, key))
     response.headers.update(_NO_STORE)
 

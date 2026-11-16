@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import type { Shala } from "../../api/client";
 import { haptics } from "../../telegram";
@@ -17,7 +17,7 @@ const STEPS: readonly (readonly [SetupStep, string])[] = [
 ];
 const CHECK = "✓";
 
-// "I teach alone" is remembered on this device only (Q339): no flag on the server.
+// "I teach alone" is remembered on this device only (Q340): no flag on the server.
 const keyOf = (shala: string) => `setup.solo.${shala}`;
 
 /** Blocked storage counts as "I teach alone": never a list that cannot be put away. */
@@ -41,6 +41,7 @@ interface Props {
  * third is optional: "I teach alone" puts it away. Gone when nothing is due. */
 export function SetupList({ shala, onOpen }: Props) {
   const { l10n } = useLocalization();
+  const noteId = useId();
   const [alone, setAlone] = useState(() => teachesAlone(shala.id));
   const due = (shala.setup ?? []).filter((step) => !(alone && step === "invite_staff"));
   const next = due[0];
@@ -49,6 +50,16 @@ export function SetupList({ shala, onOpen }: Props) {
     haptics.selection();
     onOpen(step);
   };
+  // The third step is optional: its row stays two or three words, and says so on a quiet
+  // second line, which is the button's description.
+  const optional = (step: SetupStep) => step === "invite_staff";
+  const note = (step: SetupStep) =>
+    optional(step) && (
+      <Localized id="setup-staff-note">
+        <span id={noteId} className="setup-note" />
+      </Localized>
+    );
+  const described = (step: SetupStep) => (optional(step) ? noteId : undefined);
   return (
     <section className="card setup" aria-labelledby="setup-title">
       <Localized id="setup-title">
@@ -69,16 +80,29 @@ export function SetupList({ shala, onOpen }: Props) {
             return (
               <li key={step}>
                 <span className="mark" />
-                <button type="button" className="link tap" onClick={open(step)}>
+                <button
+                  type="button"
+                  className="link tap"
+                  aria-describedby={described(step)}
+                  onClick={open(step)}
+                >
                   {l10n.getString(label)}
                 </button>
+                {note(step)}
               </li>
             );
           return (
             <li key={step}>
-              <button type="button" className="btn" aria-current="step" onClick={open(step)}>
+              <button
+                type="button"
+                className="btn"
+                aria-current="step"
+                aria-describedby={described(step)}
+                onClick={open(step)}
+              >
                 {l10n.getString(label)}
               </button>
+              {note(step)}
               {step === "invite_staff" && (
                 <Localized id="setup-staff-skip">
                   <button

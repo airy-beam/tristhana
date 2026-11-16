@@ -172,7 +172,10 @@ def test_the_reasons(reason: str, labels: tuple[str, str]) -> None:
 
 
 def _app_ids(locale: Locale) -> set[str]:
-    text = APP_FTL.with_name("app.ftl").parent.parent.joinpath(locale, "app.ftl").read_text()
+    """The Mini App's message ids: `app.ftl` and the copy its lazy chunks carry (the class
+    form's moved to `shala.ftl` in UI-06 stage 4)."""
+    folder = APP_FTL.with_name("app.ftl").parent.parent.joinpath(locale)
+    text = "\n".join(f.read_text() for f in sorted(folder.glob("*.ftl")))
     return set(re.findall(r"^([a-z][a-z0-9-]*)\s*=", text, flags=re.MULTILINE))
 
 

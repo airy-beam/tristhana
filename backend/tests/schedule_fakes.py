@@ -256,13 +256,14 @@ class InMemorySchedule:
         class_id: UUID,
         draft: ClassDraft,
         from_date: date | None,
+        read_ends_on: date | None = None,
     ) -> Guarded[StoredClass]:
         """Without `from`: the row changes. With it, for a weekly series that started before
         it: the old series ends the day before and a new one starts on it; overrides and
         attendance on or after `from` move to the new id where the new rule makes the date
         (ADR-0034, ADR-0048). Overrides the resulting rule no longer produces are deleted. A
         series that starts on or after `from`, and a one-off, change whole; one that ended
-        before `from` is not written."""
+        before `from`, or whose last date is no longer `read_ends_on`, is not written."""
         self._call("update")
         m = self._manager(shala, me)
         if m is None or not can_manage_schedule(m):
@@ -276,6 +277,8 @@ class InMemorySchedule:
             self.classes[old.id] = (shala, new)
         elif old.ends_on is not None and old.ends_on < from_date:
             return Guarded(m, True, None)  # ended before `from`: gone for this edit
+        elif old.ends_on != read_ends_on:
+            return Guarded(m, True, None)  # ended by someone else since it was read
         else:
             last = from_date - timedelta(days=1)
             ends = last if old.ends_on is None else min(old.ends_on, last)
@@ -316,8 +319,7 @@ class InMemorySchedule:
         m = self._manager(shala, me)
         if m is None or not can_manage_schedule(m):
             return Guarded(m, False)
-        found = self.classes.get(class_id)
-        if found is None or found[0] != shala:
+        if not self._spans(shala, class_id, override.on_date):
             return Guarded(m, True, False)
         old = self.overrides.get((class_id, override.on_date))
         if old is not None and keep:
@@ -328,19 +330,24 @@ class InMemorySchedule:
 
     async def clear_override(
         self, shala: UUID, me: UUID, class_id: UUID, on_date: date
-    ) -> Guarded[None]:
+    ) -> Guarded[bool]:
         self._call("clear_override")
         m = self._manager(shala, me)
         if m is None or not can_manage_schedule(m):
             return Guarded(m, False)
-        found = self.classes.get(class_id)
-        if (
-            found is not None
-            and found[0] == shala
-            and self.overrides.pop((class_id, on_date), None) is not None
-        ):
+        if not self._spans(shala, class_id, on_date):
+            return Guarded(m, True, False)
+        if self.overrides.pop((class_id, on_date), None) is not None:
             self.writes.append("clear_override")
-        return Guarded(m, True)
+        return Guarded(m, True, True)
+
+    def _spans(self, shala: UUID, class_id: UUID, key: date) -> bool:
+        """The shala has this series and `key` lies within its span (ADR-0048)."""
+        found = self.classes.get(class_id)
+        if found is None or found[0] != shala:
+            return False
+        c = found[1]
+        return c.starts_on <= key and (c.ends_on is None or c.ends_on >= key)
 
     async def add_closure(
         self, shala: UUID, me: UUID, start: date, end: date, caps: ClassCaps, today: date

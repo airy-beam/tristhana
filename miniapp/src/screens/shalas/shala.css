@@ -6,9 +6,13 @@
   margin-bottom: var(--space);
 }
 
-.class-form .once {
-  display: block;
-  margin: -8px 0 8px;
+/* "Changes apply from …": one sentence, and a quiet "Another date" under it. */
+.class-form .applies {
+  margin: 0 0 8px;
+}
+
+.class-form .applies p {
+  margin: 0;
 }
 
 .class-form .field-error {
@@ -83,6 +87,17 @@
 
 .setup .link {
   text-align: left;
+}
+
+/* "Optional": the third step's quiet second line, under its button or beside its link. */
+.setup .setup-note {
+  flex-basis: 100%;
+  color: var(--c-hint);
+  font-size: 13px;
+}
+
+.setup li > .mark ~ .setup-note {
+  flex-basis: auto;
 }
 
 /* A later step: there to tap, in the text's own colour, so one thing stands out. */

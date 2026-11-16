@@ -1118,13 +1118,15 @@ export interface paths {
         /**
          * Put Occurrence
          * @description `key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,
-         *     or name a substitute; silent (Q122).
+         *     or name a substitute; silent (Q122). 404 also for a date outside the series: a class
+         *     changed "from a date" ends the day before, and its later dates have a new id (ADR-0048).
          */
         put: operations["put_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__put"];
         post?: never;
         /**
          * Delete Occurrence
-         * @description Restore: the occurrence follows its rule again. Idempotent.
+         * @description Restore: the occurrence follows its rule again. Idempotent for a date the series has;
+         *     404 for a date outside it (as `PUT`).
          */
         delete: operations["delete_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__delete"];
         options?: never;

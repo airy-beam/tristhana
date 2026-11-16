@@ -116,7 +116,13 @@ class ScheduleRepository(Protocol):
     ) -> Guarded[StoredClass]: ...
 
     async def update(
-        self, shala: UUID, me: UUID, class_id: UUID, draft: ClassDraft, from_date: date | None
+        self,
+        shala: UUID,
+        me: UUID,
+        class_id: UUID,
+        draft: ClassDraft,
+        from_date: date | None,
+        read_ends_on: date | None = None,
     ) -> Guarded[StoredClass]:
         """With `from_date`, for a weekly series that started before it and has not ended
         before it: the old series ends the day before, a new one starts on it, and the
@@ -124,7 +130,12 @@ class ScheduleRepository(Protocol):
         new id (ADR-0048). Overrides the resulting rules no longer produce are deleted;
         attendance on such dates stays on the ended series. A series that starts on or after
         `from_date`, and a one-off, change whole. One that ended before it is not written:
-        the value is None, as for an unknown class."""
+        the value is None, as for an unknown class.
+
+        `read_ends_on`: the series' last date as the caller read it. A split requires it
+        still to be that: a series someone else has ended meanwhile (from a later date than
+        this one) is not split a second time, which would run two successors side by side.
+        The value is None then too."""
         ...
 
     async def delete(self, shala: UUID, me: UUID, class_id: UUID) -> Guarded[None]:
@@ -135,13 +146,16 @@ class ScheduleRepository(Protocol):
         self, shala: UUID, me: UUID, class_id: UUID, override: Override, keep: bool = False
     ) -> Guarded[bool]:
         """Upserts by (class, rule date), replacing the date's changes; `keep`: the status
-        only, an existing move, time and substitute stay. Value False: no such class."""
+        only, an existing move, time and substitute stay. Value False: no such class, or
+        the date lies outside the series (before its start, after its last date: the old id
+        of a class changed "from a date", ADR-0048). Nothing is written then."""
         ...
 
     async def clear_override(
         self, shala: UUID, me: UUID, class_id: UUID, on_date: date
-    ) -> Guarded[None]:
-        """Idempotent."""
+    ) -> Guarded[bool]:
+        """Idempotent. Value False: no such class, or the date lies outside the series (as
+        `set_override`); True also when there was nothing to clear."""
         ...
 
     async def add_closure(

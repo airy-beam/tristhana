@@ -18,7 +18,7 @@ interface Props {
 
 /** A new shala in two fields (SC-01, UI-06 stage 4): its name and its city, which sets the
  * zone and the moon days. The owner starts as its teacher; online-only, the moon city, the day
- * off and the owner's own roles are changed afterwards on the card (Q337). */
+ * off and the owner's own roles are changed afterwards on the card (Q338). */
 export default function CreateShala({ onDone, focus }: Props) {
   const { l10n } = useLocalization();
   const first = useRef<HTMLInputElement>(null);

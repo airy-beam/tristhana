@@ -517,13 +517,6 @@ class ScheduleScreens:
         """x: cancel, r: restore, h: hold anyway; then the week, edited in place."""
         await asyncio.sleep(0)  # let `answered` send the answer before the write
         locale = principal.account.locale
-        # An old button for a date its class no longer has (the class was changed from an
-        # earlier date, ADR-0048, so the series ended): the note `o` gives, and no write.
-        found = await self._find(principal, tap)
-        if isinstance(found, Screen):
-            return found
-        if not any(o.class_id == tap.class_id and o.key == tap.key for o in found.occurrences):
-            return await self.week(principal, tap.shala, 0, self._t.t(locale, "class-gone"))
         note = ""
         try:
             if tap.action == "r":
@@ -535,6 +528,8 @@ class ScheduleScreens:
                     principal, tap.shala, tap.class_id, tap.key, override, keep=True
                 )
         except NotFound:
+            # Also an old button for a date its class no longer has: the class was changed
+            # from an earlier date (ADR-0048). The write's own guard refused it.
             note = self._t.t(locale, "class-gone")
         except NotAllowed:
             pass

@@ -20,7 +20,7 @@ import { deviceZone } from "../settings/zones";
 import { zoneLabel } from "../timeLabel";
 import { useOccurrenceText } from "./classText";
 import OccurrenceSheet from "./OccurrenceSheet";
-import { DASH, addDays, dateIn, dayName, plain, todayIn } from "./scheduleText";
+import { addDays, dateIn, dayName, plain, spanName, todayIn } from "./scheduleText";
 import "./shalaCopy";
 import "./shala.css";
 
@@ -57,10 +57,14 @@ export default function ShalaSchedule({
   const locale: Locale = me?.locale ?? "en";
   const [week, setWeek] = useState(Math.min(Math.max(first, 0), WEEKS - 1));
   const [tool, setTool] = useState<"closure" | "swap" | null>(null);
+  // A date was opened whose class has since changed: the same line as for the form (`gone`),
+  // until another date is opened.
+  const [stale, setStale] = useState(false);
   const manage = shala.me.schedule;
   const from = addDays(todayIn(shala.zone), week * WEEK);
-  // "Mon, Nov 16 – Sun, Nov 22": the week on screen, as My schedule names its own.
-  const span = `${dayName(from, locale)} ${DASH} ${dayName(addDays(from, WEEK - 1), locale)}`;
+  // "Nov 16 – 22": the week on screen, on one line between its arrows also at 320px in
+  // Russian; the day rows under it carry the weekdays.
+  const span = spanName(from, addDays(from, WEEK - 1), locale);
   const query = useSchedule(shala.id, from, WEEK);
   const schedule = query.data;
   const toggle = (next: "closure" | "swap") => () => {
@@ -108,7 +112,7 @@ export default function ShalaSchedule({
           />
         </Localized>
       </nav>
-      {gone && (
+      {(gone || stale) && (
         <Localized id="class-form-gone">
           <p className="hint" role="status" />
         </Localized>
@@ -126,6 +130,7 @@ export default function ShalaSchedule({
           viewer={me?.timezone ?? deviceZone()}
           onEdit={onEdit}
           onTell={onTell}
+          onStale={setStale}
         />
       )}
       {manage && (
@@ -157,6 +162,7 @@ function Week({
   viewer,
   onEdit,
   onTell,
+  onStale,
 }: {
   shala: Shala;
   schedule: Schedule;
@@ -164,6 +170,8 @@ function Week({
   viewer: string | null;
   onEdit: (occurrence: Occurrence) => void;
   onTell: (draft: string) => void;
+  /** A date's class has changed under its open sheet (true), or another date was opened. */
+  onStale: (stale: boolean) => void;
 }) {
   const { l10n } = useLocalization();
   const [open, setOpen] = useState<string | null>(null);
@@ -230,6 +238,7 @@ function Week({
                       aria-expanded={open === id}
                       onClick={() => {
                         haptics.selection();
+                        onStale(false);
                         setOpen(open === id ? null : id);
                       }}
                     >
@@ -245,6 +254,10 @@ function Week({
                         }}
                         onEdit={onEdit}
                         onTell={onTell}
+                        onGone={() => {
+                          setOpen(null);
+                          onStale(true);
+                        }}
                       />
                     )}
                   </div>

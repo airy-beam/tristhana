@@ -193,7 +193,7 @@ def can_set_roles(
 ) -> bool:
     """Never on a student; a manager's roles only by the owner. The owner's seat is the
     owner's alone (a shala has one owner, so an owner acting on an owner is acting on
-    themselves, Q337), and never holds Manager: the owner already has every right."""
+    themselves, Q338), and never holds Manager: the owner already has every right."""
     if actor is None or not target.staff:
         return False
     if target.owner:

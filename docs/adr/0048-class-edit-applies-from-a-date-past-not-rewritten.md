@@ -1,5 +1,5 @@
 # ADR-0048: A class edit applies from a date: the series is split, attendance follows the successor, and the app never rewrites the past
-- Status: accepted (owner, 2026-11-16, with `docs/specs/UI-06-stage-4-shala-setup.md`; Q336 as recommended: no "all dates" choice)
+- Status: accepted (owner, 2026-11-16, with `docs/specs/UI-06-stage-4-shala-setup.md`; Q337 as recommended: no "all dates" choice)
 - Builds on ADR-0034 (weekly rule, read-time expansion, split "from a date") and ADR-0039 (attendance keyed by class and rule date, with a snapshot). Amends both.
 - Date: 2026-11-16
 ## Context
@@ -12,6 +12,7 @@ Reading the code before building showed what each path does to history. In place
 - **The rhythm survives a split.** When `every` is unchanged and above 1, the split date moves forward to the first day in one of the old rule's weeks (`domain/classes.split_start`).
 - **An ended series cannot be split again past its end.** `ends_on < from` answers `NotFound`, in the use case and in the statement.
 - **No link between predecessor and successor is stored.** Nothing reads one; the occurrence identity stays `(class_id, rule date)`.
+- **Review amendments (2026-11-17).** The default date is the class's next date once the tapped date's class has begun. A split requires the series' last date to be the one the caller read (`read_ends_on`), so two edits cannot leave two successors. A series with no date before `from` changes whole. Overrides, restores and attendance claims are refused for a date outside the series' span (`NotFound` / `NotAttendable`), so nothing is written on an ended id. The roster's "regulars" are counted by shala and class type, across ids.
 ## Consequences
 - History stays as it was shown: last week's schedule, calendars, cancellations and marks do not change when next week's class does.
 - Every edit of a running class adds a row. Ended rows stop counting toward the 40-series cap the day after they end; `GET …/classes` returns them until a filter is needed.

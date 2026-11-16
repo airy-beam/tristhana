@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
-import { useBackButton } from "../../telegram";
+import { confirmDestructive, useBackButton } from "../../telegram";
 import ClassForm from "./ClassForm";
 import ShalaScreen from "./ShalaScreen";
 
@@ -15,7 +15,10 @@ import ShalaScreen from "./ShalaScreen";
 // UI-06 stage 4 (ADR-0048): the form is short (type, start, weekday chips; the rest under
 // "More options"), opens as a layer of its own, and also changes a saved class: from a date
 // when the class has run, whole when it has not. The sheet has two headed groups; Delete is in
-// the edit form; "Tell students…" follows a cancel (Q338).
+// the edit form; "Tell students…" follows a cancel (Q339).
+// Review fixes: the edit form trusts only a class list fetched after it opened; the stub's
+// class list follows a delete; Back asks before it drops what was typed; a date of a class
+// that has since changed (404) shows the "class changed" line; "End this class from this date".
 
 vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
@@ -27,6 +30,8 @@ vi.mock("../../telegram", () => ({
   openTelegramLink: vi.fn(),
   useMainButton: vi.fn(),
   mainButtonAvailable: vi.fn(() => false),
+  enableClosingConfirmation: vi.fn(),
+  disableClosingConfirmation: vi.fn(),
 }));
 
 const SHALA = "00000000-0000-0000-0000-0000000000c1";
@@ -139,10 +144,14 @@ const json = (body: unknown, status = 200) =>
 interface Stub {
   card?: unknown;
   schedule?: unknown;
-  /** The saved class series (`GET …/classes`). */
-  classes?: unknown[];
+  /** The saved class series (`GET …/classes`); a deleted class leaves it. */
+  classes?: unknown[] | undefined;
   /** The answer to a `PATCH` of a class; the merged class unless given. */
   patch?: () => Response;
+  /** The answer to a cancel, a hold or a substitute; the cancelled date unless given. */
+  put?: () => Response;
+  /** The answer to a restore; done unless given. */
+  restore?: () => Response;
   dayOff?: number[] | null;
   /** My own zone (the viewer's); Almaty, the shala's, unless given. */
   timezone?: string;
@@ -161,11 +170,19 @@ function stubApi(stub: Stub = {}): Request[] {
         return json({ id: CLASS, rrule: null, ...((await request.json()) as object) }, 201);
       if (path === `/api/v1/shalas/${SHALA}/classes`) return json(stub.classes ?? []);
       if (path.startsWith(`/api/v1/shalas/${SHALA}/classes/`) && request.method === "PUT")
-        return json(occurrence({ cancelled: "cancelled" }));
+        return stub.put?.() ?? json(occurrence({ cancelled: "cancelled" }));
+      if (
+        path.startsWith(`/api/v1/shalas/${SHALA}/classes/${CLASS}/occurrences/`) &&
+        request.method === "DELETE"
+      )
+        return stub.restore?.() ?? new Response(null, { status: 204 });
       if (path === `/api/v1/shalas/${SHALA}/classes/${CLASS}` && request.method === "PATCH")
         return stub.patch?.() ?? json({ ...SERIES, ...((await request.json()) as object) });
-      if (path === `/api/v1/shalas/${SHALA}/classes/${CLASS}` && request.method === "DELETE")
+      if (path === `/api/v1/shalas/${SHALA}/classes/${CLASS}` && request.method === "DELETE") {
+        // As the server: a deleted class is in no later list.
+        stub.classes = stub.classes?.filter((c) => (c as { id: string }).id !== CLASS);
         return new Response(null, { status: 204 });
+      }
       if (path === "/api/v1/me/announcements/sent") return json([]);
       if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
       if (path === `/api/v1/shalas/${SHALA}`) return json(stub.card ?? shalaOut(STUDENT));
@@ -290,7 +307,8 @@ describe("the schedule on the shala card", () => {
     await screen.findAllByText(/06:00–09:30/);
 
     const nav = screen.getByRole("navigation");
-    expect(plain(nav.textContent)).toMatch(/^◀\w{3}, \w{3} \d+ – \w{3}, \w{3} \d+▶$/);
+    // "Nov 16 – 22", "Nov 30 – Dec 6": short enough for one line at 320px, also in Russian.
+    expect(plain(nav.textContent)).toMatch(/^◀\w{3} \d+\s–\s(\w{3} )?\d+▶$/);
     expect(within(nav).getByRole("button", { name: "◀" })).toBeDisabled();
     const before = calls(seen, "GET", `/api/v1/shalas/${SHALA}/schedule`).length;
     fireEvent.click(within(nav).getByRole("button", { name: "▶" }));
@@ -361,7 +379,7 @@ describe("the occurrence sheet", () => {
     renderWith(card());
 
     fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
-    expect(screen.queryByRole("button", { name: /Cancel this class/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Cancel this date/ })).toBeNull();
   });
 
   it("lets a teacher cancel, and offers Hold anyway only on an auto-cancelled one", async () => {
@@ -371,7 +389,7 @@ describe("the occurrence sheet", () => {
     const rows = await screen.findAllByText(/06:00–09:30/);
     fireEvent.click(rows[0] as HTMLElement);
     expect(screen.queryByRole("button", { name: /Hold anyway/ })).toBeNull();
-    fireEvent.click(await screen.findByRole("button", { name: "❌ Cancel this class" }));
+    fireEvent.click(await screen.findByRole("button", { name: "❌ Cancel this date" }));
 
     await waitFor(() => {
       expect(
@@ -499,6 +517,17 @@ describe("the occurrence sheet", () => {
     });
   });
 
+  it("names the substitute field in Russian as the form names the teacher", async () => {
+    stubApi({ card: shalaOut(TEACHER, { staff: STAFF }) });
+    renderWith(card(), "ru");
+
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    const picker = await screen.findByLabelText("Преподаватель на эту дату");
+    expect(plain(within(picker).getAllByRole("option")[0]?.textContent)).toBe(
+      "Обычный преподаватель (Anna)",
+    );
+  });
+
   it("offers no substitute on a cancelled date", async () => {
     stubApi({ card: shalaOut(TEACHER, { staff: STAFF }) });
     renderWith(card());
@@ -538,8 +567,18 @@ describe("the class form", () => {
     expect(await screen.findByLabelText("Start, Almaty")).toHaveAttribute("type", "time");
     expect(screen.getByRole("group", { name: "Repeats on" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save the class" })).toBeInTheDocument();
+    // Every week or one date: two chips, the first chosen.
+    const when = screen.getByRole("group", { name: "When" });
+    expect(
+      within(when)
+        .getAllByRole("button")
+        .map((b) => [b.textContent, b.getAttribute("aria-pressed")]),
+    ).toEqual([
+      ["Every week", "true"],
+      ["One date", "false"],
+    ]);
     // Nothing else to fill in: no title, teacher, dates or online on the first screen.
-    expect(screen.getAllByRole("group")).toHaveLength(2);
+    expect(screen.getAllByRole("group")).toHaveLength(3);
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
@@ -629,11 +668,12 @@ describe("the class form", () => {
     const seen = stubApi();
     renderWith(form());
     fireEvent.click(await screen.findByRole("button", { name: "Workshop" }));
-    fireEvent.click(screen.getByRole("button", { name: "One date only" }));
+    fireEvent.click(chip("One date"));
 
     expect(screen.queryByRole("group", { name: "Repeats on" })).toBeNull();
+    expect(pressed("One date")).toBe(true);
+    expect(pressed("Every week")).toBe(false);
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-12-05" } });
-    expect(screen.getByRole("button", { name: "Repeat weekly" })).toBeInTheDocument();
     save();
 
     await waitFor(() => {
@@ -649,14 +689,14 @@ describe("the class form", () => {
     });
   });
 
-  it("offers the length as chips, and any other length as an end time", async () => {
+  it("offers how long as chips, and any other length in minutes", async () => {
     const seen = stubApi();
     renderWith(form());
     fireEvent.click(await screen.findByRole("button", { name: "Led" }));
     fireEvent.click(chip("Friday"));
     fireEvent.click(more());
 
-    const length = screen.getByRole("group", { name: "Length" });
+    const length = screen.getByRole("group", { name: "How long" });
     expect(
       within(length)
         .getAllByRole("button")
@@ -666,20 +706,119 @@ describe("the class form", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.queryByLabelText("Ends at")).toBeNull();
+    expect(screen.queryByLabelText("How many minutes")).toBeNull();
     fireEvent.click(within(length).getByRole("button", { name: "75 min" }));
     // Changing the start keeps the length.
     fireEvent.change(screen.getByLabelText("Start, Almaty"), { target: { value: "18:30" } });
     fireEvent.click(within(length).getByRole("button", { name: "Other" }));
-    const ends = screen.getByLabelText<HTMLInputElement>("Ends at");
-    expect(ends.value).toBe("19:45");
-    fireEvent.change(ends, { target: { value: "20:15" } });
+    // Minutes, as on the chips: a number, not a clock.
+    const minutes = screen.getByLabelText<HTMLInputElement>("How many minutes");
+    expect(minutes).toHaveAttribute("type", "number");
+    expect(minutes).toHaveAttribute("inputmode", "numeric");
+    expect(minutes.value).toBe("75");
+    expect(screen.queryByLabelText("Ends at")).toBeNull();
+    fireEvent.change(minutes, { target: { value: "105" } });
     save();
 
     await waitFor(() => {
       expect(posts(seen)).toHaveLength(1);
     });
     expect(await posts(seen)[0]?.json()).toMatchObject({ start: "18:30", minutes: 105 });
+  });
+
+  it("refuses minutes that do not fit, at the field, without a request", async () => {
+    const seen = stubApi();
+    renderWith(form());
+    fireEvent.click(await screen.findByRole("button", { name: "Led" }));
+    fireEvent.click(chip("Friday"));
+    fireEvent.click(more());
+    fireEvent.click(screen.getByRole("button", { name: "Other" }));
+    fireEvent.change(screen.getByLabelText("How many minutes"), { target: { value: "" } });
+    fireEvent.click(more()); // folded: the mistake is out of sight
+    save();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("15 to 480 minutes");
+    expect(screen.getByLabelText("How many minutes")).toHaveFocus();
+    expect(screen.getByLabelText("How many minutes")).toHaveAttribute("aria-invalid", "true");
+    expect(posts(seen)).toHaveLength(0);
+  });
+
+  it("refuses a last date before the first one, at the field, without a request", async () => {
+    const seen = stubApi();
+    renderWith(form());
+    await screen.findByLabelText("Start, Almaty");
+    fireEvent.click(more());
+    fireEvent.change(screen.getByLabelText("First date"), { target: { value: "2099-06-01" } });
+    fireEvent.change(screen.getByLabelText(/Last date/), { target: { value: "2099-05-31" } });
+    fireEvent.click(more());
+    save();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The last date is before the first one.",
+    );
+    expect(screen.getByLabelText(/Last date/)).toHaveFocus();
+    expect(screen.getByLabelText(/Last date/)).toHaveAttribute("aria-invalid", "true");
+    expect(posts(seen)).toHaveLength(0);
+  });
+
+  it("shows an example in the empty title field", async () => {
+    stubApi();
+    renderWith(form());
+    await screen.findByLabelText("Start, Almaty");
+    fireEvent.click(more());
+
+    expect(screen.getByLabelText(/Title/)).toHaveAttribute("placeholder", "Full Primary");
+  });
+
+  it("saves once when Save is pressed twice before the screen redraws", async () => {
+    const seen = stubApi();
+    renderWith(form());
+    await screen.findByLabelText("Start, Almaty");
+    const button = screen.getByRole("button", { name: "Save the class" });
+
+    act(() => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+
+    await waitFor(() => {
+      expect(posts(seen)).toHaveLength(1);
+    });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(posts(seen)).toHaveLength(1);
+  });
+
+  it("Back asks before it drops what was typed, and not when nothing was", async () => {
+    stubApi();
+    const onDone = vi.fn();
+    renderWith(<ClassForm shala={shalaOut(OWNER, { staff: MINE }) as never} onDone={onDone} />);
+    await screen.findByLabelText("Start, Almaty");
+    const back = () => {
+      act(() => {
+        vi.mocked(useBackButton).mock.lastCall?.[0]();
+      });
+    };
+
+    back();
+    expect(confirmDestructive).not.toHaveBeenCalled();
+    expect(onDone).toHaveBeenCalledWith();
+
+    onDone.mockClear();
+    vi.mocked(confirmDestructive).mockResolvedValueOnce(false);
+    fireEvent.change(screen.getByLabelText("Start, Almaty"), { target: { value: "07:00" } });
+    back();
+    expect(confirmDestructive).toHaveBeenCalledWith(
+      "Leave without saving this class?",
+      "Don't save",
+      "Keep editing",
+    );
+    await act(() => Promise.resolve());
+    expect(onDone).not.toHaveBeenCalled(); // "Keep editing": the form stays
+
+    back(); // and "Don't save" closes it
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledWith();
+    });
   });
 
   it("opens More options on a window that ends before it starts, without a request", async () => {
@@ -767,10 +906,31 @@ describe("the class form", () => {
 
 describe("changing a class (ADR-0048)", () => {
   const MONDAY = "2099-06-01"; // the date that was tapped: far ahead, so never before today
-  const edit = (onDone = vi.fn(), date = MONDAY) => (
-    <ClassForm shala={shalaOut(OWNER) as never} edit={{ classId: CLASS, date }} onDone={onDone} />
+  const edit = (onDone = vi.fn(), date = MONDAY, startsAt?: string) => (
+    <ClassForm
+      shala={shalaOut(OWNER) as never}
+      edit={{ classId: CLASS, date, startsAt }}
+      onDone={onDone}
+    />
   );
   const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Almaty" }).format();
+  const after = (day: string, n: number) => {
+    const d = new Date(`${day}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const named = (day: string) =>
+    new Intl.DateTimeFormat("en", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    }).format(new Date(`${day}T00:00:00Z`));
+  /** "Another date": the date field behind the sentence. */
+  const anotherDate = async () => {
+    fireEvent.click(await screen.findByRole("button", { name: "Another date" }));
+    return screen.getByLabelText<HTMLInputElement>("Changes apply from");
+  };
 
   it("fills the form from the saved class and names the date the change applies from", async () => {
     stubApi({ classes: [SERIES] });
@@ -779,14 +939,22 @@ describe("changing a class (ADR-0048)", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Change the class" }),
     ).toBeVisible();
-    const applies = await screen.findByLabelText<HTMLInputElement>("Changes apply from");
-    expect(applies.value).toBe(MONDAY);
-    expect(applies).toHaveAttribute("min", today());
-    expect(applies).toHaveAccessibleDescription("Earlier dates stay as they were.");
+    // One sentence, not a field: the date that was tapped, and what stays.
+    expect(
+      await screen.findByText("Changes apply from Mon, Jun 1. Earlier dates stay as they were."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Changes apply from")).toBeNull();
     expect(pressed("Mysore")).toBe(true);
     expect(pressed("Saturday")).toBe(false);
     // A class keeps its kind: no switch to one date, and no first date to rewrite.
-    expect(screen.queryByRole("button", { name: "One date only" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "When" })).toBeNull();
+    // "Another date" brings the field, on the same date, never before the shala's today.
+    const applies = await anotherDate();
+    expect(applies.value).toBe(MONDAY);
+    expect(applies).toHaveAttribute("min", today());
+    expect(applies).toHaveFocus();
+    expect(applies).toHaveAccessibleDescription("Earlier dates stay as they were.");
+    expect(screen.queryByRole("button", { name: "Another date" })).toBeNull();
     fireEvent.click(more());
     expect(screen.queryByLabelText("First date")).toBeNull();
     expect(screen.getByLabelText<HTMLInputElement>("Until").value).toBe("09:30");
@@ -817,9 +985,9 @@ describe("changing a class (ADR-0048)", () => {
 
   it("never applies before the shala's today, also for a date of last week", async () => {
     const seen = stubApi({ classes: [SERIES] });
-    renderWith(edit(vi.fn(), "2026-01-05"));
-    const applies = await screen.findByLabelText<HTMLInputElement>("Changes apply from");
-    expect(applies.value).toBe(today());
+    renderWith(edit(vi.fn(), "2026-01-05", "2026-01-05T01:00:00Z"));
+    const applies = await anotherDate();
+    expect(applies.value >= today()).toBe(true);
     fireEvent.change(applies, { target: { value: "2020-01-01" } }); // typed past the picker
     fireEvent.click(more());
     fireEvent.change(screen.getByLabelText(/Title/), { target: { value: "Full Primary" } });
@@ -829,6 +997,111 @@ describe("changing a class (ADR-0048)", () => {
       expect(patches(seen)).toHaveLength(1);
     });
     expect(await patches(seen)[0]?.json()).toEqual({ title: "Full Primary", from: today() });
+  });
+
+  // Review fix: a class that has already begun today keeps its marks and its place on today's
+  // schedule: the change starts with the class's next date.
+  const DAILY = { ...SERIES, weekdays: [1, 2, 3, 4, 5, 6, 7] };
+
+  it("applies from the class's next date when the tapped date's class has begun", async () => {
+    const seen = stubApi({ classes: [DAILY] });
+    const begun = new Date(Date.now() - 60_000).toISOString();
+    renderWith(edit(vi.fn(), today(), begun));
+
+    const next = after(today(), 1);
+    expect(
+      await screen.findByText(
+        `Changes apply from ${named(next)}. Earlier dates stay as they were.`,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(chip("Sunday"));
+    save();
+
+    await waitFor(() => {
+      expect(patches(seen)).toHaveLength(1);
+    });
+    expect(await patches(seen)[0]?.json()).toEqual({ weekdays: [1, 2, 3, 4, 5, 6], from: next });
+  });
+
+  it("applies from the tapped date when its class has not begun", async () => {
+    stubApi({ classes: [DAILY] });
+    const later = new Date(Date.now() + 3_600_000).toISOString();
+    renderWith(edit(vi.fn(), today(), later));
+
+    expect(
+      await screen.findByText(
+        `Changes apply from ${named(today())}. Earlier dates stay as they were.`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  // Review fix: the class already has a last date (a later change begins after it, or it
+  // simply ends). The form says how far this change reaches, and so does the delete.
+  const ENDING = { ...SERIES, ends_on: "2099-12-31" };
+
+  it("says how far the change reaches when the class has a last date", async () => {
+    stubApi({ classes: [ENDING] });
+    renderWith(edit());
+
+    expect(
+      await screen.findByText(
+        "Changes apply from Mon, Jun 1. Earlier dates stay as they were. " +
+          "The changes apply through the class's last date: Thu, Dec 31.",
+      ),
+    ).toBeInTheDocument();
+    const applies = await anotherDate();
+    expect(applies).toHaveAccessibleDescription(
+      "Earlier dates stay as they were. " +
+        "The changes apply through the class's last date: Thu, Dec 31.",
+    );
+  });
+
+  it("names the dates a delete removes when the class has a last date", async () => {
+    const seen = stubApi({ classes: [ENDING] });
+    renderWith(edit());
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "🗑 Delete this class (all dates)…" }),
+    );
+
+    await waitFor(() => {
+      expect(calls(seen, "DELETE", `/api/v1/shalas/${SHALA}/classes/${CLASS}`)).toHaveLength(1);
+    });
+    expect(plain(vi.mocked(confirmDestructive).mock.lastCall?.[0])).toBe(
+      "Delete this class from Jan 5, 2026 through Dec 31, 2099? Anything after that stays. " +
+        "No one gets a message.",
+    );
+  });
+
+  it("asks about every date when the class has no last date", async () => {
+    stubApi({ classes: [SERIES] });
+    renderWith(edit());
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "🗑 Delete this class (all dates)…" }),
+    );
+
+    await waitFor(() => {
+      expect(confirmDestructive).toHaveBeenCalled();
+    });
+    expect(vi.mocked(confirmDestructive).mock.lastCall?.[0]).toMatch(/on every date\?/);
+  });
+
+  it("refuses an apply date after the last date, with the reason, without a request", async () => {
+    const seen = stubApi({ classes: [{ ...SERIES, ends_on: "2099-05-31" }] });
+    const onDone = vi.fn();
+    renderWith(edit(onDone));
+    fireEvent.change(await screen.findByLabelText("Start, Almaty"), {
+      target: { value: "07:00" },
+    });
+    save();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The last date is before the date the changes apply from.",
+    );
+    expect(screen.getByLabelText(/Last date/)).toHaveFocus();
+    expect(patches(seen)).toHaveLength(0);
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   it("changes a class that has not started whole: its first date, and no from", async () => {
@@ -918,7 +1191,7 @@ describe("changing a class (ADR-0048)", () => {
     expect(screen.getByLabelText<HTMLInputElement>("Start, Almaty").value).toBe("07:00");
   });
 
-  it("deletes the class from the form, after the confirm", async () => {
+  it("deletes the class from the form, after the confirm: saved, never gone", async () => {
     const seen = stubApi({ classes: [SERIES] });
     const onDone = vi.fn();
     renderWith(edit(onDone));
@@ -933,6 +1206,8 @@ describe("changing a class (ADR-0048)", () => {
     await waitFor(() => {
       expect(onDone).toHaveBeenCalledWith("saved");
     });
+    // The list refetched after the delete no longer has the class: that is my own doing.
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -950,7 +1225,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
     await openSheet();
 
     expect(screen.getByRole("heading", { name: "This date: Mon, Nov 9" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "❌ Cancel this class" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "❌ Cancel this date" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "✏️ Change the class…" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Delete this class/ })).toBeNull();
   });
@@ -964,7 +1239,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Change the class" }),
     ).toBeVisible();
-    expect(await screen.findByLabelText("Changes apply from")).toBeInTheDocument();
+    expect(await screen.findByText(/^Changes apply from \w/)).toBeInTheDocument();
     // The card waits under the layer, out of sight and out of reach.
     expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
 
@@ -1001,13 +1276,13 @@ describe("the sheet's two groups, and the form as a layer", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
   });
 
-  it("offers Tell students only after a cancel, with the text filled in", async () => {
+  it("offers Tell students after a cancel, with the text filled in", async () => {
     const seen = stubApi({ card: shalaOut(MANAGER) });
     renderWith(card());
     await openSheet();
 
     expect(screen.queryByRole("button", { name: "📣 Tell students…" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this class" }));
+    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this date" }));
     await waitFor(() => {
       expect(calls(seen, "PUT", putPath)).toHaveLength(1);
     });
@@ -1015,9 +1290,63 @@ describe("the sheet's two groups, and the form as a layer", () => {
 
     // The compose screen, with a text a reader in any zone can use: day, time, zone, offset.
     const text = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Text" });
-    expect(text.value).toBe("Class cancelled: Mysore, Mon, Nov 9, 06:00 Almaty (UTC+5).");
+    expect(text.value).toBe(
+      "Hi everyone. Mysore on Mon, Nov 9 at 06:00 Almaty (UTC+5) is cancelled. " +
+        "See you next time 🙏",
+    );
     // Nothing went out by the cancel or by opening the screen.
     expect(calls(seen, "POST", "/api/v1/me/announcements")).toHaveLength(0);
+  });
+
+  it("writes the cancellation in Russian with the class after a colon", async () => {
+    stubApi({ card: shalaOut(MANAGER) });
+    renderWith(card(), "ru");
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click(await screen.findByRole("button", { name: "❌ Отменить" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📣 Сообщить ученикам…" }));
+
+    const text = await screen.findByRole<HTMLTextAreaElement>("textbox");
+    // The stubbed account reads dates in English; the sentence around them is the message's.
+    expect(text.value).toBe(
+      "Всем привет! Занятие отменяется: Майсор, Mon, Nov 9, 06:00 Almaty (UTC+5). " +
+        "До следующей встречи 🙏",
+    );
+  });
+
+  // Review: the offer is not a moment that passes. A date cancelled yesterday still has it.
+  it("keeps Tell students on a date that is already cancelled", async () => {
+    const off = occurrence({ cancelled: "cancelled" });
+    stubApi({ card: shalaOut(MANAGER), schedule: { ...SCHEDULE, occurrences: [off] } });
+    renderWith(card());
+    await openSheet();
+
+    expect(screen.getByRole("button", { name: "↩ Restore" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "📣 Tell students…" }));
+
+    const text = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Text" });
+    expect(text.value).toContain("Mysore on Mon, Nov 9");
+  });
+
+  it("returns from the announcement to the card as it was: the week, the open date", async () => {
+    const off = occurrence({ cancelled: "cancelled" });
+    stubApi({ card: shalaOut(MANAGER), schedule: { ...SCHEDULE, occurrences: [off] } });
+    renderWith(card());
+    await screen.findAllByText(/06:00–09:30/);
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "▶" }));
+    await openSheet();
+    fireEvent.click(screen.getByRole("button", { name: "📣 Tell students…" }));
+    await screen.findByRole("textbox", { name: "Text" });
+    // The card waits under the announcement, out of sight and out of reach.
+    expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
+
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+
+    expect(screen.queryByRole("textbox", { name: "Text" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "The whole class" })).toBeVisible(); // still open
+    const nav = screen.getByRole("navigation");
+    expect(within(nav).getByRole("button", { name: "◀" })).toBeEnabled(); // still the next week
   });
 
   it("does not offer it for a 1:1, or to someone who may not announce", async () => {
@@ -1025,7 +1354,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
     const seen = stubApi({ card: shalaOut(MANAGER), schedule: one });
     const first = renderWith(card());
     await openSheet();
-    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this class" }));
+    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this date" }));
     await waitFor(() => {
       expect(calls(seen, "PUT", putPath)).toHaveLength(1);
     });
@@ -1038,7 +1367,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
     const again = stubApi({ card: shalaOut(TEACHER) });
     renderWith(card());
     await openSheet();
-    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this class" }));
+    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this date" }));
     await waitFor(() => {
       expect(calls(again, "PUT", putPath)).toHaveLength(1);
     });
@@ -1046,5 +1375,273 @@ describe("the sheet's two groups, and the form as a layer", () => {
       expect(screen.queryByRole("heading", { name: "The whole class" })).toBeNull();
     });
     expect(screen.queryByRole("button", { name: "📣 Tell students…" })).toBeNull();
+  });
+
+  it("does not offer it when there is no one to tell", async () => {
+    // Me alone on the staff and no student: the announcement would have no reader.
+    const alone = shalaOut(MANAGER, { students_total: 0 });
+    const off = occurrence({ cancelled: "cancelled" });
+    stubApi({ card: alone, schedule: { ...SCHEDULE, occurrences: [off] } });
+    renderWith(card());
+    await openSheet();
+
+    expect(screen.getByRole("button", { name: "↩ Restore" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "📣 Tell students…" })).toBeNull();
+  });
+
+  // Review fix: the class was changed "from a date" while this sheet was open, so its id has
+  // no such date any more. Not "Try again" for ever: the current schedule, and a line saying why.
+  it.each([
+    ["a cancel", "❌ Cancel this date", "PUT"],
+    ["a restore", "↩ Restore", "DELETE"],
+  ])("shows the current schedule when %s meets a class that has changed", async (_, name, verb) => {
+    const gone = () => json({ code: "not_found" }, 404);
+    const shown = name.startsWith("↩") ? occurrence({ cancelled: "cancelled" }) : occurrence();
+    const seen = stubApi({
+      card: shalaOut(TEACHER),
+      schedule: { ...SCHEDULE, occurrences: [shown] },
+      put: gone,
+      restore: gone,
+    });
+    renderWith(card());
+    await openSheet();
+    const before = calls(seen, "GET", `/api/v1/shalas/${SHALA}/schedule`).length;
+
+    fireEvent.click(screen.getByRole("button", { name }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "This class has just changed or was removed. Here's the current schedule.",
+    );
+    expect(calls(seen, verb, putPath)).toHaveLength(1);
+    expect(screen.queryByText(/Couldn't change the class/)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "The whole class" })).toBeNull(); // closed
+    await waitFor(() => {
+      expect(calls(seen, "GET", `/api/v1/shalas/${SHALA}/schedule`).length).toBeGreaterThan(before);
+    });
+  });
+
+  // Review fix (a): the list in the cache is from an earlier visit to the form and has no
+  // class B, added since. "Gone" is decided on a list fetched after the form opened.
+  it("opens a class added since the form was last open", async () => {
+    const B = "00000000-0000-0000-0000-0000000000d2";
+    const second = occurrence({
+      class_id: B,
+      type: "led",
+      start: "18:00",
+      end: "19:30",
+      starts_at: "2026-11-09T13:00:00Z",
+    });
+    const stub: Stub = {
+      card: shalaOut(TEACHER),
+      schedule: { ...SCHEDULE, occurrences: [occurrence(), second] },
+      classes: [SERIES],
+    };
+    stubApi(stub);
+    renderWith(card());
+    await openSheet();
+    fireEvent.click(screen.getByRole("button", { name: "✏️ Change the class…" }));
+    await screen.findByRole("button", { name: "Save the class" });
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+    // Class B is saved meanwhile (the form's own "Add a class" leaves the list as stale).
+    stub.classes = [SERIES, { ...SERIES, id: B, type: "led", start: "18:00", minutes: 90 }];
+
+    fireEvent.click(await screen.findByText(/18:00–19:30/));
+    const edits = await screen.findAllByRole("button", { name: "✏️ Change the class…" });
+    fireEvent.click(edits.at(-1) as HTMLElement);
+
+    expect(await screen.findByRole("button", { name: "Save the class" })).toBeInTheDocument();
+    expect(pressed("Led")).toBe(true);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  // Review fix (b): my own delete is not "this class has just changed".
+  it("returns from a delete to the schedule without the class-gone line", async () => {
+    const seen = stubApi({ card: shalaOut(TEACHER), classes: [SERIES] });
+    renderWith(card());
+    await openSheet();
+    fireEvent.click(screen.getByRole("button", { name: "✏️ Change the class…" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "🗑 Delete this class (all dates)…" }),
+    );
+
+    await waitFor(() => {
+      expect(calls(seen, "DELETE", `/api/v1/shalas/${SHALA}/classes/${CLASS}`)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Change the class" })).toBeNull();
+    });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("gives the focus back to the row that opened the form", async () => {
+    stubApi({ card: shalaOut(TEACHER), classes: [SERIES] });
+    renderWith(card());
+    await openSheet();
+    const row = screen.getByRole("button", { name: "✏️ Change the class…" });
+    row.focus();
+    fireEvent.click(row);
+    await screen.findByRole("button", { name: "Save the class" });
+    expect(row).not.toHaveFocus();
+
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+
+    expect(row).toHaveFocus();
+  });
+});
+
+// Review: the sheet's "whole class" group can end a class from the date that was tapped. Only
+// on a date that has not begun: a class that ran is never taken off the schedule (ADR-0048).
+describe("End this class from this date", () => {
+  const ahead = occurrence({
+    key: "2099-06-01",
+    on: "2099-06-01",
+    starts_at: "2099-06-01T01:00:00Z",
+  });
+  const schedule = { ...SCHEDULE, days: [day("2099-06-01")], occurrences: [ahead] };
+  const row = { name: "⏹ End this class from this date…" };
+  const open = async () => {
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    await screen.findByRole("heading", { name: "The whole class" });
+  };
+
+  it("sets the last date to the day before, after a confirm that earlier dates stay", async () => {
+    const seen = stubApi({ card: shalaOut(TEACHER), schedule, classes: [SERIES] });
+    renderWith(card());
+    await open();
+
+    fireEvent.click(screen.getByRole("button", row));
+
+    await waitFor(() => {
+      expect(patches(seen)).toHaveLength(1);
+    });
+    expect(plain(vi.mocked(confirmDestructive).mock.lastCall?.[0])).toBe(
+      "End this class from Mon, Jun 1? That date and later ones go from the schedule. " +
+        "Earlier dates stay. No one gets a message.",
+    );
+    expect(await patches(seen)[0]?.json()).toEqual({ ends_on: "2099-05-31" });
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "The whole class" })).toBeNull(); // closed
+    });
+  });
+
+  // As with Delete: a class that already has a last date ends only up to it. What comes
+  // after (a later change of the same class is a class of its own) stays, and the question
+  // names the last date.
+  it("names the dates that go when the class has a last date", async () => {
+    const ending = { ...SERIES, ends_on: "2099-12-31" };
+    const seen = stubApi({ card: shalaOut(TEACHER), schedule, classes: [ending] });
+    renderWith(card());
+    await open();
+
+    fireEvent.click(screen.getByRole("button", row));
+
+    await waitFor(() => {
+      expect(patches(seen)).toHaveLength(1);
+    });
+    expect(plain(vi.mocked(confirmDestructive).mock.lastCall?.[0])).toBe(
+      "End this class from Mon, Jun 1? That date and later ones through Dec 31, 2099 go from " +
+        "the schedule. Anything before or after stays. No one gets a message.",
+    );
+    expect(await patches(seen)[0]?.json()).toEqual({ ends_on: "2099-05-31" });
+  });
+
+  it("does nothing when the confirm is declined", async () => {
+    vi.mocked(confirmDestructive).mockResolvedValueOnce(false);
+    const seen = stubApi({ card: shalaOut(TEACHER), schedule, classes: [SERIES] });
+    renderWith(card());
+    await open();
+
+    fireEvent.click(screen.getByRole("button", row));
+    await waitFor(() => {
+      expect(confirmDestructive).toHaveBeenCalled();
+    });
+    await act(() => Promise.resolve());
+
+    expect(patches(seen)).toHaveLength(0);
+    expect(screen.getByRole("heading", { name: "The whole class" })).toBeInTheDocument();
+  });
+
+  it("is not offered on a date that has already begun", async () => {
+    stubApi({ card: shalaOut(TEACHER) }); // Mon 9 Nov 2026: past
+    renderWith(card());
+    await open();
+
+    expect(screen.getByRole("button", { name: "✏️ Change the class…" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", row)).toBeNull();
+  });
+
+  it("says what to do when the date is the class's first, without a request", async () => {
+    const first = { ...SERIES, starts_on: "2099-05-27" }; // a Wednesday; the first class is Mon 1 Jun
+    const seen = stubApi({
+      card: shalaOut(TEACHER),
+      schedule,
+      classes: [{ ...first, weekdays: [1] }],
+    });
+    renderWith(card());
+    await open();
+
+    fireEvent.click(screen.getByRole("button", row));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This is the class's first date. To remove the class, open “Change the class…” " +
+        "and delete it there.",
+    );
+    expect(patches(seen)).toHaveLength(0);
+  });
+
+  it("says the same when the server finds the date to be the first", async () => {
+    const seen = stubApi({
+      card: shalaOut(TEACHER),
+      schedule,
+      classes: [SERIES],
+      patch: () => json({ code: "invalid_class" }, 422),
+    });
+    renderWith(card());
+    await open();
+
+    fireEvent.click(screen.getByRole("button", row));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("This is the class's first date.");
+    expect(patches(seen)).toHaveLength(1);
+  });
+
+  // The class is read as it is now: someone else has just ended it before this date, and a
+  // last date set from the old picture would run it beside its own successor.
+  it("shows the current schedule, and writes nothing, when the class has changed meanwhile", async () => {
+    const seen = stubApi({
+      card: shalaOut(TEACHER),
+      schedule,
+      classes: [{ ...SERIES, ends_on: "2099-05-24" }],
+    });
+    renderWith(card());
+    await open();
+
+    fireEvent.click(screen.getByRole("button", row));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "This class has just changed or was removed.",
+    );
+    expect(patches(seen)).toHaveLength(0);
+  });
+
+  it("shows the current schedule when the write itself meets a class that is gone", async () => {
+    stubApi({
+      card: shalaOut(TEACHER),
+      schedule,
+      classes: [SERIES],
+      patch: () => json({ code: "not_found" }, 404),
+    });
+    renderWith(card());
+    await open();
+
+    fireEvent.click(screen.getByRole("button", row));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "This class has just changed or was removed.",
+    );
   });
 });

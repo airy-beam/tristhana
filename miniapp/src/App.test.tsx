@@ -230,6 +230,32 @@ function respond(path: string): Response {
   return json({});
 }
 
+// Every screen behind a tab or a row is a lazy chunk, and `launch()` resets the modules. The
+// first test to open one pays for its transform, which on a busy machine can outlast the one
+// second `findBy…` waits (a flake seen on "the gear opens Settings…"). Loading each once here
+// fills the transform cache, which outlives a reset, so no test's first open is the slow one.
+beforeAll(async () => {
+  await Promise.all([
+    import("./App"),
+    import("./screens/stats/Stats"),
+    import("./screens/badges/Badges"),
+    import("./screens/trends/Trends"),
+    import("./screens/settings/Links"),
+    import("./screens/settings/Settings"),
+    import("./screens/settings/DirectoryListing"),
+    import("./screens/progression/Progression"),
+    import("./screens/progression/Timeline"),
+    import("./screens/moon/MoonScreen"),
+    import("./screens/shalas/MySchedule"),
+    import("./screens/shalas/ShalaScreen"),
+    import("./screens/shalas/Attendance"),
+    import("./screens/teachers/Students"),
+    import("./screens/announcements/Announcements"),
+    import("./screens/ClassToday"),
+    import("./screens/share/ShareSheet"),
+  ]);
+}, 60_000);
+
 beforeEach(() => {
   localStorage.clear();
   account = ME;

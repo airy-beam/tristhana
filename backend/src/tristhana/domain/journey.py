@@ -73,7 +73,7 @@ class SetupStep(StrEnum):
 
     ADD_CLASS = "add_class"
     INVITE_STUDENTS = "invite_students"
-    INVITE_STAFF = "invite_staff"  # optional: "I teach alone" hides it on the device (Q339)
+    INVITE_STAFF = "invite_staff"  # optional: "I teach alone" hides it on the device (Q340)
 
 
 def setup_steps(classes: int, students: int, staff: int) -> tuple[SetupStep, ...]:
@@ -98,7 +98,7 @@ class NextStep(StrEnum):
     POSITION = "position"  # where the practice ends
 
 
-# Q334: "invite your first student" is offered only while the invite link is this fresh. A
+# Q335: "invite your first student" is offered only while the invite link is this fresh. A
 # link older than that with nobody on it was most likely opened out of curiosity.
 INVITE_FRESH_DAYS = 30
 
@@ -148,7 +148,7 @@ def next_steps(account: Account, facts: JourneyFacts, today: date) -> tuple[Step
     """Every step still due, in offer order; at most one of a kind. The screen shows the first.
 
     Before the first logged day a student gets none: the day card is the step. A shala owner
-    is never offered the teacher's invite, the shala steps cover it (Q334). A shala step names
+    is never offered the teacher's invite, the shala steps cover it (Q335). A shala step names
     the oldest shala it applies to, and is that shala's first setup step (`setup_steps`).
     `today` is the UTC date, as `invite_made_on` is: the link's age is between the two.
     """

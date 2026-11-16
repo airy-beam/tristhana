@@ -19,12 +19,18 @@
   overflow-wrap: anywhere;
 }
 
+/* The edge of a control: stronger than a hairline, so a field also shows on a dark theme,
+   where its fill is close to what is around it. */
+.field {
+  --edge: color-mix(in srgb, var(--c-hint) 55%, transparent);
+}
+
 .control {
   display: block;
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--edge, var(--c-line));
   border-radius: 12px;
   background: var(--f, var(--c-surface));
   color: var(--c-text);
@@ -35,6 +41,18 @@
 
 input.control {
   appearance: none;
+}
+
+/* A number with its unit beside it: "105 min". */
+.control-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--c-hint);
+}
+
+.control-unit .control {
+  width: 7em;
 }
 
 .control::-webkit-date-and-time-value {
@@ -70,7 +88,7 @@ input.control {
 }
 
 .field .chip:not([aria-pressed="true"]) {
-  border-color: var(--c-line);
+  border-color: var(--edge, var(--c-line));
   background: var(--f, var(--c-surface));
 }
 

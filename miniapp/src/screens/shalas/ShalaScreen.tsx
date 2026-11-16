@@ -36,7 +36,7 @@ import { Check, Field, Select, TextInput } from "../../ui/controls";
 import { cityName } from "../cityName";
 import { Row } from "../Row";
 import { labelOf } from "../settings/zones";
-import ClassForm, { type FormResult } from "./ClassForm";
+import ClassForm, { type ClassEdit, type FormResult } from "./ClassForm";
 import ShalaSchedule from "./ShalaSchedule";
 import { WEEKDAYS, weekdayShort } from "./scheduleText";
 import { SetupList, type SetupStep } from "./SetupList";
@@ -50,7 +50,7 @@ const isStaff = (me: Me) => !me.student;
 const manages = (me: Me) => isStaff(me) && (me.owner || me.roles.includes("admin"));
 const grantable = (me: Me): ShalaRole[] =>
   me.owner ? ROLES : manages(me) ? ROLES.filter((r) => r !== "admin") : [];
-// An owner's own roles are theirs to change (Q337): the one staff row with `owner` is mine.
+// An owner's own roles are theirs to change (Q338): the one staff row with `owner` is mine.
 const canEditRoles = (me: Me, target: Shala["staff"][number]) =>
   target.owner
     ? me.owner
@@ -78,12 +78,13 @@ interface Props {
 
 /** The shala card (SC-01): the place, its zone, its moon city and its staff for every member;
  * students, links, roles and delete per role. Students never see other students. The class
- * form opens over the card as a layer of its own (UI-06 stage 4); the card stays mounted under
- * it, so Back finds the week and the scroll as they were left. */
+ * form and the announcements open over the card as layers of their own (UI-06 stage 4); the
+ * card stays mounted under them, so Back finds the week, the open date and the scroll as they
+ * were left, and the focus returns to the row that opened the layer. */
 const Announcements = lazyRetry(() => import("../announcements/Announcements"));
 
 /** The class form: a new class, or a saved one opened from a date. */
-type Form = { edit?: { classId: string; date: string } };
+type Form = { edit?: ClassEdit };
 
 export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const me = useMe().data;
@@ -98,16 +99,23 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const [gone, setGone] = useState(false);
   // Only for those who manage classes; a start asking for the form leaves the others the card.
   const editing = form !== null && shala?.me.schedule === true;
-  // Where the card was scrolled when the form opened, to give it back.
-  const left = useRef<number | null>(null);
+  const covered = editing || announcements !== null;
+  // Where the card was scrolled when a layer opened, and what had the focus, to give both back.
+  const left = useRef<{ top: number; from: Element | null } | null>(null);
   useEffect(() => {
-    if (editing || left.current === null) return;
-    window.scrollTo({ top: left.current });
+    if (covered || left.current === null) return;
+    const { top, from } = left.current;
     left.current = null;
-  }, [editing]);
-  const openForm = (next: Form) => {
-    left.current = window.scrollY;
+    window.scrollTo({ top });
+    // The row may be gone with its class; then the focus stays where the browser put it.
+    if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });
+  }, [covered]);
+  const cover = () => {
+    left.current = { top: window.scrollY, from: document.activeElement };
     window.scrollTo({ top: 0 });
+  };
+  const openForm = (next: Form) => {
+    cover();
     setGone(false);
     setForm(next);
   };
@@ -116,21 +124,9 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
     setOpened(undefined);
     setGone(result === "gone");
   };
-  if (announcements)
-    return (
-      <Suspense fallback={<main className="screen" aria-busy="true" />}>
-        <Announcements
-          mode={{ ...announcements, shala: id }}
-          locale={locale}
-          onBack={() => {
-            setAnnouncements(null);
-          }}
-        />
-      </Suspense>
-    );
   return (
     <>
-      <div hidden={editing}>
+      <div hidden={covered}>
         <Card
           id={id}
           onBack={onBack}
@@ -138,6 +134,7 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
           open={opened}
           gone={gone}
           onAnnouncements={(view, draft) => {
+            cover();
             setOpened(undefined);
             setAnnouncements(draft === undefined ? { view } : { view, draft });
           }}
@@ -145,11 +142,22 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
             openForm({});
           }}
           onEdit={(o) => {
-            openForm({ edit: { classId: o.class_id, date: o.key } });
+            openForm({ edit: { classId: o.class_id, date: o.key, startsAt: o.starts_at } });
           }}
         />
       </div>
       {editing && <ClassForm shala={shala} edit={form.edit} onDone={closeForm} />}
+      {announcements && (
+        <Suspense fallback={<main className="screen" aria-busy="true" />}>
+          <Announcements
+            mode={{ ...announcements, shala: id }}
+            locale={locale}
+            onBack={() => {
+              setAnnouncements(null);
+            }}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
@@ -532,7 +540,7 @@ function RoleEditor({
   const save = useSetStaffRoles(shala.id);
   const remove = useRemoveShalaMember(shala.id);
   const [roles, setRoles] = useState<ShalaRole[]>(person.roles);
-  // My own row as the owner (Q337): what I do here beside owning it; nobody removes an owner.
+  // My own row as the owner (Q338): what I do here beside owning it; nobody removes an owner.
   const mine = person.owner;
   const allowed = mine ? OWN_ROLES : grantable(shala.me);
   const toggle = (role: ShalaRole) => {
@@ -786,16 +794,23 @@ function StaffInvite({ shala, ask }: { shala: Shala; ask: number }) {
   const invite = useShalaStaffInvite(shala.id);
   const [picking, setPicking] = useState(false);
   const [shown, setShown] = useState<{ link: ShalaLink; role: ShalaRole } | null>(null);
-  // UI-06 stage 4: the setup list's third step opens the role picker, in view.
+  // UI-06 stage 4: the setup list's third step ("Invite teachers") opens the role picker, in
+  // view, with Teacher marked and under the finger. Nothing is made until a role is tapped:
+  // a staff link works once.
   const section = useRef<HTMLElement>(null);
+  const suggested = useRef<HTMLButtonElement>(null);
   const [asked, setAsked] = useState(0);
+  const [suggest, setSuggest] = useState(false);
   if (ask !== asked) {
     setAsked(ask);
     setPicking(true);
+    setSuggest(true);
     setShown(null);
   }
   useEffect(() => {
-    if (ask) section.current?.scrollIntoView({ block: "start" });
+    if (!ask) return;
+    section.current?.scrollIntoView({ block: "start" });
+    suggested.current?.focus({ preventScroll: true });
   }, [ask]);
   const create = (role: ShalaRole) => {
     invite.mutate(role, {
@@ -818,6 +833,7 @@ function StaffInvite({ shala, ask }: { shala: Shala; ask: number }) {
           aria-expanded={picking}
           onClick={() => {
             setPicking(!picking);
+            setSuggest(false);
             setShown(null);
           }}
         />
@@ -830,8 +846,10 @@ function StaffInvite({ shala, ask }: { shala: Shala; ask: number }) {
           {grantable(shala.me).map((role) => (
             <button
               key={role}
+              ref={suggest && role === "teacher" ? suggested : undefined}
               type="button"
-              className="chip"
+              className={suggest && role === "teacher" ? "chip primary" : "chip"}
+              aria-current={suggest && role === "teacher" ? "true" : undefined}
               disabled={invite.isPending}
               onClick={() => {
                 create(role);

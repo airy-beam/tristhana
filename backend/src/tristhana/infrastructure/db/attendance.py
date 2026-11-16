@@ -122,9 +122,13 @@ def _people(me: UUID, class_id: UUID, key: date, q: str | None, offset: int, lim
         ),
         select(_A.c.account_id).where(*_counted(class_id, key)),
     ).subquery("ids")
+    # A regular of this kind of class in this shala, not of this id: a class changed "from
+    # a date" has a new id, and the earlier marks stay on the old one (ADR-0048).
+    kind = select(shala_class.c.type).where(shala_class.c.id == class_id).scalar_subquery()
     reg = _A.alias("reg")
     regular = exists().where(
-        reg.c.class_id == class_id,
+        reg.c.shala_id == shala,
+        reg.c.class_type == kind,
         reg.c.account_id == ids.c.id,
         reg.c.occurrence_key >= key - timedelta(days=REGULAR_DAYS),
         reg.c.occurrence_key < key,
@@ -221,8 +225,14 @@ def _refreshed(stmt: Any) -> dict[str, Any]:
 
 
 def _belongs(snap: Snapshot) -> Any:
+    """The shala has this series and the rule date lies within its span: a class changed
+    "from a date" between the read and this write ended the day before (ADR-0048), and the
+    date is its successor's."""
     return exists().where(
-        shala_class.c.id == snap.class_id, shala_class.c.shala_id == snap.shala_id
+        shala_class.c.id == snap.class_id,
+        shala_class.c.shala_id == snap.shala_id,
+        shala_class.c.starts_on <= snap.key,
+        or_(shala_class.c.ends_on.is_(None), shala_class.c.ends_on >= snap.key),
     )
 
 
@@ -305,8 +315,10 @@ class SqlAttendanceRepository:
         m = _membership(row, snap.shala_id, me)
         if row is None or m is None:
             return Guarded(None, False)
-        if not row.done or row.state is None:
+        if not row.done:
             return Guarded(m, False)
+        if row.state is None:  # allowed, and nothing written: the series has no such date
+            return Guarded(m, True, None)
         return Guarded(m, True, AttendanceState(row.state))
 
     async def remove(self, me: UUID, class_id: UUID, key: date) -> bool:

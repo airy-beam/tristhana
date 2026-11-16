@@ -135,7 +135,10 @@ class AttendanceScreens:
             return await self._mine_fallback(principal, tap)
         label = button.text.split(" ", 1)[1] if _mark_of(button.text) else button.text
         if tap.action == "u":
-            await self._a.remove.execute(principal, tap.class_id, tap.key)
+            if not await self._a.remove.execute(principal, tap.class_id, tap.key):
+                # Nothing was removed: an old button, whose class has since changed from an
+                # earlier date (the mark is on its new id). The list as it is now says so.
+                return await self.my_list(principal)
             patched = _patch(
                 markup, tapped, f"{EMPTY} {label}", cb.mark("i", tap.class_id, tap.key)
             )

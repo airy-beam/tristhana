@@ -68,6 +68,17 @@ export function TimeInput(props: InputProps) {
   return <input type="time" className="control" {...useWiring()} {...props} />;
 }
 
+/** A whole number with the phone's digit keys; `suffix` is its unit, beside the field (the
+ * label already says it, so it is not read out again). */
+export function NumberInput({ suffix, ...props }: InputProps & { suffix?: string | undefined }) {
+  return (
+    <span className="control-unit">
+      <input type="number" inputMode="numeric" className="control" {...useWiring()} {...props} />
+      {suffix && <span aria-hidden="true">{suffix}</span>}
+    </span>
+  );
+}
+
 /** `YYYY-MM-DD`; the phone's own date picker. */
 export function DateInput(props: InputProps) {
   return <input type="date" className="control" {...useWiring()} {...props} />;

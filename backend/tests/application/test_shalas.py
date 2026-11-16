@@ -752,7 +752,7 @@ async def test_the_setup_list_is_the_owners_alone(world: World) -> None:
 
 
 async def test_the_owner_changes_their_own_roles(world: World) -> None:
-    """Q337 (UI-06 stage 4): two-field creation sets Teacher silently, so the owner must be
+    """Q338 (UI-06 stage 4): two-field creation sets Teacher silently, so the owner must be
     able to change it afterwards. Manager stays out: the owner already holds every right."""
     anna, dana = world.person("1", "Anna"), world.person("4", "Dana")
     shala = world.shala(anna)

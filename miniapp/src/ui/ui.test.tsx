@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 
 import { Chips } from "./Chips";
-import { Check, DateInput, Field, Select, TextInput, TimeInput } from "./controls";
+import { Check, DateInput, Field, NumberInput, Select, TextInput, TimeInput } from "./controls";
 import { More } from "./More";
 
 // UI-06 stage 4 (spec §7): one set of form controls. Native elements, so the phone's own
@@ -53,6 +53,22 @@ describe("Field", () => {
 
     expect(screen.getByRole("combobox", { name: "City" })).toHaveValue("almaty");
     expect(screen.getByLabelText("First date")).toHaveAttribute("type", "date");
+  });
+});
+
+describe("NumberInput", () => {
+  it("is a number field with the phone's digit keys; its unit is shown, not read twice", () => {
+    render(
+      <Field label="How many minutes" error="Too long">
+        <NumberInput defaultValue="105" min={15} max={480} suffix="min" />
+      </Field>,
+    );
+
+    const input = screen.getByRole("spinbutton", { name: "How many minutes" });
+    expect(input).toHaveValue(105);
+    expect(input).toHaveAttribute("inputmode", "numeric");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("min")).toHaveAttribute("aria-hidden", "true");
   });
 });
 

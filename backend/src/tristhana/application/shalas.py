@@ -99,7 +99,7 @@ def _projected(card: ShalaCard) -> ShalaCard:
 def setup_of(card: ShalaCard) -> tuple[SetupStep, ...] | None:
     """The shala's setup steps still due (UI-06 stage 4), for its owner; None for everyone
     else. Derived from the card's own counts on every read: nothing is stored, and "I teach
-    alone" (Q339) is remembered by the device, never here. Both adapters read it from a card."""
+    alone" (Q340) is remembered by the device, never here. Both adapters read it from a card."""
     if not can_view_shala_setup(card.me):
         return None
     return setup_steps(card.classes_total, card.students_total or 0, len(card.staff))
