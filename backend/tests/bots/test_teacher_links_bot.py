@@ -343,7 +343,7 @@ TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], ["☰ 
 def _grid_with(body: Any, lead: str) -> None:
     assert body["text"].startswith(lead)
     assert PROMPT in body["text"]
-    assert "What brings you here?" not in body["text"]
+    assert "Where shall we start?" not in body["text"]
     assert _rows(body) == TODAY_ROWS
 
 

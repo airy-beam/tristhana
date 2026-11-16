@@ -130,7 +130,7 @@ def test_a_new_person_meets_the_front_door(client: TestClient) -> None:
 
     assert body["method"] == "sendMessage"
     assert body["text"].startswith("Namaste 🙏")
-    assert body["text"].endswith("What brings you here?")
+    assert body["text"].endswith("Where shall we start?")
     assert _texts(body) == FRONT
     assert _data(body) == ["w1:p", "w1:t", "w1:s:f", "w1:l:ru"]
 
@@ -264,10 +264,10 @@ def test_an_invite_start_never_shows_the_front_door_then_or_later(
     invited = _command(client, f"/start {payload}")  # an unknown code: Today with a line
     later = _command(client, "/start")
 
-    assert "What brings you here?" not in invited["text"]
+    assert "Where shall we start?" not in invited["text"]
     assert _texts(invited)[:1] == ["🧘 Practiced"]
     assert _rows(later) == TODAY_ROWS
-    assert "What brings you here?" not in later["text"]
+    assert "Where shall we start?" not in later["text"]
     [account] = storage.repo.accounts.values()
     assert account.welcomed
 

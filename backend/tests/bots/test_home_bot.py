@@ -350,7 +350,7 @@ def test_shala_and_classes_without_a_mini_app_has_only_back(storage: InMemorySto
 def test_back_from_shala_and_classes_is_the_front_door_again(client: TestClient) -> None:
     body = _tap(client, "w1:f")
 
-    assert body["text"].endswith("What brings you here?")
+    assert body["text"].endswith("Where shall we start?")
     assert _rows(body)[0] == ["My practice"]
 
 

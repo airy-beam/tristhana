@@ -15,7 +15,7 @@ start-open-app = Open the app
 ## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
 ## Working copy; the three front-door labels are fixed.
 
-welcome-ask = What brings you here?
+welcome-ask = Where shall we start?
 welcome-path-practice = My practice
 welcome-path-invite = Invite students
 welcome-path-shala = Shala and classes
