@@ -1,7 +1,52 @@
+import { FluentResource } from "@fluent/bundle";
+
 import enApp from "../locales/en/app.ftl?raw";
+import enClassRow from "../locales/en/class-row.ftl?raw";
+import enDetails from "../locales/en/details.ftl?raw";
 import ruApp from "../locales/ru/app.ftl?raw";
+import ruClassRow from "../locales/ru/class-row.ftl?raw";
+import ruDetails from "../locales/ru/details.ftl?raw";
+import { addMessages } from "./lazyMessages";
 import { LOCALES } from "./negotiate";
 import { bundleFor, definedIdCount, format, messageIds, messageVariables } from "./bundles";
+
+// UI-06: the day card's panels and the class row carry their copy in their own lazy chunks
+// (`details.ftl`, `class-row.ftl`); here they are added as those chunks do it.
+const DETAILS = { en: enDetails, ru: ruDetails };
+const CLASS_ROW = { en: enClassRow, ru: ruClassRow };
+addMessages(DETAILS);
+addMessages(CLASS_ROW);
+
+/** Each message of a raw `.ftl` source with the `$variables` it uses. */
+function shape(source: string): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  let current: string | null = null;
+  for (const line of source.split("\n")) {
+    const start = /^([a-z][a-z0-9-]*)\s*=/.exec(line);
+    if (start) current = start[1] ?? null;
+    else if (!/^\s/.test(line)) current = null;
+    if (!current) continue;
+    const found = [...line.matchAll(/\{\s*\$([a-z_]+)/g)].map((m) => m[1] ?? "");
+    out[current] = [...new Set([...(out[current] ?? []), ...found])].sort();
+  }
+  return out;
+}
+
+describe.each([
+  ["details.ftl", DETAILS],
+  ["class-row.ftl", CLASS_ROW],
+])("%s (lazy copy)", (_file, sources) => {
+  it("has the same messages and variables in en and ru", () => {
+    expect(shape(sources.ru)).toEqual(shape(sources.en));
+    expect(Object.keys(shape(sources.en)).length).toBeGreaterThan(0);
+  });
+
+  it.each(LOCALES)("%s: every message parses, and none repeats an app.ftl message", (locale) => {
+    const ids = Object.keys(shape(sources[locale]));
+    expect(new FluentResource(sources[locale]).body).toHaveLength(ids.length);
+    expect(ids.filter((id) => messageIds(locale).has(id))).toEqual([]);
+  });
+});
 
 describe("Fluent bundles", () => {
   it.each(LOCALES)("%s: every message parses (no junk)", (locale) => {
@@ -99,7 +144,8 @@ describe("Fluent bundles", () => {
 // PR-06 (spec §6): the check-in copy, both locales, and the words it never uses.
 
 const PR06 = [
-  "checkin-title",
+  "checkin-summary-energy",
+  "checkin-summary-effort",
   "checkin-mood",
   "checkin-energy",
   "checkin-effort",
@@ -168,27 +214,30 @@ function checkInSources(source: string): Record<string, string> {
 }
 
 describe("PR-06 check-in copy", () => {
-  it.each(LOCALES)("%s: has every PR-06 message", (locale) => {
-    const ids = messageIds(locale);
+  it.each(LOCALES)("%s: has every PR-06 message, in app.ftl or details.ftl", (locale) => {
+    const ids = new Set([...messageIds(locale), ...Object.keys(shape(DETAILS[locale]))]);
     expect(PR06.filter((id) => !ids.has(id))).toEqual([]);
   });
 
-  it("reads as written", () => {
-    expect(format(bundleFor("en"), "checkin-title")).toBe("How do you feel?");
-    expect(format(bundleFor("ru"), "checkin-title")).toBe("Самочувствие");
-    expect(format(bundleFor("en"), "checkin-edit")).toBe("✨ Check-in");
-    expect(format(bundleFor("ru"), "checkin-edit")).toBe("✨ Самочувствие");
+  it("reads as written: the entry carries the bot's words (UI-06)", () => {
+    expect(format(bundleFor("en"), "checkin-edit")).toBe("✨ How do you feel?");
+    expect(format(bundleFor("ru"), "checkin-edit")).toBe("✨ Как самочувствие?");
+    expect(format(bundleFor("en"), "checkin-summary-energy", { n: 4 })).toBe("⚡ energy 4/5");
+    expect(format(bundleFor("ru"), "checkin-summary-effort", { n: 3 })).toBe("🔥 усилие 3/5");
     expect(format(bundleFor("en"), "checkin-clear")).toBe("Remove check-in");
     expect(format(bundleFor("ru"), "checkin-clear")).toBe("Убрать самочувствие");
-    expect(format(bundleFor("en"), "settings-checkin")).toBe("Offer a check-in after practice");
+    // Q313: the setting shows or hides the entry; it no longer promises "add one from the day".
+    expect(format(bundleFor("en"), "settings-checkin")).toBe(
+      "Show “How do you feel?” after practice",
+    );
     expect(format(bundleFor("ru"), "settings-checkin")).toBe(
-      "Предлагать отметить самочувствие после практики",
+      "Показывать «Как самочувствие?» после практики",
     );
     expect(format(bundleFor("en"), "settings-checkin-hint")).toBe(
-      "Mood, energy and effort right after logging today's practice. You can always add one from the day.",
+      "Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.",
     );
     expect(format(bundleFor("ru"), "settings-checkin-hint")).toBe(
-      "Настроение, энергия и усилие сразу после отметки практики. Добавить можно и позже, в любой день практики.",
+      "Настроение, энергия и усилие в день практики. Уже сделанная отметка остаётся, и её можно изменить.",
     );
   });
 
@@ -208,8 +257,8 @@ describe("PR-06 check-in copy", () => {
   });
 
   it.each([
-    ["en", enApp],
-    ["ru", ruApp],
+    ["en", `${enApp}\n${enDetails}`],
+    ["ru", `${ruApp}\n${ruDetails}`],
   ])("%s: never uses a word to avoid", (_locale, source) => {
     const sources = checkInSources(source);
     expect(Object.keys(sources).length).toBeGreaterThanOrEqual(PR06.length);

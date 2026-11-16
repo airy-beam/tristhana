@@ -392,10 +392,6 @@ body {
   display: flex;
   gap: 6px;
 }
-.editor .row {
-  display: flex;
-  gap: var(--space);
-}
 
 /* Pastel cells keep dark numbers in the dark theme too. */
 .day.rest,
@@ -547,6 +543,101 @@ body {
 .row-button.quiet {
   background: none;
   padding-left: 0;
+}
+
+/* UI-06: the day card. Three choices, one per row (nothing truncates at 320px), then quiet
+   entries; each at least 44px high. */
+.choices {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.choice {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: inherit;
+  text-align: left;
+}
+
+.choice[aria-pressed="true"] {
+  background: var(--c-accent);
+  color: var(--c-accent-text);
+}
+
+.reasons {
+  margin: 0 0 4px 12px;
+}
+
+.card .reasons .hint,
+.card .entry .hint {
+  margin: 0;
+}
+
+.logged {
+  margin: 0;
+  font-weight: 600;
+}
+
+.entries {
+  margin-top: 8px;
+}
+
+.entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--c-link);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+}
+
+.daylog .details {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* An open panel belongs to the entry above it: set in, with a quiet line. */
+.entries .details {
+  margin: 0 0 8px;
+  padding: 0 0 4px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--c-hint) 30%, transparent);
+}
+
+.daylog .row,
+.next .row {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+
+.daylog .row .link,
+.next .link {
+  min-height: 44px;
+  margin-top: 0;
+}
+
+/* The next step: one sentence, one button, a quiet "Not now". */
+.next p {
+  margin: 0 0 12px;
+}
+
+.chip.primary {
+  min-height: 44px;
+  background: var(--c-accent);
+  color: var(--c-accent-text);
 }
 
 /* Teachers and students (ID-04). A QR needs a white quiet zone in the dark theme too. */

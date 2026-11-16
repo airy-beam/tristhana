@@ -136,7 +136,7 @@ export function DiaryNote({ date, note }: Props) {
         <Localized id="diary-add">
           <button
             type="button"
-            className="link"
+            className="entry"
             onClick={() => {
               setRemoved(false);
               setDraft("");

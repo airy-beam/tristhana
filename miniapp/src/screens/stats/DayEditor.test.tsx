@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { L10nProvider } from "../../i18n/L10nProvider";
 import { haptics, useBackButton } from "../../telegram";
@@ -7,7 +7,7 @@ import { DayEditor } from "./DayEditor";
 
 vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
 }));
 
@@ -21,33 +21,33 @@ function json(body: unknown): Response {
   });
 }
 
-/** GET /me/days: an empty day; PUT answers with `celebrations`. */
+/** GET /me/days: an empty day, then what was saved; PUT answers with `celebrations`. */
 function stubApi(celebrations: unknown[]) {
+  let days: unknown[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn((request: Request) => {
+    vi.fn(async (request: Request) => {
       if (request.method === "PUT") {
-        return Promise.resolve(
-          json({ date: DAY, status: "practiced", practices: [], check_ins: [], celebrations }),
-        );
+        const { status } = (await request.clone().json()) as { status: string };
+        const day = { date: DAY, status, practices: [], check_ins: [] };
+        days = [day];
+        return json({ ...day, celebrations });
       }
-      return Promise.resolve(
-        json({
-          today: TODAY,
-          timezone_known: true,
-          days: [],
-          auto: [],
-          moon_location: "mysuru",
-          periods: [],
-          practice_on: false,
-          notes: [],
-        }),
-      );
+      return json({
+        today: TODAY,
+        timezone_known: true,
+        days,
+        auto: [],
+        moon_location: "mysuru",
+        periods: [],
+        practice_on: false,
+        notes: [],
+      });
     }),
   );
 }
 
-function renderEditor(onClose: () => void = () => undefined) {
+function renderEditor(onClose: () => void = () => undefined, showLadies = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -57,7 +57,7 @@ function renderEditor(onClose: () => void = () => undefined) {
           label="Mar 1"
           zone="Asia/Almaty"
           locale="en"
-          showLadies
+          showLadies={showLadies}
           onClose={onClose}
         />
       </L10nProvider>
@@ -105,5 +105,60 @@ describe("DayEditor practice count (GM-01 part 2)", () => {
     });
     expect(screen.queryByText(/practices in your log/)).not.toBeInTheDocument();
     expect(haptics.notify).not.toHaveBeenCalledWith("success");
+  });
+});
+
+// UI-06 stage 2 (Q335): the day editor is the same day card as Today's, for that date.
+describe("DayEditor: the three-choice card", () => {
+  const controls = () =>
+    within(screen.getByRole("region", { name: "Mar 1" }))
+      .getAllByRole("button")
+      .map(visible);
+
+  it("names the day at once; then the question, three choices, the note and Done", async () => {
+    stubApi([]);
+    const onClose = vi.fn();
+    renderEditor(onClose);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Mar 1" })).toBeInTheDocument();
+    expect(await screen.findByText("Practice or rest? Both go in your log.")).toBeInTheDocument();
+    // An earlier day can get a note before it is logged; nothing to clear yet.
+    expect(controls()).toEqual(["🧘 Practiced", "😌 Rest day", "Other…", "Add a note", "Done"]);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("leads with what was logged, and offers Clear next to Done", async () => {
+    stubApi([]);
+    renderEditor();
+
+    fireEvent.click(await screen.findByRole("button", { name: "😌 Rest day" }));
+
+    expect(visible(await screen.findByText(/In your log/))).toBe("✓ In your log: 😌 Rest day");
+    expect(screen.queryByText(/Practice or rest/)).not.toBeInTheDocument();
+    expect(controls()).toEqual([
+      "🧘 Practiced",
+      "😌 Rest day",
+      "Other…",
+      "Add a note",
+      "Clear",
+      "Done",
+    ]);
+  });
+
+  it("has no 🌸 among the reasons while 🌸 days are hidden on this device", async () => {
+    stubApi([]);
+    renderEditor(undefined, false);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Other…" }));
+
+    const reasons = screen.getByRole("group", { name: /Pick what fits/ });
+    expect(within(reasons).getAllByRole("button").map(visible)).toEqual([
+      "🌙 Moon day",
+      "🤒 Sick / injury",
+      "✈️ Travel",
+      "🌱 No practice",
+    ]);
   });
 });

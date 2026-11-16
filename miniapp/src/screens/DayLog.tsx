@@ -1,0 +1,379 @@
+import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
+
+import {
+  periodOn,
+  useCatalog,
+  useMe,
+  usePracticePresets,
+  useSavePractice,
+  useSetDay,
+  type Catalog,
+  type Celebration,
+  type CheckIn as CheckInValue,
+  type Days,
+  type DaySaved,
+  type DayStatus,
+  type Practice,
+} from "../api/client";
+import type { Locale } from "../i18n/negotiate";
+import { ChunkGuard } from "../shell/ChunkGuard";
+import { lazyRetry } from "../shell/lazyRetry";
+import { haptics } from "../telegram";
+import { AutoNote } from "./AutoNote";
+import { DayChoice } from "./DayChoice";
+import { DiaryNote } from "./DiaryNote";
+import { PauseOffer, PeriodLine } from "./PauseOffer";
+import { lastTimeText, practiceSummary } from "./practiceText";
+import { CountCelebration } from "./progression/CountCelebration";
+
+// Details and the check-in editor are one chunk outside the first one: they mount on a tap.
+const loadExtras = () => import("./dayExtras");
+const PracticeDetails = lazyRetry(async () => ({ default: (await loadExtras()).PracticeDetails }));
+const CheckIn = lazyRetry(async () => ({ default: (await loadExtras()).CheckIn }));
+
+interface Props {
+  /** The heading's id: the card's and the choices' accessible name. */
+  id: string;
+  /** "Today, Sun, Oct 18", or the day's label in the day editor. */
+  title: string;
+  date: string;
+  /** The loaded days that include `date` ("today" is the server's, never the device's). While
+   * they load, the card is its heading. */
+  days: Days | undefined;
+  /** The account's IANA zone (null until the device reported it). */
+  zone: string | null;
+  locale: Locale;
+  /** The device switch of the day editor: when off, a ladies' holiday shows (and stays) as
+   * rest here too. */
+  showLadies?: boolean;
+  /** The day editor: Done closes it, and an unlogged day can get a note too. */
+  onDone?: (() => void) | undefined;
+  /** Lines under the heading (Today's moon line). */
+  children?: ReactNode;
+}
+
+/** The one day card (UI-06), for today and for any earlier day, as the bot's Today and day
+ * editor: what the day already is, three choices, then quiet entries. Nothing opens by
+ * itself: details, the check-in and the note each wait for their own tap. */
+export function DayLog({ id, title, days, onDone, children, ...day }: Props) {
+  return (
+    <section
+      className={onDone ? "card daylog editor" : "card daylog"}
+      aria-labelledby={id}
+      aria-busy={days ? undefined : true}
+    >
+      <h2 id={id}>{title}</h2>
+      {days && children}
+      {/* Another day starts clean: no answer, open reasons or note carried over. */}
+      {days && <Day key={day.date} id={id} days={days} onDone={onDone} {...day} />}
+    </section>
+  );
+}
+
+function Day({
+  id,
+  date,
+  days,
+  zone,
+  locale,
+  showLadies = true,
+  onDone,
+}: Omit<Props, "title" | "children" | "days"> & { days: Days }) {
+  const { l10n } = useLocalization();
+  const setDay = useSetDay();
+  const hideLadies = useMe().data?.hide_ladies === true;
+  // The last save's answer: the pause offer or "keep the pause" (WH-01).
+  const [after, setAfter] = useState<DaySaved | null>(null);
+  // GM-01 part 2: a practice count this save reached (dismissed on its own).
+  const [counted, setCounted] = useState<Celebration[]>([]);
+
+  const { today } = days;
+  // Taps update the cache optimistically (every day query), so this is always current.
+  const logged = days.days.find((d) => d.date === date);
+  // Auto-rest is a line, never a pressed choice: logging anything replaces it (PR-09).
+  const auto = logged ? undefined : days.auto.find((a) => a.date === date);
+  const stored = logged?.status ?? null;
+  const current = !showLadies && stored === "ladies" ? "rest" : stored;
+  const period = periodOn(days, date);
+  // "Hide the 🌸 button" (WH-01) keeps it on a day that shows as 🌸.
+  const ladies = showLadies && !(hideLadies && (current ?? period?.kind) !== "ladies");
+  const note = days.notes.find((n) => n.date === date);
+  // The note entry: on a logged day, where a note exists, and always in the day editor. Once
+  // shown it stays while the card is open, so clearing the day never drops a note being typed.
+  const [noted, setNoted] = useState(false);
+  if (!noted && (stored !== null || note !== undefined || onDone)) setNoted(true);
+
+  const save = (status: DayStatus | null) => {
+    haptics.impact("light"); // feedback before the network call
+    setAfter(null);
+    setCounted([]);
+    setDay.mutate(
+      { date, status },
+      {
+        onSuccess: (saved) => {
+          setAfter(saved);
+          // Only kinds the card shows (an older server's answer has no `celebrations`).
+          const found = (saved?.celebrations ?? []).filter((c) => c.kind === "practice_count");
+          if (found.length) {
+            haptics.notify("success");
+            setCounted(found);
+          }
+        },
+        onError: () => {
+          haptics.notify("error");
+        },
+      },
+    );
+  };
+
+  return (
+    <>
+      {auto && <AutoNote auto={auto} location={days.moon_location} locale={locale} />}
+      {period && (
+        <PeriodLine
+          period={period}
+          day={date}
+          today={today}
+          logged={stored !== null}
+          practiceOn={days.practice_on}
+          showLadies={showLadies}
+        />
+      )}
+      {current !== null ? (
+        <Localized id="today-logged" vars={{ label: l10n.getString(`status-${current}`) }}>
+          <p className="logged" />
+        </Localized>
+      ) : (
+        // Only a day nothing has answered yet gets the question, as in the bot.
+        !auto &&
+        !period && (
+          <Localized id="today-prompt">
+            <p className="hint" />
+          </Localized>
+        )
+      )}
+      {current === "ladies" && (
+        <Localized id="today-private-note">
+          <p className="hint small" />
+        </Localized>
+      )}
+      {current === "practiced" && logged && (
+        <PracticeLine date={date} practice={logged.practices[0]} locale={locale} />
+      )}
+      {counted.length > 0 && (
+        <CountCelebration
+          found={counted}
+          onDismiss={() => {
+            setCounted([]);
+          }}
+        />
+      )}
+      <DayChoice current={current} ladies={ladies} labelledBy={id} onPick={save} />
+      {after && after.date === date && (
+        <PauseOffer
+          saved={after}
+          today={today}
+          showLadies={showLadies}
+          onDone={() => {
+            setAfter(null);
+          }}
+        />
+      )}
+      {current === "practiced" && logged && (
+        <PracticeEntries
+          date={date}
+          practice={logged.practices[0]}
+          checkIns={logged.check_ins}
+          zone={zone}
+          locale={locale}
+        />
+      )}
+      {/* Another day starts clean: no draft or confirm carried over. */}
+      {noted && <DiaryNote key={date} date={date} note={note} />}
+      {(current !== null || onDone) && (
+        <div className="row">
+          {current !== null && (
+            <Localized id="today-clear">
+              <button
+                type="button"
+                className="link"
+                onClick={() => {
+                  save(null);
+                }}
+              />
+            </Localized>
+          )}
+          {onDone && (
+            <Localized id="stats-editor-done">
+              <button type="button" className="link" onClick={onDone} />
+            </Localized>
+          )}
+        </div>
+      )}
+      {setDay.isError && (
+        <Localized id="today-save-failed">
+          <p className="status" role="alert" />
+        </Localized>
+      )}
+    </>
+  );
+}
+
+const detailed = (p: Practice | undefined) =>
+  !!p && (!!p.context || !!p.length || !!p.duration_min || !!p.start_time);
+
+/** One line under "In your log": what is stored (class type · how far · how long), else what
+ * "Same as last time" would copy, as the bot shows it (Q23, Q296). */
+function PracticeLine({
+  date,
+  practice,
+  locale,
+}: {
+  date: string;
+  practice: Practice | undefined;
+  locale: Locale;
+}) {
+  const { l10n } = useLocalization();
+  const catalog = useCatalog().data;
+  const presets = usePracticePresets(date, true).data;
+  if (!catalog) return null;
+  const text =
+    practice && detailed(practice)
+      ? practiceSummary(l10n, catalog, practice, locale)
+      : presets?.last
+        ? lastTimeText(l10n, catalog, presets.last, presets.last_date ?? null, date, locale)
+        : "";
+  return text ? <p className="hint small">{text}</p> : null;
+}
+
+// Fluent's bidi isolation marks around variables: noise in a composed line.
+const plain = (text: string) => text.replace(/[⁨⁩]/g, "");
+
+/** "🙂 · ⚡ energy 4/5 · 🔥 effort 3/5 · Light, Calm", as the bot's; "" for none. */
+function checkInSummary(l10n: ReactLocalization, c: CheckInValue, catalog: Catalog | undefined) {
+  const parts: string[] = [];
+  if (c.mood != null) parts.push(l10n.getString("checkin-mood-chip", { n: c.mood }));
+  if (c.energy != null) parts.push(l10n.getString("checkin-summary-energy", { n: c.energy }));
+  if (c.effort != null) parts.push(l10n.getString("checkin-summary-effort", { n: c.effort }));
+  const tags = (catalog?.check_in_tags ?? [])
+    .filter((t) => c.tags.includes(t.key)) // the catalog's order
+    .map((t) => l10n.getString("checkin-tag", { tag: t.key }));
+  if (tags.length) parts.push(tags.join(", "));
+  return plain(parts.join(" · "));
+}
+
+type Panel = "details" | "checkin";
+
+/** Under the choices of a practiced day: "Same as last time", "Add details" and "How do you
+ * feel?". Each panel mounts on its own tap, one at a time. */
+function PracticeEntries({
+  date,
+  practice,
+  checkIns,
+  zone,
+  locale,
+}: {
+  date: string;
+  practice: Practice | undefined;
+  /** Absent from an older API. */
+  checkIns: CheckInValue[] | undefined;
+  zone: string | null;
+  locale: Locale;
+}) {
+  const { l10n } = useLocalization();
+  const offered = useMe().data?.offer_check_in === true;
+  const catalog = useCatalog().data;
+  const last = usePracticePresets(date, true).data?.last;
+  const save = useSavePractice();
+  const [open, setOpen] = useState<Panel | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    void loadExtras().catch(() => undefined); // ready before the tap; a tap tries again
+  }, []);
+
+  const hasDetails = detailed(practice);
+  const felt = checkIns?.[0] ? checkInSummary(l10n, checkIns[0], catalog) : "";
+  const toggle = (panel: Panel) => () => {
+    haptics.selection();
+    setFailed(false);
+    setOpen(open === panel ? null : panel);
+  };
+  const panel = (node: ReactNode) => (
+    <ChunkGuard
+      onFail={() => {
+        haptics.notify("error");
+        setOpen(null); // the next tap loads it again
+        setFailed(true);
+      }}
+    >
+      <Suspense fallback={<div className="details" aria-busy="true" />}>{node}</Suspense>
+    </ChunkGuard>
+  );
+
+  return (
+    <div className="entries">
+      {last && !hasDetails && (
+        <Localized id="practice-same-as-last">
+          <button
+            type="button"
+            className="entry"
+            onClick={() => {
+              haptics.impact("light");
+              save.mutate(
+                {
+                  date,
+                  // Never the start time: that was the other day's.
+                  body: {
+                    context: last.context ?? null,
+                    online: last.context === "self" ? false : last.online,
+                    length: last.length ?? null,
+                    duration_min: last.duration_min ?? null,
+                    start_time: null,
+                  },
+                },
+                {
+                  onError: () => {
+                    haptics.notify("error");
+                  },
+                },
+              );
+            }}
+          />
+        </Localized>
+      )}
+      <Localized id={hasDetails ? "practice-details" : "practice-add-details"}>
+        <button
+          type="button"
+          className="entry"
+          aria-expanded={open === "details"}
+          onClick={toggle("details")}
+        />
+      </Localized>
+      {open === "details" &&
+        panel(
+          <PracticeDetails date={date} practice={practice ?? null} zone={zone} locale={locale} />,
+        )}
+      {/* The setting shows or hides the entry; a check-in that exists stays editable (Q313). */}
+      {(offered || felt !== "") && (
+        <button
+          type="button"
+          className="entry"
+          aria-expanded={open === "checkin"}
+          onClick={toggle("checkin")}
+        >
+          <Localized id="checkin-edit">
+            <span />
+          </Localized>
+          {felt && <span className="hint small">{felt}</span>}
+        </button>
+      )}
+      {open === "checkin" && panel(<CheckIn date={date} checkIns={checkIns} />)}
+      {failed && (
+        <Localized id="chunk-failed">
+          <p className="status" role="alert" />
+        </Localized>
+      )}
+    </div>
+  );
+}

@@ -228,7 +228,7 @@ const heading = () => plain(screen.getByRole("heading", { level: 1 }).textConten
 const labelled = (end: string) => screen.queryAllByLabelText((label) => plain(label).endsWith(end));
 
 /** Today has loaded: the account is known. */
-const homeLoaded = () => screen.findByRole("heading", { level: 2, name: /^(Today|Сегодня)$/ });
+const homeLoaded = () => screen.findByRole("heading", { level: 2, name: /^(Today|Сегодня), / });
 const ROW = { en: "👥 My students", ru: "👥 Мои ученики" } as const;
 const shalaTab = (locale: "en" | "ru" = "en") =>
   screen.getByRole("button", { name: locale === "en" ? "🏛 Shala" : "🏛 Шала" });

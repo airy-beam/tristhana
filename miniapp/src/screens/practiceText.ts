@@ -1,8 +1,8 @@
-// Length labels and zone labels for practice details. Mirrors the bot's wording
+// Length labels and one-line summaries for practice details. Mirrors the bot's wording
 // (backend bots/telegram/practice.py) through the same Fluent keys.
 import type { ReactLocalization } from "@fluent/react";
 
-import type { Catalog, Length } from "../api/client";
+import type { Catalog, Length, Practice } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 
 /** Fluent isolates placeables with invisible bidi marks; these labels are composed from
@@ -73,6 +73,51 @@ export function lengthText(
   const stop = last?.stops.find((s) => s.key === length.end);
   const asana = stop ? (locale === "ru" ? stop.ru : stop.latin) : length.end;
   return get(l10n, "length-summary", { kind: "to", range: text, asana });
+}
+
+/** "Mysore online · Full Primary · 90 min": class type, how far, how long. Never the start
+ * time ("same as last time" doesn't copy it). "" when none of the three is set. */
+export function practiceSummary(
+  l10n: ReactLocalization,
+  catalog: Catalog,
+  practice: Practice,
+  locale: Locale,
+): string {
+  const parts: string[] = [];
+  if (practice.context) {
+    const context = get(l10n, `context-${practice.context}`);
+    parts.push(practice.online ? `${context} ${get(l10n, "practice-online-suffix")}` : context);
+  }
+  if (practice.length) parts.push(lengthText(l10n, catalog, practice.length, locale));
+  if (practice.duration_min) parts.push(get(l10n, "duration-min", { min: practice.duration_min }));
+  return parts.join(" · ");
+}
+
+const OLD_AFTER_DAYS = 14; // as the bot and the reminder: older practices say which day
+const utcDay = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+
+/** "Last time: Mysore · Full Primary · 90 min", or "Last time (Thu, Oct 1): …" when the
+ * practice is more than 14 days older than the day being logged (Q296). */
+export function lastTimeText(
+  l10n: ReactLocalization,
+  catalog: Catalog,
+  last: Practice,
+  lastDate: string | null,
+  day: string,
+  locale: Locale,
+): string {
+  const summary = practiceSummary(l10n, catalog, last, locale);
+  if (lastDate === null || utcDay(day) - utcDay(lastDate) <= OLD_AFTER_DAYS * 86_400_000) {
+    return get(l10n, "practice-last-time", { summary });
+  }
+  const when = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: lastDate.slice(0, 4) === day.slice(0, 4) ? undefined : "numeric",
+    timeZone: "UTC",
+  }).format(utcDay(lastDate));
+  return get(l10n, "practice-last-time-dated", { date: when, summary });
 }
 
 function get(l10n: ReactLocalization, id: string, args?: Record<string, string | number>): string {

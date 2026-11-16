@@ -3,9 +3,10 @@ import { Suspense, useCallback, useReducer, useRef, useState, type ReactNode } f
 
 import type { Me } from "../api/client";
 import { Home } from "../screens/Home";
+import { NextStep } from "../screens/NextStep";
 import { TravelPrompt } from "../screens/settings/TravelPrompt";
 import { TodayCard } from "../screens/TodayCard";
-import { MoonRow } from "../screens/TodayRows";
+import { ClassRow, MoonRow } from "../screens/TodayRows";
 import { haptics, useBackButton, useBackShown, useSettingsButton } from "../telegram";
 import { ChunkBoundary } from "./ChunkBoundary";
 import { lazyRetry } from "./lazyRetry";
@@ -87,6 +88,27 @@ export function Shell({ me, firstName }: Props) {
       >
         {me && <TravelPrompt zone={me.timezone} locale={me.locale} home={me.home_city} />}
         {me && <TodayCard zone={me.timezone} locale={me.locale} />}
+        {me && (
+          <NextStep
+            onOpen={(step) => {
+              // Each step leads to the place where it is done (spec §6).
+              if (step.kind === "reminder") {
+                window.scrollTo({ top: 0 });
+                dispatch({ type: "settings", focus: "remind" });
+              } else if (step.kind === "position") push({ name: "asanas" });
+              else if (step.shala_id) toTab("shala", `shala:${step.shala_id}`);
+              else toTab("shala", "invite");
+            }}
+          />
+        )}
+        {me && (
+          <ClassRow
+            locale={me.locale}
+            onOpen={() => {
+              push({ name: "schedule" });
+            }}
+          />
+        )}
         {me && (
           <MoonRow
             locale={me.locale}

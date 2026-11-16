@@ -9,8 +9,12 @@ import { TodayCard } from "./TodayCard";
 vi.mock("../telegram", () => ({
   useBackButton: vi.fn(),
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
 }));
+
+// UI-06 stage 2: the details are a panel behind the day card's "Add details" entry (its own
+// chunk, with its copy). Nothing here is on screen until that tap; "Same as last time" and
+// the line saying what it copies stay on the card itself.
 
 const TODAY = "2026-10-19";
 
@@ -134,6 +138,11 @@ function renderCard(zone: string | null = "Asia/Almaty", locale: Locale = "en") 
   );
 }
 
+/** Opens the panel: "Add details", or "Details" once some exist. */
+async function openDetails() {
+  fireEvent.click(await screen.findByRole("button", { name: /^📝 (Add details|Details)$/ }));
+}
+
 async function lastPut(seen: Request[]): Promise<unknown> {
   await vi.waitFor(() => {
     expect(seen.some((r) => r.method === "PUT")).toBe(true);
@@ -157,12 +166,28 @@ describe("PracticeDetails", () => {
     renderCard();
 
     await screen.findByRole("button", { name: /Rest day/, pressed: true });
+    expect(screen.queryByRole("button", { name: /details/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
+  });
+
+  it("stays folded on a practiced day until Add details is tapped", async () => {
+    stubApi(practicedToday);
+    renderCard();
+
+    const entry = await screen.findByRole("button", { name: "📝 Add details" });
+    expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
+    fireEvent.click(entry);
+
+    // The class type has its heading, as length and duration do.
+    expect(await screen.findByText("Type of practice")).toBeInTheDocument();
+    expect(screen.getByText("Length")).toBeInTheDocument();
+    expect(screen.getByText("Duration")).toBeInTheDocument();
   });
 
   it("a context tap saves the whole practice", async () => {
     const seen = stubApi(practicedToday);
     renderCard();
+    await openDetails();
 
     fireEvent.click(await screen.findByRole("button", { name: "Mysore" }));
 
@@ -242,13 +267,18 @@ describe("PracticeDetails", () => {
     });
     renderCard();
 
-    await screen.findByRole("button", { name: "Led", pressed: true });
+    // The entry reads "Details" now, and the card's line is the day's own.
+    await screen.findByRole("button", { name: "📝 Details" });
+    expect(await screen.findByText(says("Led"))).toBeVisible();
     expect(screen.queryByRole("button", { name: "🔁 Same as last time" })).not.toBeInTheDocument();
+    await openDetails();
+    expect(await screen.findByRole("button", { name: "Led", pressed: true })).toBeInTheDocument();
   });
 
   it("shows presets and recent lengths with their labels", async () => {
     stubApi(practicedToday);
     renderCard();
+    await openDetails();
 
     expect(await screen.findByRole("button", { name: "Full Primary" })).toBeInTheDocument();
     expect(
@@ -259,6 +289,7 @@ describe("PracticeDetails", () => {
   it("the custom picker offers half Primary + Intermediate", async () => {
     const seen = stubApi(practicedToday);
     renderCard();
+    await openDetails();
     fireEvent.click(await screen.findByRole("button", { name: "🎯 Other…" }));
 
     const [range, end] = screen.getAllByRole("combobox");
@@ -270,16 +301,24 @@ describe("PracticeDetails", () => {
     });
   });
 
-  it("offers the start time with a zone label only when the zone is known", async () => {
+  it("keeps the start time behind More…, with a zone label, only when the zone is known", async () => {
     stubApi(practicedToday);
     const { unmount } = renderCard("Asia/Almaty");
+    await openDetails();
+    const more = await screen.findByRole("button", { name: "More…" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/Start time/)).not.toBeInTheDocument();
+    fireEvent.click(more);
     // My own zone: the place, no offset (ADR-0044).
-    expect(await screen.findByText("Almaty")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Start time/)).toBeInTheDocument();
+    expect(screen.getByText("Almaty")).toBeInTheDocument();
     unmount();
 
     stubApi(practicedToday);
     renderCard(null);
+    await openDetails();
     await screen.findByRole("button", { name: "Mysore" });
+    expect(screen.queryByRole("button", { name: "More…" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Start time/)).not.toBeInTheDocument();
   });
 
@@ -306,8 +345,11 @@ describe("PracticeDetails", () => {
       ],
     });
     renderCard("Asia/Almaty");
+    await openDetails();
 
+    // A stored start time shows at once: More… is open.
     expect(await screen.findByText("Berlin (UTC+2)")).toBeInTheDocument(); // 19 October
+    expect(screen.getByRole("button", { name: "More…" })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("self-practice hides the online toggle", async () => {
@@ -323,6 +365,7 @@ describe("PracticeDetails", () => {
       ],
     });
     renderCard();
+    await openDetails();
 
     await screen.findByRole("button", { name: "Self-practice", pressed: true });
     expect(screen.queryByRole("button", { name: "🌐 Online" })).not.toBeInTheDocument();
@@ -343,6 +386,7 @@ describe("PracticeDetails server sync", () => {
       });
     stubApi(practicedToday);
     renderCard();
+    await openDetails();
 
     fireEvent.click(await screen.findByRole("button", { name: "½ Primary → Navasana" }));
 
@@ -356,7 +400,9 @@ describe("PracticeDetails server sync", () => {
   it("saves the start time on blur, not on every keystroke", async () => {
     const seen = stubApi(practicedToday);
     renderCard();
-    const input = await screen.findByLabelText(/Start time/);
+    await openDetails();
+    fireEvent.click(await screen.findByRole("button", { name: "More…" }));
+    const input = screen.getByLabelText(/Start time/);
 
     fireEvent.change(input, { target: { value: "06:3" } });
     fireEvent.change(input, { target: { value: "06:30" } });

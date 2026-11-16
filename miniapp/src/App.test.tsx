@@ -98,6 +98,9 @@ const QR = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAA
 let myShalas: unknown[] = [];
 let links: { teachers: unknown[]; students: unknown[] } = { teachers: [], students: [] };
 let seen: Request[] = [];
+/** What GET /me/next-steps offers, and today's classes in My schedule (UI-06). */
+let nextSteps: { kind: string; shala_id: string | null }[] = [];
+let classesToday: unknown[] = [];
 /** The page's scroll, and a section scrolled into view (jsdom has neither). */
 const scrollTo = vi.fn();
 const scrollIntoView = vi.fn();
@@ -138,6 +141,7 @@ function respond(path: string): Response {
   if (path === "/api/v1/me/badges") return json({ badges: [] });
   if (path === "/api/v1/health") return json({ version: "1", commit: "abcdef0" });
   if (path === "/api/v1/moon/cities") return json([]);
+  if (path === "/api/v1/me/next-steps") return json({ steps: nextSteps });
   if (path === "/api/v1/me/links") return json(links);
   if (path === "/api/v1/me/shalas") return json(myShalas);
   if (path === "/api/v1/me/invite")
@@ -153,11 +157,11 @@ function respond(path: string): Response {
       today: "2026-11-07",
       moon_city: "almaty",
       days: [],
-      shalas: [],
+      shalas: myShalas,
       has_teachers: false,
       is_staff: false,
       shifts: [],
-      occurrences: [],
+      occurrences: classesToday,
     });
   if (path === "/api/v1/me/days") {
     return json({
@@ -194,6 +198,8 @@ beforeEach(() => {
   myShalas = [];
   links = { teachers: [], students: [] };
   seen = [];
+  nextSteps = [];
+  classesToday = [];
   sdk.haptic.length = 0;
   vi.stubGlobal(
     "fetch",
@@ -335,7 +341,7 @@ describe("the tab bar", () => {
   test("Today has no rows for the other tabs, no tour offer and no Settings row", async () => {
     await launch();
     await today();
-    await screen.findByRole("heading", { level: 2, name: "Today" });
+    await screen.findByRole("heading", { level: 2, name: /^Today, / });
 
     for (const gone of [
       "📊 My practice",
@@ -550,6 +556,121 @@ describe("what moved where", () => {
   });
 });
 
+describe("Today: one next step, each leading to its place", () => {
+  const asked = (path: string) => seen.some((r) => new URL(r.url).pathname === path);
+
+  test("no step, no card; people in no shala ask for no schedule", async () => {
+    await launch();
+    await today();
+    await screen.findByRole("heading", { level: 2, name: /^Today, / });
+
+    await waitFor(() => {
+      expect(asked("/api/v1/me/next-steps")).toBe(true);
+    });
+    expect(screen.queryByRole("button", { name: "Not now" })).toBeNull();
+    expect(asked("/api/v1/me/schedule")).toBe(false);
+  });
+
+  test("the reminder step opens the reminder setting; Back returns to Today", async () => {
+    nextSteps = [
+      { kind: "reminder", shala_id: null },
+      { kind: "position", shala_id: null },
+    ];
+    await launch();
+    await today();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Set the reminder" }));
+
+    await settings();
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled(); // the reminder card, once it is there
+    });
+    expect(scrollIntoView.mock.contexts[0]).toHaveProperty("id", "remind");
+    back();
+    expect(await today()).toBeInTheDocument();
+  });
+
+  test("Not now shows the next step, which opens My asanas", async () => {
+    nextSteps = [
+      { kind: "reminder", shala_id: null },
+      { kind: "position", shala_id: null },
+    ];
+    await launch();
+    await today();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open My asanas" }));
+
+    await heading("My asanas");
+    expect(bar()).toBeNull();
+    back();
+    expect(await today()).toBeInTheDocument();
+  });
+
+  test("the invite step lands on the Shala tab with the invite open", async () => {
+    nextSteps = [{ kind: "invite_student", shala_id: null }];
+    await launch();
+    await today();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open the invite" }));
+
+    await shala();
+    expect(current()).toEqual(["🏛 Shala"]);
+    expect(await screen.findByRole("img", { name: "QR code for your invite link" })).toBeVisible();
+    expect(sdk.backShown).toBe(false); // a tab root
+  });
+
+  test.each(["add_class", "invite_shala_students"])(
+    "%s opens that shala's card on the Shala tab",
+    async (kind) => {
+      myShalas = [{ ...myShala("staff"), owner: true }];
+      nextSteps = [{ kind, shala_id: SHALA }];
+      await launch();
+      await today();
+
+      fireEvent.click(
+        await screen.findByRole("button", {
+          name: kind === "add_class" ? "Add a class" : "Invite students",
+        }),
+      );
+
+      await waitFor(() => {
+        expect(asked(`/api/v1/shalas/${SHALA}`)).toBe(true);
+      });
+    },
+  );
+
+  test("today's class is one row for people in a shala; it opens My schedule", async () => {
+    myShalas = [myShala("student")];
+    classesToday = [
+      {
+        shala_id: SHALA,
+        class_id: "00000000-0000-0000-0000-0000000000d1",
+        key: "2026-11-07",
+        on: "2026-11-07",
+        type: "mysore",
+        title: null,
+        start: "07:00",
+        end: "09:00",
+        starts_at: "2026-11-07T02:00:00Z",
+        zone: "Asia/Almaty",
+        city: "almaty",
+        cancelled: null,
+        online: false,
+      },
+    ];
+    await launch();
+    await today();
+
+    const row = await screen.findByRole("button", { name: /Mysore/ });
+    expect(plain(row.textContent)).toBe("🗓 07:00 Almaty · Mysore · Ashtanga Almaty");
+    fireEvent.click(row);
+
+    await heading("🗓 My schedule");
+    expect(bar()).toBeNull();
+  });
+});
+
 describe("the empty Shala tab", () => {
   test("nobody yet: one plain line and two quiet starts, no empty cards", async () => {
     await launch();
@@ -697,7 +818,7 @@ describe("a chunk that fails to load", () => {
 
     fireEvent.click(tab("today"));
     expect(await today()).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 2, name: "Today" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: /^Today, / })).toBeInTheDocument();
     vi.mocked(console.error).mockRestore();
   });
 });

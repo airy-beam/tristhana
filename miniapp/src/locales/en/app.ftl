@@ -38,9 +38,14 @@ practice-days =
 # Shown when the Telegram session is older than 24 hours (or can't be verified).
 session-expired = This session has expired. Close Tristhana and open it again from the bot.
 
-# Home: today's status card (PR-01). Status labels match the bot.
-home-first-hint = Start by logging today: practice or rest.
-today-title = Today
+# Today: the day card (PR-01, UI-06). Labels and sentences match the bot's Today.
+# $date: "Sun, Oct 18".
+today-title = Today, { $date }
+today-prompt = Practice or rest? Both go in your log.
+today-other = Other…
+today-reasons = Pick what fits. Any day belongs in your log.
+# $label = a status-* label: the person's own screen, so it says what they logged.
+today-logged = ✓ In your log: { $label }
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day
 status-moon = 🌙 Moon day
@@ -54,7 +59,8 @@ today-save-failed = Couldn't save. Try again in a moment.
 today-load-failed = Couldn't load today's status. Try again in a moment.
 
 # Practice details on a practiced day (PR-02, PR-03, PR-05). Matches the bot's wording.
-practice-title = Practice
+practice-add-details = 📝 Add details
+practice-details = 📝 Details
 # What "Same as last time" will copy (the bot shows the same line).
 practice-last-time = Last time: { $summary }
 # The practice is more than 14 days older than the day being logged (Q296).
@@ -65,20 +71,8 @@ context-mysore = Mysore
 context-led = Led
 context-private = 1:1
 context-self = Self-practice
-practice-online = 🌐 Online
-practice-length = Length
-practice-duration = Duration
-preset-short = ☀️ Short → standing
-preset-half-primary = ½ Primary → Navasana
-preset-full-primary = Full Primary
-preset-other = 🎯 Other…
-length-pick-range = Series
-length-pick-end = Last asana
-length-full-series = Full series
 duration-min = { $min } min
 duration-none = No duration
-practice-start-time = Start time
-practice-clear = Remove details
 series-name =
     { $n ->
         [1] Primary
@@ -108,7 +102,6 @@ series-half =
     }
 half-first = { $series }, 1st half
 half-second = { $series }, 2nd half
-length-only = Only { $series }
 length-summary =
     { $kind ->
         [short] Short practice
@@ -388,14 +381,8 @@ settings-ladies-button = Show the 🌸 Ladies' holiday button
 settings-ladies-button-hint = In the bot and here. Days you already logged stay as they are.
 
 ## After-practice check-in (PR-06). Always optional; describes, never advises.
-checkin-title = How do you feel?
-checkin-mood = Mood
 checkin-energy = ⚡ Energy: 1 low → 5 high
 checkin-effort = 🔥 Effort: 1 easy → 5 hard
-checkin-body = Body
-checkin-mind = Mind
-# Screen readers: the mood chips are emoji.
-checkin-mood-label = Mood { $n } of 5
 checkin-mood-chip = { $n ->
         [1] 😔
         [2] 😕
@@ -415,11 +402,11 @@ checkin-tag = { $tag ->
         [scattered] Scattered
        *[steady_breath] Steady breath
     }
-checkin-edit = ✨ Check-in
-checkin-clear = Remove check-in
-checkin-save-failed = Couldn't save the check-in. Try once more in a moment.
-settings-checkin = Offer a check-in after practice
-settings-checkin-hint = Mood, energy and effort right after logging today's practice. You can always add one from the day.
+checkin-edit = ✨ How do you feel?
+checkin-summary-energy = ⚡ energy { $n }/5
+checkin-summary-effort = 🔥 effort { $n }/5
+settings-checkin = Show “How do you feel?” after practice
+settings-checkin-hint = Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.
 
 ## Diary note (PR-07). Private, per day, any status; never asked for.
 diary-title = Diary
@@ -487,9 +474,6 @@ timeline-item-removed = { $item }: set aside
 timeline-empty-unset = Set where your practice ends in My asanas, and your timeline starts from there.
 timeline-empty-start = New asanas will appear here with their dates.
 timeline-truncated = Showing the newest { $count } entries.
-progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
-progression-ask-yes = 🎉 Yes, new
-progression-ask-no = Not new
 ## PR-08 Phase 3: who marked it; $teacher falls back to `progression-by-teacher`.
 progression-marked-by = Marked by { $teacher }
 progression-event-by = · { $teacher }
@@ -512,7 +496,6 @@ celebrate-practice-count = 🎉 { $count } { $count ->
         [one] practice
        *[other] practices
     } in your log. Thank you for coming to the mat.
-preset-mine = 🧘 My practice: { $length }
 # Milestone item names: the catalog name, plus the everyday name where people use one.
 milestone-label =
     { $slug ->
@@ -927,3 +910,16 @@ listing-level-name = { $level ->
        *[authorised] Authorised
     }
 listing-about = The name is in the public teachers directory of Sharath Yoga Centre (SYC); it was looked up by hand on that date. This is not an endorsement by SYC, and Tristhana has no connection with SYC. The level is the teacher's own words: the directory shows no levels. Many experienced teachers are not in this directory; the line says nothing about a teacher who doesn't have it.
+
+## Today: the next step (UI-06). One suggestion at a time: a sentence, its button, and "Not now" (kept on this device only).
+next-reminder = 🔔 Want me to ask once a day, so logging takes one tap?
+next-reminder-do = Set the reminder
+next-position = Where does your practice end? Mark your last asana, and length presets will fit you.
+next-position-do = Open My asanas
+next-invite = Your invite link is ready. Send it to your first student.
+next-invite-do = Open the invite
+next-class = Your shala has no classes yet. Add the first one, and students will see the schedule.
+next-class-do = Add a class
+next-shala-invite = Your shala has a schedule. Now invite students to it.
+next-shala-invite-do = Invite students
+next-not-now = Not now

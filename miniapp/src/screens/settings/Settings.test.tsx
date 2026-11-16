@@ -575,13 +575,14 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
   });
 });
 
-describe("Offer a check-in after practice (PR-06)", () => {
+describe("Show “How do you feel?” after practice (PR-06, Q313)", () => {
   afterEach(() => {
     meFails = false;
   });
 
   const offered = { ...ME, offer_check_in: true } as Me;
-  const toggle = () => screen.findByRole("checkbox", { name: "Offer a check-in after practice" });
+  const toggle = () =>
+    screen.findByRole("checkbox", { name: "Show “How do you feel?” after practice" });
 
   it("is on by default, explains itself, and saves at once", async () => {
     const seen = stubApi();
@@ -591,7 +592,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
     expect(box).toBeChecked();
     expect(
       screen.getByText(
-        "Mood, energy and effort right after logging today's practice. You can always add one from the day.",
+        "Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.",
       ),
     ).toBeInTheDocument();
     fireEvent.click(box);
@@ -630,7 +631,7 @@ describe("Offer a check-in after practice (PR-06)", () => {
 
     expect(
       await screen.findByRole("checkbox", {
-        name: "Предлагать отметить самочувствие после практики",
+        name: "Показывать «Как самочувствие?» после практики",
       }),
     ).toBeChecked();
   });

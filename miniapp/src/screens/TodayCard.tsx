@@ -1,28 +1,10 @@
-import { Localized } from "@fluent/react";
-import { useState } from "react";
+import { Localized, useLocalization } from "@fluent/react";
 
-import {
-  DAY_STATUSES,
-  periodOn,
-  useDays,
-  useMe,
-  useMoonCities,
-  useMoonDays,
-  useSetDay,
-  type Celebration,
-  type DaySaved,
-  type DayStatus,
-} from "../api/client";
+import { useDays, useMoonCities, useMoonDays } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
-import { haptics } from "../telegram";
-import { AutoNote } from "./AutoNote";
-import { CheckIn } from "./CheckIn";
-import { DiaryNote } from "./DiaryNote";
-import { loggedBefore, markLogged } from "./onboard";
 import { cityName } from "./cityName";
-import { PauseOffer, PeriodLine } from "./PauseOffer";
-import { PracticeDetails } from "./PracticeDetails";
-import { CountCelebration } from "./progression/CountCelebration";
+import { DayLog } from "./DayLog";
+import { useDateLabel } from "./PauseOffer";
 
 interface Props {
   /** The account's IANA zone (null until the device reported it). */
@@ -30,17 +12,14 @@ interface Props {
   locale: Locale;
 }
 
-/** Today's status chips on Home (PR-01). "Today" comes from the server, never the device. */
+/** Today's day card (PR-01, UI-06): the one day card for the server's today, with the moon
+ * line when today is a moon day. "Today" and its date come from the server, never the device. */
 export function TodayCard({ zone, locale }: Props) {
+  const { l10n } = useLocalization();
   const days = useDays();
-  const setDay = useSetDay();
   const moon = useMoonDays().data;
   const cities = useMoonCities().data;
-  const hideLadies = useMe().data?.hide_ladies === true;
-  // The last save's answer: the pause offer or "keep the pause" (WH-01).
-  const [after, setAfter] = useState<DaySaved | null>(null);
-  // GM-01 part 2: a practice count this save reached (dismissed on its own).
-  const [counted, setCounted] = useState<Celebration[]>([]);
+  const dateLabel = useDateLabel();
   if (days.isError) {
     return (
       <Localized id="today-load-failed">
@@ -51,50 +30,22 @@ export function TodayCard({ zone, locale }: Props) {
   if (!days.data) return null;
 
   const { today } = days.data;
-  const todayLog = days.data.days.find((d) => d.date === today);
-  // Auto-rest is a note, never a pressed chip: logging anything replaces it (PR-09). It
-  // names the city itself, so the moon line isn't shown twice.
-  const auto = todayLog ? undefined : days.data.auto.find((a) => a.date === today);
+  // An unlogged moon day is auto-rest: its own line names the city, so not twice (PR-09).
+  const auto =
+    !days.data.days.some((d) => d.date === today) && days.data.auto.some((a) => a.date === today);
   const moonToday = auto ? undefined : moon?.days.find((d) => d.date === today);
-  const current = todayLog?.status ?? null;
-  const period = periodOn(days.data, today);
-  // Shown as the period's kind when unlogged (logged > period > moon > day off): no chip
-  // is pressed, the line says why.
-  const shown = current ?? period?.kind ?? null;
-  const statuses =
-    hideLadies && shown !== "ladies" ? DAY_STATUSES.filter((s) => s !== "ladies") : DAY_STATUSES;
-  // UI-01: a first nudge until this device has saved a day (no extra request).
-  // People who already log in the bot have days here, so they never see it.
-  const firstHint = current === null && days.data.days.length === 0 && !loggedBefore();
-  const save = (status: DayStatus | null) => {
-    haptics.impact("light"); // feedback before the network call
-    setAfter(null);
-    setCounted([]);
-    setDay.mutate(
-      { date: today, status },
-      {
-        onSuccess: (saved) => {
-          if (status !== null) markLogged(); // a clear isn't a saved day
-          setAfter(saved);
-          // Only kinds the card shows (an older server's answer has no `celebrations`).
-          const found = (saved?.celebrations ?? []).filter((c) => c.kind === "practice_count");
-          if (found.length) {
-            haptics.notify("success");
-            setCounted(found);
-          }
-        },
-        onError: () => {
-          haptics.notify("error");
-        },
-      },
-    );
-  };
-
   return (
-    <section className="card" aria-labelledby="today-title">
-      <Localized id="today-title">
-        <h2 id="today-title" />
-      </Localized>
+    <DayLog
+      id="today-title"
+      // Without Fluent's bidi marks round the date: the heading names the card for a reader.
+      title={l10n
+        .getString("today-title", { date: dateLabel(today) })
+        .replace(/[\u2068\u2069]/g, "")}
+      date={today}
+      days={days.data}
+      zone={zone}
+      locale={locale}
+    >
       {moonToday && moon && (
         <Localized
           id="moon-today"
@@ -110,85 +61,6 @@ export function TodayCard({ zone, locale }: Props) {
           <p className="hint" />
         </Localized>
       )}
-      {auto && <AutoNote auto={auto} location={days.data.moon_location} locale={locale} />}
-      {period && (
-        <PeriodLine
-          period={period}
-          day={today}
-          today={today}
-          logged={current !== null}
-          practiceOn={days.data.practice_on}
-        />
-      )}
-      {firstHint && (
-        <Localized id="home-first-hint">
-          <p className="hint" />
-        </Localized>
-      )}
-      {counted.length > 0 && (
-        <CountCelebration
-          found={counted}
-          onDismiss={() => {
-            setCounted([]);
-          }}
-        />
-      )}
-      <div className="chips" role="group" aria-labelledby="today-title">
-        {statuses.map((status) => (
-          <Localized key={status} id={`status-${status}`}>
-            <button
-              type="button"
-              className="chip"
-              aria-pressed={status === current}
-              onClick={() => {
-                if (status !== current) save(status);
-              }}
-            />
-          </Localized>
-        ))}
-      </div>
-      {after && after.date === today && (
-        <PauseOffer
-          saved={after}
-          today={today}
-          onDone={() => {
-            setAfter(null);
-          }}
-        />
-      )}
-      {current === "practiced" && (
-        <PracticeDetails
-          date={today}
-          practice={todayLog?.practices[0] ?? null}
-          zone={zone}
-          locale={locale}
-        />
-      )}
-      {current === "practiced" && (
-        <CheckIn date={today} checkIns={todayLog?.check_ins} today={today} />
-      )}
-      <DiaryNote key={today} date={today} note={days.data.notes.find((n) => n.date === today)} />
-      {current === "ladies" && (
-        <Localized id="today-private-note">
-          <p className="hint" />
-        </Localized>
-      )}
-      {current !== null && (
-        <Localized id="today-clear">
-          <button
-            type="button"
-            className="link"
-            onClick={() => {
-              save(null);
-            }}
-          />
-        </Localized>
-      )}
-      {setDay.isError && (
-        <Localized id="today-save-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      )}
-    </section>
+    </DayLog>
   );
 }

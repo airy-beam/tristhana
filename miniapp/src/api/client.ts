@@ -107,6 +107,25 @@ export function useMe() {
   });
 }
 
+export type NextStep = components["schemas"]["NextStepOut"];
+const NEXT_STEPS_KEY = ["next-steps"] as const;
+
+/** What the Today tab may offer next (UI-06), in offer order; the server derives it on every
+ * read. An API older than this bundle answers 404: then there is no card, and no retry. */
+export function useNextSteps() {
+  return useQuery({
+    queryKey: NEXT_STEPS_KEY,
+    queryFn: async (): Promise<NextStep[]> => {
+      const { data, error, response } = await api.GET("/api/v1/me/next-steps");
+      if (!data) fail(response, error);
+      const sent: Partial<typeof data> = data;
+      return sent.steps ?? [];
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
 /** Reports the device zone; the server keeps it only if none is set yet. */
 export function useReportDeviceTimezone() {
   const client = useQueryClient();
@@ -128,17 +147,6 @@ export function useReportDeviceTimezone() {
 
 export type DayStatus = components["schemas"]["DayStatus"];
 export type Days = components["schemas"]["Days"];
-
-/** Grid order as in the bot: Practiced first, "No practice" last (ashtanga-expert). */
-export const DAY_STATUSES: readonly DayStatus[] = [
-  "practiced",
-  "rest",
-  "moon",
-  "ladies",
-  "sick",
-  "travel",
-  "skipped",
-];
 
 const DAYS_KEY = ["days", "recent"] as const;
 
@@ -276,6 +284,8 @@ export function useSetDay() {
     scope: { id: "day" }, // one request at a time, in tap order
     onSettled: (_data, error) => {
       settleDays(client, error);
+      // The first logged day opens the reminder and position steps (UI-06).
+      void client.invalidateQueries({ queryKey: NEXT_STEPS_KEY });
     },
     mutationFn: async ({
       date,
@@ -758,6 +768,7 @@ export function usePatchNotificationSettings() {
       // A later tap may still be queued: its optimistic state wins until it settles.
       const queued = client.isMutating({ predicate: (m) => m.options.scope?.id === "settings" });
       if (queued <= 1) client.setQueryData(SETTINGS_KEY, saved); // incl. the pause (WH-01)
+      void client.invalidateQueries({ queryKey: NEXT_STEPS_KEY }); // the reminder is answered
     },
     onError: (_error, _vars, context) => {
       if (context?.before) client.setQueryData(SETTINGS_KEY, context.before);
@@ -937,6 +948,7 @@ export function useProgressionEvent() {
       client.setQueryData(PROGRESSION_KEY, change.progression);
       void client.invalidateQueries({ queryKey: TIMELINE_KEY });
       void client.invalidateQueries({ queryKey: ["practice-presets"] }); // "🧘 My practice"
+      void client.invalidateQueries({ queryKey: NEXT_STEPS_KEY }); // the position is set
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 409) {
@@ -963,6 +975,7 @@ export function useUndoProgression() {
       client.setQueryData(PROGRESSION_KEY, progression);
       void client.invalidateQueries({ queryKey: TIMELINE_KEY });
       void client.invalidateQueries({ queryKey: ["practice-presets"] });
+      void client.invalidateQueries({ queryKey: NEXT_STEPS_KEY });
     },
     onError: () => {
       void client.invalidateQueries({ queryKey: PROGRESSION_KEY });
@@ -1263,6 +1276,7 @@ export function useCreateShala() {
     onSuccess: (shala) => {
       client.setQueryData([...SHALAS_KEY, shala.id], shala);
       invalidateMoon(client); // a never-chose owner now follows their shala
+      void client.invalidateQueries({ queryKey: NEXT_STEPS_KEY }); // "add a class" (UI-06)
       return client.invalidateQueries({ queryKey: [...SHALAS_KEY, "mine"] });
     },
   });
@@ -1319,6 +1333,7 @@ export function useDeleteShala(id: string) {
     onSettled: () => {
       client.removeQueries({ queryKey: [...SHALAS_KEY, id] });
       invalidateMoon(client);
+      void client.invalidateQueries({ queryKey: NEXT_STEPS_KEY });
       return client.invalidateQueries({ queryKey: [...SHALAS_KEY, "mine"] });
     },
   });
@@ -1424,6 +1439,8 @@ function useScheduleWrite<T, R>(id: string, write: (vars: T) => Promise<R>) {
       Promise.all([
         client.invalidateQueries({ queryKey: scheduleKey(id) }),
         client.invalidateQueries({ queryKey: MY_SCHEDULE_KEY }),
+        // A first class moves "add a class" on to "invite students" (UI-06).
+        client.invalidateQueries({ queryKey: NEXT_STEPS_KEY }),
       ]),
   });
 }

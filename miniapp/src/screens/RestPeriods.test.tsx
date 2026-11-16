@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import type { Days, NotificationSettings } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
@@ -10,10 +10,11 @@ import { TodayCard } from "./TodayCard";
 // WH-01 part 2 (ADR-0023): the "for how many days?" offer after a 🌸/🤒/✈️ save, "keep the
 // pause" after a 🧘 save inside one, the covered-day line with End, hiding the 🌸 chip, and
 // the paused line on the reminder card. The chips always come from the server.
+// UI-06 stage 2: 🌸, 🤒 and ✈️ sit behind the day card's "Other…"; a tap there saves and closes.
 
 vi.mock("../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
   backButtonAvailable: vi.fn(() => true),
 }));
@@ -142,6 +143,17 @@ function renderWith(node: React.ReactNode) {
 const plain = (text: string) => text.replace(/[⁨⁩]/g, "");
 const button = (name: string) => screen.findByRole("button", { name: (n) => plain(n) === name });
 
+/** A reason behind the day card's "Other…": opens the reasons first. */
+async function reason(name: string) {
+  fireEvent.click(await screen.findByRole("button", { name: "Other…", expanded: false }));
+  return button(name);
+}
+/** The pause question's own "Other…" (more day counts), not the day card's. */
+const moreDays = async () =>
+  within(
+    (await screen.findByText(/how many days|How many days/)).parentElement as HTMLElement,
+  ).getByRole("button", { name: "Other…" });
+
 async function sent(seen: Request[], method: string, path: string): Promise<unknown> {
   await vi.waitFor(() => {
     expect(seen.some((r) => r.method === method && new URL(r.url).pathname === path)).toBe(true);
@@ -178,14 +190,15 @@ describe("TodayCard: the pause offer", () => {
     const seen = stubApi({ saved: OFFER });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
 
-    fireEvent.click(await button("🌸 Ladies' holiday"));
+    fireEvent.click(await reason("🌸 Ladies' holiday"));
 
     expect(
       await screen.findByText(
         (t) => plain(t) === "How many days should show as 🌸 Ladies' holiday, including today?",
       ),
     ).toBeInTheDocument();
-    for (const n of ["2 days", "3 days", "5 days", "Other…"]) await button(n);
+    for (const n of ["2 days", "3 days", "5 days"]) await button(n);
+    expect(await moreDays()).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "4 days" })).not.toBeInTheDocument();
 
     fireEvent.click(await button("5 days"));
@@ -200,9 +213,9 @@ describe("TodayCard: the pause offer", () => {
   it("reveals the other choices on Other…", async () => {
     stubApi({ saved: OFFER });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
-    fireEvent.click(await button("🌸 Ladies' holiday"));
+    fireEvent.click(await reason("🌸 Ladies' holiday"));
 
-    fireEvent.click(await button("Other…"));
+    fireEvent.click(await moreDays());
 
     for (const n of ["4 days", "6 days", "7 days"]) await button(n);
   });
@@ -217,7 +230,7 @@ describe("TodayCard: the pause offer", () => {
     });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
 
-    fireEvent.click(await button("🤒 Sick / injury"));
+    fireEvent.click(await reason("🤒 Sick / injury"));
 
     await button("4 days");
     expect(screen.queryByRole("button", { name: "2 days" })).not.toBeInTheDocument();
@@ -227,7 +240,7 @@ describe("TodayCard: the pause offer", () => {
     stubApi({ saved: { ...OFFER, pause_offer: { ...OFFER.pause_offer, reminders_on: true } } });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
 
-    fireEvent.click(await button("🌸 Ladies' holiday"));
+    fireEvent.click(await reason("🌸 Ladies' holiday"));
 
     expect(await screen.findByText(/Pause practice reminders for how many days/)).toBeVisible();
   });
@@ -235,7 +248,7 @@ describe("TodayCard: the pause offer", () => {
   it("offers Just today, which closes the question without a pause", async () => {
     const seen = stubApi({ saved: OFFER });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
-    fireEvent.click(await button("🌸 Ladies' holiday"));
+    fireEvent.click(await reason("🌸 Ladies' holiday"));
 
     fireEvent.click(await button("Just today"));
 
@@ -250,7 +263,7 @@ describe("TodayCard: the pause offer", () => {
     const period = { start: TODAY, end: LATER, kind: "ladies" };
     const seen = stubApi({ saved: { ...OFFER, period } });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
-    fireEvent.click(await button("🌸 Ladies' holiday"));
+    fireEvent.click(await reason("🌸 Ladies' holiday"));
 
     fireEvent.click(await button("Just today"));
 
@@ -380,15 +393,16 @@ describe("TodayCard: a covered day", () => {
 });
 
 describe("Hide the 🌸 chip", () => {
-  it("leaves 🌸 out of today's chips", async () => {
+  it("leaves 🌸 out of today's reasons", async () => {
     stubApi({ me: { ...ME, hide_ladies: true } });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
 
-    await button("🤒 Sick / injury");
+    await reason("🤒 Sick / injury");
     await vi.waitFor(() => {
       expect(screen.queryByRole("button", { name: /Ladies' holiday/ })).not.toBeInTheDocument();
     });
-    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(6);
+    const reasons = screen.getByRole("group", { name: /Pick what fits/ });
+    expect(within(reasons).getAllByRole("button", { pressed: false })).toHaveLength(4);
   });
 
   it("keeps it on a day that shows as 🌸", async () => {
@@ -398,8 +412,8 @@ describe("Hide the 🌸 chip", () => {
     });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
 
-    const pressed = await screen.findByRole("button", { pressed: true });
-    expect(plain(pressed.textContent)).toBe("🌸 Ladies' holiday");
+    // The mark is on "Other…"; behind it 🌸 is still there, pressed.
+    expect(await reason("🌸 Ladies' holiday")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("leaves 🌸 out of the day editor too", async () => {
@@ -415,7 +429,7 @@ describe("Hide the 🌸 chip", () => {
       />,
     );
 
-    await button("🤒 Sick / injury");
+    await reason("🤒 Sick / injury");
     await vi.waitFor(() => {
       expect(screen.queryByRole("button", { name: /Ladies' holiday/ })).not.toBeInTheDocument();
     });
@@ -466,7 +480,7 @@ describe("DayEditor: rest periods", () => {
       />,
     );
 
-    fireEvent.click(await button("🤒 Sick / injury"));
+    fireEvent.click(await reason("🤒 Sick / injury"));
 
     expect(await screen.findByText(/including yesterday/)).toBeInTheDocument();
     await button("3 days");
@@ -632,7 +646,7 @@ describe("Second review", () => {
   it("shows the question again when starting the pause fails", async () => {
     stubApi({ saved: OFFER, startFails: true });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
-    fireEvent.click(await button("🌸 Ladies' holiday"));
+    fireEvent.click(await reason("🌸 Ladies' holiday"));
 
     fireEvent.click(await button("5 days"));
 

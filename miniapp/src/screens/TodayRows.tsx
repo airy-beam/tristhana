@@ -1,10 +1,29 @@
 import { useLocalization } from "@fluent/react";
+import { Suspense } from "react";
 
-import { useMoonCities, useMoonDays } from "../api/client";
+import { useMoonCities, useMoonDays, useMyShalas } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
+import { ChunkGuard } from "../shell/ChunkGuard";
+import { lazyRetry } from "../shell/lazyRetry";
 import { haptics } from "../telegram";
 import { cityName } from "./cityName";
 import { moonDate, moonDayLine } from "./moonText";
+
+// Only people in a shala load the row and ask for a schedule.
+const ClassToday = lazyRetry(() => import("./ClassToday"));
+
+/** Today's class as one row on Today (UI-06), only for people in a shala. A tap opens My
+ * schedule. If its chunk fails to load there is just no row: Today stays as it is. */
+export function ClassRow({ locale, onOpen }: { locale: Locale; onOpen: () => void }) {
+  if (!useMyShalas().data?.length) return null;
+  return (
+    <ChunkGuard>
+      <Suspense fallback={null}>
+        <ClassToday locale={locale} onOpen={onOpen} />
+      </Suspense>
+    </ChunkGuard>
+  );
+}
 
 /** The next moon day of the followed city, as one row on Today (UI-06). A tap opens the whole
  * card: three days, where the city comes from, the calculation note. With no day in the

@@ -157,7 +157,7 @@ const calls = (seen: Request[], method: string, path: string) =>
   seen.filter((r) => r.method === method && new URL(r.url).pathname === path);
 
 /** Today has loaded: the account is known. */
-const homeLoaded = () => screen.findByRole("heading", { level: 2, name: /^(Today|Сегодня)$/ });
+const homeLoaded = () => screen.findByRole("heading", { level: 2, name: /^(Today|Сегодня), / });
 const TAB = { en: "🏛 Shala", ru: "🏛 Шала" } as const;
 
 async function renderApp(locale: "en" | "ru" = "en") {

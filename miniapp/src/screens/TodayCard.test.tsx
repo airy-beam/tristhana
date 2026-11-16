@@ -1,18 +1,60 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
-import type { Days } from "../api/client";
+import type { Days, PracticePresets } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
 import { haptics } from "../telegram";
 import { TodayCard } from "./TodayCard";
 
+// UI-06 stage 2 (spec §5): the one day card on Today. Three choices, one per row, as the bot's
+// Today; "Other…" opens the reasons in place; a logged or auto-rest day leads with that fact;
+// after "Practiced" the card stays small and nothing opens by itself.
+
 vi.mock("../telegram", () => ({
   useBackButton: vi.fn(),
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
 }));
 
-const TODAY = "2026-10-18";
+const TODAY = "2026-10-18"; // a Sunday
+
+const ME = {
+  id: "00000000-0000-0000-0000-000000000001",
+  display_name: "Ash",
+  locale: "en",
+  timezone: "Asia/Almaty",
+  hide_ladies: false,
+  offer_check_in: true,
+};
+
+const LAST: PracticePresets["last"] = {
+  slot: 1,
+  context: "led",
+  online: false,
+  length: { series: ["primary"], end: null, first_part: null },
+  duration_min: 90,
+  start_time: "06:30", // never copied
+  timezone: "Asia/Almaty",
+};
+
+const CATALOG = {
+  version: "v1",
+  milestone_items: [],
+  check_in_tags: [
+    { key: "light", group: "body" },
+    { key: "calm", group: "mind" },
+  ],
+  series: [
+    {
+      slug: "primary",
+      number: 1,
+      name_en: "Primary series",
+      name_ru: "Первая серия",
+      halves_split: "navasana",
+      stops: [{ key: "navasana", latin: "Navasana", ru: "Навасана" }],
+    },
+  ],
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(status === 204 ? null : JSON.stringify(body), {
@@ -21,40 +63,60 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-/** GET /me/days returns `days`; writes answer with `writeStatus` (0 = never answer).
- * Records every request. */
 /** Older fixtures predate WH-01: `periods` / `practice_on` default to none / off. */
 type DaysFixture = Omit<Days, "periods" | "practice_on" | "notes"> & Partial<Days>;
 
+interface Stub {
+  /** How writes answer: 0 never answers. */
+  writeStatus?: number;
+  /** Merged into the day save's answer. */
+  saved?: Record<string, unknown>;
+  me?: Record<string, unknown>;
+  /** The previous practice, for "Same as last time". */
+  last?: PracticePresets["last"];
+}
+
+/** A small stateful server: GET /me/days returns `fixture` with what was saved since; records
+ * every request. */
 function stubApi(
   fixture: DaysFixture,
-  writeStatus = 200,
-  saved: Record<string, unknown> = {},
+  { writeStatus = 200, saved = {}, me = ME, last = null }: Stub = {},
 ): Request[] {
-  const days: Days = { periods: [], practice_on: false, notes: [], ...fixture };
+  let days: Days = { periods: [], practice_on: false, notes: [], ...fixture };
+  const others = () => days.days.filter((d) => d.date !== TODAY);
+  const today = () => days.days.find((d) => d.date === TODAY);
   const seen: Request[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn((request: Request) => {
+    vi.fn(async (request: Request) => {
       seen.push(request);
       const path = new URL(request.url).pathname;
+      if (path === "/api/v1/me") return json(me);
+      if (path === "/api/v1/catalog") return json(CATALOG);
+      if (path.endsWith("/practice-presets")) return json({ last, presets: [] });
       if (path === "/api/v1/me/moon-days")
-        return Promise.resolve(
-          json({ location: { slug: "mysuru", explicit: false }, today: TODAY, days: [] }),
-        );
-      if (path === "/api/v1/moon/cities") return Promise.resolve(json([]));
-      if (request.method === "GET") {
-        const deleted = seen.some((r) => r.method === "DELETE");
-        return Promise.resolve(json(deleted ? { ...days, days: [] } : days));
-      }
+        return json({ location: { slug: "mysuru", explicit: false }, today: TODAY, days: [] });
+      if (path === "/api/v1/moon/cities") return json([]);
+      if (request.method === "GET") return json(days);
       if (writeStatus === 0) return new Promise<Response>(() => undefined);
       if (writeStatus !== 200 && writeStatus !== 204)
-        return Promise.resolve(json({ code: "unavailable" }, writeStatus));
-      return Promise.resolve(
-        request.method === "DELETE"
-          ? json(null, 204)
-          : json({ date: TODAY, status: "rest", practices: [], check_ins: [], ...saved }),
-      );
+        return json({ code: "unavailable" }, writeStatus);
+      if (request.method === "DELETE") {
+        days = { ...days, days: others() };
+        return json(null, 204);
+      }
+      const body = (await request.clone().json()) as Record<string, unknown>;
+      if (path.includes("/practices/")) {
+        const practice = { slot: 1, timezone: null, ...body };
+        days = {
+          ...days,
+          days: [...others(), { ...today(), practices: [practice] }],
+        } as Days;
+        return json(practice);
+      }
+      const day = { date: TODAY, status: body.status, practices: [], check_ins: [] };
+      days = { ...days, days: [...others(), day] } as Days;
+      return json({ ...day, ...saved });
     }),
   );
   return seen;
@@ -72,44 +134,130 @@ function renderCard() {
 }
 
 const visible = (el: HTMLElement) => el.textContent.replace(/[⁨⁩]/g, "");
+const labels = (buttons: HTMLElement[]) => buttons.map(visible);
+/** Every control on the card, top to bottom. */
+const controls = () => labels(within(screen.getByRole("region")).getAllByRole("button"));
+
+const empty: DaysFixture = {
+  today: TODAY,
+  timezone_known: true,
+  auto: [],
+  moon_location: "mysuru",
+  days: [],
+};
+const logged = (status: string, more: Record<string, unknown> = {}): DaysFixture =>
+  ({
+    ...empty,
+    days: [{ date: TODAY, status, practices: [], check_ins: [], ...more }],
+  }) as DaysFixture;
+
+const PROMPT = "Practice or rest? Both go in your log.";
+const CHOICES = ["🧘 Practiced", "😌 Rest day", "Other…"];
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
   localStorage.clear();
 });
 
-describe("TodayCard", () => {
-  it("highlights today's status from the server", async () => {
+describe("TodayCard: three choices", () => {
+  it("an unanswered day: the server's date, the question, exactly three choices", async () => {
+    stubApi(empty);
+    renderCard();
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Today, Sun, Oct 18" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(PROMPT)).toBeInTheDocument();
+    expect(controls()).toEqual(CHOICES);
+    expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Other…" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("Other… opens the reasons in the bot's order; a reason saves and closes", async () => {
+    const seen = stubApi(empty);
+    renderCard();
+    const other = await screen.findByRole("button", { name: "Other…" });
+
+    fireEvent.click(other);
+
+    expect(other).toHaveAttribute("aria-expanded", "true");
+    const reasons = screen.getByRole("group", {
+      name: "Pick what fits. Any day belongs in your log.",
+    });
+    expect(labels(within(reasons).getAllByRole("button"))).toEqual([
+      "🌙 Moon day",
+      "🌸 Ladies' holiday",
+      "🤒 Sick / injury",
+      "✈️ Travel",
+      "🌱 No practice",
+    ]);
+    expect(seen.some((r) => r.method === "PUT")).toBe(false); // opening saves nothing
+    fireEvent.click(within(reasons).getByRole("button", { name: "🤒 Sick / injury" }));
+
+    await vi.waitFor(() => {
+      expect(seen.some((r) => r.method === "PUT")).toBe(true);
+    });
+    expect(await seen.find((r) => r.method === "PUT")?.json()).toEqual({ status: "sick" });
+    expect(screen.queryByRole("button", { name: "🤒 Sick / injury" })).not.toBeInTheDocument();
+    expect(other).toHaveAttribute("aria-expanded", "false");
+    expect(other).toHaveAttribute("aria-pressed", "true");
+    expect(visible(await screen.findByText(/In your log/))).toBe("✓ In your log: 🤒 Sick / injury");
+  });
+
+  it("leaves 🌸 out under 'Hide the 🌸 button': four reasons", async () => {
+    stubApi(empty, { me: { ...ME, hide_ladies: true } });
+    renderCard();
+    fireEvent.click(await screen.findByRole("button", { name: "Other…" }));
+
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("button", { name: "🌸 Ladies' holiday" })).not.toBeInTheDocument();
+    });
+    expect(
+      labels(within(screen.getByRole("group", { name: /Pick what fits/ })).getAllByRole("button")),
+    ).toEqual(["🌙 Moon day", "🤒 Sick / injury", "✈️ Travel", "🌱 No practice"]);
+  });
+
+  it("keeps 🌸 among the reasons while it is the logged status", async () => {
+    stubApi(logged("ladies"), { me: { ...ME, hide_ladies: true } });
+    renderCard();
+    fireEvent.click(await screen.findByRole("button", { name: "Other…" }));
+
+    expect(screen.getByRole("button", { name: "🌸 Ladies' holiday" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("a logged day leads with the fact: no question, the logged choice pressed", async () => {
     stubApi({
-      today: TODAY,
-      timezone_known: true,
-      auto: [],
-      moon_location: "mysuru",
+      ...empty,
       days: [
         { date: "2026-10-17", status: "rest", practices: [], check_ins: [] },
         { date: TODAY, status: "moon", practices: [], check_ins: [] },
       ],
     });
-
     renderCard();
 
-    const pressed = await screen.findByRole("button", { pressed: true });
-    expect(visible(pressed)).toBe("🌙 Moon day");
-    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(6);
+    expect(visible(await screen.findByText(/In your log/))).toBe("✓ In your log: 🌙 Moon day");
+    expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+    // A reason sits behind "Other…", which carries the mark.
+    expect(labels(screen.getAllByRole("button", { pressed: true }))).toEqual(["Other…"]);
+    expect(controls()).toEqual([...CHOICES, "Add a note", "Clear"]);
   });
 
   it("saves a tap optimistically with haptic feedback", async () => {
-    const seen = stubApi(
-      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
-      0,
-    );
+    const seen = stubApi(empty, { writeStatus: 0 });
     renderCard();
     const rest = await screen.findByRole("button", { name: /Rest day/ });
 
     fireEvent.click(rest);
 
     expect(haptics.impact).toHaveBeenCalledWith("light");
-    // Highlighted although the server never answers this PUT.
+    // Pressed although the server never answers this PUT.
     await vi.waitFor(() => {
       expect(rest).toHaveAttribute("aria-pressed", "true");
     });
@@ -122,10 +270,7 @@ describe("TodayCard", () => {
   });
 
   it("rolls back and says so when saving fails", async () => {
-    stubApi(
-      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
-      503,
-    );
+    stubApi(empty, { writeStatus: 503 });
     renderCard();
 
     fireEvent.click(await screen.findByRole("button", { name: /Practiced/ }));
@@ -136,16 +281,13 @@ describe("TodayCard", () => {
   });
 
   it("celebrates a practice count from the server's answer, then dismisses (GM-01)", async () => {
-    stubApi(
-      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
-      200,
-      {
-        status: "practiced",
+    stubApi(empty, {
+      saved: {
         celebrations: [
           { kind: "practice_count", series: null, key: null, first: null, count: 1000 },
         ],
       },
-    );
+    });
     renderCard();
 
     fireEvent.click(await screen.findByRole("button", { name: /Practiced/ }));
@@ -158,11 +300,7 @@ describe("TodayCard", () => {
   });
 
   it("shows no card when the save celebrates nothing", async () => {
-    stubApi(
-      { today: TODAY, timezone_known: true, auto: [], moon_location: "mysuru", days: [] },
-      200,
-      { status: "practiced", celebrations: [] },
-    );
+    stubApi(empty, { saved: { celebrations: [] } });
     renderCard();
 
     fireEvent.click(await screen.findByRole("button", { name: /Practiced/ }));
@@ -175,13 +313,7 @@ describe("TodayCard", () => {
   });
 
   it("shows the privacy note for a ladies' holiday and can clear it", async () => {
-    const seen = stubApi({
-      today: TODAY,
-      timezone_known: true,
-      auto: [],
-      moon_location: "mysuru",
-      days: [{ date: TODAY, status: "ladies", practices: [], check_ins: [] }],
-    });
+    const seen = stubApi(logged("ladies"));
     renderCard();
 
     expect(await screen.findByText(/Only you see this/)).toBeInTheDocument();
@@ -191,6 +323,7 @@ describe("TodayCard", () => {
       expect(seen.some((r) => r.method === "DELETE")).toBe(true);
     });
     expect(screen.queryByText(/Only you see this/)).not.toBeInTheDocument();
+    expect(await screen.findByText(PROMPT)).toBeInTheDocument(); // unanswered again
   });
 
   it("says so when today's status can't be loaded", async () => {
@@ -215,46 +348,186 @@ describe("TodayCard", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  describe("first-log hint", () => {
-    const empty: DaysFixture = {
-      today: TODAY,
-      timezone_known: true,
-      auto: [],
-      moon_location: "mysuru",
-      days: [],
-    };
-    const hint = "Start by logging today: practice or rest.";
-
-    it("shows until this device saves a day, and stays hidden after", async () => {
-      stubApi(empty);
-      const { unmount } = renderCard();
-
-      expect(await screen.findByText(hint)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "😌 Rest day" }));
-      await vi.waitFor(() => {
-        expect(localStorage.getItem("onboard.logged")).toBe("1");
-      });
-      unmount();
-
+  describe("the first step", () => {
+    it("is the card itself: the question shows until the day is answered", async () => {
       stubApi(empty);
       renderCard();
-      await screen.findByRole("button", { name: "😌 Rest day" });
-      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+
+      expect(await screen.findByText(PROMPT)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "😌 Rest day" }));
+
+      expect(await screen.findByText(/In your log/)).toBeInTheDocument();
+      expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+      // The old first-log hint and its device flag are gone.
+      expect(screen.queryByText(/Start by logging today/)).not.toBeInTheDocument();
+      expect(localStorage.getItem("onboard.logged")).toBeNull();
     });
 
-    it("never shows to someone who already logs (e.g. in the bot)", async () => {
+    it("asks someone who already logs (e.g. in the bot) the same question", async () => {
       stubApi({
-        today: TODAY,
-        timezone_known: true,
-        auto: [],
-        moon_location: "mysuru",
+        ...empty,
         days: [{ date: "2026-10-17", status: "practiced", practices: [], check_ins: [] }], // yesterday
       });
       renderCard();
 
-      await screen.findByRole("button", { name: "😌 Rest day" });
-      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+      expect(await screen.findByText(PROMPT)).toBeInTheDocument();
+      expect(controls()).toEqual(CHOICES);
     });
+  });
+});
+
+describe("TodayCard: after Practiced", () => {
+  it("stays small: a summary line and quiet entries, nothing expanded", async () => {
+    stubApi(empty, { last: LAST });
+    renderCard();
+    await screen.findByText(PROMPT);
+    expect(controls()).toHaveLength(3); // before the tap
+
+    fireEvent.click(screen.getByRole("button", { name: "🧘 Practiced" }));
+
+    // What "Same as last time" would copy: never the start time.
+    expect(visible(await screen.findByText(/^Last time/))).toBe(
+      "Last time: Led · Full Primary · 90 min",
+    );
+    expect(controls()).toEqual([
+      ...CHOICES,
+      "🔁 Same as last time",
+      "📝 Add details",
+      "✨ How do you feel?",
+      "Add a note",
+      "Clear",
+    ]);
+    expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mood 3 of 5" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("Same as last time copies type, length and duration, never the start time", async () => {
+    const seen = stubApi(logged("practiced"), { last: LAST });
+    renderCard();
+
+    fireEvent.click(await screen.findByRole("button", { name: "🔁 Same as last time" }));
+
+    await vi.waitFor(() => {
+      expect(seen.some((r) => r.method === "PUT")).toBe(true);
+    });
+    const put = seen.find((r) => r.method === "PUT");
+    expect(new URL(put?.url ?? "").pathname).toBe(`/api/v1/me/days/${TODAY}/practices/1`);
+    expect(await put?.json()).toEqual({
+      context: "led",
+      online: false,
+      length: { series: ["primary"], end: null, first_part: null },
+      duration_min: 90,
+      start_time: null,
+    });
+    // Details exist now: the line is the day's own, and the copy is no longer offered.
+    await vi.waitFor(() => {
+      expect(screen.queryByRole("button", { name: "🔁 Same as last time" })).toBeNull();
+    });
+    expect(visible(screen.getByText(/^Led · /))).toBe("Led · Full Primary · 90 min");
+    expect(screen.getByRole("button", { name: "📝 Details" })).toBeInTheDocument();
+  });
+
+  it("offers no copy without a previous practice", async () => {
+    stubApi(logged("practiced"));
+    renderCard();
+
+    await screen.findByRole("button", { name: "📝 Add details" });
+    expect(screen.queryByRole("button", { name: "🔁 Same as last time" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Last time/)).not.toBeInTheDocument();
+  });
+
+  it("Add details loads the panel on the tap; the start time is behind More…", async () => {
+    stubApi(logged("practiced"));
+    renderCard();
+    const entry = await screen.findByRole("button", { name: "📝 Add details" });
+    expect(entry).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(entry);
+
+    expect(haptics.selection).toHaveBeenCalled();
+    expect(entry).toHaveAttribute("aria-expanded", "true");
+    expect(await screen.findByText("Type of practice")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mysore" })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Start time/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More…" }));
+    expect(screen.getByLabelText(/Start time/)).toBeInTheDocument();
+
+    fireEvent.click(entry); // a second tap folds it again
+    expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
+  });
+
+  it("one panel at a time: opening the check-in folds the details", async () => {
+    stubApi(logged("practiced"));
+    renderCard();
+    fireEvent.click(await screen.findByRole("button", { name: "📝 Add details" }));
+    await screen.findByRole("button", { name: "Mysore" });
+
+    fireEvent.click(screen.getByRole("button", { name: "✨ How do you feel?" }));
+
+    expect(await screen.findByRole("button", { name: "Mood 3 of 5" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
+  });
+
+  it("the setting hides the check-in entry", async () => {
+    stubApi(logged("practiced"), { me: { ...ME, offer_check_in: false } });
+    renderCard();
+
+    await screen.findByRole("button", { name: "📝 Add details" });
+    expect(screen.queryByRole("button", { name: /How do you feel/ })).not.toBeInTheDocument();
+  });
+
+  it("a check-in that exists stays editable whatever the setting, with its summary", async () => {
+    stubApi(
+      logged("practiced", {
+        check_ins: [{ slot: 1, mood: 4, energy: 4, effort: null, tags: ["calm", "light"] }],
+      }),
+      { me: { ...ME, offer_check_in: false } },
+    );
+    renderCard();
+
+    const entry = await screen.findByRole("button", { name: /How do you feel/ });
+    await vi.waitFor(() => {
+      // Tags in the catalog's order, as the bot's line.
+      expect(visible(entry)).toBe("✨ How do you feel?🙂 · ⚡ energy 4/5 · Light, Calm");
+    });
+    expect(entry).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(entry);
+    expect(await screen.findByRole("button", { name: "Mood 4 of 5" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+});
+
+describe("TodayCard: the note entry", () => {
+  const note = { date: TODAY, text: "Tight hamstrings.", unreadable: false };
+
+  it("is not offered on an unanswered day", async () => {
+    stubApi(empty);
+    renderCard();
+
+    await screen.findByText(PROMPT);
+    expect(screen.queryByRole("button", { name: "Add a note" })).not.toBeInTheDocument();
+  });
+
+  it("shows a note that exists, logged day or not", async () => {
+    stubApi({ ...empty, notes: [note] });
+    renderCard();
+
+    expect(await screen.findByText("Tight hamstrings.")).toBeInTheDocument();
+    expect(screen.getByText(PROMPT)).toBeInTheDocument();
+  });
+
+  it("is a quiet entry on a logged day, and opens only on its tap", async () => {
+    stubApi(logged("rest"));
+    renderCard();
+
+    const add = await screen.findByRole("button", { name: "Add a note" });
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    fireEvent.click(add);
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 });
 
@@ -264,6 +537,7 @@ describe("TodayCard auto-rest (PR-09)", () => {
       "fetch",
       vi.fn((request: Request) => {
         const path = new URL(request.url).pathname;
+        if (path === "/api/v1/me") return Promise.resolve(json(ME));
         if (path === "/api/v1/me/moon-days")
           return Promise.resolve(
             json({
@@ -285,7 +559,7 @@ describe("TodayCard auto-rest (PR-09)", () => {
     );
   }
 
-  it("names the moon day once, with no chip pressed", async () => {
+  it("names the moon day once: no question after it, nothing pressed", async () => {
     stubAuto([{ date: TODAY, kind: "moon", also_day_off: true }]);
     renderCard();
 
@@ -294,6 +568,8 @@ describe("TodayCard auto-rest (PR-09)", () => {
       "🌙 Moon day (📍 Mysuru), a traditional rest day and your weekly day off too. If you practiced, log it below.",
     );
     expect(screen.queryByText(/Full moon today/)).not.toBeInTheDocument();
+    expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+    expect(controls()).toEqual(CHOICES);
     expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
   });
 
@@ -302,5 +578,7 @@ describe("TodayCard auto-rest (PR-09)", () => {
     renderCard();
 
     expect(await screen.findByText(/Your weekly day off, shown as rest/)).toBeInTheDocument();
+    expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
   });
 });

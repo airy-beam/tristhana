@@ -1,9 +1,7 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useState } from "react";
 
 import {
   useCatalog,
-  useMe,
   useSaveCheckIn,
   type CheckIn as CheckInValue,
   type CheckInBody,
@@ -15,8 +13,6 @@ interface Props {
   date: string;
   /** The day's check-ins from the server (absent from an older API). */
   checkIns: CheckInValue[] | undefined;
-  /** The server's today: the device date may differ. */
-  today: string;
 }
 
 const SCALE = [1, 2, 3, 4, 5] as const;
@@ -27,24 +23,17 @@ const EMPTY: CheckInBody = { mood: null, energy: null, effort: null, tags: [] };
 // Fluent's bidi isolation marks around variables: noise in an aria label.
 const plain = (text: string) => text.replace(/[\u2068\u2069]/g, "");
 
-function dayBefore(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
 function isEmpty(c: CheckInBody): boolean {
   return c.mood == null && c.energy == null && c.effort == null && c.tags.length === 0;
 }
 
-/** After-practice check-in (PR-06): mood, energy, effort and body-and-mind tags. Open for
- * today and yesterday (setting on) or when one exists; otherwise a "✨ Check-in" link. */
-export function CheckIn({ date, checkIns, today }: Props) {
+/** The after-practice check-in (PR-06): mood, energy, effort and body-and-mind tags. The
+ * editor only: the day card decides whether its "How do you feel?" entry shows and opens it
+ * (UI-06). Lazy, in the `dayExtras` chunk. */
+export function CheckIn({ date, checkIns }: Props) {
   const { l10n } = useLocalization();
-  const offered = useMe().data?.offer_check_in === true;
   const tags = useCatalog().data?.check_in_tags ?? [];
   const save = useSaveCheckIn();
-  const [expanded, setExpanded] = useState(false);
 
   const stored = checkIns?.[0];
   const current: CheckInBody = stored
@@ -56,20 +45,6 @@ export function CheckIn({ date, checkIns, today }: Props) {
       }
     : EMPTY;
   const exists = stored !== undefined && !isEmpty(current);
-  const recent = date === today || date === dayBefore(today);
-  if (!exists && !expanded && !(offered && recent)) {
-    return (
-      <Localized id="checkin-edit">
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            setExpanded(true);
-          }}
-        />
-      </Localized>
-    );
-  }
 
   const update = (change: Partial<CheckInBody>) => {
     haptics.impact("light");
@@ -133,9 +108,6 @@ export function CheckIn({ date, checkIns, today }: Props) {
 
   return (
     <div className="details">
-      <Localized id="checkin-title">
-        <h3 />
-      </Localized>
       {scale(
         "mood",
         (n) => l10n.getString("checkin-mood-chip", { n }),

@@ -6,14 +6,15 @@ import { L10nProvider } from "../i18n/L10nProvider";
 import { DayEditor } from "./stats/DayEditor";
 import { TodayCard } from "./TodayCard";
 
-// PR-06 (spec §6): the after-practice check-in block under the practice details, in the
-// Today card and the day editor. Open for the server's today/yesterday with the setting on
-// (or when a check-in exists), else a collapsed "✨ Check-in" link. Every chip tap PUTs the
-// whole check-in optimistically; the tag list always comes from the catalog.
+// PR-06 (spec §6), UI-06 stage 2 (spec §5): the after-practice check-in behind the day
+// card's "✨ How do you feel?" entry, on Today and in the day editor. It never opens by itself.
+// The setting shows or hides the entry; a check-in that exists keeps it, with a one-line
+// summary. Every chip tap PUTs the whole check-in optimistically; the tag list always comes
+// from the catalog.
 
 vi.mock("../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
   backButtonAvailable: vi.fn(() => true),
 }));
@@ -172,7 +173,15 @@ const renderEditor = (date: string) =>
     />,
   );
 
-const mood = (n: number) => screen.findByRole("button", { name: `Mood ${String(n)} of 5` });
+const ENTRY = /^✨ How do you feel\?/;
+const entry = () => screen.findByRole("button", { name: ENTRY });
+
+/** A mood chip of the editor; taps the entry first, since nothing opens by itself. */
+async function mood(n: number) {
+  const button = await entry();
+  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
+  return screen.findByRole("button", { name: `Mood ${String(n)} of 5` });
+}
 
 async function sent(seen: Request[], method: string, path: string): Promise<Request[]> {
   await vi.waitFor(() => {
@@ -200,48 +209,57 @@ afterEach(() => {
 });
 
 describe("CheckIn: when it shows", () => {
-  it("is open on today's practiced day with the setting on", async () => {
+  it("is a folded entry on today's practiced day with the setting on; a tap opens it", async () => {
     stubApi();
     renderToday();
 
+    const button = await entry();
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Mood 3 of 5" })).not.toBeInTheDocument();
+    fireEvent.click(button);
+
+    expect(button).toHaveAttribute("aria-expanded", "true");
     for (const n of [1, 2, 3, 4, 5]) expect(await mood(n)).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByText("How do you feel?")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "✨ Check-in" })).not.toBeInTheDocument();
   });
 
-  it("is open for the server's yesterday in the day editor", async () => {
+  it("is the same entry for the server's yesterday in the day editor", async () => {
     stubApi({ days: days([day(YESTERDAY)]) });
     renderEditor(YESTERDAY);
 
+    expect(await entry()).toHaveAttribute("aria-expanded", "false");
     expect(await mood(3)).toBeInTheDocument();
   });
 
-  it("is collapsed two days back, and the link opens it", async () => {
+  it("is the same entry two days back: no day opens it by itself", async () => {
     stubApi({ days: days([day(TWO_DAYS_AGO)]) });
     renderEditor(TWO_DAYS_AGO);
 
-    const link = await screen.findByRole("button", { name: "✨ Check-in" });
+    const button = await entry();
     expect(screen.queryByRole("button", { name: "Mood 3 of 5" })).not.toBeInTheDocument();
-    fireEvent.click(link);
+    fireEvent.click(button);
 
     expect(await mood(3)).toBeInTheDocument();
   });
 
-  it("is collapsed with the setting off", async () => {
+  it("is hidden with the setting off (Q313)", async () => {
     stubApi({ me: { ...ME, offer_check_in: false } });
     renderToday();
 
-    expect(await screen.findByRole("button", { name: "✨ Check-in" })).toBeInTheDocument();
+    await screen.findByRole("button", { name: "📝 Add details" });
+    expect(screen.queryByRole("button", { name: ENTRY })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mood 3 of 5" })).not.toBeInTheDocument();
   });
 
-  it("is open when a check-in exists, whatever the day or the setting", async () => {
+  it("stays, with its summary, when a check-in exists, whatever the day or the setting", async () => {
     stubApi({
       me: { ...ME, offer_check_in: false },
       days: days([day(TWO_DAYS_AGO, "practiced", [checkIn({ mood: 2, energy: 5 })])]),
     });
     renderEditor(TWO_DAYS_AGO);
 
+    const button = await entry();
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button.textContent.replace(/[⁨⁩]/g, "")).toBe("✨ How do you feel?😕 · ⚡ energy 5/5");
     expect(await mood(2)).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -251,7 +269,7 @@ describe("CheckIn: when it shows", () => {
 
     await screen.findByRole("button", { pressed: true });
     expect(screen.queryByRole("button", { name: "Mood 3 of 5" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "✨ Check-in" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: ENTRY })).not.toBeInTheDocument();
   });
 
   it("renders a payload from an older server without check_ins", async () => {
@@ -398,6 +416,7 @@ describe("CheckIn: saving", () => {
       days: days([day(TODAY, "practiced", [checkIn({ effort: 2, tags: ["calm"] })])]),
     });
     renderToday();
+    await mood(3);
     fireEvent.click(await screen.findByRole("button", { name: "Remove check-in" }));
 
     await sent(seen, "DELETE", checkInPath(TODAY));
@@ -463,6 +482,7 @@ describe("CheckIn: tags", () => {
       days: days([day(TODAY, "practiced", [checkIn({ mood: 3, tags: ["calm"] })])]),
     });
     renderToday();
+    await mood(3);
 
     expect(await screen.findByRole("button", { name: "Calm" })).toHaveAttribute(
       "aria-pressed",

@@ -219,7 +219,8 @@ describe("Stats", () => {
     );
 
     const editor = await screen.findByRole("region", { name: (n) => plain(n).includes("Oct 16") });
-    fireEvent.click(within(editor).getByRole("button", { name: "😌 Rest day" }));
+    // The day is named at once; its choices follow the read of that day.
+    fireEvent.click(await within(editor).findByRole("button", { name: "😌 Rest day" }));
 
     await vi.waitFor(() => {
       expect(seen.some((r) => r.method === "PUT")).toBe(true);
