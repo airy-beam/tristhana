@@ -1,76 +1,118 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Suspense, useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 
 import {
   useAddClosure,
   useAddSwap,
-  useClearOccurrence,
-  useDeleteClass,
   useMe,
   useRemoveClosure,
   useRemoveSwap,
   useSchedule,
-  useSetOccurrence,
   type Occurrence,
-  type OccurrenceChange,
   type Schedule,
   type Shala,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { lazyRetry } from "../../shell/lazyRetry";
-import { confirmDestructive, haptics } from "../../telegram";
+import { haptics } from "../../telegram";
+import { DateInput, Field } from "../../ui/controls";
+import { Row } from "../Row";
 import { deviceZone } from "../settings/zones";
 import { zoneLabel } from "../timeLabel";
-import ClassForm, { useTypeName } from "./ClassForm";
-import {
-  DASH,
-  addDays,
-  dateIn,
-  dayName,
-  hmOf,
-  minutesOf,
-  plain,
-  timeIn,
-  todayIn,
-} from "./scheduleText";
+import { useOccurrenceText } from "./classText";
+import OccurrenceSheet from "./OccurrenceSheet";
+import { DASH, addDays, dateIn, dayName, plain, todayIn } from "./scheduleText";
+import "./shalaCopy";
+import "./shala.css";
 
 const WEEK = 7;
 const WEEKS = 4;
-// SC-05: the staff roster is its own lazy chunk.
-const Attendance = lazyRetry(() => import("./Attendance"));
+
+interface Props {
+  shala: Shala;
+  week?: number;
+  /** The class a person tried to change is gone: say so over the week (UI-06 stage 4). */
+  gone?: boolean;
+  /** "Add a class": the form opens as a layer of its own. */
+  onAdd: () => void;
+  /** "Change the class…" on an occurrence. */
+  onEdit: (occurrence: Occurrence) => void;
+  /** "Tell students…" after a cancel, with the text to start from. */
+  onTell: (draft: string) => void;
+}
 
 /** The shala's week (SC-02): every member reads it in the shala's zone (the card above names
  * it once); a day whose offset differs (a DST week) names it again. Staff who manage classes
- * open an occurrence to cancel, hold anyway or restore it, and add classes, closures and
- * swaps. Silent: no one gets a message (Q122). */
+ * add a class from the first row, open an occurrence for its date or the whole class, and set
+ * closures and swaps from two rows under the week. Silent: no one gets a message (Q122). */
 export default function ShalaSchedule({
   shala,
   week: first = 0,
-  adding: start = false,
-}: {
-  shala: Shala;
-  week?: number;
-  /** UI-06: the class form is open from the start and in view (Today's "Add a class"). */
-  adding?: boolean;
-}) {
+  gone = false,
+  onAdd,
+  onEdit,
+  onTell,
+}: Props) {
+  const { l10n } = useLocalization();
   const me = useMe().data;
   const locale: Locale = me?.locale ?? "en";
   const [week, setWeek] = useState(Math.min(Math.max(first, 0), WEEKS - 1));
+  const [tool, setTool] = useState<"closure" | "swap" | null>(null);
   const manage = shala.me.schedule;
-  const [adding, setAdding] = useState(start && manage);
-  const form = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (start) form.current?.scrollIntoView({ block: "start" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when opened for the form
-  }, []);
   const from = addDays(todayIn(shala.zone), week * WEEK);
+  // "Mon, Nov 16 – Sun, Nov 22": the week on screen, as My schedule names its own.
+  const span = `${dayName(from, locale)} ${DASH} ${dayName(addDays(from, WEEK - 1), locale)}`;
   const query = useSchedule(shala.id, from, WEEK);
   const schedule = query.data;
+  const toggle = (next: "closure" | "swap") => () => {
+    haptics.selection();
+    setTool(tool === next ? null : next);
+  };
   return (
     <section className="card schedule">
       <Localized id="schedule-title">
         <h2 />
       </Localized>
+      {manage && (
+        <div className="list">
+          <Row
+            label={l10n.getString("schedule-add-class")}
+            action
+            onClick={() => {
+              haptics.selection();
+              onAdd();
+            }}
+          />
+        </div>
+      )}
+      {/* Which week this is, between its two arrows: over the days, where one looks first. */}
+      <nav className="week-nav">
+        <Localized id="page-prev">
+          <button
+            type="button"
+            className="link"
+            disabled={week === 0}
+            onClick={() => {
+              setWeek(week - 1);
+            }}
+          />
+        </Localized>
+        <span>{span}</span>
+        <Localized id="page-next">
+          <button
+            type="button"
+            className="link"
+            disabled={week === WEEKS - 1}
+            onClick={() => {
+              setWeek(week + 1);
+            }}
+          />
+        </Localized>
+      </nav>
+      {gone && (
+        <Localized id="class-form-gone">
+          <p className="hint" role="status" />
+        </Localized>
+      )}
       {query.isError && (
         <Localized id="schedule-load-failed">
           <p className="hint" role="alert" />
@@ -82,103 +124,30 @@ export default function ShalaSchedule({
           schedule={schedule}
           locale={locale}
           viewer={me?.timezone ?? deviceZone()}
+          onEdit={onEdit}
+          onTell={onTell}
         />
       )}
-      <div className="paging">
-        {week > 0 && (
-          <Localized id="page-prev">
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setWeek(week - 1);
-              }}
-            />
-          </Localized>
-        )}
-        {week < WEEKS - 1 && (
-          <Localized id="page-next">
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setWeek(week + 1);
-              }}
-            />
-          </Localized>
-        )}
-      </div>
-      {manage &&
-        (adding ? (
-          <div ref={form}>
-            <ClassForm
-              shala={shala}
-              onDone={() => {
-                setAdding(false);
-              }}
-            />
-          </div>
-        ) : (
-          <Localized id="schedule-add-class">
-            <button
-              type="button"
-              className="row-button"
-              onClick={() => {
-                setAdding(true);
-              }}
-            />
-          </Localized>
-        ))}
-      {manage && schedule && <Closures shala={shala} schedule={schedule} locale={locale} />}
-      {manage && <SwapForm shala={shala} />}
+      {manage && (
+        <div className="list tools">
+          <Row
+            label={l10n.getString("closure-title")}
+            expanded={tool === "closure"}
+            onClick={toggle("closure")}
+          />
+          {tool === "closure" && schedule && (
+            <Closures shala={shala} schedule={schedule} locale={locale} />
+          )}
+          <Row
+            label={l10n.getString("swap-title")}
+            expanded={tool === "swap"}
+            onClick={toggle("swap")}
+          />
+          {tool === "swap" && <SwapForm shala={shala} />}
+        </div>
+      )}
     </section>
   );
-}
-
-/** The occurrence's length in minutes (a class may end at midnight). */
-export const lengthOf = (o: Occurrence) =>
-  (minutesOf(o.end) - minutesOf(o.start) + 24 * 60) % (24 * 60) || 24 * 60;
-
-/** "06:00–09:30 Mysore · Anna" in `zone` (the shala's); a cancelled one with its reason.
- * `teacher` names the other teacher instead (a teacher's own week). */
-export function useOccurrenceText(zone: string, viewer: string | null, locale: Locale = "en") {
-  const { l10n } = useLocalization();
-  const typeName = useTypeName();
-  const marked = useRowMarks(locale);
-  return (o: Occurrence, teacher?: string) => {
-    const start = timeIn(o.starts_at, zone);
-    const end = hmOf(minutesOf(start) + lengthOf(o));
-    let text = `${start}${DASH}${end} ${typeName(o.type)}${o.title ? ` ${o.title}` : ""}`;
-    if (teacher !== undefined) {
-      if (teacher) text += ` · ${teacher}`;
-    } else if (o.teacher) {
-      const name = o.teacher.name ?? l10n.getString("link-no-name");
-      text += ` · ${o.substitute ? plain(l10n.getString("schedule-substitute", { name })) : name}`;
-    }
-    if (o.online) {
-      text += " 🌐";
-      const mine = viewer ? timeIn(o.starts_at, viewer) : null;
-      if (mine && viewer !== zone && mine !== timeIn(o.starts_at, zone))
-        text += ` ${plain(l10n.getString("schedule-your-time", { time: mine }))}`;
-    }
-    return marked(o, text);
-  };
-}
-
-/** The row marks (SC-03, expert items 1, 3, 4), shared by the shala's week and My schedule:
- * 🌙 leads a moon cancellation and ❌ a closure or a manual cancel; a class held on its moon
- * day ends with " · 🌙"; a cancelled original names where it went. */
-export function useRowMarks(locale: Locale) {
-  const { l10n } = useLocalization();
-  return (o: Occurrence, text: string) => {
-    if (!o.cancelled)
-      return o.moon ? `${text} ${plain(l10n.getString("schedule-held-moon"))}` : text;
-    const reason = plain(l10n.getString("schedule-reason", { reason: o.cancelled }));
-    let out = `${o.cancelled === "moon" ? "🌙" : "❌"} ${text} (${reason})`;
-    if (o.swapped_to)
-      out += ` · ${plain(l10n.getString("schedule-swapped-inline", { day: dayName(o.swapped_to, locale) }))}`;
-    return out;
-  };
 }
 
 function Week({
@@ -186,11 +155,15 @@ function Week({
   schedule,
   locale,
   viewer,
+  onEdit,
+  onTell,
 }: {
   shala: Shala;
   schedule: Schedule;
   locale: Locale;
   viewer: string | null;
+  onEdit: (occurrence: Occurrence) => void;
+  onTell: (draft: string) => void;
 }) {
   const { l10n } = useLocalization();
   const [open, setOpen] = useState<string | null>(null);
@@ -263,13 +236,15 @@ function Week({
                       {row(o)}
                     </button>
                     {open === id && (
-                      <Sheet
+                      <OccurrenceSheet
                         shala={shala}
                         occurrence={o}
                         locale={locale}
                         onDone={() => {
                           setOpen(null);
                         }}
+                        onEdit={onEdit}
+                        onTell={onTell}
                       />
                     )}
                   </div>
@@ -283,195 +258,6 @@ function Week({
         );
       })}
     </>
-  );
-}
-
-/** Staff on one occurrence: attendance (any staff seat, SC-05), and for those who manage
- * classes cancel, hold anyway (auto-cancelled only, Q126), restore. */
-function Sheet({
-  shala,
-  occurrence: o,
-  locale,
-  onDone,
-}: {
-  shala: Shala;
-  occurrence: Occurrence;
-  locale: Locale;
-  onDone: () => void;
-}) {
-  const { l10n } = useLocalization();
-  const [roster, setRoster] = useState(false);
-  const counts = o.attendance_counts;
-  const attendance = counts && (
-    <>
-      {roster ? (
-        <Suspense fallback={null}>
-          <Attendance
-            shalaId={shala.id}
-            classId={o.class_id}
-            occurrenceKey={o.key}
-            locale={locale}
-            onClose={() => {
-              setRoster(false);
-            }}
-          />
-        </Suspense>
-      ) : (
-        <button
-          type="button"
-          className="row-button"
-          onClick={() => {
-            haptics.selection();
-            setRoster(true);
-          }}
-        >
-          {plain(
-            l10n.getString("attend-staff-open", {
-              confirmed: counts.confirmed,
-              claimed: counts.claimed,
-            }),
-          )}
-        </button>
-      )}
-    </>
-  );
-  if (!shala.me.schedule) return <div className="role-editor">{attendance}</div>;
-  return <ManageSheet shala={shala} occurrence={o} onDone={onDone} attendance={attendance} />;
-}
-
-function ManageSheet({
-  shala,
-  occurrence: o,
-  onDone,
-  attendance,
-}: {
-  shala: Shala;
-  occurrence: Occurrence;
-  onDone: () => void;
-  attendance: ReactNode;
-}) {
-  const { l10n } = useLocalization();
-  const set = useSetOccurrence(shala.id);
-  const clear = useClearOccurrence(shala.id);
-  const remove = useDeleteClass(shala.id);
-  const removeAll = async () => {
-    const ok = await confirmDestructive(
-      l10n.getString("occurrence-delete-ask"),
-      l10n.getString("occurrence-delete-yes"),
-      l10n.getString("delete-cancel"),
-    );
-    if (!ok) return;
-    haptics.impact("heavy");
-    remove.mutate(o.class_id, { onSuccess: onDone });
-  };
-  const target = { classId: o.class_id, key: o.key };
-  // A write replaces the date's changes: send its move, substitute and hold again (Q126). A
-  // swapped date's own move ends on `swapped_from`, not on the swap's day.
-  const kept = (): OccurrenceChange => ({
-    status: o.held ? "held" : null,
-    teacher_id: o.substitute && o.teacher ? o.teacher.id : null,
-    ...(o.moved ? { on: o.swapped_from ?? o.on, start: o.start, minutes: lengthOf(o) } : {}),
-  });
-  const change = (status: "cancelled" | "held") => {
-    haptics.impact("light");
-    const body = status === "held" ? { ...kept(), status } : { status };
-    set.mutate({ ...target, body }, { onSuccess: onDone });
-  };
-  const restore = () => {
-    haptics.impact("light");
-    clear.mutate(target, { onSuccess: onDone });
-  };
-  // "Usual teacher" names no one for the date: it follows the class's teacher.
-  const substitute = (teacher: string) => {
-    haptics.impact("light");
-    const body = { ...kept(), teacher_id: teacher || null };
-    set.mutate({ ...target, body }, { onSuccess: onDone });
-  };
-  const named = o.substitute && o.teacher ? o.teacher : null;
-  const pending = set.isPending || clear.isPending || remove.isPending;
-  return (
-    <div className="role-editor">
-      {attendance}
-      {o.cancelled === null && (
-        <label className="label">
-          <Localized id="occurrence-teacher">
-            <span />
-          </Localized>
-          <select
-            value={named?.id ?? ""}
-            disabled={pending}
-            onChange={(e) => {
-              substitute(e.target.value);
-            }}
-          >
-            <option value="">
-              {plain(
-                l10n.getString("occurrence-usual-teacher", {
-                  name: o.usual_teacher?.name ?? l10n.getString("class-form-no-teacher"),
-                }),
-              )}
-            </option>
-            {named && !shala.staff.some((s) => s.id === named.id) && (
-              <option value={named.id}>{named.name ?? l10n.getString("link-no-name")}</option>
-            )}
-            {shala.staff
-              .filter((s) => s.id !== o.usual_teacher?.id)
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name ?? l10n.getString("link-no-name")}
-                </option>
-              ))}
-          </select>
-        </label>
-      )}
-      {o.cancelled === null && (
-        <Localized id="occurrence-cancel">
-          <button
-            type="button"
-            className="row-button"
-            disabled={pending}
-            onClick={() => {
-              change("cancelled");
-            }}
-          />
-        </Localized>
-      )}
-      {(o.cancelled === "moon" || o.cancelled === "closure") && (
-        <Localized id="occurrence-hold">
-          <button
-            type="button"
-            className="row-button"
-            disabled={pending}
-            onClick={() => {
-              change("held");
-            }}
-          />
-        </Localized>
-      )}
-      {(o.cancelled === "cancelled" || o.moved || o.substitute) && (
-        <Localized id="occurrence-restore">
-          <button type="button" className="row-button" disabled={pending} onClick={restore} />
-        </Localized>
-      )}
-      <Localized id="occurrence-note">
-        <p className="hint small" />
-      </Localized>
-      <Localized id="occurrence-delete">
-        <button
-          type="button"
-          className="link danger"
-          disabled={pending}
-          onClick={() => {
-            void removeAll();
-          }}
-        />
-      </Localized>
-      {(set.isError || clear.isError || remove.isError) && (
-        <Localized id="occurrence-failed">
-          <p className="hint" role="alert" />
-        </Localized>
-      )}
-    </div>
   );
 }
 
@@ -496,10 +282,7 @@ function Closures({
     add.mutate({ start, end });
   };
   return (
-    <form className="shala-form" onSubmit={submit}>
-      <Localized id="closure-title">
-        <h3 className="label" />
-      </Localized>
+    <form className="panel" onSubmit={submit}>
       {schedule.closures.map((c) => (
         <div key={c.id} className="link-person">
           <span>
@@ -513,7 +296,7 @@ function Closures({
           <Localized id="closure-remove">
             <button
               type="button"
-              className="link"
+              className="link tap"
               disabled={remove.isPending}
               onClick={() => {
                 remove.mutate(c.id);
@@ -522,34 +305,26 @@ function Closures({
           </Localized>
         </div>
       ))}
-      <label className="label">
-        <Localized id="closure-start">
-          <span />
-        </Localized>
-        <input
-          type="date"
+      <Field label={l10n.getString("closure-start")}>
+        <DateInput
           value={start}
           min={today}
           onChange={(e) => {
             setStart(e.target.value);
           }}
         />
-      </label>
-      <label className="label">
-        <Localized id="closure-end">
-          <span />
-        </Localized>
-        <input
-          type="date"
+      </Field>
+      <Field label={l10n.getString("closure-end")}>
+        <DateInput
           value={end}
           min={start}
           onChange={(e) => {
             setEnd(e.target.value);
           }}
         />
-      </label>
+      </Field>
       <Localized id="closure-add">
-        <button type="submit" className="row-button" disabled={add.isPending} />
+        <button type="submit" className="btn" disabled={add.isPending} />
       </Localized>
       {(add.isError || remove.isError) && (
         <Localized id="closure-failed">
@@ -561,6 +336,7 @@ function Closures({
 }
 
 function SwapForm({ shala }: { shala: Shala }) {
+  const { l10n } = useLocalization();
   const add = useAddSwap(shala.id);
   const today = todayIn(shala.zone);
   const [from, setFrom] = useState(today);
@@ -571,41 +347,30 @@ function SwapForm({ shala }: { shala: Shala }) {
     add.mutate({ from, to });
   };
   return (
-    <form className="shala-form" onSubmit={submit}>
-      <Localized id="swap-title">
-        <h3 className="label" />
-      </Localized>
+    <form className="panel" onSubmit={submit}>
       <Localized id="swap-hint">
         <p className="hint small" />
       </Localized>
-      <label className="label">
-        <Localized id="swap-from">
-          <span />
-        </Localized>
-        <input
-          type="date"
+      <Field label={l10n.getString("swap-from")}>
+        <DateInput
           value={from}
           min={today}
           onChange={(e) => {
             setFrom(e.target.value);
           }}
         />
-      </label>
-      <label className="label">
-        <Localized id="swap-to">
-          <span />
-        </Localized>
-        <input
-          type="date"
+      </Field>
+      <Field label={l10n.getString("swap-to")}>
+        <DateInput
           value={to}
           min={today}
           onChange={(e) => {
             setTo(e.target.value);
           }}
         />
-      </label>
+      </Field>
       <Localized id="swap-add">
-        <button type="submit" className="row-button" disabled={add.isPending} />
+        <button type="submit" className="btn" disabled={add.isPending} />
       </Localized>
       {add.isError && (
         <Localized id="swap-failed">

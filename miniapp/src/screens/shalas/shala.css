@@ -1,0 +1,128 @@
+/* UI-06 stage 4: the shala's lazy screens (the class form's layer, the occurrence sheet, the
+   setup list). Loaded with them, never with the first chunk. Theme tokens only. */
+
+/* The class form: a layer of its own. */
+.class-form h1 {
+  margin-bottom: var(--space);
+}
+
+.class-form .once {
+  display: block;
+  margin: -8px 0 8px;
+}
+
+.class-form .field-error {
+  margin: 0 0 12px;
+}
+
+.class-form .delete {
+  display: block;
+  margin: var(--space) auto 0;
+}
+
+/* One class on one date: two headed groups under its row. */
+.sheet {
+  margin: -8px 0 var(--space);
+  padding-left: 12px;
+  border-left: 2px solid var(--c-line);
+}
+
+.group-title {
+  margin: 12px 0 0;
+  color: var(--c-hint);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sheet .field {
+  margin: 8px 0;
+}
+
+.sheet .hint {
+  margin: 4px 0 0;
+}
+
+/* A list row that is not a button: no chevron. */
+.lrow.plain::after {
+  content: none;
+}
+
+/* The owner's setup list: done steps ticked, the next one a button, later ones quiet. */
+.setup ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 44px;
+}
+
+.setup li + li {
+  margin-top: 4px;
+}
+
+.setup .done {
+  color: var(--c-hint);
+}
+
+.setup .mark {
+  flex: none;
+  width: 20px;
+  color: var(--c-accent);
+  text-align: center;
+}
+
+.setup .btn {
+  margin: 4px 0;
+}
+
+.setup .link {
+  text-align: left;
+}
+
+/* A later step: there to tap, in the text's own colour, so one thing stands out. */
+.setup li > .mark + .link {
+  color: var(--c-text);
+}
+
+.panel {
+  padding: 4px 0 12px;
+}
+
+.panel .btn {
+  margin-top: 8px;
+}
+
+/* The shala's week: which one it is, between the arrows to the one before and the one after. */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 8px;
+  border-top: 1px solid var(--c-line);
+  color: var(--c-hint);
+  font-size: 14px;
+  text-align: center;
+}
+
+.week-nav .link {
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+}
+
+.week-nav .link:disabled {
+  opacity: 0.3;
+}
+
+/* Closures and swaps: two rows under the week. */
+.schedule .tools {
+  margin-top: 8px;
+  border-top: 1px solid var(--c-line);
+}

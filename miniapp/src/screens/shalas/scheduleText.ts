@@ -50,6 +50,14 @@ export function minutesOf(hm: string): number {
 }
 
 export function hmOf(minutes: number): string {
-  const h = Math.floor(minutes / 60) % 24;
-  return `${String(h).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const m = ((minutes % 1440) + 1440) % 1440; // a time of day, also for an end before the start
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** "Mon" / «пн» for an ISO weekday (Monday = 1). */
+export function weekdayShort(d: number, locale: Locale): string {
+  // 1 January 2024 was a Monday.
+  return new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" }).format(
+    new Date(Date.UTC(2024, 0, d)),
+  );
 }

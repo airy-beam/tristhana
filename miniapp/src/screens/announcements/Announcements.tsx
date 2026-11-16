@@ -29,7 +29,9 @@ export const TEXT_MAX = 1000;
 type PinDays = 0 | 7 | 30;
 
 export type AnnouncementsMode =
-  | { view: "compose"; shala: string | null } // null: all my students
+  // `shala` null: all my students. `draft`: a text to start from, edited before it is sent
+  // (Q338: "Tell students…" after a class is cancelled).
+  | { view: "compose"; shala: string | null; draft?: string | undefined }
   | { view: "feed"; shala: string | null }; // null: every teacher and shala of mine
 
 interface Props {
@@ -51,7 +53,7 @@ export default function Announcements({ mode, locale, onBack }: Props) {
         </Localized>
       )}
       {mode.view === "compose" ? (
-        <Compose shala={mode.shala} locale={locale} />
+        <Compose shala={mode.shala} draft={mode.draft} locale={locale} />
       ) : (
         <Feed shala={mode.shala} locale={locale} />
       )}
@@ -83,11 +85,19 @@ function useAudience(shala: string | null): { name: string | null; count: number
   return { name: s.name, count: s.staff.length + (s.students_total ?? 0) - 1 };
 }
 
-function Compose({ shala, locale }: { shala: string | null; locale: Locale }) {
+function Compose({
+  shala,
+  draft = "",
+  locale,
+}: {
+  shala: string | null;
+  draft?: string | undefined;
+  locale: Locale;
+}) {
   const { l10n } = useLocalization();
   const audience = useAudience(shala);
   const send = useSendAnnouncement();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft);
   const [pin, setPin] = useState<PinDays>(0);
   const [sent, setSent] = useState(false);
   const length = Array.from(text.trim()).length; // code points, as the server counts

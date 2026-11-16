@@ -10,7 +10,9 @@ import { useBackButton } from "../../telegram";
 import ShalaScreen from "./ShalaScreen";
 
 // SC-01 (spec §2, §4, §7): the 🏛 Shalas part of 👥 Teachers and students, the create form
-// (name 1–64, a listed city preselected with home_city, the online toggle, roles), the card
+// (UI-06 stage 4: two fields, name 1–64 and a listed city preselected with home_city; the
+// owner starts as its teacher and changes the rest on the card, their own roles too), the
+// owner's setup list (add a class, invite students, invite teachers), the card
 // per role, the staff role editor, delete with a native confirm, the zone label built here
 // from the IANA zone, "🏛 Follow my shala" in the moon select, and cache invalidation.
 // `ShalaScreen({ id, onBack })` is the card screen. The API and the Telegram SDK are mocked.
@@ -26,6 +28,8 @@ vi.mock("../../telegram", () => ({
   backButtonAvailable: vi.fn(() => true),
   confirmDestructive: telegram.confirmDestructive,
   openTelegramLink: vi.fn(),
+  useMainButton: vi.fn(),
+  mainButtonAvailable: vi.fn(() => false),
 }));
 
 const ME: Me = {
@@ -98,6 +102,8 @@ interface Stub {
   card?: unknown;
   location?: unknown;
   create?: (body: unknown) => Response;
+  /** My account's home city. */
+  home?: unknown;
 }
 
 function stubApi(stub: Stub = {}): Request[] {
@@ -155,7 +161,10 @@ function stubApi(stub: Stub = {}): Request[] {
           practice: { on: null, at: "10:00:00", days: [1, 2, 3, 4, 5, 7] },
           timezone: "Asia/Almaty",
         });
-      if (path === "/api/v1/me") return json({ ...ME, day_off: [6] });
+      if (path === `/api/v1/shalas/${SHALA}/staff-invites`)
+        return json({ url: "https://t.me/x?start=i_a", qr: "data:image/png;base64,AA==" });
+      if (path === `/api/v1/shalas/${SHALA}/classes`) return json([]);
+      if (path === "/api/v1/me") return json({ ...ME, day_off: [6], home_city: stub.home ?? null });
       return json({});
     }),
   );
@@ -234,25 +243,43 @@ describe("the create form", () => {
     expect(name).toHaveAttribute("maxLength", "64");
   });
 
-  it("lists the cities, preselects the home city and sends the form", async () => {
-    const seen = stubApi();
+  // UI-06 stage 4: a name and a city, then Create. Nothing else to decide here.
+  it("has two fields: the name, and the city preselected with my home city", async () => {
+    const seen = stubApi({ home: CITIES[1] });
     const name = await openForm();
-    const city = await screen.findByRole<HTMLSelectElement>("combobox");
+    const city = await screen.findByRole<HTMLSelectElement>("combobox", { name: "City" });
     await waitFor(() => {
-      expect(Array.from(city.options).map((o) => o.value)).toEqual(
-        expect.arrayContaining(["mysuru", "almaty", "moscow"]),
-      );
+      expect(Array.from(city.options).map((o) => o.value)).toEqual(["mysuru", "almaty", "moscow"]);
     });
+    expect(name).toHaveAccessibleName("Name");
+    expect(city.value).toBe("almaty");
+    expect(screen.queryByRole("checkbox")).toBeNull(); // no online toggle, no roles
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
 
     fireEvent.change(name, { target: { value: "Ashtanga Almaty" } });
-    fireEvent.click(screen.getByRole("checkbox", { name: /🌐 Online classes only/ }));
-    fireEvent.submit(name.closest("form") as HTMLFormElement);
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
       expect(calls(seen, "POST", "/api/v1/shalas")).toHaveLength(1);
     });
-    const body: unknown = await calls(seen, "POST", "/api/v1/shalas")[0]?.json();
-    expect(body).toMatchObject({ name: "Ashtanga Almaty", online: true, roles: ["teacher"] });
+    // The owner starts as its teacher; online-only and the roles are changed on the card.
+    expect(await calls(seen, "POST", "/api/v1/shalas")[0]?.json()).toEqual({
+      name: "Ashtanga Almaty",
+      city: "almaty",
+      online: false,
+      roles: ["teacher"],
+    });
+  });
+
+  it("says what is wrong with a blank name, at the field", async () => {
+    stubApi();
+    const name = await openForm();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The shala needs a name");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveFocus();
   });
 
   // UI-06: the bot's "Create a shala" button opens the app here (`?open=new-shala`).
@@ -363,6 +390,57 @@ describe("the shala card", () => {
     expect(seen).toBeDefined();
   });
 
+  // Q337: Teacher is set without asking when the shala is created, so the owner can change it.
+  it("lets the owner change their own roles from their row, never to Manager", async () => {
+    const after = shalaOut(
+      { ...OWNER, roles: ["assistant"] },
+      { staff: [{ ...STAFF[0], roles: ["assistant"] }, STAFF[1]] },
+    );
+    const seen = stubApi({ card: shalaOut(OWNER) });
+    renderWith(card());
+    const mine = await screen.findByRole("button", { name: "Anna" });
+    expect(mine).toHaveAccessibleDescription("Owner, Teacher");
+    const put = stubApi({ card: after });
+
+    fireEvent.click(mine);
+    expect(await screen.findByText("My roles in the shala")).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole<HTMLInputElement>("checkbox")
+        .map((c) => [c.labels?.[0]?.textContent, c.checked]),
+    ).toEqual([
+      ["Teacher", true],
+      ["Assistant", false],
+      ["Front desk", false],
+    ]);
+    expect(screen.queryByRole("button", { name: "Remove…" })).toBeNull(); // nobody removes an owner
+    fireEvent.click(screen.getByRole("checkbox", { name: "Teacher" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Assistant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(calls(put, "PUT", `/api/v1/shalas/${SHALA}/staff/${ANNA}`)).toHaveLength(1);
+    });
+    expect(await calls(put, "PUT", `/api/v1/shalas/${SHALA}/staff/${ANNA}`)[0]?.json()).toEqual({
+      roles: ["assistant"],
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Anna" })).toHaveAccessibleDescription(
+        "Owner, Assistant",
+      );
+    });
+    expect(seen).toBeDefined();
+  });
+
+  it("gives a manager no way into the owner's roles", async () => {
+    stubApi({ card: shalaOut(ADMIN) });
+    renderWith(card());
+    await screen.findByText("Boris");
+
+    expect(screen.queryByRole("button", { name: "Anna" })).toBeNull();
+    expect(screen.getByText("Anna")).toBeInTheDocument();
+  });
+
   it("offers no Manager role to an admin", async () => {
     stubApi({ card: shalaOut(ADMIN) });
     renderWith(card());
@@ -462,14 +540,15 @@ describe("opened for one thing", () => {
   const OWNS = shalaOut({ ...OWNER, schedule: true });
   const form = () => screen.findByRole("button", { name: "Save the class" });
 
-  it("class: the schedule has its class form open and in view", async () => {
+  // UI-06 stage 4: the form is a layer of its own, so there is nothing to scroll to.
+  it("class: the class form is open, over the card", async () => {
     stubApi({ card: OWNS });
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
 
-    const save = await form();
+    expect(await form()).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("New class");
     expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
-    expect(scrolled).toHaveBeenCalledOnce();
-    expect((scrolled.mock.contexts[0] as HTMLElement).contains(save)).toBe(true);
+    expect(scrolled).not.toHaveBeenCalled();
   });
 
   it("join: the student invite is made and shown at once, in view", async () => {
@@ -514,6 +593,12 @@ describe("opened for one thing", () => {
           : screen.findByRole("img", { name: "QR code for the shala's link" });
       expect(await opened()).toBeInTheDocument();
 
+      if (open === "class") {
+        act(() => {
+          vi.mocked(useBackButton).mock.lastCall?.[0](); // Back from the form, to the card
+        });
+        expect(await screen.findByRole("button", { name: "➕ Add a class" })).toBeVisible();
+      }
       act(() => {
         vi.mocked(useBackButton).mock.lastCall?.[0](); // Back to the lists
       });
@@ -524,6 +609,122 @@ describe("opened for one thing", () => {
       expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
     },
   );
+});
+
+// UI-06 stage 4 (Q339): the owner's first steps, from the server's `setup` (the same rule as
+// Today's next step). One step is the button; "I teach alone" is remembered on the device.
+describe("the setup list", () => {
+  const scrolled = vi.fn();
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = scrolled;
+    localStorage.clear();
+  });
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    vi.restoreAllMocks();
+  });
+  const owns = (setup: string[] | null, me: MeIn = OWNER) =>
+    shalaOut({ ...me, schedule: true }, { setup });
+  const list = () => screen.queryByRole("region", { name: "Set up your shala" });
+  const current = () =>
+    screen
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-current") === "step")
+      .map((b) => b.textContent);
+  const loaded = () => screen.findByRole("button", { name: "➕ Add a class" });
+
+  it("a new shala: Add a class is the step, the other two are quiet", async () => {
+    stubApi({ card: owns(["add_class", "invite_students", "invite_staff"]) });
+    renderWith(card());
+    await loaded();
+
+    expect(list()).toBeInTheDocument();
+    expect(current()).toEqual(["Add a class"]);
+    expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invite teachers (optional)" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "done" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "I teach alone" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a class" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+  });
+
+  it("with a class: it is ticked, and Invite students opens the student link", async () => {
+    const seen = stubApi({ card: owns(["invite_students", "invite_staff"]) });
+    renderWith(card());
+    await loaded();
+
+    expect(current()).toEqual(["Invite students"]);
+    expect(screen.getAllByRole("img", { name: "done" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Add a class" })).toBeNull(); // done: plain text
+    fireEvent.click(screen.getByRole("button", { name: "Invite students" }));
+
+    const qr = await screen.findByRole("img", { name: "QR code for the shala's link" });
+    const made = calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`);
+    expect(made).toHaveLength(1);
+    expect(await made[0]?.json()).toEqual({ rotate: false });
+    expect((scrolled.mock.contexts[0] as HTMLElement).contains(qr)).toBe(true);
+  });
+
+  it("with a class and a student: Invite teachers opens the role picker", async () => {
+    stubApi({ card: owns(["invite_staff"]) });
+    renderWith(card());
+    await loaded();
+
+    expect(current()).toEqual(["Invite teachers (optional)"]);
+    expect(screen.getAllByRole("img", { name: "done" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Invite teachers (optional)" }));
+
+    const hint = await screen.findByText("Choose a role. The link adds one person with that role.");
+    expect((scrolled.mock.contexts[0] as HTMLElement).contains(hint)).toBe(true);
+  });
+
+  it("I teach alone puts the list away, on this device, for good", async () => {
+    stubApi({ card: owns(["invite_staff"]) });
+    const first = renderWith(card());
+    await loaded();
+
+    fireEvent.click(screen.getByRole("button", { name: "I teach alone" }));
+
+    expect(list()).toBeNull();
+    first.unmount();
+    renderWith(card());
+    await loaded();
+    expect(list()).toBeNull();
+  });
+
+  it("put away, the third step is not listed when another one comes back", async () => {
+    localStorage.setItem(`setup.solo.${SHALA}`, "1");
+    stubApi({ card: owns(["add_class", "invite_staff"]) }); // the only class was deleted
+    renderWith(card());
+    await loaded();
+
+    expect(current()).toEqual(["Add a class"]);
+    expect(screen.queryByRole("button", { name: "Invite teachers (optional)" })).toBeNull();
+  });
+
+  it("blocked storage counts as I teach alone: never a list that cannot be put away", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    stubApi({ card: owns(["invite_staff"]) });
+    renderWith(card());
+    await loaded();
+
+    expect(list()).toBeNull();
+  });
+
+  it.each([
+    ["set up", owns([])],
+    ["a manager", owns(null, ADMIN)],
+    ["a teacher", owns(null, TEACHER)],
+  ])("is not there for %s", async (_, shala) => {
+    stubApi({ card: shala });
+    renderWith(card());
+    await loaded();
+
+    expect(list()).toBeNull();
+  });
 });
 
 describe("Follow my shala in Settings", () => {

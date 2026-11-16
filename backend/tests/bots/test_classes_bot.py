@@ -483,6 +483,40 @@ def test_an_old_button_for_a_date_after_a_split_shows_the_current_week(
     )
 
 
+@pytest.mark.parametrize("kind", ["x", "h", "r"])
+def test_an_old_write_button_for_a_date_after_a_split_writes_nothing(
+    client: TestClient, storage: InMemoryStorage, kind: str
+) -> None:
+    """UI-06 stage 4 (ADR-0048): an old [Cancel this class] for 10 Nov, tapped after the class
+    was changed "from 10 Nov". The ended series has no such date any more: the same note as the
+    card (`c1:o`) gives, and no override on the ended series."""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, "teacher")
+    cls = storage.schedule.add_class(shala)
+    s, c = short_id(shala), short_id(cls.id)
+    fields = {
+        "user": json.dumps({"id": ME_TG, "first_name": "Ash", "language_code": "en"}),
+        "auth_date": str(int(wall.time()) - 60),
+    }
+    patched = client.patch(
+        f"/api/v1/shalas/{shala}/classes/{cls.id}",
+        json={"start": "07:00", "from": "2026-11-10"},
+        headers={"Authorization": f"tma {sign(fields, TOKEN)}"},
+    )
+    assert patched.status_code == 200, patched.text
+    storage.schedule.writes.clear()
+
+    done = _tap(client, f"c1:{kind}:{s}:{c}:20261110")
+
+    assert done["method"] == "editMessageText"
+    text = " ".join(done["text"].split())
+    assert "This class has just changed. Here's the current schedule." in text
+    assert "Tue, Nov 10 07:00–10:30 Mysore" in text
+    assert storage.schedule.overrides == {}
+    assert "set_override" not in storage.schedule.writes
+    assert "clear_override" not in storage.schedule.writes
+
+
 def test_the_tap_is_answered_before_the_write(client: TestClient, storage: InMemoryStorage) -> None:
     me = _me(client, storage)
     shala, _ = _shala(storage, me, "teacher")

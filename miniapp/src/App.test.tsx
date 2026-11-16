@@ -839,10 +839,19 @@ describe("Today: one next step, each leading to its place", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Add a class" }));
 
-    expect(await screen.findByRole("button", { name: "Save the class" })).toBeVisible();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ashtanga Almaty");
+    // UI-06 stage 4: the form is a layer of its own over the card; Telegram's main button
+    // saves it.
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+    await waitFor(() => {
+      expect(sdk.main).toContainEqual({ text: "Save the class", isVisible: true });
+    });
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull();
     expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
-    expect(bar()).toBeNull(); // the card is a layer over the Shala root
+    expect(bar()).toBeNull(); // the form and the card are layers over the Shala root
+    back(); // from the form: the shala's card, where the new class would show
+    expect(await screen.findByRole("button", { name: "➕ Add a class" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ashtanga Almaty");
+    expect(bar()).toBeNull();
     back();
     expect(await shala()).toBeInTheDocument();
     expect(current()).toEqual(["🏛 Shala"]);

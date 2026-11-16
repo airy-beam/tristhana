@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import {
   ApiError,
@@ -16,6 +16,7 @@ import {
   useUpdateShala,
   SHALA_STUDENTS_PAGE,
   type MoonPolicy,
+  type Occurrence,
   type Shala,
   type ShalaLink,
   type ShalaRole,
@@ -30,10 +31,16 @@ import {
   openTelegramLink,
   useBackButton,
 } from "../../telegram";
+import { Chips } from "../../ui/Chips";
+import { Check, Field, Select, TextInput } from "../../ui/controls";
 import { cityName } from "../cityName";
+import { Row } from "../Row";
 import { labelOf } from "../settings/zones";
+import ClassForm, { type FormResult } from "./ClassForm";
 import ShalaSchedule from "./ShalaSchedule";
-import { WEEKDAYS } from "./scheduleText";
+import { WEEKDAYS, weekdayShort } from "./scheduleText";
+import { SetupList, type SetupStep } from "./SetupList";
+import "./shala.css";
 
 const ROLES: ShalaRole[] = ["teacher", "assistant", "office", "admin"];
 type Me = Shala["me"];
@@ -43,8 +50,13 @@ const isStaff = (me: Me) => !me.student;
 const manages = (me: Me) => isStaff(me) && (me.owner || me.roles.includes("admin"));
 const grantable = (me: Me): ShalaRole[] =>
   me.owner ? ROLES : manages(me) ? ROLES.filter((r) => r !== "admin") : [];
+// An owner's own roles are theirs to change (Q337): the one staff row with `owner` is mine.
 const canEditRoles = (me: Me, target: Shala["staff"][number]) =>
-  !target.owner && grantable(me).length > 0 && (me.owner || !target.roles.includes("admin"));
+  target.owner
+    ? me.owner
+    : grantable(me).length > 0 && (me.owner || !target.roles.includes("admin"));
+/** What an owner may hold beside owning: never Manager (they already manage). */
+const OWN_ROLES: ShalaRole[] = ["teacher", "assistant", "office"];
 const canRemoveStudents = (me: Me) =>
   isStaff(me) && (me.owner || me.roles.includes("admin") || me.roles.includes("office"));
 
@@ -65,19 +77,50 @@ interface Props {
 }
 
 /** The shala card (SC-01): the place, its zone, its moon city and its staff for every member;
- * students, links, roles and delete per role. Students never see other students. */
+ * students, links, roles and delete per role. Students never see other students. The class
+ * form opens over the card as a layer of its own (UI-06 stage 4); the card stays mounted under
+ * it, so Back finds the week and the scroll as they were left. */
 const Announcements = lazyRetry(() => import("../announcements/Announcements"));
+
+/** The class form: a new class, or a saved one opened from a date. */
+type Form = { edit?: { classId: string; date: string } };
 
 export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const me = useMe().data;
   const locale: Locale = me?.locale ?? "en";
-  const [announcements, setAnnouncements] = useState<"feed" | "compose" | null>(null);
+  const shala = useShala(id).data;
+  const [announcements, setAnnouncements] = useState<{
+    view: "feed" | "compose";
+    draft?: string;
+  } | null>(null);
   const [opened, setOpened] = useState(open);
+  const [form, setForm] = useState<Form | null>(open === "class" ? {} : null);
+  const [gone, setGone] = useState(false);
+  // Only for those who manage classes; a start asking for the form leaves the others the card.
+  const editing = form !== null && shala?.me.schedule === true;
+  // Where the card was scrolled when the form opened, to give it back.
+  const left = useRef<number | null>(null);
+  useEffect(() => {
+    if (editing || left.current === null) return;
+    window.scrollTo({ top: left.current });
+    left.current = null;
+  }, [editing]);
+  const openForm = (next: Form) => {
+    left.current = window.scrollY;
+    window.scrollTo({ top: 0 });
+    setGone(false);
+    setForm(next);
+  };
+  const closeForm = (result?: FormResult) => {
+    setForm(null);
+    setOpened(undefined);
+    setGone(result === "gone");
+  };
   if (announcements)
     return (
       <Suspense fallback={<main className="screen" aria-busy="true" />}>
         <Announcements
-          mode={{ view: announcements, shala: id }}
+          mode={{ ...announcements, shala: id }}
           locale={locale}
           onBack={() => {
             setAnnouncements(null);
@@ -86,32 +129,52 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
       </Suspense>
     );
   return (
-    <Card
-      id={id}
-      onBack={onBack}
-      week={week}
-      open={opened}
-      onAnnouncements={(view) => {
-        setOpened(undefined);
-        setAnnouncements(view);
-      }}
-    />
+    <>
+      <div hidden={editing}>
+        <Card
+          id={id}
+          onBack={onBack}
+          week={week}
+          open={opened}
+          gone={gone}
+          onAnnouncements={(view, draft) => {
+            setOpened(undefined);
+            setAnnouncements(draft === undefined ? { view } : { view, draft });
+          }}
+          onAdd={() => {
+            openForm({});
+          }}
+          onEdit={(o) => {
+            openForm({ edit: { classId: o.class_id, date: o.key } });
+          }}
+        />
+      </div>
+      {editing && <ClassForm shala={shala} edit={form.edit} onDone={closeForm} />}
+    </>
   );
 }
 
-function Card({
-  id,
-  onBack,
-  week,
-  open,
-  onAnnouncements,
-}: Props & { onAnnouncements: (view: "feed" | "compose") => void }) {
+interface CardProps extends Props {
+  gone: boolean;
+  onAnnouncements: (view: "feed" | "compose", draft?: string) => void;
+  onAdd: () => void;
+  onEdit: (occurrence: Occurrence) => void;
+}
+
+function Card({ id, onBack, week, open, gone, onAnnouncements, onAdd, onEdit }: CardProps) {
   useBackButton(onBack);
   const { l10n } = useLocalization();
   const query = useShala(id);
   const me = useMe().data;
   const shala = query.data;
   const locale: Locale = me?.locale ?? "en";
+  // The invite a start or a setup step asks for: a new number each time it is asked.
+  const [ask, setAsk] = useState({ join: open === "join" ? 1 : 0, staff: 0 });
+  const setup = (step: SetupStep) => {
+    if (step === "add_class") onAdd();
+    else if (step === "invite_students") setAsk((n) => ({ ...n, join: n.join + 1 }));
+    else setAsk((n) => ({ ...n, staff: n.staff + 1 }));
+  };
   return (
     <main className="screen shala">
       {!backButtonAvailable() && (
@@ -127,6 +190,7 @@ function Card({
       {shala && (
         <>
           <h1>{l10n.getString("shala-title", { shala: shala.name })}</h1>
+          <SetupList shala={shala} onOpen={setup} />
           <Place shala={shala} locale={locale} viewer={me?.timezone} />
           <DayOffOffer shala={shala} />
           <section className="card">
@@ -152,11 +216,20 @@ function Card({
             )}
           </section>
           {manages(shala.me) && <Edit shala={shala} locale={locale} />}
-          <ShalaSchedule shala={shala} week={week ?? 0} adding={open === "class"} />
+          <ShalaSchedule
+            shala={shala}
+            week={week ?? 0}
+            gone={gone}
+            onAdd={onAdd}
+            onEdit={onEdit}
+            onTell={(draft) => {
+              onAnnouncements("compose", draft);
+            }}
+          />
           <Staff shala={shala} />
           {isStaff(shala.me) && <Students shala={shala} />}
-          {isStaff(shala.me) && <JoinLink shala={shala} open={open === "join"} />}
-          {grantable(shala.me).length > 0 && <StaffInvite shala={shala} />}
+          {isStaff(shala.me) && <JoinLink shala={shala} ask={ask.join} />}
+          {grantable(shala.me).length > 0 && <StaffInvite shala={shala} ask={ask.staff} />}
           <Leave shala={shala} myId={me?.id} onDone={onBack} />
           {shala.me.owner && <Delete shala={shala} onDone={onBack} />}
         </>
@@ -300,25 +373,21 @@ function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
       </Localized>
     );
   return (
-    <form className="card shala-form" onSubmit={submit}>
-      <label className="label">
-        <Localized id="shala-name-label">
-          <span />
-        </Localized>
-        <input
-          type="text"
+    <form className="card" noValidate onSubmit={submit}>
+      <Field
+        label={l10n.getString("shala-name-label")}
+        error={blank && l10n.getString("shala-name-invalid")}
+      >
+        <TextInput
           value={name}
           maxLength={NAME_MAX}
           onChange={(e) => {
             setName(e.target.value);
           }}
         />
-      </label>
-      <label className="label">
-        <Localized id="shala-city-label">
-          <span />
-        </Localized>
-        <select
+      </Field>
+      <Field label={l10n.getString("shala-city-label")}>
+        <Select
           value={city}
           onChange={(e) => {
             setCity(e.target.value);
@@ -329,43 +398,35 @@ function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
               {cityName(c, c.slug, locale)}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={online}
-          onChange={() => {
-            setOnline(!online);
-          }}
-        />
-        {l10n.getString("shala-online-only")}
-      </label>
-      <label className="label">
-        <Localized id="shala-moon-city">
-          <span />
-        </Localized>
-        <select
+        </Select>
+      </Field>
+      <Check
+        label={l10n.getString("shala-online-only")}
+        checked={online}
+        onChange={() => {
+          setOnline(!online);
+        }}
+      />
+      <Field label={l10n.getString("shala-moon-city")}>
+        <Select
           value={moon}
           onChange={(e) => {
             setMoon(e.target.value);
           }}
         >
-          <Localized id="shala-moon-same">
-            <option value={SAME} />
-          </Localized>
+          <option value={SAME}>{l10n.getString("shala-moon-same")}</option>
           {cities?.map((c) => (
             <option key={c.slug} value={c.slug}>
               {cityName(c, c.slug, locale)}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="label">
-        <Localized id="shala-moon-policy-label">
-          <span />
-        </Localized>
-        <select
+        </Select>
+      </Field>
+      <Field
+        label={l10n.getString("shala-moon-policy-label")}
+        hint={l10n.getString("shala-moon-policy-note")}
+      >
+        <Select
           value={policy}
           onChange={(e) => {
             setPolicy(e.target.value as MoonPolicy);
@@ -376,33 +437,23 @@ function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
               {l10n.getString("shala-moon-policy-option", { p })}
             </option>
           ))}
-        </select>
-      </label>
-      <Localized id="shala-moon-policy-note">
-        <p className="hint small" />
-      </Localized>
-      <fieldset className="weekdays">
-        <Localized id="shala-day-off-label">
-          <legend className="label" />
-        </Localized>
-        {WEEKDAYS.map((d) => (
-          <label key={d} className="toggle">
-            <input
-              type="checkbox"
-              checked={daysOff.includes(d)}
-              onChange={() => {
-                toggleDay(d);
-              }}
-            />
-            {l10n.getString("day-off-weekday", { d })}
-          </label>
-        ))}
-      </fieldset>
+        </Select>
+      </Field>
+      <Chips
+        label={l10n.getString("shala-day-off-label")}
+        options={WEEKDAYS.map((d) => ({
+          value: d,
+          label: weekdayShort(d, locale),
+          name: l10n.getString("day-off-weekday", { d }),
+        }))}
+        value={daysOff}
+        onPick={toggleDay}
+      />
       <Localized id="shala-roles-save">
-        <button type="submit" className="row-button" disabled={update.isPending} />
+        <button type="submit" className="btn" disabled={update.isPending} />
       </Localized>
-      {(blank || update.isError) && (
-        <Localized id={blank ? "shala-name-invalid" : "shala-save-failed"}>
+      {update.isError && (
+        <Localized id="shala-save-failed">
           <p className="hint" role="alert" />
         </Localized>
       )}
@@ -419,46 +470,50 @@ function Staff({ shala }: { shala: Shala }) {
   const { l10n } = useLocalization();
   const label = useRoleLabel();
   const [editing, setEditing] = useState<string | null>(null);
-  const describe = (s: Shala["staff"][number]) => {
-    const roles = [...(s.owner ? (["owner"] as const) : []), ...s.roles].map(label).join(", ");
-    const name = s.name ?? l10n.getString("link-no-name");
-    return roles ? l10n.getString("shala-person", { name, roles }) : name;
-  };
+  const rolesOf = (s: Shala["staff"][number]) =>
+    [...(s.owner ? (["owner"] as const) : []), ...s.roles].map(label).join(", ");
   return (
     <section className="card">
       <Localized id="shala-staff-title">
         <h2 />
       </Localized>
-      {shala.staff.map((s) =>
-        canEditRoles(shala.me, s) ? (
-          <div key={s.id}>
-            <button
-              type="button"
-              className="row-button"
-              aria-expanded={editing === s.id}
-              onClick={() => {
-                haptics.selection();
-                setEditing(editing === s.id ? null : s.id);
-              }}
-            >
-              {describe(s)}
-            </button>
-            {editing === s.id && (
-              <RoleEditor
-                shala={shala}
-                person={s}
-                onDone={() => {
-                  setEditing(null);
+      <div className="list">
+        {shala.staff.map((s) => {
+          const name = s.name ?? l10n.getString("link-no-name");
+          const roles = rolesOf(s);
+          return canEditRoles(shala.me, s) ? (
+            <Fragment key={s.id}>
+              <Row
+                label={name}
+                sub={roles || undefined}
+                expanded={editing === s.id}
+                onClick={() => {
+                  haptics.selection();
+                  setEditing(editing === s.id ? null : s.id);
                 }}
               />
-            )}
-          </div>
-        ) : (
-          <p key={s.id} className="link-person">
-            {describe(s)}
-          </p>
-        ),
-      )}
+              {editing === s.id && (
+                <RoleEditor
+                  shala={shala}
+                  person={s}
+                  onDone={() => {
+                    setEditing(null);
+                  }}
+                />
+              )}
+            </Fragment>
+          ) : (
+            <div key={s.id} className="lrow plain">
+              <span className="lrow-text">
+                <span className="lrow-label">
+                  <span className="lrow-title">{name}</span>
+                </span>
+                {roles && <span className="lrow-sub">{roles}</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -477,7 +532,9 @@ function RoleEditor({
   const save = useSetStaffRoles(shala.id);
   const remove = useRemoveShalaMember(shala.id);
   const [roles, setRoles] = useState<ShalaRole[]>(person.roles);
-  const allowed = grantable(shala.me);
+  // My own row as the owner (Q337): what I do here beside owning it; nobody removes an owner.
+  const mine = person.owner;
+  const allowed = mine ? OWN_ROLES : grantable(shala.me);
   const toggle = (role: ShalaRole) => {
     setRoles((now) => (now.includes(role) ? now.filter((r) => r !== role) : [...now, role]));
   };
@@ -493,39 +550,48 @@ function RoleEditor({
     remove.mutate({ account: person.id, side: "staff" }, { onSuccess: onDone });
   };
   return (
-    <div className="role-editor">
+    <div className="panel">
+      {mine && (
+        <Localized id="shala-my-roles">
+          <p className="group-title" />
+        </Localized>
+      )}
       {ROLES.filter((r) => allowed.includes(r)).map((role) => (
-        <label key={role} className="toggle">
-          <input
-            type="checkbox"
-            checked={roles.includes(role)}
-            onChange={() => {
-              toggle(role);
-            }}
-          />
-          {label(role)}
-        </label>
+        <Check
+          key={role}
+          label={label(role)}
+          checked={roles.includes(role)}
+          onChange={() => {
+            toggle(role);
+          }}
+        />
       ))}
       <Localized id="shala-roles-save">
         <button
           type="button"
-          className="row-button"
+          className="btn"
           disabled={save.isPending}
           onClick={() => {
             haptics.impact("light");
-            save.mutate({ account: person.id, roles }, { onSuccess: onDone });
+            // Only what this editor offers: a role it does not show is not its to send.
+            save.mutate(
+              { account: person.id, roles: roles.filter((r) => allowed.includes(r)) },
+              { onSuccess: onDone },
+            );
           }}
         />
       </Localized>
-      <Localized id="shala-remove">
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            void confirmRemove();
-          }}
-        />
-      </Localized>
+      {!mine && (
+        <Localized id="shala-remove">
+          <button
+            type="button"
+            className="link tap"
+            onClick={() => {
+              void confirmRemove();
+            }}
+          />
+        </Localized>
+      )}
       {(save.isError || remove.isError) && (
         <Localized id="shala-save-failed">
           <p className="hint" role="alert" />
@@ -637,7 +703,7 @@ function LinkCard({ shala, link, hint }: { shala: Shala; link: ShalaLink; hint: 
   );
 }
 
-function JoinLink({ shala, open = false }: { shala: Shala; open?: boolean }) {
+function JoinLink({ shala, ask }: { shala: Shala; ask: number }) {
   const { l10n } = useLocalization();
   const link = useShalaJoinLink(shala.id);
   const [shown, setShown] = useState<ShalaLink | null>(null);
@@ -649,20 +715,23 @@ function JoinLink({ shala, open = false }: { shala: Shala; open?: boolean }) {
       },
     });
   };
-  // UI-06: opened for the invite, the card makes the link as a tap on the row would, and
-  // brings it into view once it is there.
+  // UI-06: asked for the invite (Today's next step, the setup list), the card makes the link
+  // as a tap on the row would, and brings it into view once it is there.
   const section = useRef<HTMLElement>(null);
-  const asked = useRef(false);
+  const wanted = useRef(false);
   useEffect(() => {
-    if (!open || asked.current) return;
-    asked.current = true;
+    if (!ask) return;
+    if (shown) {
+      section.current?.scrollIntoView({ block: "start" });
+      return;
+    }
+    wanted.current = true;
     load(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when asked to open
-  }, [open]);
-  const scrolled = useRef(!open);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per ask
+  }, [ask]);
   useEffect(() => {
-    if (scrolled.current || !shown) return;
-    scrolled.current = true;
+    if (!wanted.current || !shown) return;
+    wanted.current = false;
     section.current?.scrollIntoView({ block: "start" });
   }, [shown]);
   const rotate = async () => {
@@ -711,12 +780,23 @@ function JoinLink({ shala, open = false }: { shala: Shala; open?: boolean }) {
   );
 }
 
-function StaffInvite({ shala }: { shala: Shala }) {
+function StaffInvite({ shala, ask }: { shala: Shala; ask: number }) {
   const { l10n } = useLocalization();
   const label = useRoleLabel();
   const invite = useShalaStaffInvite(shala.id);
   const [picking, setPicking] = useState(false);
   const [shown, setShown] = useState<{ link: ShalaLink; role: ShalaRole } | null>(null);
+  // UI-06 stage 4: the setup list's third step opens the role picker, in view.
+  const section = useRef<HTMLElement>(null);
+  const [asked, setAsked] = useState(0);
+  if (ask !== asked) {
+    setAsked(ask);
+    setPicking(true);
+    setShown(null);
+  }
+  useEffect(() => {
+    if (ask) section.current?.scrollIntoView({ block: "start" });
+  }, [ask]);
   const create = (role: ShalaRole) => {
     invite.mutate(role, {
       onSuccess: (link) => {
@@ -730,7 +810,7 @@ function StaffInvite({ shala }: { shala: Shala }) {
   };
   const capped = invite.error instanceof ApiError && invite.error.code === "shala_caps";
   return (
-    <section className="card">
+    <section className="card" ref={section}>
       <Localized id="shala-invite-staff">
         <button
           type="button"

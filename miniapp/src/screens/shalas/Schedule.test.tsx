@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
+import { useBackButton } from "../../telegram";
 import ClassForm from "./ClassForm";
 import ShalaScreen from "./ShalaScreen";
 
@@ -11,8 +12,10 @@ import ShalaScreen from "./ShalaScreen";
 // differs), the moon policy select with its note (owner/manager), the Q109 day-off adoption,
 // the occurrence sheet per role, and the class form (Mysore window preset "all but the day
 // off", other types start empty, the Led hint). The API and the Telegram SDK are mocked.
-// Assumed: `ClassForm({ shala, onDone })` in `./ClassForm`; the schedule lives on
-// `ShalaScreen`; weekday chips are checkboxes named by the weekday.
+// UI-06 stage 4 (ADR-0048): the form is short (type, start, weekday chips; the rest under
+// "More options"), opens as a layer of its own, and also changes a saved class: from a date
+// when the class has run, whole when it has not. The sheet has two headed groups; Delete is in
+// the edit form; "Tell students…" follows a cancel (Q338).
 
 vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
@@ -20,7 +23,10 @@ vi.mock("../../telegram", () => ({
   useBackButton: vi.fn(),
   backButtonAvailable: vi.fn(() => true),
   confirmDestructive: vi.fn(() => Promise.resolve(true)),
+  confirmAction: vi.fn(() => Promise.resolve(true)),
   openTelegramLink: vi.fn(),
+  useMainButton: vi.fn(),
+  mainButtonAvailable: vi.fn(() => false),
 }));
 
 const SHALA = "00000000-0000-0000-0000-0000000000c1";
@@ -39,6 +45,7 @@ interface MeIn {
   roles: Role[];
   student: boolean;
   schedule: boolean;
+  announce?: boolean;
 }
 const OWNER: MeIn = { owner: true, roles: ["teacher"], student: false, schedule: true };
 const TEACHER: MeIn = { owner: false, roles: ["teacher"], student: false, schedule: true };
@@ -109,12 +116,33 @@ const SCHEDULE = {
   closures: [],
 };
 
+/** The Monday Mysore as saved: weekly, started long ago. */
+const SERIES = {
+  id: CLASS,
+  type: "mysore",
+  title: null,
+  online: false,
+  city: null,
+  teacher_id: ANNA,
+  start: "06:00",
+  minutes: 210,
+  weekdays: [1, 2, 3, 4, 5, 7],
+  every: 1,
+  starts_on: "2026-01-05",
+  ends_on: null,
+  rrule: "FREQ=WEEKLY",
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 interface Stub {
   card?: unknown;
   schedule?: unknown;
+  /** The saved class series (`GET …/classes`). */
+  classes?: unknown[];
+  /** The answer to a `PATCH` of a class; the merged class unless given. */
+  patch?: () => Response;
   dayOff?: number[] | null;
   /** My own zone (the viewer's); Almaty, the shala's, unless given. */
   timezone?: string;
@@ -131,8 +159,15 @@ function stubApi(stub: Stub = {}): Request[] {
       if (path === `/api/v1/shalas/${SHALA}/schedule`) return json(stub.schedule ?? SCHEDULE);
       if (path === `/api/v1/shalas/${SHALA}/classes` && request.method === "POST")
         return json({ id: CLASS, rrule: null, ...((await request.json()) as object) }, 201);
+      if (path === `/api/v1/shalas/${SHALA}/classes`) return json(stub.classes ?? []);
       if (path.startsWith(`/api/v1/shalas/${SHALA}/classes/`) && request.method === "PUT")
         return json(occurrence({ cancelled: "cancelled" }));
+      if (path === `/api/v1/shalas/${SHALA}/classes/${CLASS}` && request.method === "PATCH")
+        return stub.patch?.() ?? json({ ...SERIES, ...((await request.json()) as object) });
+      if (path === `/api/v1/shalas/${SHALA}/classes/${CLASS}` && request.method === "DELETE")
+        return new Response(null, { status: 204 });
+      if (path === "/api/v1/me/announcements/sent") return json([]);
+      if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
       if (path === `/api/v1/shalas/${SHALA}`) return json(stub.card ?? shalaOut(STUDENT));
       if (path === "/api/v1/moon/cities") return json(CITIES);
       if (path === "/api/v1/me/day-off") return json({ day_off: [6], practice_days: [] });
@@ -142,6 +177,7 @@ function stubApi(stub: Stub = {}): Request[] {
           display_name: "Ash",
           locale: "en",
           timezone: stub.timezone ?? "Asia/Almaty",
+          home_city: null,
           name_from_telegram: true,
           locale_from_telegram: true,
           hide_ladies: false,
@@ -245,6 +281,24 @@ describe("the schedule on the shala card", () => {
 
     await screen.findByText(/11:00–12:30/);
     expect(pageText()).not.toContain("07:00");
+  });
+
+  // UI-06 stage 4: the arrows stand either side of the week's own dates, over the days.
+  it("names the week between its arrows; no arrow leads before this week", async () => {
+    const seen = stubApi();
+    renderWith(card());
+    await screen.findAllByText(/06:00–09:30/);
+
+    const nav = screen.getByRole("navigation");
+    expect(plain(nav.textContent)).toMatch(/^◀\w{3}, \w{3} \d+ – \w{3}, \w{3} \d+▶$/);
+    expect(within(nav).getByRole("button", { name: "◀" })).toBeDisabled();
+    const before = calls(seen, "GET", `/api/v1/shalas/${SHALA}/schedule`).length;
+    fireEvent.click(within(nav).getByRole("button", { name: "▶" }));
+
+    expect(within(nav).getByRole("button", { name: "◀" })).toBeEnabled();
+    await waitFor(() => {
+      expect(calls(seen, "GET", `/api/v1/shalas/${SHALA}/schedule`).length).toBe(before + 1);
+    });
   });
 
   it("has no your-time note for a class in my own zone", async () => {
@@ -455,73 +509,216 @@ describe("the occurrence sheet", () => {
   });
 });
 
-describe("the class form", () => {
-  const form = () => <ClassForm shala={shalaOut(OWNER) as never} onDone={vi.fn()} />;
-  const weekday = (name: string) => screen.getByRole<HTMLInputElement>("checkbox", { name });
+const ME = "00000000-0000-0000-0000-000000000001";
+const chip = (name: string | RegExp) => screen.getByRole("button", { name });
+const pressed = (name: string) => chip(name).getAttribute("aria-pressed") === "true";
+const more = () => screen.getByRole("button", { name: "More options" });
+const save = () => {
+  fireEvent.click(screen.getByRole("button", { name: "Save the class" }));
+};
+const posts = (seen: Request[]) => calls(seen, "POST", `/api/v1/shalas/${SHALA}/classes`);
+const patches = (seen: Request[]) =>
+  calls(seen, "PATCH", `/api/v1/shalas/${SHALA}/classes/${CLASS}`);
 
-  it("presets Mysore to every day but the shala's day off, with an until time", async () => {
+describe("the class form", () => {
+  // The owner is on the staff under my own id, as the server lists them.
+  const MINE = [{ id: ME, name: "Ash", owner: true, roles: ["teacher"] }];
+  const form = (over: Record<string, unknown> = {}) => (
+    <ClassForm shala={shalaOut(OWNER, { staff: MINE, ...over }) as never} onDone={vi.fn()} />
+  );
+  const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Almaty" }).format();
+
+  it("shows three things to choose and Save; the rest is under More options", async () => {
     stubApi();
     renderWith(form());
 
-    await screen.findByRole("button", { name: "Mysore" });
-    expect(weekday("Saturday").checked).toBe(false);
-    for (const d of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sunday"])
-      expect(weekday(d).checked).toBe(true);
-    expect(screen.getByLabelText(/Until/)).toHaveAttribute("type", "time");
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Type" })).toBeInTheDocument();
     // The start time's label: my own zone, so the place alone (ADR-0044).
-    expect(await screen.findByText("Start, Almaty")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Start, Almaty")).toHaveAttribute("type", "time");
+    expect(screen.getByRole("group", { name: "Repeats on" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save the class" })).toBeInTheDocument();
+    // Nothing else to fill in: no title, teacher, dates or online on the first screen.
+    expect(screen.getAllByRole("group")).toHaveLength(2);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByLabelText(/Until/)).toBeNull();
+    expect(more()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("presets Mysore to every day but the shala's day off, and saves as it is", async () => {
+    const seen = stubApi();
+    renderWith(form());
+    await screen.findByLabelText("Start, Almaty");
+
+    expect(pressed("Mysore")).toBe(true);
+    expect(pressed("Saturday")).toBe(false);
+    expect(chip("Saturday")).toHaveTextContent("Sat"); // short on the chip, full for a reader
+    for (const d of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sunday"])
+      expect(pressed(d)).toBe(true);
+    // What is set under "More options", in one line: the window's end and the teacher (me).
+    await waitFor(() => {
+      expect(more()).toHaveAccessibleDescription("until 09:30 · Ash");
+    });
+    save();
+
+    await waitFor(() => {
+      expect(posts(seen)).toHaveLength(1);
+    });
+    // The same body as before the short form, with me as the teacher (I hold Teacher).
+    expect(await posts(seen)[0]?.json()).toEqual({
+      type: "mysore",
+      title: null,
+      online: false,
+      city: null,
+      teacher_id: ME,
+      start: "06:00",
+      minutes: 210,
+      weekdays: [1, 2, 3, 4, 5, 7],
+      every: 1,
+      starts_on: today(),
+      ends_on: null,
+    });
   });
 
   it("labels the start with the offset for staff in another zone", async () => {
     stubApi({ timezone: "Europe/Berlin" });
     renderWith(form());
 
-    expect(await screen.findByText("Start, Almaty (UTC+5)")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Start, Almaty (UTC+5)")).toBeInTheDocument();
   });
 
-  it("starts other types with no day ticked; Led shows its hint and minutes", async () => {
+  it("starts other types with no day; Led shows its hint and 90 minutes", async () => {
     stubApi();
     renderWith(form());
     fireEvent.click(await screen.findByRole("button", { name: "Led" }));
 
-    for (const d of ["Monday", "Friday", "Sunday"]) expect(weekday(d).checked).toBe(false);
+    for (const d of ["Monday", "Friday", "Sunday"]) expect(pressed(d)).toBe(false);
     expect(pageText()).toContain("Often Friday or Sunday");
-    expect(screen.getByLabelText(/Length/)).toHaveAttribute("type", "number");
+    expect(more()).toHaveAccessibleDescription(/^90 min/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Conference" }));
+    fireEvent.click(chip("Conference"));
     expect(pageText()).not.toContain("Often Friday or Sunday");
+    expect(more()).toHaveAccessibleDescription(/^60 min/);
   });
 
-  it("refuses a window that ends before it starts, without a request", async () => {
+  it("refuses a weekly class with no day, without a request", async () => {
     const seen = stubApi();
     renderWith(form());
-    await screen.findByRole("button", { name: "Mysore" });
+    fireEvent.click(await screen.findByRole("button", { name: "Led" }));
+    save();
 
-    fireEvent.change(screen.getByLabelText(/Start/), { target: { value: "09:00" } });
-    fireEvent.change(screen.getByLabelText(/Until/), { target: { value: "08:00" } });
-    fireEvent.submit(screen.getByLabelText(/Start/).closest("form") as HTMLFormElement);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose at least one day");
+    expect(posts(seen)).toHaveLength(0);
 
-    await screen.findByRole("alert");
-    expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/classes`)).toHaveLength(0);
+    fireEvent.click(chip("Friday"));
+    expect(screen.queryByRole("alert")).toBeNull();
+    save();
+    await waitFor(() => {
+      expect(posts(seen)).toHaveLength(1);
+    });
+    expect(await posts(seen)[0]?.json()).toMatchObject({
+      type: "led",
+      minutes: 90,
+      weekdays: [5],
+    });
+  });
+
+  it("takes one date instead of weekdays", async () => {
+    const seen = stubApi();
+    renderWith(form());
+    fireEvent.click(await screen.findByRole("button", { name: "Workshop" }));
+    fireEvent.click(screen.getByRole("button", { name: "One date only" }));
+
+    expect(screen.queryByRole("group", { name: "Repeats on" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-12-05" } });
+    expect(screen.getByRole("button", { name: "Repeat weekly" })).toBeInTheDocument();
+    save();
+
+    await waitFor(() => {
+      expect(posts(seen)).toHaveLength(1);
+    });
+    expect(await posts(seen)[0]?.json()).toMatchObject({
+      type: "workshop",
+      minutes: 120,
+      weekdays: [],
+      every: 1,
+      starts_on: "2026-12-05",
+      ends_on: null,
+    });
+  });
+
+  it("offers the length as chips, and any other length as an end time", async () => {
+    const seen = stubApi();
+    renderWith(form());
+    fireEvent.click(await screen.findByRole("button", { name: "Led" }));
+    fireEvent.click(chip("Friday"));
+    fireEvent.click(more());
+
+    const length = screen.getByRole("group", { name: "Length" });
+    expect(
+      within(length)
+        .getAllByRole("button")
+        .map((b) => plain(b.textContent)),
+    ).toEqual(["60 min", "75 min", "90 min", "120 min", "Other"]);
+    expect(within(length).getByRole("button", { name: "90 min" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByLabelText("Ends at")).toBeNull();
+    fireEvent.click(within(length).getByRole("button", { name: "75 min" }));
+    // Changing the start keeps the length.
+    fireEvent.change(screen.getByLabelText("Start, Almaty"), { target: { value: "18:30" } });
+    fireEvent.click(within(length).getByRole("button", { name: "Other" }));
+    const ends = screen.getByLabelText<HTMLInputElement>("Ends at");
+    expect(ends.value).toBe("19:45");
+    fireEvent.change(ends, { target: { value: "20:15" } });
+    save();
+
+    await waitFor(() => {
+      expect(posts(seen)).toHaveLength(1);
+    });
+    expect(await posts(seen)[0]?.json()).toMatchObject({ start: "18:30", minutes: 105 });
+  });
+
+  it("opens More options on a window that ends before it starts, without a request", async () => {
+    const seen = stubApi();
+    renderWith(form());
+    await screen.findByLabelText("Start, Almaty");
+    fireEvent.click(more());
+    fireEvent.change(screen.getByLabelText("Start, Almaty"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Until"), { target: { value: "08:00" } });
+    fireEvent.click(more()); // folded again: the mistake is out of sight
+    expect(screen.queryByLabelText("Until")).toBeNull();
+    save();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("needs to end after it starts");
+    const until = screen.getByLabelText("Until");
+    expect(more()).toHaveAttribute("aria-expanded", "true");
+    expect(until).toHaveFocus();
+    expect(until).toHaveAttribute("aria-invalid", "true");
+    expect(posts(seen)).toHaveLength(0);
   });
 
   it("sends the Mysore window as minutes", async () => {
     const seen = stubApi();
     renderWith(form());
-    await screen.findByRole("button", { name: "Mysore" });
+    await screen.findByLabelText("Start, Almaty");
+    fireEvent.click(more());
 
-    fireEvent.change(screen.getByLabelText(/Start/), { target: { value: "06:00" } });
-    fireEvent.change(screen.getByLabelText(/Until/), { target: { value: "09:30" } });
-    fireEvent.submit(screen.getByLabelText(/Start/).closest("form") as HTMLFormElement);
+    fireEvent.change(screen.getByLabelText("Start, Almaty"), { target: { value: "06:30" } });
+    expect(screen.getByLabelText<HTMLInputElement>("Until").value).toBe("10:00");
+    fireEvent.change(screen.getByLabelText("Until"), { target: { value: "09:00" } });
+    save();
 
     await waitFor(() => {
-      expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/classes`)).toHaveLength(1);
+      expect(posts(seen)).toHaveLength(1);
     });
-    const body: unknown = await calls(seen, "POST", `/api/v1/shalas/${SHALA}/classes`)[0]?.json();
-    expect(body).toMatchObject({
+    expect(await posts(seen)[0]?.json()).toMatchObject({
       type: "mysore",
-      start: "06:00",
-      minutes: 210,
+      start: "06:30",
+      minutes: 150,
       weekdays: [1, 2, 3, 4, 5, 7],
       every: 1,
     });
@@ -530,12 +727,324 @@ describe("the class form", () => {
   it("offers the zone select for online classes only", async () => {
     stubApi();
     renderWith(form());
-    await screen.findByRole("button", { name: "Mysore" });
+    await screen.findByLabelText("Start, Almaty");
+    fireEvent.click(more());
 
     expect(screen.queryByRole("combobox", { name: /Times in/ })).toBeNull();
     fireEvent.click(screen.getByRole("checkbox", { name: /online/i }));
     const zone = await screen.findByRole<HTMLSelectElement>("combobox", { name: /Times in/ });
     expect(zone.value).toBe("almaty");
     expect(within(zone).getByText(/Berlin/)).toBeInTheDocument();
+  });
+
+  it("lists every staff member as the teacher: teachers first, an owner without roles too", async () => {
+    stubApi();
+    const staff = [
+      { id: ME, name: "Ash", owner: true, roles: [] },
+      { id: DANA, name: "Dana", owner: false, roles: ["office"] },
+      { id: ANNA, name: "Anna", owner: false, roles: ["assistant"] },
+    ];
+    const me = { ...OWNER, roles: [] };
+    renderWith(<ClassForm shala={shalaOut(me, { staff }) as never} onDone={vi.fn()} />);
+    await screen.findByLabelText("Start, Almaty");
+    fireEvent.click(more());
+
+    const teacher = screen.getByRole<HTMLSelectElement>("combobox", { name: "Teacher" });
+    expect([...teacher.options].map((o) => o.textContent)).toEqual(["—", "Anna", "Ash", "Dana"]);
+    expect(teacher.value).toBe(""); // I hold no Teacher role: nobody is preselected
+  });
+
+  it("reads in Russian", async () => {
+    stubApi();
+    renderWith(form(), "ru");
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Новое занятие" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Повторяется по дням" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "суббота" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ещё настройки" })).toBeInTheDocument();
+  });
+});
+
+describe("changing a class (ADR-0048)", () => {
+  const MONDAY = "2099-06-01"; // the date that was tapped: far ahead, so never before today
+  const edit = (onDone = vi.fn(), date = MONDAY) => (
+    <ClassForm shala={shalaOut(OWNER) as never} edit={{ classId: CLASS, date }} onDone={onDone} />
+  );
+  const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Almaty" }).format();
+
+  it("fills the form from the saved class and names the date the change applies from", async () => {
+    stubApi({ classes: [SERIES] });
+    renderWith(edit());
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Change the class" }),
+    ).toBeVisible();
+    const applies = await screen.findByLabelText<HTMLInputElement>("Changes apply from");
+    expect(applies.value).toBe(MONDAY);
+    expect(applies).toHaveAttribute("min", today());
+    expect(applies).toHaveAccessibleDescription("Earlier dates stay as they were.");
+    expect(pressed("Mysore")).toBe(true);
+    expect(pressed("Saturday")).toBe(false);
+    // A class keeps its kind: no switch to one date, and no first date to rewrite.
+    expect(screen.queryByRole("button", { name: "One date only" })).toBeNull();
+    fireEvent.click(more());
+    expect(screen.queryByLabelText("First date")).toBeNull();
+    expect(screen.getByLabelText<HTMLInputElement>("Until").value).toBe("09:30");
+  });
+
+  it("sends only the changed fields, from the tapped date", async () => {
+    const seen = stubApi({ classes: [SERIES] });
+    const onDone = vi.fn();
+    renderWith(edit(onDone));
+    fireEvent.change(await screen.findByLabelText("Start, Almaty"), {
+      target: { value: "07:00" },
+    });
+    fireEvent.click(chip("Sunday"));
+    save();
+
+    await waitFor(() => {
+      expect(patches(seen)).toHaveLength(1);
+    });
+    expect(await patches(seen)[0]?.json()).toEqual({
+      start: "07:00",
+      weekdays: [1, 2, 3, 4, 5],
+      from: MONDAY,
+    });
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledWith("saved");
+    });
+  });
+
+  it("never applies before the shala's today, also for a date of last week", async () => {
+    const seen = stubApi({ classes: [SERIES] });
+    renderWith(edit(vi.fn(), "2026-01-05"));
+    const applies = await screen.findByLabelText<HTMLInputElement>("Changes apply from");
+    expect(applies.value).toBe(today());
+    fireEvent.change(applies, { target: { value: "2020-01-01" } }); // typed past the picker
+    fireEvent.click(more());
+    fireEvent.change(screen.getByLabelText(/Title/), { target: { value: "Full Primary" } });
+    save();
+
+    await waitFor(() => {
+      expect(patches(seen)).toHaveLength(1);
+    });
+    expect(await patches(seen)[0]?.json()).toEqual({ title: "Full Primary", from: today() });
+  });
+
+  it("changes a class that has not started whole: its first date, and no from", async () => {
+    const ahead = { ...SERIES, starts_on: "2099-05-04" };
+    const seen = stubApi({ classes: [ahead] });
+    renderWith(edit());
+    await screen.findByLabelText("Start, Almaty");
+
+    expect(screen.queryByLabelText("Changes apply from")).toBeNull();
+    fireEvent.click(more());
+    fireEvent.change(screen.getByLabelText("First date"), { target: { value: "2099-05-11" } });
+    save();
+
+    await waitFor(() => {
+      expect(patches(seen)).toHaveLength(1);
+    });
+    expect(await patches(seen)[0]?.json()).toEqual({ starts_on: "2099-05-11" });
+  });
+
+  it("changes a one-date class whole", async () => {
+    const once = { ...SERIES, type: "workshop", weekdays: [], minutes: 120, rrule: null };
+    const seen = stubApi({ classes: [{ ...once, starts_on: "2026-01-05" }] });
+    renderWith(edit());
+
+    const date = await screen.findByLabelText<HTMLInputElement>("Date");
+    expect(date.value).toBe("2026-01-05");
+    expect(screen.queryByLabelText("Changes apply from")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Repeats on" })).toBeNull();
+    fireEvent.change(date, { target: { value: "2099-05-11" } });
+    save();
+
+    await waitFor(() => {
+      expect(patches(seen)).toHaveLength(1);
+    });
+    expect(await patches(seen)[0]?.json()).toEqual({ starts_on: "2099-05-11" });
+  });
+
+  it("closes without a request when nothing was changed", async () => {
+    const seen = stubApi({ classes: [SERIES] });
+    const onDone = vi.fn();
+    renderWith(edit(onDone));
+    await screen.findByLabelText("Start, Almaty");
+    save();
+
+    expect(onDone).toHaveBeenCalledWith();
+    expect(patches(seen)).toHaveLength(0);
+  });
+
+  it("says the class is gone on a 404", async () => {
+    const seen = stubApi({ classes: [SERIES], patch: () => json({ code: "not_found" }, 404) });
+    const onDone = vi.fn();
+    renderWith(edit(onDone));
+    fireEvent.change(await screen.findByLabelText("Start, Almaty"), {
+      target: { value: "07:00" },
+    });
+    save();
+
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledWith("gone");
+    });
+    expect(patches(seen)).toHaveLength(1);
+  });
+
+  it("says so at once when the class is no longer in the list", async () => {
+    stubApi({ classes: [] });
+    const onDone = vi.fn();
+    renderWith(edit(onDone));
+
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledWith("gone");
+    });
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull();
+  });
+
+  it("keeps the form on a refusal, with the reason", async () => {
+    stubApi({ classes: [SERIES], patch: () => json({ code: "invalid_class" }, 422) });
+    const onDone = vi.fn();
+    renderWith(edit(onDone));
+    fireEvent.change(await screen.findByLabelText("Start, Almaty"), {
+      target: { value: "07:00" },
+    });
+    save();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't save the class");
+    expect(onDone).not.toHaveBeenCalled();
+    // What I typed stays, whatever the refetch brought.
+    expect(screen.getByLabelText<HTMLInputElement>("Start, Almaty").value).toBe("07:00");
+  });
+
+  it("deletes the class from the form, after the confirm", async () => {
+    const seen = stubApi({ classes: [SERIES] });
+    const onDone = vi.fn();
+    renderWith(edit(onDone));
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "🗑 Delete this class (all dates)…" }),
+    );
+
+    await waitFor(() => {
+      expect(calls(seen, "DELETE", `/api/v1/shalas/${SHALA}/classes/${CLASS}`)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledWith("saved");
+    });
+  });
+});
+
+describe("the sheet's two groups, and the form as a layer", () => {
+  const MANAGER: MeIn = { ...TEACHER, announce: true };
+  const openSheet = async (n = 0) => {
+    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[n] as HTMLElement);
+    return screen.findByRole("heading", { name: "The whole class" });
+  };
+  const putPath = `/api/v1/shalas/${SHALA}/classes/${CLASS}/occurrences/2026-11-09`;
+
+  it("heads what is for this date and what is for the whole class; no Delete here", async () => {
+    stubApi({ card: shalaOut(TEACHER) });
+    renderWith(card());
+    await openSheet();
+
+    expect(screen.getByRole("heading", { name: "This date: Mon, Nov 9" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "❌ Cancel this class" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "✏️ Change the class…" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delete this class/ })).toBeNull();
+  });
+
+  it("opens the saved class from its date, and Back returns to the card as it was", async () => {
+    stubApi({ card: shalaOut(TEACHER), classes: [SERIES] });
+    renderWith(card());
+    await openSheet();
+    fireEvent.click(screen.getByRole("button", { name: "✏️ Change the class…" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Change the class" }),
+    ).toBeVisible();
+    expect(await screen.findByLabelText("Changes apply from")).toBeInTheDocument();
+    // The card waits under the layer, out of sight and out of reach.
+    expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
+
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+
+    expect(screen.queryByRole("heading", { name: "Change the class" })).toBeNull();
+    expect(screen.getByRole("button", { name: "✏️ Change the class…" })).toBeVisible(); // still open
+  });
+
+  it("shows the class-gone line over the week when the class is no longer there", async () => {
+    const seen = stubApi({ card: shalaOut(TEACHER), classes: [] });
+    renderWith(card());
+    await openSheet();
+    const before = calls(seen, "GET", `/api/v1/shalas/${SHALA}/schedule`).length;
+    fireEvent.click(screen.getByRole("button", { name: "✏️ Change the class…" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "This class has just changed or was removed. Here's the current schedule.",
+    );
+    expect(screen.queryByRole("heading", { name: "Change the class" })).toBeNull();
+    await waitFor(() => {
+      expect(calls(seen, "GET", `/api/v1/shalas/${SHALA}/schedule`).length).toBeGreaterThan(before);
+    });
+  });
+
+  it("opens a new class from the first row of the schedule", async () => {
+    stubApi({ card: shalaOut(TEACHER) });
+    renderWith(card());
+
+    fireEvent.click(await screen.findByRole("button", { name: "➕ Add a class" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+  });
+
+  it("offers Tell students only after a cancel, with the text filled in", async () => {
+    const seen = stubApi({ card: shalaOut(MANAGER) });
+    renderWith(card());
+    await openSheet();
+
+    expect(screen.queryByRole("button", { name: "📣 Tell students…" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this class" }));
+    await waitFor(() => {
+      expect(calls(seen, "PUT", putPath)).toHaveLength(1);
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "📣 Tell students…" }));
+
+    // The compose screen, with a text a reader in any zone can use: day, time, zone, offset.
+    const text = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Text" });
+    expect(text.value).toBe("Class cancelled: Mysore, Mon, Nov 9, 06:00 Almaty (UTC+5).");
+    // Nothing went out by the cancel or by opening the screen.
+    expect(calls(seen, "POST", "/api/v1/me/announcements")).toHaveLength(0);
+  });
+
+  it("does not offer it for a 1:1, or to someone who may not announce", async () => {
+    const one = { ...SCHEDULE, occurrences: [occurrence({ type: "private" })] };
+    const seen = stubApi({ card: shalaOut(MANAGER), schedule: one });
+    const first = renderWith(card());
+    await openSheet();
+    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this class" }));
+    await waitFor(() => {
+      expect(calls(seen, "PUT", putPath)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "The whole class" })).toBeNull(); // closed
+    });
+    expect(screen.queryByRole("button", { name: "📣 Tell students…" })).toBeNull();
+    first.unmount();
+
+    const again = stubApi({ card: shalaOut(TEACHER) });
+    renderWith(card());
+    await openSheet();
+    fireEvent.click(screen.getByRole("button", { name: "❌ Cancel this class" }));
+    await waitFor(() => {
+      expect(calls(again, "PUT", putPath)).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "The whole class" })).toBeNull();
+    });
+    expect(screen.queryByRole("button", { name: "📣 Tell students…" })).toBeNull();
   });
 });

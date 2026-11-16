@@ -224,10 +224,18 @@ export function useMainButton(
   }, [loading, text, visible]);
 }
 
+let mocked = false;
+
+/** Dev only: the browser mock answers the SDK but draws nothing, so a form shows its own
+ * button there (else it could not be saved, or seen whole in a guide screenshot). */
+export function markTelegramMocked(): void {
+  mocked = true;
+}
+
 /** Whether Telegram draws a main button here; without one a form shows its own (dev browser,
  * older clients). */
 export function mainButtonAvailable(): boolean {
-  return mainButton.setParams.isAvailable();
+  return !mocked && mainButton.setParams.isAvailable();
 }
 
 /** Telegram's native confirm popup with a destructive button (ST-09 delete); resolves true

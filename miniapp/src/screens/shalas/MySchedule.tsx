@@ -16,8 +16,7 @@ import { placeFor } from "../settings/zones";
 import { offsetText, timeLabel, zoneCity, zoneLabel } from "../timeLabel";
 import { loadShowLadies } from "../stats/cells";
 import CalendarFeedCard from "./CalendarFeedCard";
-import { useTypeName } from "./ClassForm";
-import { lengthOf, useRowMarks } from "./ShalaSchedule";
+import { lengthOf, useRowMarks, useTypeName } from "./classText";
 import { DASH, addDays, dateIn, dayName, hmOf, minutesOf, plain, timeIn } from "./scheduleText";
 import { lazyRetry } from "../../shell/lazyRetry";
 
