@@ -118,9 +118,13 @@ class ScheduleRepository(Protocol):
     async def update(
         self, shala: UUID, me: UUID, class_id: UUID, draft: ClassDraft, from_date: date | None
     ) -> Guarded[StoredClass]:
-        """With `from_date`: the old series ends the day before, a new one starts on it, and
-        overrides on or after it move to the new id. Overrides the resulting rules no longer
-        produce are deleted."""
+        """With `from_date`, for a weekly series that started before it and has not ended
+        before it: the old series ends the day before, a new one starts on it, and the
+        overrides and attendance rows on or after it that the new rule produces move to the
+        new id (ADR-0048). Overrides the resulting rules no longer produce are deleted;
+        attendance on such dates stays on the ended series. A series that starts on or after
+        `from_date`, and a one-off, change whole. One that ended before it is not written:
+        the value is None, as for an unknown class."""
         ...
 
     async def delete(self, shala: UUID, me: UUID, class_id: UUID) -> Guarded[None]:

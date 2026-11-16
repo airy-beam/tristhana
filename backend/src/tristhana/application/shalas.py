@@ -12,7 +12,13 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from tristhana.application.moon import UnknownLocation
-from tristhana.application.policies import NotAllowed, NotFound, Principal, can_view_shala_students
+from tristhana.application.policies import (
+    NotAllowed,
+    NotFound,
+    Principal,
+    can_view_shala_setup,
+    can_view_shala_students,
+)
 from tristhana.application.ports.notifications import Notifier, Recipient
 from tristhana.application.ports.shalas import (
     CapReached,
@@ -32,6 +38,7 @@ from tristhana.application.ports.storage import Clock
 from tristhana.application.ports.teacher_links import CodeSource
 from tristhana.application.settings import caller_today
 from tristhana.domain.accounts import Account, moon_follow_of
+from tristhana.domain.journey import SetupStep, setup_steps
 from tristhana.domain.moon import Cities, City, MoonFollow, MoonSource, ShalaMoon, moon_follow
 from tristhana.domain.rest_days import check_day_off
 from tristhana.domain.shalas import (
@@ -87,6 +94,15 @@ def _value[T](guarded: Guarded[T]) -> T:
 def _projected(card: ShalaCard) -> ShalaCard:
     """Students never learn how many students there are (Q106)."""
     return card if can_view_shala_students(card.me) else replace(card, students_total=None)
+
+
+def setup_of(card: ShalaCard) -> tuple[SetupStep, ...] | None:
+    """The shala's setup steps still due (UI-06 stage 4), for its owner; None for everyone
+    else. Derived from the card's own counts on every read: nothing is stored, and "I teach
+    alone" (Q339) is remembered by the device, never here. Both adapters read it from a card."""
+    if not can_view_shala_setup(card.me):
+        return None
+    return setup_steps(card.classes_total, card.students_total or 0, len(card.staff))
 
 
 def _city(cities: Cities, slug: str) -> str:

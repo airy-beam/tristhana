@@ -10,7 +10,7 @@ import re
 import time
 from collections.abc import Iterator
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -46,7 +46,9 @@ SHALA_KEYS = {
     "me",
     "days_off",  # SC-02
     "moon_policy",
+    "setup",  # UI-06 stage 4: the owner's setup list
 }
+SETUP = ["add_class", "invite_students", "invite_staff"]
 TEACHER, ASSISTANT, OFFICE, ADMIN = "teacher", "assistant", "office", "admin"
 SC02_PARAMETERS = {"class_id", "key", "closure_id", "from", "days"}  # SC-02 schedule routes
 SC05_PARAMETERS = {"q"}  # SC-05: the roster's name search
@@ -145,6 +147,114 @@ def test_create_returns_201_with_the_card(api: TestClient, storage: InMemoryStor
     }
     assert body["staff"] == [{"id": str(me), "name": "Ash", "owner": True, "roles": [TEACHER]}]
     assert body["students_total"] == 0
+    assert body["setup"] == SETUP  # UI-06 stage 4: a new shala has every step ahead
+
+
+def test_two_fields_are_enough_to_create(api: TestClient, storage: InMemoryStorage) -> None:
+    """UI-06 stage 4: the form asks for a name and a city; `online` and `roles` default."""
+    _me(api, storage)
+
+    response = api.post(
+        "/api/v1/shalas", json={"name": "Ashtanga Almaty", "city": "almaty"}, headers=_auth()
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert (body["online"], body["moon_city"], body["moon_policy"]) == (False, None, "closed")
+    assert (body["days_off"], body["me"]["roles"]) == (None, [])
+
+
+# The setup list (UI-06 stage 4, spec §5-§6; Q339)
+
+
+def _setup(api: TestClient, shala: UUID, user_id: int = ME_TG) -> list[str] | None:
+    card = api.get(f"/api/v1/shalas/{shala}", headers=_auth(user_id))
+    assert card.status_code == 200, card.text
+    return card.json()["setup"]
+
+
+def test_the_owners_setup_list_shrinks_as_the_shala_fills(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    _me(api, storage)
+    created = api.post(
+        "/api/v1/shalas",
+        json={"name": "Ashtanga Almaty", "city": "almaty", "roles": [TEACHER]},
+        headers=_auth(),
+    )
+    shala = UUID(created.json()["id"])
+
+    assert created.json()["setup"] == SETUP
+    assert _setup(api, shala) == SETUP
+    storage.schedule.add_class(shala)
+    assert _setup(api, shala) == ["invite_students", "invite_staff"]
+    storage.shalas.add_student(shala, _person(storage, "2001", "Bea").id)
+    assert _setup(api, shala) == ["invite_staff"]  # the optional step alone (Q339)
+    storage.shalas.add_staff(shala, _person(storage, "2002", "Boris").id, ShalaRole.TEACHER)
+    assert _setup(api, shala) == []  # set up: the list leaves
+
+
+def test_students_before_the_first_class_leave_the_class_step(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me)
+    storage.shalas.add_student(shala, _person(storage, "2001", "Bea").id)
+
+    assert _setup(api, shala) == ["add_class", "invite_staff"]
+
+
+def test_the_setup_counts_what_the_today_card_counts(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    """An ended series is still a class (as `journey_facts`); the last one deleted brings
+    the step back, because nothing is stored."""
+    me = _me(api, storage)
+    shala = _shala(storage, me)
+    ended = storage.schedule.add_class(shala, ends_on=date(2026, 1, 31)).id
+
+    assert _setup(api, shala) == ["invite_students", "invite_staff"]
+    gone = api.delete(f"/api/v1/shalas/{shala}/classes/{ended}", headers=_auth())
+    assert gone.status_code == 204
+    assert _setup(api, shala) == SETUP
+
+
+def test_another_shalas_classes_do_not_count(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    mine = _shala(storage, me)
+    _, theirs = _owned_by_other(storage)
+    storage.schedule.add_class(theirs)
+
+    assert _setup(api, mine) == SETUP
+
+
+@pytest.mark.parametrize("role", [ADMIN, TEACHER, ASSISTANT, OFFICE, None])
+def test_setup_is_null_for_everyone_but_the_owner(
+    api: TestClient, storage: InMemoryStorage, role: str | None
+) -> None:
+    """The list is the owner's own to-do: a Manager and a student get null, not []."""
+    me = _me(api, storage)
+    _, shala = _owned_by_other(storage)
+    if role is None:
+        storage.shalas.add_student(shala, me)
+    else:
+        storage.shalas.add_staff(shala, me, ShalaRole(role))
+
+    assert _setup(api, shala) is None
+
+
+def test_every_card_answer_carries_the_setup(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me)
+    storage.schedule.add_class(shala)
+
+    patched = api.patch(f"/api/v1/shalas/{shala}", json={"name": "New"}, headers=_auth())
+    roles = api.put(
+        f"/api/v1/shalas/{shala}/staff/{me}", json={"roles": [TEACHER]}, headers=_auth()
+    )
+
+    assert patched.json()["setup"] == ["invite_students", "invite_staff"]
+    assert roles.json()["setup"] == ["invite_students", "invite_staff"]
 
 
 @pytest.mark.parametrize(
@@ -459,6 +569,28 @@ def test_put_roles_on_the_owner_is_403(api: TestClient, storage: InMemoryStorage
     )
 
     assert (response.status_code, response.json()) == (403, {"code": "not_allowed"})
+
+
+def test_the_owner_puts_their_own_roles(api: TestClient, storage: InMemoryStorage) -> None:
+    """Q337 (UI-06 stage 4): the owner's row in "Teachers and staff" is theirs to change."""
+    me = _me(api, storage)
+    shala = _shala(storage, me)
+    url = f"/api/v1/shalas/{shala}/staff/{me}"
+
+    changed = api.put(url, json={"roles": [ASSISTANT, OFFICE]}, headers=_auth())
+    manager = api.put(url, json={"roles": [ADMIN, TEACHER]}, headers=_auth())
+    cleared = api.put(url, json={"roles": []}, headers=_auth())
+
+    assert changed.status_code == 200, changed.text
+    assert set(changed.json()) == SHALA_KEYS
+    assert changed.json()["me"]["owner"] is True
+    assert sorted(changed.json()["me"]["roles"]) == [ASSISTANT, OFFICE]
+    assert changed.json()["staff"] == [
+        {"id": str(me), "name": "Ash", "owner": True, "roles": [ASSISTANT, OFFICE]}
+    ]
+    assert (manager.status_code, manager.json()) == (403, {"code": "not_allowed"})
+    assert (cleared.status_code, cleared.json()["me"]["roles"]) == (200, [])
+    assert cleared.json()["me"]["schedule"] is True  # the owner's rights never hang on a role
 
 
 @pytest.mark.parametrize("side", ["staff", "students"])

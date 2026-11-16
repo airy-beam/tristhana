@@ -48,6 +48,7 @@ from tristhana.domain.classes import (
     MAX_CLASSES,
     MAX_FUTURE_CLOSURES,
     MAX_FUTURE_SWAPS,
+    ClassPatch,
     ClassType,
     InvalidClass,
     MoonPolicy,
@@ -427,11 +428,7 @@ async def test_an_edit_from_a_date_splits_and_carries_later_overrides(
     world.schedule.add_override(old.id, _ov(NOV[20], OverrideStatus.CANCELLED))
 
     new = await world.update().execute(
-        world.me(cast.owner),
-        cast.shala,
-        old.id,
-        _draft(start=time(7, 0), starts_on=NOV[2]),
-        from_date=NOV[16],
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(start=time(7, 0)), from_date=NOV[16]
     )
 
     assert new.id != old.id
@@ -450,15 +447,318 @@ async def test_an_edit_of_all_dates_keeps_the_id(world: World, cast: Cast) -> No
     old = world.schedule.add_class(cast.shala)
 
     new = await world.update().execute(
-        world.me(cast.owner), cast.shala, old.id, _draft(minutes=180), from_date=None
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(minutes=180), from_date=None
     )
 
     assert (new.id, new.minutes) == (old.id, 180)
 
 
 async def test_editing_an_unknown_class_is_not_found(world: World, cast: Cast) -> None:
+    world.schedule.add_class(cast.shala)
+    world.schedule.reads.clear()
+
     with pytest.raises(NotFound):
-        await world.update().execute(world.me(cast.owner), cast.shala, uuid4(), _draft())
+        await world.update().execute(
+            world.me(cast.owner), cast.shala, uuid4(), ClassPatch(minutes=180)
+        )
+
+    assert (world.schedule.reads, world.schedule.writes) == (["classes_of"], [])
+
+
+# UI-06 stage 4 (spec §3, §6; ADR-0048): the use case owns the read and the merge, an edit
+# applies from a date, and the past is not rewritten.
+
+
+async def test_only_the_sent_fields_change(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(
+        cast.shala,
+        type=ClassType.LED,
+        title="Led Primary",
+        online=True,
+        city="berlin",
+        teacher_id=cast.teacher.id,
+        start=time(7, 30),
+        minutes=90,
+        weekdays=frozenset({5}),
+        every=2,
+        starts_on=NOV[13],
+        ends_on=date(2027, 3, 26),
+    )
+    world.schedule.reads.clear()
+
+    new = await world.update().execute(
+        world.me(cast.office), cast.shala, old.id, ClassPatch(minutes=105)
+    )
+
+    assert new == replace(old, minutes=105)
+    assert world.schedule.reads == ["classes_of", "update"]  # with the account: 3 statements
+
+
+async def test_a_patch_may_change_every_field(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(cast.shala, starts_on=NOV[9])
+    patch = ClassPatch(
+        type=ClassType.PRANAYAMA,
+        title="  Sunday  breath ",
+        online=True,
+        city="berlin",
+        teacher_id=cast.teacher.id,
+        start=time(18, 0),
+        minutes=60,
+        weekdays=frozenset({7}),
+        every=3,
+        starts_on=NOV[15],
+        ends_on=date(2027, 1, 31),
+    )
+
+    new = await world.update().execute(world.me(cast.owner), cast.shala, old.id, patch)
+
+    assert new == replace(
+        old,
+        type=ClassType.PRANAYAMA,
+        title="Sunday breath",
+        online=True,
+        city="berlin",
+        teacher_id=cast.teacher.id,
+        start=time(18, 0),
+        minutes=60,
+        weekdays=frozenset({7}),
+        every=3,
+        starts_on=NOV[15],
+        ends_on=date(2027, 1, 31),
+    )
+
+
+async def test_null_clears_the_four_fields_that_may_be_empty(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(
+        cast.shala,
+        title="Early",
+        online=True,
+        city="berlin",
+        teacher_id=cast.teacher.id,
+        ends_on=date(2027, 1, 31),
+    )
+
+    new = await world.update().execute(
+        world.me(cast.owner),
+        cast.shala,
+        old.id,
+        ClassPatch(title=None, city=None, teacher_id=None, ends_on=None),
+    )
+
+    assert (new.title, new.city, new.teacher_id, new.ends_on) == (None, None, None, None)
+    assert (new.id, new.online, new.start, new.weekdays) == (old.id, True, old.start, MON_FRI)
+
+
+async def test_the_merged_class_is_checked_as_a_whole(world: World, cast: Cast) -> None:
+    """A field that is fine by itself can break the stored rest: 22:00 plus the stored 210
+    minutes runs past midnight; a city on a class that is not online has no meaning."""
+    old = world.schedule.add_class(cast.shala)
+
+    for patch in (ClassPatch(start=time(22, 0)), ClassPatch(city="berlin"), ClassPatch(every=5)):
+        with pytest.raises(InvalidClass):
+            await world.update().execute(world.me(cast.owner), cast.shala, old.id, patch)
+    with pytest.raises(UnknownLocation):
+        await world.update().execute(
+            world.me(cast.owner), cast.shala, old.id, ClassPatch(online=True, city="atlantis")
+        )
+
+    assert world.schedule.writes == []
+    assert world.schedule.of(cast.shala) == [old]
+
+
+async def test_who_may_edit_a_class(world: World, cast: Cast) -> None:
+    """Q118, unchanged: the owner, a manager, a teacher and the front desk; an assistant and
+    a student are refused before anything is read back, a stranger sees no shala."""
+    old = world.schedule.add_class(cast.shala)
+    patch = ClassPatch(minutes=180)
+
+    for who in (cast.owner, cast.admin, cast.teacher, cast.office):
+        await world.update().execute(world.me(who), cast.shala, old.id, patch)
+    for who in (cast.assistant, cast.student):
+        with pytest.raises(NotAllowed):
+            await world.update().execute(world.me(who), cast.shala, old.id, patch)
+    with pytest.raises(NotFound):
+        await world.update().execute(world.me(cast.stranger), cast.shala, old.id, patch)
+
+    assert world.schedule.writes == ["update"] * 4
+
+
+async def test_a_class_of_another_shala_is_not_found(world: World, cast: Cast) -> None:
+    other = world.shala(world.person("30", "Boris"))
+    theirs = world.schedule.add_class(other)
+
+    with pytest.raises(NotFound):
+        await world.update().execute(
+            world.me(cast.owner), cast.shala, theirs.id, ClassPatch(minutes=180)
+        )
+
+    assert world.schedule.of(other) == [theirs]
+
+
+async def test_a_split_keeps_the_fields_that_were_not_sent(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(
+        cast.shala, title="Early", teacher_id=cast.teacher.id, starts_on=NOV[2]
+    )
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(start=time(7, 0)), from_date=NOV[16]
+    )
+
+    assert new == replace(old, id=new.id, start=time(7, 0), starts_on=NOV[16])
+    rows = {c.id: c for c in world.schedule.of(cast.shala)}
+    assert rows[old.id] == replace(old, ends_on=NOV[15])  # the past is not rewritten
+
+
+async def test_a_sent_start_date_does_not_move_a_split(world: World, cast: Cast) -> None:
+    """With `from` on a running class the successor starts on `from`, whatever was sent."""
+    old = world.schedule.add_class(cast.shala, starts_on=NOV[2])
+
+    new = await world.update().execute(
+        world.me(cast.owner),
+        cast.shala,
+        old.id,
+        ClassPatch(starts_on=NOV[23], minutes=180),
+        from_date=NOV[16],
+    )
+
+    assert (new.id != old.id, new.starts_on) == (True, NOV[16])
+
+
+async def test_a_series_ended_before_the_date_is_gone_for_this_edit(
+    world: World, cast: Cast
+) -> None:
+    """D3: another staff member split it a moment ago. No second successor, no misleading
+    422: the class is gone for this edit (404), whether a last date was sent or not."""
+    ended = world.schedule.add_class(cast.shala, starts_on=NOV[2], ends_on=NOV[8])
+    world.schedule.add_class(cast.shala, starts_on=NOV[9], start=time(7, 0))  # its successor
+    before = world.schedule.of(cast.shala)
+
+    for patch in (ClassPatch(minutes=180), ClassPatch(minutes=180, ends_on=date(2027, 1, 31))):
+        with pytest.raises(NotFound):
+            await world.update().execute(
+                world.me(cast.owner), cast.shala, ended.id, patch, from_date=NOV[9]
+            )
+
+    assert world.schedule.of(cast.shala) == before
+    assert world.schedule.writes == []
+
+
+async def test_a_series_ending_on_the_date_itself_still_splits(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(cast.shala, starts_on=NOV[2], ends_on=NOV[9])
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(minutes=180), from_date=NOV[9]
+    )
+
+    assert (new.starts_on, new.ends_on, new.minutes) == (NOV[9], NOV[9], 180)
+    rows = {c.id: c for c in world.schedule.of(cast.shala)}
+    assert rows[old.id].ends_on == NOV[8]
+
+
+async def test_a_last_date_before_the_split_is_refused(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(cast.shala, starts_on=NOV[2])
+
+    with pytest.raises(InvalidClass):
+        await world.update().execute(
+            world.me(cast.owner), cast.shala, old.id, ClassPatch(ends_on=NOV[10]), NOV[16]
+        )
+
+    assert world.schedule.writes == []
+
+
+@pytest.mark.parametrize("from_date", [NOV[5], date(2027, 11, 8)])
+async def test_the_date_is_bounded_by_the_callers_today(
+    world: World, cast: Cast, from_date: date
+) -> None:
+    """[yesterday, today + 365] by the caller's date (Sat 7 Nov): the past is not rewritten
+    from further back either."""
+    old = world.schedule.add_class(cast.shala, starts_on=date(2026, 10, 5))
+
+    with pytest.raises(InvalidClass):
+        await world.update().execute(
+            world.me(cast.owner), cast.shala, old.id, ClassPatch(minutes=180), from_date
+        )
+
+    assert world.schedule.writes == []
+
+
+@pytest.mark.parametrize("from_date", [NOV[6], NOV[9]])
+async def test_a_class_that_has_not_started_changes_whole(
+    world: World, cast: Cast, from_date: date
+) -> None:
+    """`from` on or before the start: nothing to keep, so the id and the start stay."""
+    old = world.schedule.add_class(cast.shala, starts_on=NOV[9])
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(start=time(7, 0)), from_date
+    )
+
+    assert new == replace(old, start=time(7, 0))
+    assert world.schedule.of(cast.shala) == [new]
+
+
+async def test_a_one_off_changes_whole(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(
+        cast.shala, type=ClassType.WORKSHOP, weekdays=frozenset[int](), starts_on=NOV[6]
+    )
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(minutes=120), from_date=NOV[7]
+    )
+
+    assert new == replace(old, minutes=120)
+    assert world.schedule.of(cast.shala) == [new]
+
+
+@pytest.mark.parametrize(
+    ("asked", "written"),
+    [(NOV[9], NOV[16]), (NOV[13], NOV[16]), (NOV[16], NOV[16]), (NOV[18], NOV[18])],
+)
+async def test_every_two_weeks_keeps_its_rhythm_through_a_split(
+    world: World, cast: Cast, asked: date, written: date
+) -> None:
+    """D2: Mondays every 2 weeks from 2 Nov run on 2, 16 and 30 Nov. Asked from the off week
+    of 9 Nov, the successor starts in the next week of the rule, so 16 and 30 Nov stay."""
+    old = world.schedule.add_class(cast.shala, weekdays=frozenset({1}), every=2, starts_on=NOV[2])
+    before = await world.get().execute(world.me(cast.owner), cast.shala, NOV[2], 31)
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(start=time(7, 0)), from_date=asked
+    )
+
+    assert new.starts_on == written
+    after = await world.get().execute(world.me(cast.owner), cast.shala, NOV[2], 31)
+    assert [o.on for o in after.occurrences] == [o.on for o in before.occurrences]
+    assert [(o.on, o.start) for o in after.occurrences] == [
+        (day, time(7, 0) if day >= asked else time(6, 0)) for day in (NOV[2], NOV[16], NOV[30])
+    ]
+
+
+async def test_a_new_interval_counts_from_the_date_asked(world: World, cast: Cast) -> None:
+    old = world.schedule.add_class(cast.shala, weekdays=frozenset({1}), every=2, starts_on=NOV[2])
+
+    new = await world.update().execute(
+        world.me(cast.owner), cast.shala, old.id, ClassPatch(every=1), from_date=NOV[9]
+    )
+
+    assert (new.starts_on, new.every) == (NOV[9], 1)
+
+
+async def test_a_series_that_ends_in_its_off_week_has_nothing_left_to_change(
+    world: World, cast: Cast
+) -> None:
+    """Every 2 weeks, last date Wed 11 Nov, asked from Mon 9 Nov: the rule has no date left
+    from there on, and its next week (16 Nov) is past the end. Gone for this edit."""
+    old = world.schedule.add_class(
+        cast.shala, weekdays=frozenset({1}), every=2, starts_on=NOV[2], ends_on=NOV[11]
+    )
+
+    with pytest.raises(NotFound):
+        await world.update().execute(
+            world.me(cast.owner), cast.shala, old.id, ClassPatch(minutes=180), from_date=NOV[9]
+        )
+
+    assert world.schedule.of(cast.shala) == [old]
 
 
 async def test_delete_is_idempotent(world: World, cast: Cast) -> None:

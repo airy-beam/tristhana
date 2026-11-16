@@ -71,6 +71,7 @@ from tristhana.infrastructure.db.tables import (
     account,
     class_attendance,
     identity,
+    shala_class,
     shala_staff,
     shala_staff_invite,
     shala_student,
@@ -178,6 +179,17 @@ def _student_count(shala_id: Any) -> Any:
     )
 
 
+def _class_count(shala_id: Any) -> Any:
+    """Class series, ended ones included: the count `journey_statement` reads for the Today
+    card, by the same index prefix `shala_class (shala_id, starts_on)`."""
+    return (
+        select(func.count())
+        .select_from(shala_class)
+        .where(shala_class.c.shala_id == shala_id)
+        .scalar_subquery()
+    )
+
+
 def _card_columns() -> tuple[Any, ...]:
     return (
         _S.c.id,
@@ -190,6 +202,7 @@ def _card_columns() -> tuple[Any, ...]:
         _S.c.moon_policy,
         _ordered_staff(_S.c.id).label("staff"),
         _student_count(_S.c.id).label("students_total"),
+        _class_count(_S.c.id).label("classes_total"),
     )
 
 
@@ -233,6 +246,7 @@ def _card(row: Row[Any], me: Membership, staff: tuple[StaffMember, ...] | None =
         me=me,
         days_off=from_mask(row.days_off) or None,
         moon_policy=MoonPolicy(row.moon_policy),
+        classes_total=row.classes_total,
     )
 
 

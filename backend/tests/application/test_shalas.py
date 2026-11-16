@@ -7,7 +7,7 @@ clock throughout."""
 
 import ast
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -56,9 +56,11 @@ from tristhana.application.shalas import (
     SetStaffRoles,
     ShalaPatch,
     UpdateShala,
+    setup_of,
 )
 from tristhana.application.teacher_links import AcceptInvite, RemoveTeacher
 from tristhana.domain.accounts import Account
+from tristhana.domain.journey import SetupStep
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import FOLLOW_SHALA, FOLLOW_TEACHER, MoonSource
 from tristhana.domain.shalas import (
@@ -730,6 +732,43 @@ async def test_set_roles_per_policy(world: World) -> None:
 
     assert {s.id: s.roles for s in card.staff}[tom.id] == frozenset({TEACHER, OFFICE})
     assert world.shalas.membership(shala, dana.id).roles == frozenset({ADMIN})  # type: ignore[union-attr]
+
+
+async def test_the_setup_list_is_the_owners_alone(world: World) -> None:
+    """UI-06 stage 4: derived from the card's own counts, and None for everyone else."""
+    anna, dana, bea = world.person("1", "Anna"), world.person("4", "Dana"), world.person("6")
+    shala = world.shala(anna)
+    world.shalas.add_staff(shala, dana.id, ADMIN)
+    world.shalas.add_student(shala, bea.id)
+    get = GetShala(world.shalas)
+
+    owner = await get.execute(world.me(anna), shala)
+    manager = await get.execute(world.me(dana), shala)
+    student = await get.execute(world.me(bea), shala)
+
+    assert setup_of(owner) == (SetupStep.ADD_CLASS,)
+    assert setup_of(replace(owner, classes_total=2)) == ()
+    assert (setup_of(manager), setup_of(student)) == (None, None)
+
+
+async def test_the_owner_changes_their_own_roles(world: World) -> None:
+    """Q337 (UI-06 stage 4): two-field creation sets Teacher silently, so the owner must be
+    able to change it afterwards. Manager stays out: the owner already holds every right."""
+    anna, dana = world.person("1", "Anna"), world.person("4", "Dana")
+    shala = world.shala(anna)
+    world.shalas.add_staff(shala, dana.id, ADMIN)
+    set_roles = SetStaffRoles(world.shalas)
+
+    card = await set_roles.execute(world.me(anna), shala, anna.id, frozenset({ASSISTANT, OFFICE}))
+    with pytest.raises(NotAllowed):
+        await set_roles.execute(world.me(anna), shala, anna.id, frozenset({ADMIN}))
+    with pytest.raises(NotAllowed):
+        await set_roles.execute(world.me(dana), shala, anna.id, frozenset({TEACHER}))
+
+    assert (card.me.owner, card.me.roles) == (True, frozenset({ASSISTANT, OFFICE}))
+    assert {s.id: s.roles for s in card.staff}[anna.id] == frozenset({ASSISTANT, OFFICE})
+    cleared = await set_roles.execute(world.me(anna), shala, anna.id, frozenset())
+    assert (cleared.me.owner, cleared.me.roles) == (True, frozenset())
 
 
 async def test_remove_and_leave_staff(world: World) -> None:

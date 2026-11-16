@@ -34,7 +34,12 @@ from tristhana.application.attendance import (
 from tristhana.application.classes import GetMySchedule, GetSchedule
 from tristhana.application.policies import NotAllowed, NotFound, Principal
 from tristhana.domain.accounts import Account
-from tristhana.domain.attendance import AttendanceState, Counts, InvalidAttendance
+from tristhana.domain.attendance import (
+    AttendanceState,
+    Counts,
+    InvalidAttendance,
+    NotAttendable,
+)
 from tristhana.domain.classes import ClassType
 from tristhana.domain.shalas import ShalaRole
 from tristhana.infrastructure.db import migrate
@@ -157,6 +162,123 @@ async def test_claim_keeps_a_snapshot_and_never_downgrades(w: W) -> None:
     again = await w.claim().execute(await w.me(w.sam), w.mysore, MON)
     assert again.state is C
     assert {r.state for r in await w.rows()} == {"confirmed"}
+
+
+# UI-06 stage 4 (ADR-0048, D1): a class changed "from a date" keeps its marks
+
+
+async def _split(w: W, from_date: date, **kw: Any) -> UUID:
+    """The world's Mysore changed from `from_date`, in one statement. Returns the new id."""
+    from tests.infrastructure.test_db_classes import _draft  # pyright: ignore[reportPrivateUsage]
+
+    fields: dict[str, Any] = {
+        "weekdays": EVERY_DAY,
+        "starts_on": date(2026, 10, 1),
+        "teacher_id": w.owner.id,
+        "title": "Morning Mysore",
+    }
+    draft = _draft(**(fields | kw))
+    with _statements(w.engine) as seen:
+        split = await w.schedule.update(w.shala, w.owner.id, w.mysore, draft, from_date)
+    assert len(seen) == 1, seen
+    assert split.done
+    assert split.value is not None
+    assert split.value.id != w.mysore
+    return split.value.id
+
+
+def _without_class(row: Any) -> dict[str, Any]:
+    return {k: v for k, v in row._asdict().items() if k != "class_id"}
+
+
+async def test_a_split_carries_the_marks_from_its_date_on(w: W) -> None:
+    """Today's class is edited after it ran: its marks follow the new id, so the roster and
+    My schedule still show them; yesterday's stay where they were. Nothing else of a row
+    changes: the snapshot keeps the time and type that were true, `updated_at` included."""
+    sam, tara = await w.me(w.sam), await w.me(w.tara)
+    await w.claim().execute(sam, w.mysore, SUN)
+    await w.claim().execute(sam, w.mysore, MON)
+    await w.mark().execute(tara, w.mysore, MON, present=[w.vera.id])
+    before = {(r.account_id, r.occurrence_key): r for r in await w.rows()}
+
+    new = await _split(w, MON, start=time(7, 0))
+
+    after = {(r.account_id, r.occurrence_key): r for r in await w.rows()}
+    assert {k: r.class_id for k, r in after.items()} == {
+        (w.sam.id, SUN): w.mysore,
+        (w.sam.id, MON): new,
+        (w.vera.id, MON): new,
+    }
+    assert {k: _without_class(r) for k, r in after.items()} == {
+        k: _without_class(r) for k, r in before.items()
+    }
+    assert after[(w.sam.id, MON)].starts_at == datetime(2026, 11, 9, 1, 0, tzinfo=UTC)  # 06:00
+    roster = await w.roster().execute(tara, new, MON)
+    assert roster.counts == Counts(1, 1)
+    assert {p.name: p.state for p in roster.people} == {"Sam": K, "Vera": C}
+    yesterday = await w.roster().execute(tara, w.mysore, SUN)
+    assert yesterday.counts == Counts(0, 1)
+    mine = await GetMySchedule(w.schedule, w.clock, cities()).execute(sam, MON, 1)
+    assert [(r.occurrence.class_id, r.attendance) for r in mine.rows] == [(new, K)]
+
+
+async def test_a_second_claim_after_a_split_does_not_double_the_row(w: W) -> None:
+    """The unique key (class, rule date, person) holds: the claim meets the carried row."""
+    sam, tara = await w.me(w.sam), await w.me(w.tara)
+    await w.claim().execute(sam, w.mysore, MON)
+    await w.mark().execute(tara, w.mysore, MON, confirm_claims=True)
+
+    new = await _split(w, MON)
+
+    again = await w.claim().execute(sam, new, MON)
+    assert again.state is C  # the confirmed mark was carried, and is never downgraded
+    assert await w.mark().execute(tara, new, MON, present=[w.sam.id]) == Counts(1, 0)
+    assert [(r.class_id, r.account_id, r.state) for r in await w.rows()] == [
+        (new, w.sam.id, "confirmed")
+    ]
+    with pytest.raises(NotAttendable):  # the old id has no such date any more
+        await w.claim().execute(sam, w.mysore, MON)
+    assert len(await w.rows()) == 1
+
+
+async def test_a_split_leaves_marks_on_dates_the_new_rule_drops(w: W) -> None:
+    """From Sun 8 Nov the class runs on weekdays only: Sunday's mark stays on the ended
+    series (history by shala and date still reads it), Monday's follows."""
+    sam = await w.me(w.sam)
+    await w.claim().execute(sam, w.mysore, SUN)
+    await w.claim().execute(sam, w.mysore, MON)
+
+    new = await _split(w, SUN, weekdays=frozenset({1, 2, 3, 4, 5}))
+
+    assert {r.occurrence_key: r.class_id for r in await w.rows()} == {SUN: w.mysore, MON: new}
+
+
+async def test_a_split_carries_marks_only_in_the_weeks_of_the_new_rule(w: W) -> None:
+    """The SQL rule (`_produces`) counts weeks from the successor's start: every 2 weeks
+    from Mon 2 Nov makes Mon 2 and not Mon 9."""
+    sam = await w.me(w.sam)
+    w.clock.instant = datetime(2026, 11, 9, 3, 0, tzinfo=UTC)
+    for key in (date(2026, 11, 3), date(2026, 11, 4), MON):
+        await w.claim().execute(sam, w.mysore, key)
+
+    new = await _split(w, date(2026, 11, 3), every=2, weekdays=frozenset({1, 3}))
+
+    assert {r.occurrence_key: r.class_id for r in await w.rows()} == {
+        date(2026, 11, 3): w.mysore,  # a Tuesday: dropped
+        date(2026, 11, 4): new,  # Wednesday of the first week
+        MON: w.mysore,  # the off week
+    }
+
+
+async def test_a_split_moves_no_other_class_or_shalas_marks(w: W) -> None:
+    led = await w.add_class(type=ClassType.LED, start=time(7, 0), minutes=90)
+    sam = await w.me(w.sam)
+    await w.claim().execute(sam, led, MON)
+    await w.claim().execute(sam, w.mysore, MON)
+
+    new = await _split(w, MON)
+
+    assert {r.class_id for r in await w.rows()} == {led, new}
 
 
 async def test_a_staff_self_claim_is_confirmed(w: W) -> None:

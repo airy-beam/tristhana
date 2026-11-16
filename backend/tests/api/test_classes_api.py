@@ -9,6 +9,7 @@ import json
 import re
 import time as wall
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
@@ -427,6 +428,229 @@ def test_patch_from_a_date_returns_the_new_series(
     body = response.json()
     assert body["id"] != str(old.id)
     assert (body["start"], body["starts_on"]) == ("07:00", "2026-11-16")
+
+
+# UI-06 stage 4 (spec §3, §6; ADR-0048): class editing through the existing `PATCH`
+
+
+def _patch(api: TestClient, shala: UUID, cls: UUID, body: dict[str, Any]) -> Any:
+    return api.patch(f"/api/v1/shalas/{shala}/classes/{cls}", json=body, headers=_auth())
+
+
+def test_patch_changes_only_what_was_sent(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, "office")
+    anna = storage.shalas.shalas[shala].owner_id
+    old = storage.schedule.add_class(
+        shala,
+        type=ClassType.LED,
+        title="Led Primary",
+        teacher_id=anna,
+        start=time(7, 30),
+        minutes=90,
+        weekdays=frozenset({5}),
+        every=2,
+        starts_on=date(2026, 11, 13),
+        ends_on=date(2027, 3, 26),
+    )
+    before = api.get(f"/api/v1/shalas/{shala}/classes", headers=_auth()).json()[0]
+
+    response = _patch(api, shala, old.id, {"minutes": 105})
+
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert set(response.json()) == CLASS_KEYS
+    assert response.json() == before | {"minutes": 105}
+    assert storage.schedule.reads[-2:] == ["classes_of", "update"]  # 3 statements with me
+
+
+def test_patch_null_clears_what_may_be_empty(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, "owner")
+    old = storage.schedule.add_class(
+        shala, title="Early", online=True, city="berlin", teacher_id=me, ends_on=date(2027, 1, 31)
+    )
+
+    response = _patch(
+        api, shala, old.id, {"title": None, "city": None, "teacher_id": None, "ends_on": None}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["title"], body["city"], body["teacher_id"], body["ends_on"]) == (None,) * 4
+    assert (body["id"], body["online"], body["start"]) == (str(old.id), True, "06:00")
+
+
+@pytest.mark.parametrize(
+    "field", ["type", "online", "start", "minutes", "weekdays", "every", "starts_on"]
+)
+def test_patch_null_for_a_field_that_cannot_be_empty_is_422(
+    api: TestClient, storage: InMemoryStorage, field: str
+) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, "owner")
+    old = storage.schedule.add_class(shala)
+
+    response = _patch(api, shala, old.id, {field: None})
+
+    assert (response.status_code, response.json()) == (422, {"code": "invalid_class"})
+    assert storage.schedule.of(shala) == [old]
+
+
+def test_an_empty_patch_changes_nothing(api: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, "owner")
+    old = storage.schedule.add_class(shala, title="Early")
+
+    response = _patch(api, shala, old.id, {})
+
+    assert response.status_code == 200, response.text
+    assert storage.schedule.of(shala) == [old]
+
+
+def test_patch_an_unknown_or_foreign_class_is_404(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(api, storage)
+    shala = _shala(storage, me, "owner")
+    storage.schedule.add_class(shala)
+    boris = person(storage, "1003", "Boris")
+    theirs = storage.schedule.add_class(storage.shalas.add_shala(boris.id).id)
+
+    for cls in (uuid4(), theirs.id):
+        response = _patch(api, shala, cls, {"minutes": 180, "from": "2026-11-09"})
+        assert (response.status_code, response.json()) == (404, {"code": "not_found"})
+    assert storage.schedule.writes == []
+
+
+@pytest.mark.parametrize("body", [{"minutes": 180}, {"minutes": 180, "ends_on": "2027-01-31"}])
+def test_patch_from_a_date_on_a_class_that_ended_before_it_is_404(
+    api: TestClient, storage: InMemoryStorage, body: dict[str, Any]
+) -> None:
+    """D3: someone else split it a moment ago. The form closes with "this class has changed"
+    (404), and no second successor appears, whether a last date was sent or not."""
+    me = _me(api, storage)
+    shala = _shala(storage, me, "teacher")
+    ended = storage.schedule.add_class(shala, ends_on=date(2026, 11, 8))
+    storage.schedule.add_class(shala, starts_on=MON, start=time(7, 0))  # the successor
+    before = storage.schedule.of(shala)
+
+    response = _patch(api, shala, ended.id, body | {"from": "2026-11-09"})
+
+    assert (response.status_code, response.json()) == (404, {"code": "not_found"})
+    assert storage.schedule.of(shala) == before
+    assert storage.schedule.writes == []
+
+
+def test_patch_from_a_date_keeps_an_every_two_weeks_rhythm(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    """D2: Mondays every 2 weeks from 2 Nov (2, 16, 30). Asked from Mon 9 Nov, an off week:
+    the new series starts on 16 Nov, so the class does not jump to the other weeks."""
+    me = _me(api, storage)
+    shala = _shala(storage, me, "owner")
+    old = storage.schedule.add_class(
+        shala, weekdays=frozenset({1}), every=2, starts_on=date(2026, 11, 2)
+    )
+
+    response = _patch(api, shala, old.id, {"start": "07:00", "from": "2026-11-09"})
+
+    assert response.status_code == 200, response.text
+    assert (response.json()["starts_on"], response.json()["every"]) == ("2026-11-16", 2)
+    schedule = api.get(
+        f"/api/v1/shalas/{shala}/schedule",
+        params={"from": "2026-11-02", "days": 31},
+        headers=_auth(),
+    ).json()
+    assert [(o["on"], o["start"]) for o in schedule["occurrences"]] == [
+        ("2026-11-02", "06:00"),
+        ("2026-11-16", "07:00"),
+        ("2026-11-30", "07:00"),
+    ]
+
+
+def test_patch_from_today_leaves_the_past_and_carries_todays_marks(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    """D1: today's class is edited after it ran (Sat 7 Nov, 11:00 Almaty; it began at 06:00).
+    Earlier dates keep the old id and the old title; today's marks follow the new id, so the
+    roster still shows them and a second claim meets the row instead of adding one."""
+    me = _me(api, storage)
+    storage.repo.accounts[me] = replace(storage.repo.accounts[me], timezone="Asia/Almaty")
+    shala = _shala(storage, me, "teacher")
+    vera = person(storage, "1002", "Vera")
+    storage.shalas.add_student(shala, vera.id)
+    old = storage.schedule.add_class(
+        shala, weekdays=frozenset(range(1, 8)), starts_on=date(2026, 10, 1)
+    )
+    storage.attendance  # attaches the fake to the schedule  # noqa: B018
+    base = f"/api/v1/shalas/{shala}/classes"
+
+    def roster(cls: object, key: str) -> str:
+        return f"{base}/{cls}/occurrences/{key}/attendance"
+
+    for key in ("2026-11-06", "2026-11-07"):
+        marked = api.patch(roster(old.id, key), json={"present": [str(vera.id)]}, headers=_auth())
+        assert marked.status_code == 200, marked.text
+    mine = api.put(f"/api/v1/me/attendance/{old.id}/2026-11-07", headers=_auth())
+    assert (mine.status_code, mine.json()["state"]) == (200, "confirmed")  # a staff seat
+
+    patched = _patch(api, shala, old.id, {"title": "Morning Mysore", "from": "2026-11-07"})
+
+    assert patched.status_code == 200, patched.text
+    new = patched.json()["id"]
+    assert (new != str(old.id), patched.json()["starts_on"]) == (True, "2026-11-07")
+    schedule = api.get(
+        f"/api/v1/shalas/{shala}/schedule", params={"from": "2026-11-05", "days": 4},
+        headers=_auth(),
+    ).json()  # fmt: skip
+    rows = {o["key"]: o for o in schedule["occurrences"]}
+    assert [(k, r["class_id"] == new, r["title"]) for k, r in rows.items()] == [
+        ("2026-11-05", False, None),
+        ("2026-11-06", False, None),
+        ("2026-11-07", True, "Morning Mysore"),
+        ("2026-11-08", True, "Morning Mysore"),
+    ]
+    assert rows["2026-11-06"]["attendance_counts"] == {"confirmed": 1, "claimed": 0}
+    assert rows["2026-11-07"]["attendance_counts"] == {"confirmed": 2, "claimed": 0}
+    today = api.get(roster(new, "2026-11-07"), headers=_auth()).json()
+    assert (today["confirmed"], today["claimed"]) == (2, 0)
+    assert {p["name"]: p["state"] for p in today["people"]} == {
+        "Ash": "confirmed",
+        "Vera": "confirmed",
+    }
+    yesterday = api.get(roster(old.id, "2026-11-06"), headers=_auth()).json()
+    assert (yesterday["confirmed"], yesterday["claimed"]) == (1, 0)
+    # A second claim and a second mark land on the carried rows.
+    again = api.put(f"/api/v1/me/attendance/{new}/2026-11-07", headers=_auth())
+    assert (again.status_code, again.json()["state"]) == (200, "confirmed")
+    marked = api.patch(roster(new, "2026-11-07"), json={"present": [str(vera.id)]}, headers=_auth())
+    assert marked.json() == {"confirmed": 2, "claimed": 0}
+    assert len(storage.attendance.rows) == 3
+    # The old id no longer has that date.
+    stale = api.put(f"/api/v1/me/attendance/{old.id}/2026-11-07", headers=_auth())
+    assert stale.status_code in (404, 409), stale.text
+    assert len(storage.attendance.rows) == 3
+
+
+def test_a_split_leaves_marks_on_dates_the_new_rule_drops(
+    api: TestClient, storage: InMemoryStorage
+) -> None:
+    """The class stops running on Saturdays from today (Sat 7 Nov): today's mark stays on
+    the ended series, with its own snapshot, and is not attached to another date."""
+    me = _me(api, storage)
+    storage.repo.accounts[me] = replace(storage.repo.accounts[me], timezone="Asia/Almaty")
+    shala = _shala(storage, me, "teacher")
+    old = storage.schedule.add_class(
+        shala, weekdays=frozenset(range(1, 8)), starts_on=date(2026, 10, 1)
+    )
+    storage.attendance  # noqa: B018
+    assert api.put(f"/api/v1/me/attendance/{old.id}/2026-11-07", headers=_auth()).status_code == 200
+
+    patched = _patch(api, shala, old.id, {"weekdays": [1, 2, 3, 4, 5], "from": "2026-11-07"})
+
+    assert patched.status_code == 200, patched.text
+    assert list(storage.attendance.rows) == [(old.id, TODAY, me)]
 
 
 def test_delete_is_204_and_idempotent(api: TestClient, storage: InMemoryStorage) -> None:

@@ -151,6 +151,8 @@ class InMemoryShalas:
     on_leave: list[Callable[[UUID, UUID], None]] = field(
         default_factory=list[Callable[[UUID, UUID], None]]
     )
+    # UI-06 stage 4: the card's class count; `InMemorySchedule` attaches itself.
+    classes_total: Callable[[UUID], int] | None = None
     _tick: int = 0
 
     # Seeding (not part of the port).
@@ -518,6 +520,8 @@ class InMemoryShalas:
         sc02: dict[str, Any] = {}
         if "days_off" in {f.name for f in fields(ShalaCard)}:  # SC-02's card fields
             sc02 = {"days_off": row.days_off, "moon_policy": row.moon_policy}
+        if self.classes_total is not None:
+            sc02["classes_total"] = self.classes_total(shala)
         return ShalaCard(
             id=row.id,
             name=row.name,

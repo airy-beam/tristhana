@@ -7,9 +7,10 @@ here reads a log: a class is never a log entry.
 """
 
 import datetime as _dt
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from datetime import date, datetime, timedelta
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 from tristhana.application.policies import (
@@ -37,6 +38,7 @@ from tristhana.domain.attendance import AttendanceState, Counts, attendable
 from tristhana.domain.classes import (
     CLOSURE_MAX,
     HORIZON,
+    KEEP,
     MAX_CLASSES,
     MAX_FUTURE_CLOSURES,
     MAX_FUTURE_SWAPS,
@@ -44,6 +46,7 @@ from tristhana.domain.classes import (
     MINUTES_MIN,
     MOVE_MAX,
     WINDOW_MAX,
+    ClassPatch,
     ClassSeries,
     ClassType,
     Closure,
@@ -60,6 +63,7 @@ from tristhana.domain.classes import (
     expand,
     local_date,
     shifts,
+    split_start,
 )
 from tristhana.domain.days import local_today
 from tristhana.domain.locale import Locale
@@ -144,23 +148,31 @@ def class_zone(window: ScheduleWindow, cities: Cities, class_id: UUID) -> str:
     return _zone(cities, window.city)
 
 
+_NO_ID = UUID(int=0)
+
+
+def _rule(c: ClassDraft, id: UUID = _NO_ID, zone: str = "UTC") -> ClassSeries:
+    """A written class as the domain's series. UTC is enough wherever only its dates matter."""
+    return ClassSeries(
+        id=id,
+        type=c.type,
+        title=c.title,
+        online=c.online,
+        zone=zone,
+        teacher_id=c.teacher_id,
+        start=c.start,
+        minutes=c.minutes,
+        weekdays=frozenset(c.weekdays),
+        every=c.every,
+        starts_on=c.starts_on,
+        ends_on=c.ends_on,
+    )
+
+
 def _series(window: ScheduleWindow, cities: Cities | None) -> list[ClassSeries]:
     """`cities` None: every class in UTC, enough for which dates hold which types."""
     return [
-        ClassSeries(
-            id=c.id,
-            type=c.type,
-            title=c.title,
-            online=c.online,
-            zone="UTC" if cities is None else _zone(cities, c.city or window.city),
-            teacher_id=c.teacher_id,
-            start=c.start,
-            minutes=c.minutes,
-            weekdays=frozenset(c.weekdays),
-            every=c.every,
-            starts_on=c.starts_on,
-            ends_on=c.ends_on,
-        )
+        _rule(c, c.id, "UTC" if cities is None else _zone(cities, c.city or window.city))
         for c in window.classes
     ]
 
@@ -201,23 +213,17 @@ def _checked(draft: ClassDraft, cities: Cities) -> ClassDraft:
         _zone(cities, draft.city)
     title = " ".join((draft.title or "").split()) or None  # one line (SC-05 roster)
     draft = replace(draft, title=title, weekdays=frozenset(draft.weekdays))
-    check_series(
-        ClassSeries(
-            id=UUID(int=0),
-            type=draft.type,
-            title=draft.title,
-            online=draft.online,
-            zone="UTC",
-            teacher_id=draft.teacher_id,
-            start=draft.start,
-            minutes=draft.minutes,
-            weekdays=draft.weekdays,
-            every=draft.every,
-            starts_on=draft.starts_on,
-            ends_on=draft.ends_on,
-        )
-    )
+    check_series(_rule(draft))
     return draft
+
+
+def _merged(current: ClassDraft, patch: ClassPatch) -> ClassDraft:
+    """`current` with the sent fields of `patch` laid over it."""
+    sent: dict[str, Any] = {
+        f.name: value for f in fields(patch) if (value := getattr(patch, f.name)) is not KEEP
+    }
+    kept: dict[str, Any] = {f.name: getattr(current, f.name) for f in fields(ClassDraft)}
+    return ClassDraft(**(kept | sent))
 
 
 def _within(day: date, today: date) -> None:
@@ -485,20 +491,39 @@ class UpdateClass:
         principal: Principal,
         shala: UUID,
         class_id: UUID,
-        draft: ClassDraft,
+        patch: ClassPatch,
         from_date: date | None = None,
     ) -> StoredClass:
-        """`from_date`: "applies from" (a split, ADR-0034); None = all dates. The result has a
-        new id after a split. `draft.starts_on` is the series' own: a `from` on or before it, or
-        on a one-off, changes all dates and never moves the start (review fix)."""
+        """Changes the sent fields of a class; the rest stay as stored (ADR-0048).
+
+        `from_date`: the change applies from that date. A weekly series that started before
+        it is split: it ends the day before, and a successor with a new id carries the
+        change, the later exceptions and the later attendance marks. A series repeating every
+        2-4 weeks keeps its rhythm (`split_start`), so the successor may start a few days
+        after `from_date`. A class that has not started by then, and a one-off, change
+        whole and keep their id and their own start. None changes every date in place.
+
+        Raises `NotFound` (also for a series that ended before `from_date`: for this edit
+        it is gone), `NotAllowed`, `InvalidClass`, `UnknownLocation`. Two statements: the
+        shala's classes, then the write. The write decides between a split and a whole
+        change on the row as it is then, so a `from_date` that splits nothing costs one more.
+        """
+        me = principal.account.id
+        found = _unwrap(await self._schedule.classes_of(shala, me)) or ()
+        current = next((c for c in found if c.id == class_id), None)
+        if current is None:
+            raise NotFound
+        draft = _merged(current, patch)
+        start = from_date
         if from_date is not None:
             _within(from_date, caller_today(principal, self._clock))
-            if draft.ends_on is not None and draft.ends_on < from_date:
+            start = split_start(_rule(current), draft.every, from_date)
+            if current.ends_on is not None and current.ends_on < start:
+                raise NotFound  # ended already, perhaps split by someone else a moment ago
+            if draft.ends_on is not None and draft.ends_on < start:
                 raise InvalidClass("until")
         draft = _checked(draft, self._cities)
-        updated = _unwrap(
-            await self._schedule.update(shala, principal.account.id, class_id, draft, from_date)
-        )
+        updated = _unwrap(await self._schedule.update(shala, me, class_id, draft, start))
         if updated is None:
             raise NotFound
         return updated

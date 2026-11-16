@@ -9,6 +9,7 @@ import asyncio
 import base64
 import itertools
 import json
+import re
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
@@ -31,6 +32,7 @@ from tristhana.application.policies import (
 )
 from tristhana.application.ports.shalas import NewShala, ShalaCaps
 from tristhana.application.ports.teacher_links import Caps
+from tristhana.application.shalas import GetShala, setup_of
 from tristhana.domain.accounts import (
     Account,
     IdentityKey,
@@ -40,6 +42,7 @@ from tristhana.domain.accounts import (
     ProfileUpdate,
     moon_follow_of,
 )
+from tristhana.domain.journey import SetupStep
 from tristhana.domain.moon import FOLLOW_SHALA, MoonSource, ShalaMoon, moon_follow
 from tristhana.domain.notifications import DEFAULTS
 from tristhana.domain.progression import Track
@@ -246,6 +249,119 @@ async def test_the_owner_has_a_staff_row_with_the_ticked_roles(engine: AsyncEngi
     assert card is not None
     assert card.me == Membership(shala, True, frozenset({TEACHER, ASSISTANT}), False)
     assert [(s.id, s.owner) for s in card.staff] == [(owner.id, True)]
+
+
+# UI-06 stage 4: the card counts the shala's classes for the owner's setup list
+
+
+async def _add_class(engine: AsyncEngine, shala: UUID, ends_on: date | None = None) -> None:
+    await _sql(
+        engine,
+        "INSERT INTO tristhana.shala_class (shala_id, type, start_time, minutes, weekdays,"
+        " starts_on, ends_on) VALUES (:s, 'mysore', '06:00', 210, 31, :a, :b)",
+        s=shala,
+        a=date(2026, 1, 5),
+        b=ends_on,
+    )
+
+
+async def test_the_card_counts_its_own_classes_in_the_same_statement(
+    engine: AsyncEngine,
+) -> None:
+    owner, _ = await _person(engine, "Anna")
+    other, _ = await _person(engine, "Boris")
+    shala = await _shala(engine, owner.id)
+    theirs = await _shala(engine, other.id)
+    repo = SqlShalaRepository(engine)
+    await _add_class(engine, theirs)
+    empty = await repo.card(shala, owner.id)
+    await _add_class(engine, shala)
+    await _add_class(engine, shala, ends_on=date(2026, 3, 1))  # ended: still a class
+
+    with _statements(engine) as seen:
+        card = await repo.card(shala, owner.id)
+
+    assert len(seen) == 1, seen
+    assert empty is not None
+    assert card is not None
+    assert (empty.classes_total, card.classes_total) == (0, 2)
+    assert re.search(r"FROM [^\n]*, tristhana\.\w+ *(\n|$)", seen[0]) is None  # no cross join
+
+
+async def test_the_setup_list_follows_the_shala_and_is_the_owners_alone(
+    engine: AsyncEngine,
+) -> None:
+    """The real card through the use case: every step ahead for a new shala, each gone once
+    its data exists, and None for a manager and a student whatever the counts."""
+    owner, owner_key = await _person(engine, "Anna")
+    dana, dana_key = await _person(engine, "Dana")
+    sam, sam_key = await _person(engine, "Sam")
+    repo = SqlShalaRepository(engine)
+    get = GetShala(repo)
+    created = await repo.create(
+        owner.id, NewShala("Ashtanga Almaty", "almaty", False, frozenset({TEACHER}), _code("J")),
+        CAPS, ON,
+    )  # fmt: skip
+    assert created is not None
+    shala = created.id
+    S = SetupStep
+
+    async def setup(key: IdentityKey) -> tuple[SetupStep, ...] | None:
+        return setup_of(await get.execute(Principal(await _find(engine, key)), shala))
+
+    assert setup_of(created) == (S.ADD_CLASS, S.INVITE_STUDENTS, S.INVITE_STAFF)
+    assert await setup(owner_key) == (S.ADD_CLASS, S.INVITE_STUDENTS, S.INVITE_STAFF)
+    await _add_class(engine, shala)
+    assert await setup(owner_key) == (S.INVITE_STUDENTS, S.INVITE_STAFF)
+    await _student(engine, shala, owner.id, sam.id)
+    assert await setup(owner_key) == (S.INVITE_STAFF,)
+    await _staff(engine, shala, owner.id, dana.id, ADMIN)
+    assert await setup(owner_key) == ()
+    assert await setup(dana_key) is None
+    assert await setup(sam_key) is None
+
+
+async def test_every_card_answer_carries_the_class_count(engine: AsyncEngine) -> None:
+    """`PATCH` and the roles write answer with a card too: the same count, still one
+    statement each (the Mini App replaces its cached card with these answers)."""
+    owner, _ = await _person(engine, "Anna")
+    shala = await _shala(engine, owner.id)
+    await _add_class(engine, shala)
+    repo = SqlShalaRepository(engine)
+
+    with _statements(engine) as seen:
+        patched = await repo.update(shala, owner.id, ShalaPatch(name="New name"))
+        roles = await repo.set_roles(shala, owner.id, owner.id, frozenset({TEACHER}))
+
+    assert len(seen) == 2, seen
+    assert patched.value is not None
+    assert roles.value is not None
+    assert (patched.value.classes_total, roles.value.classes_total) == (1, 1)
+
+
+async def test_the_owner_sets_their_own_roles(engine: AsyncEngine) -> None:
+    """Q337: the SQL guard follows the policy's new branch; a manager still cannot, and
+    Manager is not a role an owner takes."""
+    owner, _ = await _person(engine, "Anna")
+    dana, _ = await _person(engine, "Dana")
+    shala = await _shala(engine, owner.id, roles=frozenset({TEACHER}))
+    await _staff(engine, shala, owner.id, dana.id, ADMIN)
+    repo = SqlShalaRepository(engine)
+
+    own = await repo.set_roles(shala, owner.id, owner.id, frozenset({ASSISTANT, OFFICE}))
+    manager = await repo.set_roles(shala, owner.id, owner.id, frozenset({ADMIN}))
+    by_dana = await repo.set_roles(shala, dana.id, owner.id, frozenset({TEACHER}))
+
+    assert own.done
+    assert own.value is not None
+    assert own.value.me == Membership(shala, True, frozenset({ASSISTANT, OFFICE}), False)
+    assert [(s.id, s.owner, s.roles) for s in own.value.staff if s.owner] == [
+        (owner.id, True, frozenset({ASSISTANT, OFFICE}))
+    ]
+    assert (manager.done, by_dana.done) == (False, False)
+    card = await repo.card(shala, owner.id)
+    assert card is not None
+    assert card.me.roles == frozenset({ASSISTANT, OFFICE})
 
 
 async def test_the_owned_cap_holds(engine: AsyncEngine) -> None:

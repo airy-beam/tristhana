@@ -89,6 +89,10 @@ class InMemorySchedule:
     moon_ends: list[date | None] = field(default_factory=list[date | None])
     attendance: Any = None  # SC-05: tests/attendance_fakes.py attaches itself
 
+    def __post_init__(self) -> None:
+        # UI-06 stage 4: the shala card counts its class series, ended ones included.
+        self.shalas.classes_total = lambda shala: len(self.of(shala))
+
     # Seeding (not part of the port).
 
     def add_class(self, shala: UUID, **kw: Any) -> StoredClass:
@@ -253,9 +257,12 @@ class InMemorySchedule:
         draft: ClassDraft,
         from_date: date | None,
     ) -> Guarded[StoredClass]:
-        """Without `from`: the row changes. With it: the old series ends the day before and a
-        new one starts on it; overrides on or after `from` move to the new id. Overrides the
-        resulting rule no longer produces are deleted (ADR-0034)."""
+        """Without `from`: the row changes. With it, for a weekly series that started before
+        it: the old series ends the day before and a new one starts on it; overrides and
+        attendance on or after `from` move to the new id where the new rule makes the date
+        (ADR-0034, ADR-0048). Overrides the resulting rule no longer produces are deleted. A
+        series that starts on or after `from`, and a one-off, change whole; one that ended
+        before `from` is not written."""
         self._call("update")
         m = self._manager(shala, me)
         if m is None or not can_manage_schedule(m):
@@ -264,15 +271,26 @@ class InMemorySchedule:
         if found is None or found[0] != shala:
             return Guarded(m, True, None)
         old = found[1]
-        if from_date is None:
+        if from_date is None or not old.weekdays or old.starts_on >= from_date:
             new = StoredClass(id=old.id, **_fields(draft))
             self.classes[old.id] = (shala, new)
+        elif old.ends_on is not None and old.ends_on < from_date:
+            return Guarded(m, True, None)  # ended before `from`: gone for this edit
         else:
-            self.classes[old.id] = (shala, replace(old, ends_on=from_date - timedelta(days=1)))
+            last = from_date - timedelta(days=1)
+            ends = last if old.ends_on is None else min(old.ends_on, last)
+            self.classes[old.id] = (shala, replace(old, ends_on=ends))
             new = replace(StoredClass(id=uuid4(), **_fields(draft)), starts_on=from_date)
             self.classes[new.id] = (shala, new)
             for key in [k for k in self.overrides if k[0] == old.id and k[1] >= from_date]:
                 self.overrides[(new.id, key[1])] = self.overrides.pop(key)
+            if self.attendance is not None:
+                made = _as_series(new, "UTC")
+
+                def follows(key: date, made: ClassSeries = made, start: date = from_date) -> bool:
+                    return key >= start and key in set(rule_dates(made, key, key))
+
+                self.attendance.carry(old.id, new.id, follows)
         for cid in {old.id, new.id}:
             self._drop_stale(cid)
         self.writes.append("update")

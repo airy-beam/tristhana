@@ -7,8 +7,8 @@ the person's rows at that shala (Q186), through the shala fake's `on_leave` hook
 call `application/policies.py` themselves; `test_db_attendance.py` pins the SQL to them.
 """
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -80,6 +80,14 @@ class InMemoryAttendance:
                 else:
                     counts[(c, k)] = Counts(old.confirmed, old.claimed + 1)
         return {"mine": mine, "counts": counts}
+
+    def carry(self, old: UUID, new: UUID, follows: Callable[[date], bool]) -> None:
+        """ADR-0048: a split series' later marks follow the successor; the snapshot's time
+        and type stay as they were written."""
+        for k in [k for k in self.rows if k[0] == old and follows(k[1])]:
+            row = self.rows.pop(k)
+            row.snap = replace(row.snap, class_id=new)
+            self.rows[(new, k[1], k[2])] = row
 
     def _leave(self, shala: UUID, account: UUID) -> None:
         for k in [k for k, r in self.rows.items() if k[2] == account and r.snap.shala_id == shala]:
