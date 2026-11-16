@@ -70,6 +70,9 @@ pytestmark = pytest.mark.db
 
 ON = date(2026, 11, 7)
 NOW = datetime(2026, 11, 7, 12, 0, tzinfo=UTC)
+# Invite expiry is checked against the database clock, so it is set from the real one: a fixed
+# NOW + 7 days ran out on 2026-11-14 and every test that adds staff began to fail.
+IN_A_WEEK = datetime.now(UTC) + timedelta(days=7)
 CAPS = ShalaCaps(
     owned=MAX_OWNED,
     staff=MAX_STAFF,
@@ -133,7 +136,7 @@ async def _shala(
 async def _staff(engine: AsyncEngine, shala: UUID, owner: UUID, who: UUID, role: ShalaRole) -> None:
     repo = SqlShalaRepository(engine)
     code = _code("S")
-    invited = await repo.invite_staff(shala, owner, role, code, NOW + timedelta(days=7), CAPS)
+    invited = await repo.invite_staff(shala, owner, role, code, IN_A_WEEK, CAPS)
     assert invited.done
     accepted = await repo.accept_staff(code, who, CAPS, ON)
     assert accepted is not None
@@ -283,7 +286,7 @@ async def _populated(engine: AsyncEngine) -> tuple[UUID, Account, Account, Accou
     await _student(engine, shala, owner.id, student.id)
     assert (
         await SqlShalaRepository(engine).invite_staff(
-            shala, owner.id, OFFICE, _code("S"), NOW + timedelta(days=7), CAPS
+            shala, owner.id, OFFICE, _code("S"), IN_A_WEEK, CAPS
         )
     ).done
     return shala, owner, staff, student
@@ -328,9 +331,7 @@ async def test_two_concurrent_staff_accepts_make_one_row(engine: AsyncEngine) ->
     shala = await _shala(engine, owner.id)
     repo = SqlShalaRepository(engine)
     code = _code("S")
-    assert (
-        await repo.invite_staff(shala, owner.id, TEACHER, code, NOW + timedelta(days=7), CAPS)
-    ).done
+    assert (await repo.invite_staff(shala, owner.id, TEACHER, code, IN_A_WEEK, CAPS)).done
 
     results = await asyncio.gather(
         repo.accept_staff(code, a.id, CAPS, ON), repo.accept_staff(code, b.id, CAPS, ON)
@@ -347,9 +348,7 @@ async def test_a_double_tap_by_the_same_person_accepts_once(engine: AsyncEngine)
     shala = await _shala(engine, owner.id)
     repo = SqlShalaRepository(engine)
     code = _code("S")
-    assert (
-        await repo.invite_staff(shala, owner.id, TEACHER, code, NOW + timedelta(days=7), CAPS)
-    ).done
+    assert (await repo.invite_staff(shala, owner.id, TEACHER, code, IN_A_WEEK, CAPS)).done
 
     results = await asyncio.gather(
         repo.accept_staff(code, me.id, CAPS, ON), repo.accept_staff(code, me.id, CAPS, ON)
@@ -364,9 +363,7 @@ async def test_an_expired_invite_is_none_and_stays(engine: AsyncEngine) -> None:
     shala = await _shala(engine, owner.id)
     repo = SqlShalaRepository(engine)
     code = _code("S")
-    assert (
-        await repo.invite_staff(shala, owner.id, TEACHER, code, NOW + timedelta(days=7), CAPS)
-    ).done
+    assert (await repo.invite_staff(shala, owner.id, TEACHER, code, IN_A_WEEK, CAPS)).done
     await _sql(
         engine,
         "UPDATE tristhana.shala_staff_invite SET expires_at = now() - interval '1 second'"
@@ -388,9 +385,7 @@ async def test_a_demoted_inviters_link_is_dead(engine: AsyncEngine) -> None:
     await _staff(engine, shala, owner.id, manager.id, ADMIN)
     repo = SqlShalaRepository(engine)
     code = _code("S")
-    invited = await repo.invite_staff(
-        shala, manager.id, TEACHER, code, NOW + timedelta(days=7), CAPS
-    )
+    invited = await repo.invite_staff(shala, manager.id, TEACHER, code, IN_A_WEEK, CAPS)
     assert invited.done
     assert (await repo.set_roles(shala, owner.id, manager.id, frozenset({TEACHER}))).done
 
@@ -418,9 +413,7 @@ async def test_join_and_staff_accept_racing_stay_exclusive(engine: AsyncEngine) 
     link = await repo.join_link(shala, owner.id)
     assert link.value is not None
     code = _code("S")
-    assert (
-        await repo.invite_staff(shala, owner.id, TEACHER, code, NOW + timedelta(days=7), CAPS)
-    ).done
+    assert (await repo.invite_staff(shala, owner.id, TEACHER, code, IN_A_WEEK, CAPS)).done
 
     for _ in range(5):
         await asyncio.gather(
@@ -583,7 +576,7 @@ async def test_every_shala_interaction_is_one_statement(engine: AsyncEngine) -> 
         lambda: repo.preview(link.value, me.id),  # type: ignore[arg-type]
         lambda: repo.join(link.value, me.id, CAPS, ON),  # type: ignore[arg-type]
         lambda: repo.students(shala, owner.id, 0, 10),
-        lambda: repo.invite_staff(shala, owner.id, TEACHER, code, NOW + timedelta(days=7), CAPS),
+        lambda: repo.invite_staff(shala, owner.id, TEACHER, code, IN_A_WEEK, CAPS),
         lambda: repo.preview_staff(code, staff.id),
         lambda: repo.accept_staff(code, staff.id, CAPS, ON),
         lambda: repo.set_roles(shala, owner.id, staff.id, frozenset({TEACHER, OFFICE})),
@@ -758,9 +751,7 @@ async def test_pruning_deletes_only_expired_staff_invites(engine: AsyncEngine) -
     repo = SqlShalaRepository(engine)
     live, dead = _code("S"), _code("S")
     for code in (live, dead):
-        assert (
-            await repo.invite_staff(shala, owner.id, TEACHER, code, NOW + timedelta(days=7), CAPS)
-        ).done
+        assert (await repo.invite_staff(shala, owner.id, TEACHER, code, IN_A_WEEK, CAPS)).done
     await _sql(
         engine,
         "UPDATE tristhana.shala_staff_invite SET expires_at = now() - interval '1 day'"
