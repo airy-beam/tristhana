@@ -12,8 +12,8 @@ import {
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, confirmDestructive, haptics, useBackButton } from "../../telegram";
-import { zoneLabel } from "../practiceText";
 import { placeFor } from "../settings/zones";
+import { offsetText, timeLabel, zoneCity, zoneLabel } from "../timeLabel";
 import { loadShowLadies } from "../stats/cells";
 import CalendarFeedCard from "./CalendarFeedCard";
 import { useTypeName } from "./ClassForm";
@@ -259,12 +259,16 @@ function Weeks({
   );
 }
 
+/** The week is in my own zone when it is known; otherwise nothing is "my own" yet. */
+const viewerOf = (data: Week) => (data.zone_known ? data.zone : null);
+
 function Header({ data, locale }: { data: Week; locale: Locale }) {
   const { l10n } = useLocalization();
   const me = useMe().data;
   const first = data.days[0]?.date ?? data.today;
   const home = data.zone_known ? placeFor(me?.home_city, data.zone, locale) : undefined;
-  const label = zoneLabel(data.zone, first, "12:00", home);
+  // My own zone: its place, no offset. Unknown: my first shala's zone, in full (ADR-0044).
+  const label = zoneLabel(data.zone, first, { place: home, viewer: viewerOf(data) });
   // "15 November" / «15 ноября» (the month's genitive in Russian), as the bot's.
   const longDay = (day: string) => {
     const parts = new Intl.DateTimeFormat(locale, {
@@ -286,10 +290,7 @@ function Header({ data, locale }: { data: Week; locale: Locale }) {
       </p>
       {data.shifts.map((s) => {
         const names = data.shalas.filter((x) => s.shala_ids.includes(x.id)).map((x) => x.name);
-        const where =
-          names.length === 1 && names[0]
-            ? names[0]
-            : zoneLabel(s.zone, s.on).replace(/ \(.*\)$/, "");
+        const where = names.length === 1 && names[0] ? names[0] : zoneCity(s.zone);
         const weekday = new Date(`${s.on}T00:00:00Z`).getUTCDay() || 7;
         return (
           <p key={`${s.zone}:${s.on}`} className="hint small" role="note">
@@ -485,9 +486,12 @@ function useMyRowText(data: Week, locale: Locale) {
     const more: string[] = [];
     if (named) more.push(shalaName(r.shala_id));
     const there = timeIn(r.starts_at, r.zone);
-    const own = zoneLabel(r.zone, r.on, there);
-    const mine = zoneLabel(data.zone, dateIn(r.starts_at, data.zone), start);
-    if (own.replace(/^.* \(/, "") !== mine.replace(/^.* \(/, "")) more.push(`${there} ${own}`);
+    // The class's own wall clock, with the offset at that time (a change night too).
+    if (
+      offsetText(r.zone, r.on, there) !==
+      offsetText(data.zone, dateIn(r.starts_at, data.zone), start)
+    )
+      more.push(timeLabel(there, r.zone, r.on, { viewer: viewerOf(data) }));
     return [marked(r, main), more.join(" · ")];
   };
 }

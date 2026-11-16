@@ -18,8 +18,8 @@ import {
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { confirmDestructive, haptics } from "../../telegram";
-import { zoneLabel } from "../practiceText";
 import { deviceZone } from "../settings/zones";
+import { zoneLabel } from "../timeLabel";
 import ClassForm, { useTypeName } from "./ClassForm";
 import {
   DASH,
@@ -179,6 +179,8 @@ function Week({
   const [open, setOpen] = useState<string | null>(null);
   const removeSwap = useRemoveSwap(shala.id);
   const first = schedule.days[0]?.date ?? todayIn(schedule.zone);
+  // Full labels, no viewer: a day row that names its zone again marks a daylight-saving
+  // change, where the offset is the information (ADR-0044).
   const header = zoneLabel(schedule.zone, first);
   // Times and days in the shala's zone, from the instant: an online class may run in another
   // city's zone (Q124), and its wall clock there is not the one under this header.

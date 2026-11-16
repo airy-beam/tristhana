@@ -292,7 +292,8 @@ describe("staff roster", () => {
 
     expect(await screen.findByText("✅ 1 · 🙋 1 to confirm")).toBeInTheDocument();
     expect(screen.getByText("staff")).toBeInTheDocument();
-    expect(screen.getByText(/Almaty \(UTC\+5\)/)).toBeInTheDocument();
+    // The class is in my own zone: its place, no offset (ADR-0044).
+    expect(await screen.findByText("Almaty")).toBeInTheDocument();
     const vera = screen.getByRole("checkbox", { name: /Vera/ });
     const tara = screen.getByRole("checkbox", { name: /Tara/ });
     expect(tara).toBeChecked();
@@ -305,6 +306,18 @@ describe("staff roster", () => {
       const patch = seen.find((r) => r.method === "PATCH");
       expect(patch?.body).toEqual({ confirm_claims: false, present: [VERA], removed: [TARA] });
     });
+  });
+
+  it("names the class's zone with its offset for staff in another zone", async () => {
+    stubApi((r) => {
+      if (r.path === rosterPath && r.method === "GET") return json(ROSTER);
+      if (r.path === "/api/v1/me")
+        return json({ id: ME, display_name: "Ash", locale: "en", timezone: "Europe/Berlin" });
+      return undefined;
+    });
+    renderRoster();
+
+    expect(await screen.findByText("Almaty (UTC+5)")).toBeInTheDocument();
   });
 
   it("confirms every claim", async () => {

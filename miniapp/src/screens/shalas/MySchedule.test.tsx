@@ -198,7 +198,8 @@ describe("my schedule", () => {
     renderWith();
 
     expect(await screen.findByRole("heading", { name: "🗓 My schedule" })).toBeInTheDocument();
-    expect(await screen.findByText("Times: Almaty (UTC+5)")).toBeInTheDocument();
+    // My own zone: the place, no offset (ADR-0044). Berlin's time below keeps its own.
+    expect(await screen.findByText("Times: Almaty")).toBeInTheDocument();
     expect(mains()).toEqual([
       "06:00–09:30 Mysore · Anna 👤",
       "21:30–23:00 Led Primary · Boris",
@@ -216,7 +217,7 @@ describe("my schedule", () => {
     stubApi(WEEK);
     renderWith();
 
-    await screen.findByText("Times: Almaty (UTC+5)");
+    await screen.findByText("Times: Almaty");
     expect(headings()).toContain("Thu, Nov 12 🌙");
     expect(screen.getByRole("heading", { name: /your moon day/ })).toBeInTheDocument();
   });
@@ -224,7 +225,7 @@ describe("my schedule", () => {
   it("filters on the same answer, and remembers the choice", async () => {
     stubApi(WEEK);
     renderWith();
-    await screen.findByText("Times: Almaty (UTC+5)");
+    await screen.findByText("Times: Almaty");
 
     fireEvent.click(screen.getByRole("button", { name: "🧑‍🏫 I teach" }));
     expect(mains()).toEqual(["09:00–10:00 Pranayama · 🌙"]);
@@ -239,7 +240,7 @@ describe("my schedule", () => {
   it("hides the filters that don't apply", async () => {
     stubApi({ ...WEEK, has_teachers: false, is_staff: false, shalas: WEEK.shalas.slice(0, 1) });
     renderWith();
-    await screen.findByText("Times: Almaty (UTC+5)");
+    await screen.findByText("Times: Almaty");
 
     expect(screen.getByRole("button", { name: "All" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "👤 My teachers" })).toBeNull();
@@ -291,7 +292,7 @@ describe("my schedule", () => {
   it("pages a week ahead from my today", async () => {
     stubApi(WEEK);
     renderWith();
-    await screen.findByText("Times: Almaty (UTC+5)");
+    await screen.findByText("Times: Almaty");
 
     fireEvent.click(screen.getByRole("button", { name: "▶" }));
 
@@ -318,7 +319,7 @@ describe("my schedule", () => {
       ],
     });
     renderWith();
-    await screen.findByText("Times: Almaty (UTC+5)");
+    await screen.findByText("Times: Almaty");
 
     expect(mains()).toEqual(["07:30–11:00 Mysore · ↪ moved from Tue, Nov 10 06:00"]);
     fireEvent.click(screen.getByRole("button", { name: "All" }));
@@ -329,7 +330,7 @@ describe("my schedule", () => {
     stubApi(WEEK);
     renderWith("ru");
 
-    await screen.findByText("Время: Almaty (UTC+5)");
+    await screen.findByText("Время: Almaty");
     expect(mains()).toContain("06:00–09:30 Майсор · Dana (за Anna) 👤");
     expect(screen.getByRole("button", { name: "🧑‍🏫 Веду" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "👤 Мои учителя" })).toBeInTheDocument();

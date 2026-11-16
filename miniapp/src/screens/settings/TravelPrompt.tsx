@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMoonCities, usePatchMe, type City } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
-import { deviceZone, keep, offsetOf, placeFor, placeOf, travelPending } from "./zones";
+import { deviceZone, keep, labelOf, placeFor, placeOf, travelPending } from "./zones";
 
 /** "Your phone is on Bangkok time" when the phone's UTC offset differs from the account's
  * zone. The zone is never changed silently (ID-06): a phone and a desktop would flip it. */
@@ -28,9 +28,10 @@ export function TravelPrompt({
   const here = placeFor(home, zone, locale) ?? placeOf(zone, cities, ru);
   return (
     <section className="card" role="status">
+      {/* Says what the two zones are, so both keep their offset (ADR-0044). */}
       <Localized
         id="zone-travel"
-        vars={{ device: `${there} (${offsetOf(device)})`, current: `${here} (${offsetOf(zone)})` }}
+        vars={{ device: labelOf(device, there), current: labelOf(zone, here) }}
       >
         <p />
       </Localized>

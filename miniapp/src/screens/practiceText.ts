@@ -75,20 +75,6 @@ export function lengthText(
   return get(l10n, "length-summary", { kind: "to", range: text, asana });
 }
 
-/** "Almaty (UTC+5)": the city from the IANA id, the offset on `day` (at `time`, so a DST
- * switch day is right) from Intl. */
-export function zoneLabel(zone: string, day: string, time = "12:00", place?: string): string {
-  // `place`: the home city's name, only when it is this zone's city (ADR-0029, see placeFor).
-  const city = place ?? (zone.split("/").pop() ?? zone).replace(/_/g, " ");
-  if (zone === "UTC") return "UTC";
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: zone,
-    timeZoneName: "shortOffset",
-  }).formatToParts(new Date(`${day}T${time}:00Z`));
-  const gmt = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT";
-  return `${city} (${gmt === "GMT" ? "UTC" : gmt.replace("GMT", "UTC")})`;
-}
-
 function get(l10n: ReactLocalization, id: string, args?: Record<string, string | number>): string {
   return plain(l10n.getString(id, args));
 }

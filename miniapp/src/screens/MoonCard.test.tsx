@@ -250,9 +250,7 @@ describe("PracticeReminderCard", () => {
     expect(await put?.json()).toEqual({ practice: { on: true } });
     expect(await screen.findByRole("button", { name: "10:00", pressed: true })).toBeInTheDocument();
     expect(
-      screen.getByText(
-        (_, el) => el?.tagName === "P" && plain(el.textContent) === "Time · Almaty (UTC+5)",
-      ),
+      screen.getByText((_, el) => el?.tagName === "P" && plain(el.textContent) === "Time · Almaty"),
     ).toBeInTheDocument();
   });
 

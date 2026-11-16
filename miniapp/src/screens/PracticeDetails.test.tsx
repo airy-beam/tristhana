@@ -4,7 +4,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { Catalog, Days, PracticePresets } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
-import { zoneLabel } from "./practiceText";
 import { TodayCard } from "./TodayCard";
 
 vi.mock("../telegram", () => ({
@@ -274,13 +273,41 @@ describe("PracticeDetails", () => {
   it("offers the start time with a zone label only when the zone is known", async () => {
     stubApi(practicedToday);
     const { unmount } = renderCard("Asia/Almaty");
-    expect(await screen.findByText("Almaty (UTC+5)")).toBeInTheDocument();
+    // My own zone: the place, no offset (ADR-0044).
+    expect(await screen.findByText("Almaty")).toBeInTheDocument();
     unmount();
 
     stubApi(practicedToday);
     renderCard(null);
     await screen.findByRole("button", { name: "Mysore" });
     expect(screen.queryByText(/Start time/)).not.toBeInTheDocument();
+  });
+
+  it("labels a start time logged in another zone with its offset", async () => {
+    stubApi({
+      ...practicedToday,
+      days: [
+        {
+          date: TODAY,
+          status: "practiced",
+          practices: [
+            {
+              slot: 1,
+              context: "mysore",
+              online: false,
+              length: null,
+              duration_min: null,
+              start_time: "06:30",
+              timezone: "Europe/Berlin",
+            },
+          ],
+          check_ins: [],
+        },
+      ],
+    });
+    renderCard("Asia/Almaty");
+
+    expect(await screen.findByText("Berlin (UTC+2)")).toBeInTheDocument(); // 19 October
   });
 
   it("self-practice hides the online toggle", async () => {
@@ -337,20 +364,5 @@ describe("PracticeDetails server sync", () => {
     fireEvent.blur(input);
 
     expect(await lastPut(seen)).toMatchObject({ start_time: "06:30" });
-  });
-});
-
-describe("zoneLabel", () => {
-  it.each([
-    ["Asia/Almaty", "Almaty (UTC+5)"],
-    ["Asia/Kolkata", "Kolkata (UTC+5:30)"],
-    ["America/New_York", "New York (UTC-4)"],
-    ["UTC", "UTC"],
-  ])("%s -> %s", (zone, label) => {
-    expect(zoneLabel(zone, "2026-10-19")).toBe(label);
-  });
-
-  it("names the home city when it is given (MD-04)", () => {
-    expect(zoneLabel("Asia/Almaty", "2026-10-19", "06:30", "Astana")).toBe("Astana (UTC+5)");
   });
 });

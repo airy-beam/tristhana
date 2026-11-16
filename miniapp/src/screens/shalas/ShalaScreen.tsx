@@ -109,7 +109,7 @@ function Card({
       {shala && (
         <>
           <h1>{l10n.getString("shala-title", { shala: shala.name })}</h1>
-          <Place shala={shala} locale={locale} />
+          <Place shala={shala} locale={locale} viewer={me?.timezone} />
           <DayOffOffer shala={shala} />
           <section className="card">
             <Localized id="ann-list">
@@ -147,7 +147,16 @@ function Card({
   );
 }
 
-function Place({ shala, locale }: { shala: Shala; locale: Locale }) {
+function Place({
+  shala,
+  locale,
+  viewer,
+}: {
+  shala: Shala;
+  locale: Locale;
+  /** The account's zone: a member in the shala's own zone reads no offset (ADR-0044). */
+  viewer: string | null | undefined;
+}) {
   const cities = useMoonCities().data;
   const { l10n } = useLocalization();
   const moon = shala.moon_city ? cities?.find((c) => c.slug === shala.moon_city) : undefined;
@@ -156,7 +165,7 @@ function Place({ shala, locale }: { shala: Shala; locale: Locale }) {
   const place = shala.online
     ? l10n.getString("shala-online")
     : l10n.getString("shala-place", { city: shala.city.name });
-  const zone = labelOf(shala.zone, shala.city.name);
+  const zone = labelOf(shala.zone, shala.city.name, viewer);
   const days = useDaysOff()(shala.days_off);
   return (
     <section className="card">

@@ -300,7 +300,11 @@ describe("the shala card", () => {
     renderWith(card());
 
     await screen.findByText(/Ashtanga Almaty/);
-    expect(pageText()).toContain("Almaty (UTC+5)");
+    // The shala's zone is my own: its place, no offset (ADR-0044).
+    await waitFor(() => {
+      expect(pageText()).not.toContain("UTC+5");
+    });
+    expect(pageText()).toContain("shala time: Almaty");
     expect(pageText()).toContain("🌙 Moon days: 📍 Almaty");
   });
 

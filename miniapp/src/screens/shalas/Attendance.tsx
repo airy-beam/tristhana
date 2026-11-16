@@ -4,13 +4,14 @@ import { useDeferredValue, useState } from "react";
 import {
   ApiError,
   useMarkAttendance,
+  useMe,
   useRoster,
   type AttendanceDelta,
   type RosterPerson,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
-import { zoneLabel } from "../practiceText";
+import { zoneLabel } from "../timeLabel";
 import { useTypeName } from "./ClassForm";
 import { DASH, dayName, plain, timeIn } from "./scheduleText";
 
@@ -32,6 +33,7 @@ interface Props {
 export default function Attendance({ shalaId, classId, occurrenceKey, locale, onClose }: Props) {
   const { l10n } = useLocalization();
   const typeName = useTypeName();
+  const viewer = useMe().data?.timezone; // cached: my own zone, for the time's label
   const [q, setQ] = useState("");
   const query = useDeferredValue(q.trim());
   const [offset, setOffset] = useState(0);
@@ -91,7 +93,8 @@ export default function Attendance({ shalaId, classId, occurrenceKey, locale, on
   const title = o
     ? `${typeName(o.type)}${o.title ? ` ${o.title}` : ""} · ${dayName(o.on, locale)}, ${start}${DASH}${o.end}`
     : "";
-  const where = o ? zoneLabel(o.zone, o.on, start) : "";
+  // The zone of the times above; with its offset unless it is my own (ADR-0044).
+  const where = o ? zoneLabel(o.zone, o.on, { at: start, viewer }) : "";
   return (
     <section className="card attendance" aria-busy={roster.isPending || mark.isPending}>
       <Localized id="attend-title">

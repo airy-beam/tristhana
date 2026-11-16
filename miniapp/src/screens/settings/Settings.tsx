@@ -168,6 +168,9 @@ function City({ me }: { me: Me }) {
   const [unlisted, setUnlisted] = useState(false);
   const listed = me.home_city?.slug;
   const showUnlisted = unlisted || (me.home_city_chosen && !listed);
+  // My own city: its name, no offset (ADR-0044). Without one the line says what the clock
+  // is, so the offset is the information.
+  const place = placeFor(me.home_city, me.timezone, me.locale);
   const now = (zone: string) =>
     new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zone }).format(
       new Date(),
@@ -190,7 +193,7 @@ function City({ me }: { me: Me }) {
           id="settings-zone-now"
           vars={{
             time: now(me.timezone),
-            zone: labelOf(me.timezone, placeFor(me.home_city, me.timezone, me.locale)),
+            zone: labelOf(me.timezone, place, place ? me.timezone : null),
           }}
         >
           <p />

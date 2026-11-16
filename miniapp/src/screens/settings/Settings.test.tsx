@@ -411,9 +411,22 @@ describe("My city (MD-04)", () => {
       />,
     );
 
+    // My own city: its name, no offset (ADR-0044).
     expect(
       await screen.findByText(
-        (_, el) => el?.tagName === "P" && /Astana \(UTC\+5\)$/.test(plain(el.textContent)),
+        (_, el) => el?.tagName === "P" && /^\d\d:\d\d Astana$/.test(plain(el.textContent)),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says what the clock is, offset and all, while no city is chosen", async () => {
+    stubApi();
+    renderWith(<Settings me={ME} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />);
+
+    expect(
+      await screen.findByText(
+        (_, el) =>
+          el?.tagName === "P" && /^\d\d:\d\d Almaty \(UTC\+5\)$/.test(plain(el.textContent)),
       ),
     ).toBeInTheDocument();
   });

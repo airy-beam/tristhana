@@ -18,18 +18,11 @@ import {
 } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 import { haptics } from "../telegram";
-import {
-  lengthOf,
-  lengthText,
-  rangeOf,
-  rangeText,
-  sameLength,
-  zoneLabel,
-  type Range,
-} from "./practiceText";
+import { lengthOf, lengthText, rangeOf, rangeText, sameLength, type Range } from "./practiceText";
 import { CelebrationCard, shareOf } from "./progression/CelebrationCard";
 import { placeFor } from "./settings/zones";
 import { celebrationLines, get, stopLabel } from "./progression/progressionText";
+import { zoneLabel } from "./timeLabel";
 
 const CONTEXTS: readonly PracticeContext[] = ["mysore", "led", "private", "self"];
 const DURATIONS = [30, 45, 60, 75, 90, 120, 150, 180];
@@ -229,6 +222,7 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
           key={current.start_time ?? ""} // a new saved value resets the draft
           value={current.start_time ?? null}
           zone={practice?.timezone ?? zone}
+          viewer={zone}
           place={placeFor(me?.home_city, practice?.timezone ?? zone, locale)}
           date={date}
           onCommit={(start_time) => {
@@ -451,12 +445,15 @@ function CustomLength({
 function StartTime({
   value,
   zone,
+  viewer,
   place,
   date,
   onCommit,
 }: {
   value: string | null;
   zone: string;
+  /** The account's zone: a day logged in another one shows its offset (ADR-0044). */
+  viewer: string;
   /** The home city's name when it names `zone` (MD-04). */
   place: string | undefined;
   date: string;
@@ -481,7 +478,9 @@ function StartTime({
           if (e.key === "Enter") onCommit(draft || null);
         }}
       />
-      <span className="hint">{zoneLabel(zone, date, value ?? undefined, place)}</span>
+      <span className="hint">
+        {zoneLabel(zone, date, { at: value ?? undefined, place, viewer })}
+      </span>
     </label>
   );
 }
