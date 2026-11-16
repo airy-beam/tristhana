@@ -298,7 +298,7 @@ def test_the_language_button_keeps_the_invite(client: TestClient, storage: InMem
     assert storage.teacher_links.rows == {}
 
 
-def test_confirm_edits_into_the_grid_and_the_grid_still_logs(
+def test_confirm_edits_into_today_and_today_still_logs(
     client: TestClient, storage: InMemoryStorage, outbound: list[Sent]
 ) -> None:
     teacher = _teacher(storage)
@@ -308,7 +308,8 @@ def test_confirm_edits_into_the_grid_and_the_grid_still_logs(
 
     assert body["method"] == "editMessageText"
     assert body["text"].startswith("✅ Лена is on your list of teachers now.")
-    assert "Namaste 🙏" in body["text"]
+    assert PROMPT in body["text"]  # UI-06: Today, with the line on top
+    assert _rows(body) == TODAY_ROWS
     assert "⭐ Make main" not in _texts(body)  # a first link is main by itself
     me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
     assert storage.teacher_links.teachers_of(me.id) == [teacher.id]
@@ -326,18 +327,24 @@ def test_not_now_stores_nothing_and_messages_no_one(
     body = _tap(client, _data(consent, "Not now"))
 
     assert body["method"] == "editMessageText"
-    assert body["text"].startswith("Namaste 🙏")
+    assert body["text"].startswith("Today, ")  # UI-06: Today, never the front door
+    assert _rows(body) == TODAY_ROWS
     assert storage.teacher_links.rows == {}
     assert [s.name for s in outbound] == ["answerCallbackQuery"]
 
 
-# The other invite states: each the /start grid with one line on top
+# The other invite states: each is Today with one line on top (UI-06: an invite never shows
+# the front door)
+
+PROMPT = "Practice or rest? Both go in your log."
+TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], ["☰ Menu"]]
 
 
 def _grid_with(body: Any, lead: str) -> None:
     assert body["text"].startswith(lead)
-    assert "Namaste 🙏" in body["text"]
-    assert "🧘 Practiced" in _texts(body)
+    assert PROMPT in body["text"]
+    assert "What brings you here?" not in body["text"]
+    assert _rows(body) == TODAY_ROWS
 
 
 def test_an_unknown_code_says_invalid(client: TestClient) -> None:
@@ -434,6 +441,7 @@ def test_a_confirm_at_the_cap_says_full(client: TestClient, storage: InMemorySto
 def test_any_other_payload_behaves_as_a_plain_start(
     client: TestClient, storage: InMemoryStorage, payload: str
 ) -> None:
+    _command(client, "/start")  # the front door, once (UI-06)
     plain = _command(client, "/start")
 
     body = _command(client, f"/start {payload}")
@@ -1023,15 +1031,18 @@ def test_the_tap_is_answered_before_the_write_finishes(
 # Commands
 
 
-def test_teachers_is_in_the_menu_and_in_help(client: TestClient) -> None:
+def test_teachers_is_a_hidden_command_that_still_answers(client: TestClient) -> None:
     spec = importlib.util.spec_from_file_location("set_webhook", TOOL)
     assert spec is not None
     assert spec.loader is not None
     tool = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tool)
 
-    assert "teachers" in tool.COMMANDS
-    assert "👥 /teachers: your teachers and students" in _command(client, "/help")["text"]
+    # UI-06: out of the command list and out of /help, still handled.
+    assert "teachers" not in tool.COMMANDS
+    assert "teachers" in tool.HIDDEN_COMMANDS
+    assert "/teachers" not in _command(client, "/help")["text"]
+    assert _command(client, "/teachers")["method"] == "sendMessage"
 
 
 def test_teachers_in_a_group_is_ignored(client: TestClient) -> None:

@@ -174,15 +174,31 @@ def _row(w: World) -> Any:
 # /admin and the gate
 
 
-def test_admin_for_anyone_else_is_the_fallback_reply_byte_for_byte(w: World) -> None:
+TYPED = f"{T.t('en', 'menu-text-lead')}\n\n{T.t('en', 'menu-title')}"  # UI-06: the Menu
+
+
+def test_admin_for_anyone_else_is_the_typed_text_reply_byte_for_byte(w: World) -> None:
     probe = _text(w, "/admin", tg=ANNA_TG)
     other = _text(w, "what is this", tg=ANNA_TG)
-    assert probe == other
-    assert probe["text"] == T.t("en", "fallback-text")
+    assert probe == other  # the text and the keyboard: one function builds both
+    assert probe["text"] == TYPED
+    assert probe["reply_markup"]["inline_keyboard"]  # the Menu's rows
 
 
-def test_admin_with_no_admin_configured_is_the_fallback_too(off: World) -> None:
-    assert _text(off, "/admin")["text"] == T.t("en", "fallback-text")
+def test_admin_with_no_admin_configured_is_the_typed_text_reply_too(off: World) -> None:
+    probe = _text(off, "/admin")
+    assert probe == _text(off, "what is this")
+    assert probe["text"] == TYPED
+
+
+def test_admin_and_typed_text_come_from_one_function() -> None:
+    # ADR-0042: not two renders that happen to match today.
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2] / "src" / "tristhana" / "bots" / "telegram"
+    assert "typed_reply(message, account)" in (src / "directory_listing.py").read_text()
+    assert "home.typed_reply(message, account)" in (src / "router.py").read_text()
+    assert "home.typed_reply" in (src / "router.py").read_text().split("register_listing(")[1]
 
 
 async def test_every_admin_tap_from_a_non_admin_only_answers(w: World) -> None:

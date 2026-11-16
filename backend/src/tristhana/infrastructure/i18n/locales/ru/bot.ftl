@@ -2,58 +2,72 @@
 
 start-greeting =
     Намасте 🙏
-    Я Тристхана, твой спутник в практике аштанги. Хорошо, что ты здесь.
+    Я Тристхана, твой спутник в практике аштанги.
 
 start-prompt =
     { $day }
     Практика или отдых? В журнал идёт и то, и другое.
 # Кнопка другого языка; $language — название языка на нём самом («English»).
 start-switch-language = 🗣 { $language }
-# Кнопка Mini App: под /start и под сохранённым днём, пока часовой пояс неизвестен.
+# Кнопка Mini App: под деталями практики, пока часовой пояс неизвестен.
 start-open-app = Открыть приложение
 
-help-text =
-    Я Тристхана, спутник твоей практики аштанги.
-    📝 /log: сегодня или прошедший день
-    🔔 /remind: напоминание о практике
-    🧘 /asanas: мои асаны, отметить новую
-    🌙 /moon: ближайшие лунные дни и напоминания
-    👥 /teachers: твои учителя и ученики
-    🗓 /schedule: занятия всех твоих шал, по твоему времени
-    🧑‍🏫 /classes: занятия, которые ты ведёшь на этой неделе
-    ⚙️ /settings: язык, город, напоминания
-    📊 Журнал практики и статистика — в приложении (кнопка рядом с полем ввода).
+## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
+## Working copy; the three front-door labels are fixed.
 
+welcome-ask = С чего начнём?
+welcome-path-practice = Моя практика
+welcome-path-invite = Пригласить учеников
+welcome-path-shala = Шала и занятия
+# Under the invite on the first run. A URL button tells the bot nothing, so this must read
+# right both before and after the link was sent.
+welcome-later = Дальше ›
+welcome-teacher-next = Твоя ссылка всегда в Меню → Мои ученики. Каждый ученик подтверждает сам, и после этого тебе видна его практика.
+welcome-own-practice = 🧘 Отметить свою практику
+welcome-shala-text = Шала здесь — это страница с расписанием занятий, объявлениями и одной ссылкой для учеников. Создать её можно за минуту в приложении.
+welcome-shala-student = Ищешь занятия своей шалы? Попроси у шалы ссылку. Открой её, и расписание появится здесь.
+invite-simple = Отправь эту ссылку ученикам. Каждый подтверждает сам.
+invite-send = ✉️ Отправить ссылку
+
+# Today: the third choice, and the screen behind it. $day as in start-prompt.
+today-other = Другая причина…
+today-reasons-title =
+    { $day }
+    Выбери, что подходит. В журнал идёт всё.
+# $label = a status-* label: the person's own screen, so it says what they logged.
+today-logged = ✓ В журнале: { $label }
+# Once, on the first /start after UI-06 for someone who already uses the bot.
+today-menu-hint = Всё остальное теперь в ☰ Меню.
+today-back = ‹ Сегодня
+
+# The last row of every top-level screen.
+menu-open = ☰ Меню
+menu-title = ☰ Меню
+# On top of the Menu when the person typed something instead of tapping.
+menu-text-lead = Я пока не умею отвечать на сообщения. Вот всё, что я умею 🙏
+menu-today = 📝 Сегодня
+menu-practice = 📊 Моя практика
+menu-moon = 🌙 Лунные дни
+menu-classes = 🗓 Занятия
+menu-teacher = 🙏 Мой учитель
+menu-students = 👥 Мои ученики
+menu-settings = ⚙️ Настройки
+menu-help = ❓ Помощь
+# The quiet last row, for anyone without students and not on a shala's staff; also in Help.
+menu-teach = Учителям и шалам
+teach-title =
+    Учителям и шалам
+    Пригласи учеников одной ссылкой или создай шалу с расписанием занятий.
+
+help-title =
+    ❓ Помощь
+    Что хочешь сделать?
+help-earlier-day = 📅 Отметить прошедший день
+help-reminder = 🔔 Напоминание о практике
+help-asanas = 🧘 Мои асаны
+help-join = 🙏 Добавить учителя или шалу
 # UI-05: a link under /help to the public guide site, in the person's language.
 help-guide = 📖 Справка
-
-## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
-
-tour-open = 🧭 Знакомство
-tour-progress = { $n } из { $total }
-tour-next = Дальше ›
-tour-back = ‹ Назад
-tour-done = ✓ Готово
-tour-log =
-    📝 Журнал
-    Практика или отдых? В журнал идёт и то, и другое. Майсор, лед-класс или самостоятельно, коротко или полностью: всё это практика. После практики можно добавить детали, самочувствие и личную заметку. Нужен прошлый день? Открой /log.
-tour-rest =
-    🌿 Отдых и лунные дни
-    Отдых — часть практики. Полнолуние и новолуние — традиционные дни отдыха: они отмечаются сами, и твой выходной тоже, если выбрать его в /settings. Если день прошёл иначе, просто отметь его. Даты и лунные напоминания — в /moon.
-tour-remind =
-    🔔 Напоминания
-    Если хочешь, /remind будет раз в день спрашивать, как всё прошло: ответить можно одним нажатием. Напоминание приходит в дни практики, но не в лунные дни. Несколько дней без практики, например болезнь или дорога? Отметь первый день, и я предложу паузу.
-tour-asanas =
-    🧘 Мои асаны
-    /asanas помнит твою последнюю асану, и отмечать практику проще. Новая асана от учителя? Отметь её там, это может сделать и учитель 🎉
-tour-links =
-    👥 Учителя и шалы
-    Учитель или шала прислали ссылку или QR-код? Открой: перед подтверждением я покажу, что им будет видно. Твой список — в /teachers, а занятия твоих шал по твоему времени — в /schedule. Преподаёшь? Пригласить учеников можно в /teachers. Практикуешь без учителя? Журнал работает так же.
-tour-app =
-    📊 Приложение
-    Весь твой год на одном экране, итоги месяца и календарь для прошлых дней. Всё, что ты отмечаешь здесь, есть и там. Знакомство и подробная справка всегда под рукой в /help.
-
-fallback-text = Я пока не умею отвечать на сообщения. Попробуй /start или /help 🙏
 
 # База данных недоступна; человеку достаточно попробовать ещё раз.
 error-temporary = Прости, у меня небольшая заминка. Попробуй ещё раз через минуту.
@@ -68,9 +82,6 @@ day-label =
        *[other] { $date }
     }
 
-log-prompt =
-    { $day }
-    Как прошёл твой день?
 
 status-practiced = 🧘 Практика
 status-rest = 😌 День отдыха
@@ -90,7 +101,6 @@ log-saved =
        *[other] Отдых — тоже часть практики 🌿
     }
 log-private-note = Это видишь только ты. Остальные видят «День отдыха».
-log-zone-hint = Совет: открой приложение один раз — так я узнаю твой часовой пояс, и отметки встанут на верные даты.
 log-cleared = Отметка убрана.
 log-date-future = В твоём часовом поясе этот день ещё не наступил.
 log-date-too-early = Я храню дни начиная с 2000 года.
@@ -103,9 +113,8 @@ log-earlier = ‹ Раньше
 log-later = Позже ›
 
 ## Меню команд бота (setMyCommands, через tools/telegram/set_webhook.py). По одной строке.
-command-log = Отметить сегодня или прошедший день
-command-help = Что я умею
-command-start = Начать
+command-help = Помощь
+command-start = Сегодня
 
 ## The bot's profile (UI-05), set by tools/telegram/set_webhook.py --texts, not shown by
 ## the bot itself. Description: the empty chat above Start, up to 512 characters. About: the
@@ -301,7 +310,6 @@ moon-reminder-off = 🔕 Напоминания о лунных днях вык�
 moon-reminder-on = 🔔 Напоминания о лунных днях снова включены.
 
 ## Напоминание о практике (PR-10). { $day } и { $date } приходят отформатированными («пн, 19 окт.»); { $d } — день недели по ISO (1 = понедельник).
-command-remind = Напоминание о практике
 remind-practice = 🌿 { $day }: практика или отдых? Отметить можно одним нажатием.
 remind-same = ✅ Практика, как в прошлый раз
 remind-practiced = 🧘 Практика…
@@ -561,7 +569,6 @@ diary-text-only = Пока заметки бывают только тексто
 ## Прогресс (PR-08) и праздники (GM-01). Названия асан, элементов и серий — из каталога;
 ## $series — это `series-name`, $traditional — традиционное название или "none".
 
-command-asanas = Мои асаны: где заканчивается практика
 progression-title = 🧘 Мои асаны
 progression-unset = Где сейчас заканчивается твоя практика? Укажи это один раз, а новые асаны потом отмечай здесь.
 progression-suggest = По журналу: { $length }
@@ -738,7 +745,6 @@ links-primary-hint = ⭐ — твой основной учитель. Поме�
 links-main-chosen = ⭐ Основной учитель: { $name }
 links-main-auto = ⭐ Основной учитель: { $name } (в начале списка)
 links-title = 👥 Учителя и ученики
-command-teachers = Мои учителя и ученики
 link-no-name = (без имени)
 export-readme-links = teacher_links в data.json: твои учителя и ученики без имён, поэтому чужих данных в этом списке нет.
 export-readme-shalas = shalas в data.json: шалы, в которых ты состоишь. side: «staff» — в команде, «student» — ученик; owner — это твоя шала; roles — твои роли там («admin» — управляющий, «teacher» — преподаватель, «assistant» — ассистент, «office» — администратор). Чужих имён здесь нет.
@@ -900,12 +906,11 @@ class-gone = Это занятие уже изменилось. Вот акту�
 class-caps = Для этой шалы это пока предел.
 class-invalid = Такое изменение не вписывается в расписание.
 # Своя неделя учителя (/classes): все шалы, где он в команде. Время в поясе каждой шалы.
-command-classes = Мои занятия на этой неделе
 my-classes-covered = тебя заменяет { $name }
 my-classes-covering = ты заменяешь { $name }
 
 ## Моё расписание (SC-03): все мои шалы, в моём поясе. { $zone } — «Алматы (UTC+5)».
-command-schedule = Моё расписание: занятия всех моих шал
+command-schedule = Занятия
 my-schedule-open = 🗓 Моё расписание
 my-schedule-title = 🗓 Моё расписание, { $range }
 my-schedule-filter = { $f ->

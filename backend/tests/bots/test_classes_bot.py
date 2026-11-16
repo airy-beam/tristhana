@@ -650,7 +650,7 @@ def test_an_online_class_elsewhere_shows_in_the_shalas_time_and_day(
 # /classes (SC-03 opens My schedule with *I teach*: see test_my_schedule_bot.py)
 
 
-def test_classes_is_in_help_and_the_command_menu(client: TestClient) -> None:
+def test_classes_is_a_hidden_command_that_still_answers(client: TestClient) -> None:
     import importlib.util
     from pathlib import Path
 
@@ -661,5 +661,8 @@ def test_classes_is_in_help_and_the_command_menu(client: TestClient) -> None:
     tool = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tool)
 
-    assert "classes" in tool.COMMANDS
-    assert "🧑‍🏫 /classes: the classes you teach this week" in _command(client, "/help")["text"]
+    # UI-06: out of the command list and out of /help, still handled.
+    assert "classes" not in tool.COMMANDS
+    assert "classes" in tool.HIDDEN_COMMANDS
+    assert "/classes" not in _command(client, "/help")["text"]
+    assert _command(client, "/classes")["method"] == "sendMessage"

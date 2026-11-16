@@ -13,7 +13,7 @@ from aiogram.types import (
     Message,
 )
 
-from tristhana.application.accounts import EnsureAccount
+from tristhana.application.accounts import EnsureAccount, MarkWelcomed
 from tristhana.application.calendar_feed import CalendarFeedUseCases
 from tristhana.application.directory_listing import ListingUseCases
 from tristhana.application.ports.i18n import Translator
@@ -26,6 +26,7 @@ from tristhana.bots.telegram.classes import ScheduleScreens, register_classes
 from tristhana.bots.telegram.data import register_data
 from tristhana.bots.telegram.diary import register_diary_reply
 from tristhana.bots.telegram.directory_listing import ListingScreens, register_listing
+from tristhana.bots.telegram.home import HomeScreens, register_home
 from tristhana.bots.telegram.middleware import AccountMiddleware
 from tristhana.bots.telegram.moon import register_moon
 from tristhana.bots.telegram.remind import register_remind
@@ -46,7 +47,6 @@ from tristhana.bots.telegram.settings import register_settings
 from tristhana.bots.telegram.shalas import ShalaScreens, register_shalas
 from tristhana.bots.telegram.start import StartScreens, register_start
 from tristhana.bots.telegram.teacher_links import LinkScreens, register_links
-from tristhana.bots.telegram.tour import register_tour
 from tristhana.domain.accounts import Account
 
 
@@ -69,6 +69,7 @@ def build_router(
     calendar: CalendarFeedUseCases | None = None,
     listings: ListingUseCases | None = None,
     site_url: str = "",
+    welcome: MarkWelcomed | None = None,
 ) -> Router:
     router = Router(name="tristhana")
     router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -80,7 +81,8 @@ def build_router(
     screens = day_screens.register(
         router, days, practices, translator, remind, miniapp_url, check_ins, diary, progression
     )
-    start = StartScreens(screens, settings, translator, miniapp_url)
+    home = HomeScreens(screens, settings, translator, links, miniapp_url, site_url, bot_username)
+    start = StartScreens(screens, settings, home, welcome)
     invites = shalas = None
     if links is not None:  # ID-04 (always wired by the app)
         invites = LinkScreens(links, start, settings, translator, miniapp_url, bot_username)
@@ -91,7 +93,7 @@ def build_router(
         register_links(router, invites)
         if listings is not None:  # ID-05: the status screen, /admin, the line on the cards
             invites.listings = ListingScreens(listings, translator, miniapp_url)
-            register_listing(router, invites.listings, translator)
+            register_listing(router, invites.listings, home.typed_reply)
         if links is not None and links.announcements is not None and links.shalas is not None:
             ann = AnnouncementScreens(links.announcements, translator, links.shalas.clock)
             invites.announcements = ann  # NT-03: pins and buttons on the cards
@@ -120,7 +122,7 @@ def build_router(
                 )
                 register_attendance(router, attendance)
             register_classes(router, schedule)
-    register_tour(router, start, translator, miniapp_url, site_url=site_url)
+    register_home(router, home)  # UI-06: the Menu, Help, the front door's own taps
     entry = calendar is not None and calendar.available  # SC-06: "📅 Add to calendar" rows
     register_moon(router, moon, translator, entry)
     remind_screens = register_remind(router, remind, screens, translator, rest)
@@ -138,6 +140,8 @@ def build_router(
 
     @router.message(F.text)
     async def on_other(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        return message.answer(translator.t(account.locale, "fallback-text"))
+        # UI-06: anything typed opens the Menu. The same function answers a non-admin's
+        # /admin (ADR-0042); the text itself is never read or stored.
+        return home.typed_reply(message, account)
 
     return router

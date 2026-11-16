@@ -2,58 +2,72 @@
 
 start-greeting =
     Namaste 🙏
-    I'm Tristhana, your Ashtanga practice companion. Glad you're here.
+    I'm Tristhana, your Ashtanga practice companion.
 
 start-prompt =
     { $day }
     Practice or rest? Both go in your log.
 # The other-language button; $language is that language's own name ("Русский").
 start-switch-language = 🗣 { $language }
-# Mini App button: under /start and under a saved day while the time zone is unknown.
+# Mini App button: under a practice's details while the time zone is unknown.
 start-open-app = Open the app
 
-help-text =
-    I'm Tristhana, a companion for your Ashtanga practice.
-    📝 /log: today or an earlier day
-    🔔 /remind: practice reminder
-    🧘 /asanas: my asanas, mark a new one
-    🌙 /moon: upcoming moon days and reminders
-    👥 /teachers: your teachers and students
-    🗓 /schedule: classes of all your shalas, in your time
-    🧑‍🏫 /classes: the classes you teach this week
-    ⚙️ /settings: language, city, reminders
-    📊 Your practice log and stats live in the app (the button next to the message field).
+## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
+## Working copy; the three front-door labels are fixed.
 
+welcome-ask = What brings you here?
+welcome-path-practice = My practice
+welcome-path-invite = Invite students
+welcome-path-shala = Shala and classes
+# Under the invite on the first run. A URL button tells the bot nothing, so this must read
+# right both before and after the link was sent.
+welcome-later = Continue ›
+welcome-teacher-next = Your link is always under Menu → My students. Each student confirms for themselves, and then you see their practice.
+welcome-own-practice = 🧘 Log my own practice
+welcome-shala-text = A shala here is a page with your class schedule, announcements and one link for students to join. Creating it takes a minute in the app.
+welcome-shala-student = Looking for your shala's classes? Ask the shala for its link. Once you open it, the schedule shows up here.
+invite-simple = Send this link to your students. Each one confirms for themselves.
+invite-send = ✉️ Send the link
+
+# Today: the third choice, and the screen behind it. $day as in start-prompt.
+today-other = Other reason…
+today-reasons-title =
+    { $day }
+    Pick what fits. It all goes in your log.
+# $label = a status-* label: the person's own screen, so it says what they logged.
+today-logged = ✓ In your log: { $label }
+# Once, on the first /start after UI-06 for someone who already uses the bot.
+today-menu-hint = Everything else is now under ☰ Menu.
+today-back = ‹ Today
+
+# The last row of every top-level screen.
+menu-open = ☰ Menu
+menu-title = ☰ Menu
+# On top of the Menu when the person typed something instead of tapping.
+menu-text-lead = I can't answer messages yet. Here is everything I can do 🙏
+menu-today = 📝 Today
+menu-practice = 📊 My practice
+menu-moon = 🌙 Moon days
+menu-classes = 🗓 Classes
+menu-teacher = 🙏 My teacher
+menu-students = 👥 My students
+menu-settings = ⚙️ Settings
+menu-help = ❓ Help
+# The quiet last row, for anyone without students and not on a shala's staff; also in Help.
+menu-teach = For teachers and shalas
+teach-title =
+    For teachers and shalas
+    Invite your students with one link, or set up a shala with its class schedule.
+
+help-title =
+    ❓ Help
+    What would you like to do?
+help-earlier-day = 📅 Log an earlier day
+help-reminder = 🔔 Set a practice reminder
+help-asanas = 🧘 My asanas
+help-join = 🙏 Join a teacher or a shala
 # UI-05: a link under /help to the public guide site, in the person's language.
 help-guide = 📖 Guide
-
-## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
-
-tour-open = 🧭 Quick tour
-tour-progress = { $n } of { $total }
-tour-next = Next ›
-tour-back = ‹ Back
-tour-done = ✓ Done
-tour-log =
-    📝 Your log
-    Practice or rest? Both go in your log. Mysore, led or on your own, short or full: it's all practice. After a practice you can add details, how it felt and a private note. An earlier day? /log takes you back.
-tour-rest =
-    🌿 Rest and moon days
-    Rest is part of the practice. Full and new moon days are traditional rest days: they fill in on their own, and so does your weekly day off once you set it in /settings. If a day goes differently, just log it. Dates and moon reminders are in /moon.
-tour-remind =
-    🔔 Reminders
-    If you'd like, /remind asks once a day how it went, with a one-tap log. It comes on your practice days, not on moon days. Out for a few days, say sick or traveling? Log the first day and I'll offer a pause.
-tour-asanas =
-    🧘 My asanas
-    /asanas keeps your last asana, so logging a practice takes fewer taps. New asana from your teacher? Mark it there, or your teacher can mark it for you 🎉
-tour-links =
-    👥 Teachers and shalas
-    Got a link or a QR code from your teacher or your shala? Open it: before you confirm, I'll show what they will see. /teachers keeps your list, and /schedule shows your shalas' classes in your time zone. Teaching? Invite students from /teachers. On your own? Your log works the same.
-tour-app =
-    📊 The app
-    Your year at a glance, month summaries and a calendar for earlier days. Everything you log here is there too. This tour and the full guide stay in /help.
-
-fallback-text = I can't answer messages yet. Try /start or /help 🙏
 
 # The database is unreachable; the person should simply try again.
 error-temporary = Sorry, I've hit a small hiccup on my side. Please try again in a minute.
@@ -68,9 +82,6 @@ day-label =
        *[other] { $date }
     }
 
-log-prompt =
-    { $day }
-    How was your day?
 
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day
@@ -90,7 +101,6 @@ log-saved =
        *[other] Rest is part of the practice 🌿
     }
 log-private-note = Only you see this. Others see “Rest day”.
-log-zone-hint = Tip: open the app once so I know your time zone and your days land on the right date.
 log-cleared = Cleared.
 log-date-future = That day hasn't come yet in your time zone.
 log-date-too-early = I keep days from 2000 onwards.
@@ -103,9 +113,8 @@ log-earlier = ‹ Earlier
 log-later = Later ›
 
 ## Bot command menu (setMyCommands, via tools/telegram/set_webhook.py). One line each.
-command-log = Log today or an earlier day
-command-help = What I can do
-command-start = Start
+command-help = Help
+command-start = Today
 
 ## The bot's profile (UI-05), set by tools/telegram/set_webhook.py --texts, not shown by
 ## the bot itself. Description: the empty chat above Start, up to 512 characters. About: the
@@ -300,7 +309,6 @@ moon-reminder-off = 🔕 Moon reminders are off. You can turn them back on in /m
 moon-reminder-on = 🔔 Moon reminders are on again.
 
 ## Practice reminder (PR-10). { $day } and { $date } arrive formatted ("Mon, Oct 19"); { $d } is an ISO weekday (1 = Monday).
-command-remind = Practice reminder
 remind-practice = 🌿 { $day }: practice or rest? One tap to log it.
 remind-same = ✅ Practiced, same as last time
 remind-practiced = 🧘 Practiced…
@@ -551,7 +559,6 @@ diary-text-only = Notes are text for now. Type your note as a reply to the promp
 ## Progression (PR-08) and its celebrations (GM-01). Asana, item and series names come from
 ## the catalog; $series is a `series-name`, $traditional a traditional name or "none".
 
-command-asanas = My asanas: where my practice ends
 progression-title = 🧘 My asanas
 progression-unset = Where does your practice end now? Set it once, then mark it here when you get a new asana.
 progression-suggest = From your log: { $length }
@@ -728,7 +735,6 @@ links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
 links-title = 👥 Teachers and students
-command-teachers = My teachers and students
 link-no-name = (no name)
 export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
 export-readme-shalas = shalas in data.json: the shalas you're in. side: "staff" or "student"; owner: the shala is yours; roles: your roles there ("admin" = manager, "office" = front desk). No one else's names.
@@ -886,12 +892,11 @@ class-gone = This class has just changed. Here's the current schedule.
 class-caps = That's the limit for this shala for now.
 class-invalid = That change doesn't fit the schedule.
 # A teacher's own week (/classes), every shala where they're on the staff. Times in each shala's zone.
-command-classes = The classes I teach this week
 my-classes-covered = { $name } is covering
 my-classes-covering = you're covering for { $name }
 
 ## My schedule (SC-03): every shala I'm in, in my zone. { $zone } is "Almaty (UTC+5)".
-command-schedule = My schedule: classes of all my shalas
+command-schedule = Classes
 my-schedule-open = 🗓 My schedule
 my-schedule-title = 🗓 My schedule, { $range }
 my-schedule-filter = { $f ->

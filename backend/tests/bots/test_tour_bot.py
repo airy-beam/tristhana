@@ -1,5 +1,6 @@
-"""The quick tour through the real webhook (UI-02): a carousel edited in place, reached from
-/start and /help, and left in one tap back to where it started."""
+"""The bot's quick tour (UI-02) was retired by UI-06. Its buttons are still in chat history,
+so each one lands on the nearest living screen (spec §5): "Done" under a tour opened from
+/start on Today, everything else on Help. Never a bare answer."""
 
 import itertools
 from collections.abc import Iterator
@@ -11,7 +12,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from tests.fakes import InMemoryStorage
-from tristhana.bots.telegram.tour_callbacks import STEPS, decode, done, step
+from tristhana.bots.telegram.tour_callbacks import STEPS, decode
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -99,146 +100,55 @@ def _data(body: Any) -> list[str]:
     ]
 
 
-def test_help_keeps_its_text_and_offers_the_tour(client: TestClient) -> None:
-    body = _command(client, "/help")
-
-    assert body["text"].startswith("I'm Tristhana")
-    assert "/remind: practice reminder" in body["text"]
-    assert _rows(body) == [["🧭 Quick tour"]]
-    assert _data(body) == [step(1, "h")]
-
-
-GUIDE = "https://tristhana.app"
-
-
-def _links(body: Any) -> list[tuple[str, str]]:
-    return [
-        (b["text"], b["url"])
-        for row in body["reply_markup"]["inline_keyboard"]
-        for b in row
-        if "url" in b
-    ]
-
-
-@pytest.mark.parametrize(
-    ("lang", "label", "url"),
-    [("en", "📖 Guide", f"{GUIDE}/"), ("ru", "📖 Справка", f"{GUIDE}/ru/")],
-)
-def test_help_links_to_the_guide_in_the_persons_language(
-    storage: InMemoryStorage, lang: str, label: str, url: str
-) -> None:
-    # UI-05: a trailing slash in the setting doesn't double up.
-    with _client(storage, "https://tristhana.web.app", f"{GUIDE}/") as client:
-        body = _command(client, "/help", lang)
-
-    assert _rows(body)[-1] == [label]
-    assert _links(body) == [(label, url)]
-    assert _data(body) == [step(1, "h")]  # the tour stays, above the link
-
-
-def test_done_from_the_tour_brings_the_guide_link_back(storage: InMemoryStorage) -> None:
-    with _client(storage, "https://tristhana.web.app", GUIDE) as client:
-        _command(client, "/help")
-        body = _tap(client, done("h"))
-
-    assert _links(body) == [("📖 Guide", f"{GUIDE}/")]
-
-
-def test_the_guide_address_must_be_https() -> None:
-    with pytest.raises(ValueError, match="must be an https://"):
-        Settings(app_env="test", public_site_url="http://tristhana.app")
-
-
-def test_start_offers_the_tour_last_and_leaves_the_rest_alone(client: TestClient) -> None:
-    rows = _rows(_command(client, "/start"))
-
-    assert rows[0] == ["🧘 Practiced"]
-    assert rows[-3] == ["📅 Another day"]
-    assert rows[-2] == ["🗣 Русский", "Open the app"]
-    assert rows[-1] == ["🧭 Quick tour"]
-
-
-def test_the_russian_name_is_znakomstvo(client: TestClient) -> None:
-    assert _rows(_command(client, "/start", "ru"))[-1] == ["🧭 Знакомство"]
+HELP = "❓ Help\nWhat would you like to do?"
 
 
 @pytest.mark.parametrize("lang", ["en", "ru"])
+@pytest.mark.parametrize("origin", ["s", "h"])
 @pytest.mark.parametrize("n", range(1, STEPS + 1))
-def test_every_step_edits_in_place(client: TestClient, n: int, lang: str) -> None:
-    body = _tap(client, step(n, "h"), lang)
+def test_every_old_step_button_opens_help_in_place(
+    client: TestClient, n: int, origin: str, lang: str
+) -> None:
+    body = _tap(client, f"q1:{n}:{origin}", lang)
 
     assert body["method"] == "editMessageText"
-    assert body["text"].startswith(f"{n} ")  # "2 of 5" / "2 из 5"
-    assert "🌸" not in body["text"]
+    assert body["text"] == _command(client, "/help", lang)["text"]
+    assert _data(body)[-1] == "w1:m"
 
 
-@pytest.mark.parametrize("lang", ["en", "ru"])
-def test_the_step_before_the_app_is_teachers_and_shalas(client: TestClient, lang: str) -> None:
-    text = _tap(client, step(STEPS - 1, "h"), lang)["text"]
-
-    assert "👥" in text
-    assert "/teachers" in text
-    assert "/schedule" in text
-
-
-def test_the_tour_has_six_steps() -> None:
-    assert STEPS == 6
-
-
-def test_the_first_step_has_no_back(client: TestClient) -> None:
-    body = _tap(client, step(1, "s"))
-
-    assert _rows(body) == [["Next ›"], ["✓ Done"]]  # noqa: RUF001
-    assert _data(body) == [step(2, "s"), done("s")]
-
-
-def test_a_middle_step_goes_both_ways(client: TestClient) -> None:
-    body = _tap(client, step(3, "h"))
-
-    assert _rows(body) == [["‹ Back", "Next ›"], ["✓ Done"]]  # noqa: RUF001
-    assert _data(body) == [step(2, "h"), step(4, "h"), done("h")]
-
-
-def test_the_last_step_opens_the_app(client: TestClient) -> None:
-    body = _tap(client, step(STEPS, "s"))
-
-    assert _rows(body) == [["‹ Back", "✓ Done"], ["Open the app"]]  # noqa: RUF001
-
-
-def test_the_last_step_without_a_mini_app(storage: InMemoryStorage) -> None:
-    with _client(storage, "") as bare:
-        assert _rows(_tap(bare, step(STEPS, "s"))) == [["‹ Back", "✓ Done"]]  # noqa: RUF001
-
-
-def test_done_from_start_is_the_log_grid_again(client: TestClient) -> None:
-    body = _tap(client, done("s"))
+def test_done_under_a_tour_opened_from_help_is_help(client: TestClient) -> None:
+    body = _tap(client, "q1:d:h")
 
     assert body["method"] == "editMessageText"
-    assert body["text"].startswith("Namaste 🙏")
-    assert _rows(body)[0] == ["🧘 Practiced"]
+    assert body["text"] == HELP
 
 
-def test_a_status_tap_on_start_still_works_after_the_tour(client: TestClient) -> None:
-    grid = _tap(client, done("s"))
+def test_done_under_a_tour_opened_from_start_is_today(client: TestClient) -> None:
+    body = _tap(client, "q1:d:s")
 
-    saved = _tap(client, _data(grid)[1])
+    assert body["method"] == "editMessageText"
+    assert _rows(body) == [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], ["☰ Menu"]]
+
+
+def test_a_status_tap_still_works_after_an_old_done(client: TestClient) -> None:
+    today = _tap(client, "q1:d:s")
+
+    saved = _tap(client, _data(today)[1])
 
     assert saved["method"] == "editMessageText"
     assert saved["text"].startswith("✓ Today")
 
 
-def test_done_from_help_is_the_help_text(client: TestClient) -> None:
-    body = _tap(client, done("h"))
+def test_the_tour_is_offered_nowhere(client: TestClient) -> None:
+    for command in ("/start", "/help", "/menu", "/log"):
+        body = _command(client, command)
+        assert not [d for d in _data(body) if d.startswith("q1:")]
+        assert "🧭" not in str(body)
 
-    assert body["method"] == "editMessageText"
-    assert body["text"].startswith("I'm Tristhana")
-    assert _rows(body) == [["🧭 Quick tour"]]
 
-
-def test_a_step_past_the_end_shows_the_last_one(client: TestClient) -> None:
-    body = _tap(client, f"q1:{STEPS + 3}:h")
-
-    assert body["text"] == _tap(client, step(STEPS, "h"))["text"]
+def test_the_decoder_still_knows_the_six_steps() -> None:
+    assert STEPS == 6
+    assert decode("q1:9:h") == decode("q1:6:h")  # a step past the end is the last one
 
 
 @pytest.mark.parametrize(
@@ -251,16 +161,12 @@ def test_forged_data_does_nothing(client: TestClient, data: str) -> None:
     assert body is None or body.get("method") == "answerCallbackQuery"
 
 
-def test_callback_data_fits_telegram(client: TestClient) -> None:
-    assert all(len(d.encode()) <= 64 for d in (step(STEPS, "s"), done("h")))
-
-
-def test_a_step_reads_nothing_beyond_the_account(
+def test_an_old_step_reads_nothing_beyond_the_account(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _command(client, "/start")
     storage.day_repo.down = True  # any day read would now fail
 
-    body = _tap(client, step(2, "s"))
+    body = _tap(client, "q1:2:s")
 
     assert body["method"] == "editMessageText"

@@ -65,22 +65,38 @@ def test_menu_button_opens_the_mini_app() -> None:
 def test_command_menu_is_localized_from_the_bot_ftl() -> None:
     default, ru = _tool().commands_payloads()
 
+    # UI-06: five commands, in the order Telegram lists them.
     assert [c["command"] for c in default["commands"]] == [
-        "log",
-        "asanas",
-        "remind",
-        "moon",
-        "teachers",
+        "start",
         "schedule",
-        "classes",
+        "moon",
         "settings",
         "help",
-        "start",
     ]
+    assert [c["command"] for c in ru["commands"]] == [c["command"] for c in default["commands"]]
     assert "language_code" not in default
     assert ru["language_code"] == "ru"
     assert all(c["description"] for c in default["commands"] + ru["commands"])
-    assert default["commands"][0]["description"] != ru["commands"][0]["description"]
+    assert (default["commands"][0]["description"], ru["commands"][0]["description"]) == (
+        "Today",
+        "Сегодня",
+    )
+    assert (default["commands"][1]["description"], ru["commands"][1]["description"]) == (
+        "Classes",
+        "Занятия",
+    )
+
+
+def test_hidden_commands_are_handled_but_listed_nowhere() -> None:
+    tool = _tool()
+
+    assert tool.HIDDEN_COMMANDS == ("log", "asanas", "remind", "teachers", "classes", "menu")
+    assert not set(tool.HIDDEN_COMMANDS) & set(tool.COMMANDS)
+    assert "admin" not in (*tool.COMMANDS, *tool.HIDDEN_COMMANDS)  # ADR-0042: in no list
+    for locale in ("en", "ru"):  # a hidden command has no description line
+        text = (tool.LOCALES_DIR / locale / "bot.ftl").read_text(encoding="utf-8")
+        for command in tool.HIDDEN_COMMANDS:
+            assert f"\ncommand-{command} =" not in text
 
 
 def test_profile_texts_come_from_the_bot_ftl_in_both_languages() -> None:

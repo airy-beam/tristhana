@@ -41,7 +41,6 @@ BOT_KEYS = (
     "links-main-chosen",
     "links-main-auto",
     "links-title",
-    "command-teachers",
     "link-no-name",
     "export-readme-links",
     "links-make-main",
@@ -168,7 +167,6 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "⭐ Основной учитель: Лена (в начале списка)",
     ),
     ("links-title", {}, "👥 Teachers and students", "👥 Учителя и ученики"),
-    ("command-teachers", {}, "My teachers and students", "Мои учителя и ученики"),
     ("link-no-name", {}, "(no name)", "(без имени)"),
     (
         "export-readme-links",

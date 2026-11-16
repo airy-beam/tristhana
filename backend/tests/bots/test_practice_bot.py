@@ -331,13 +331,18 @@ def test_changing_the_status_drops_details_and_details_need_practice(
     assert day.status is DayStatus.REST
 
 
-def test_practiced_day_screen_offers_details(client: TestClient) -> None:
+def test_practiced_day_editor_leads_back_to_the_details(client: TestClient) -> None:
+    # UI-06 E0: the editor has the three choices and no Details row of its own; the ✓ choice
+    # opens the practice again.
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")
 
     body = _tap(client, f"d1:o:{d}")
+    again = _tap(client, f"d1:s:{d}:p")
 
-    assert "📝 Details" in _texts(body)
+    assert "✓ 🧘 Practiced" in _texts(body)
+    assert "📝 Details" not in _texts(body)
+    assert again["text"].startswith("✓ Today, ")
 
 
 def test_every_callback_fits_telegrams_64_bytes() -> None:

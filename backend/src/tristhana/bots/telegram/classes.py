@@ -34,7 +34,15 @@ from tristhana.bots.telegram import classes_callbacks as cb
 from tristhana.bots.telegram import settings_callbacks, shalas_callbacks
 from tristhana.bots.telegram.attendance import entry_buttons, staff_button
 from tristhana.bots.telegram.calendar_feed import entry_button
-from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show, zone_label
+from tristhana.bots.telegram.screens import (
+    Reply,
+    Screen,
+    answered,
+    menu_row,
+    nothing,
+    show,
+    zone_label,
+)
 from tristhana.domain.accounts import Account
 from tristhana.domain.classes import (
     InvalidClass,
@@ -252,8 +260,9 @@ class ScheduleScreens:
         account = principal.account
         locale = account.locale
         if not s.shalas:
+            rows = [menu_row(self._t, locale)]  # UI-06: a way on from an empty screen
             return Screen(
-                self._t.t(locale, "my-schedule-none"), InlineKeyboardMarkup(inline_keyboard=[])
+                self._t.t(locale, "my-schedule-none"), InlineKeyboardMarkup(inline_keyboard=rows)
             )
         first, last = s.days[0].date, s.days[-1].date
         span = f"{self._day(locale, first)} {DASH} {self._day(locale, last)}"

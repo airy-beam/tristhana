@@ -1,5 +1,6 @@
-"""Day-status screens through the real webhook (PR-01, PR-04). Outbound Bot API calls (the
-parallel answerCallbackQuery) are recorded instead of sent."""
+"""Day-status screens through the real webhook (PR-01, PR-04, UI-06): Today (T0), "Other
+reason" (T1), the day editor (E0), the saved screen (S), the week picker. Outbound Bot API
+calls (the parallel answerCallbackQuery) are recorded instead of sent."""
 
 import itertools
 from collections.abc import Iterator
@@ -13,8 +14,10 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.bots.statements import Statements
 from tests.fakes import InMemoryStorage
-from tristhana.domain.days import DayStatus
+from tristhana.domain.days import DayLog, DayStatus
+from tristhana.domain.moon import MoonDay, MoonDayKind
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -103,24 +106,177 @@ def _buttons(body: Any) -> list[dict[str, str]]:
     return [b for row in body["reply_markup"]["inline_keyboard"] for b in row]
 
 
-def test_log_shows_todays_status_picker(client: TestClient) -> None:
+def _rows(body: Any) -> list[list[str]]:
+    return [[b["text"] for b in row] for row in body["reply_markup"]["inline_keyboard"]]
+
+
+def _log(client: TestClient, storage: InMemoryStorage, day: date, status: DayStatus) -> None:
+    if not storage.repo.accounts:
+        _command(client, "/moon")  # a first contact
+    [account] = storage.repo.accounts.values()
+    storage.day_repo.rows[(account.id, day)] = (DayLog(day, status), None)
+
+
+# Today (T0)
+
+
+def test_log_shows_today_with_exactly_four_buttons(client: TestClient) -> None:
     body = _command(client, "/log")
+    d = _ymd(_today())
 
     assert body["method"] == "sendMessage"
     assert body["text"].startswith("Today, ")
-    texts = [b["text"] for b in _buttons(body)]
-    assert texts == [
-        "🧘 Practiced",
-        "😌 Rest day",
-        "🌙 Moon day",
-        "🌸 Ladies' holiday",
-        "🤒 Sick / injury",
-        "✈️ Travel",
-        "🌱 No practice",
-        "📓 Note",  # PR-07
-        "📅 Another day",
+    assert body["text"].endswith("Practice or rest? Both go in your log.")
+    assert _rows(body) == [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], ["☰ Menu"]]
+    assert [b["callback_data"] for b in _buttons(body)] == [
+        f"d1:s:{d}:p",
+        f"d1:s:{d}:r",
+        f"d1:r:{d}:t",
+        "w1:m",
     ]
-    assert all(len(b["callback_data"].encode()) <= 64 for b in _buttons(body))
+    assert "🌸" not in str(body)  # off the first screen (it is under "Other reason")
+
+
+def test_today_in_russian(client: TestClient) -> None:
+    body = _command(client, "/log", "ru")
+
+    assert _rows(body) == [["🧘 Практика"], ["😌 День отдыха"], ["Другая причина…"], ["☰ Меню"]]
+    assert "Практика или отдых?" in body["text"]
+
+
+@pytest.mark.parametrize(
+    ("status", "marked", "line"),
+    [
+        (DayStatus.PRACTICED, "✓ 🧘 Practiced", "✓ In your log: 🧘 Practiced"),
+        (DayStatus.REST, "✓ 😌 Rest day", "✓ In your log: 😌 Rest day"),
+        (DayStatus.SICK, "✓ Other reason…", "✓ In your log: 🤒 Sick / injury"),
+        (DayStatus.MOON, "✓ Other reason…", "✓ In your log: 🌙 Moon day"),
+        (DayStatus.SKIPPED, "✓ Other reason…", "✓ In your log: 🌱 No practice"),
+    ],
+)
+def test_today_marks_the_logged_choice_and_says_what_it_is(
+    client: TestClient, storage: InMemoryStorage, status: DayStatus, marked: str, line: str
+) -> None:
+    _log(client, storage, _today(), status)
+
+    body = _command(client, "/log")
+
+    texts = [b["text"] for b in _buttons(body)]
+    assert [t for t in texts if t.startswith("✓")] == [marked]
+    assert len(texts) == 4
+    assert body["text"].endswith(line)
+
+
+def test_today_shows_the_auto_rest_line_on_a_moon_day(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    storage.moon_repo.days_by_location["mysuru"] = [MoonDay(_today(), MoonDayKind.PURNIMA)]
+
+    body = _command(client, "/log")
+
+    assert "🌙 Moon day (📍 Mysuru), a traditional rest day" in body["text"]
+    assert "In your log" not in body["text"]  # shown as rest, not logged
+    assert not [b for b in _buttons(body) if b["text"].startswith("✓")]
+    assert len(_buttons(body)) == 4
+
+
+def test_today_is_one_read(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _command(client, "/log")
+    statements = Statements(monkeypatch, storage)
+
+    _command(client, "/log")
+    _tap(client, "w1:n")
+
+    assert statements.names == ["InMemoryDays.range_with_moon"] * 2
+
+
+def test_today_from_the_menu_edits_in_place(client: TestClient) -> None:
+    body = _tap(client, "w1:n")
+
+    assert body["method"] == "editMessageText"
+    assert body["text"].startswith("Today, ")
+
+
+# "Other reason" (T1)
+
+
+@pytest.mark.parametrize(("origin", "back"), [("t", "w1:n"), ("e", "d1:o:{d}")])
+def test_other_reason_lists_the_rest_and_goes_back_where_it_came_from(
+    client: TestClient, origin: str, back: str
+) -> None:
+    d = _ymd(_today() - timedelta(days=1))
+
+    body = _tap(client, f"d1:r:{d}:{origin}")
+
+    assert body["method"] == "editMessageText"
+    assert body["text"].startswith("Yesterday, ")
+    assert [(b["text"], b["callback_data"]) for b in _buttons(body)] == [
+        ("🌙 Moon day", f"d1:s:{d}:m"),
+        ("🌸 Ladies' holiday", f"d1:s:{d}:l"),
+        ("🤒 Sick / injury", f"d1:s:{d}:k"),
+        ("✈️ Travel", f"d1:s:{d}:t"),
+        ("🌱 No practice", f"d1:s:{d}:s"),
+        ("‹ Back", back.format(d=d)),  # noqa: RUF001
+    ]
+
+
+def test_other_reason_costs_no_statement(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _command(client, "/log")
+    statements = Statements(monkeypatch, storage)
+
+    _tap(client, f"d1:r:{_ymd(_today())}:t")
+
+    assert statements.names == []
+
+
+def test_a_reason_saves_like_any_status(client: TestClient, storage: InMemoryStorage) -> None:
+    today = _today()
+    reasons = _tap(client, f"d1:r:{_ymd(today)}:t")
+
+    saved = _tap(client, reasons["reply_markup"]["inline_keyboard"][4][0]["callback_data"])
+
+    assert saved["text"].startswith("✓ Today, ")
+    [(day, _)] = storage.day_repo.rows.values()
+    assert (day.local_date, day.status) == (today, DayStatus.SKIPPED)
+    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["☰ Menu"]]
+
+
+@pytest.mark.parametrize("data", ["d1:r:20261018", "d1:r:20261018:x", "d1:r:20261399:t", "d1:r"])
+def test_forged_other_reason_data_only_answers(
+    client: TestClient, outbound: list[str], data: str
+) -> None:
+    assert _tap(client, data) is None
+    assert outbound == ["answerCallbackQuery"]
+
+
+# The day editor (E0)
+
+
+def test_the_day_editor_has_the_same_three_choices_then_its_own_rows(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    day = _today() - timedelta(days=1)
+    d = _ymd(day)
+
+    body = _tap(client, f"d1:o:{d}")
+
+    assert body["text"].startswith("Yesterday, ")
+    assert _rows(body) == [
+        ["🧘 Practiced"],
+        ["😌 Rest day"],
+        ["Other reason…"],
+        ["📓 Note"],  # PR-07
+        ["📅 Another day"],
+        ["‹ Today"],  # noqa: RUF001
+    ]
+    data = [b["callback_data"] for b in _buttons(body)]
+    assert data[:3] == [f"d1:s:{d}:p", f"d1:s:{d}:r", f"d1:r:{d}:e"]
+    assert data[-2:] == [f"d1:w:{_ymd(_today())}", "w1:n"]
+    assert all(len(value.encode()) <= 64 for value in data)
 
 
 def test_tap_saves_answers_and_edits_in_place(
@@ -157,10 +313,14 @@ def test_reopening_a_day_marks_the_current_status_and_offers_clear(client: TestC
 
     body = _tap(client, f"d1:o:{_ymd(day)}")
 
-    texts = [b["text"] for b in _buttons(body)]
     assert body["text"].startswith("Yesterday, ")
-    assert "✓ 🌙 Moon day" in texts
-    assert "Clear" in texts
+    assert body["text"].endswith("✓ In your log: 🌙 Moon day")
+    assert _rows(body)[2:] == [
+        ["✓ Other reason…"],
+        ["📓 Note"],
+        ["Clear", "📅 Another day"],
+        ["‹ Today"],  # noqa: RUF001
+    ]
 
 
 def test_clear(client: TestClient, storage: InMemoryStorage) -> None:
@@ -224,17 +384,40 @@ def test_clear_reads_the_day_back_once(
     assert "Clear" not in [b["text"] for b in _buttons(body)]
 
 
-def test_zone_hint_only_while_the_zone_is_unknown(
-    client: TestClient, storage: InMemoryStorage
+@pytest.mark.parametrize("code", ["p", "r", "l", "k"])
+def test_no_time_zone_tip_on_any_saved_screen(
+    client: TestClient, storage: InMemoryStorage, code: str
 ) -> None:
-    unknown = _tap(client, f"d1:s:{_ymd(_today())}:p")
+    # UI-06 Q314: the tip left the saved screens, with the zone unknown or known.
+    unknown = _tap(client, f"d1:s:{_ymd(_today())}:{code}")
     [account] = storage.repo.accounts.values()
     storage.repo.accounts[account.id] = replace(account, timezone="UTC")
 
-    known = _tap(client, f"d1:s:{_ymd(_today())}:p")
+    known = _tap(client, f"d1:s:{_ymd(_today())}:{code}")
 
-    assert "open the app once" in unknown["text"]
-    assert "open the app once" not in known["text"]
+    for saved in (unknown, known):
+        assert saved["text"].startswith("✓ Today, ")
+        assert "time zone" not in saved["text"]
+        assert "open the app" not in saved["text"].lower()
+
+
+def test_a_saved_rest_day_is_one_write_and_ends_with_the_menu(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _command(client, "/log")
+    statements = Statements(monkeypatch, storage)
+
+    saved = _tap(client, f"d1:s:{_ymd(_today())}:r")
+
+    assert statements.names == ["InMemoryDays.upsert"]
+    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["☰ Menu"]]
+    assert [b["callback_data"] for b in _buttons(saved)][-1] == "w1:m"
+
+
+def test_a_saved_ladies_day_keeps_its_private_note(client: TestClient) -> None:
+    saved = _tap(client, f"d1:s:{_ymd(_today())}:l")
+
+    assert "Only you see this." in saved["text"]
 
 
 def test_log_today_opens_a_new_message_and_keeps_the_greeting(client: TestClient) -> None:

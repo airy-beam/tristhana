@@ -1,23 +1,30 @@
-"""`/start` (UI-01): one message that greets and asks about today right away. The same for
-new and returning people (stateless), so it doubles as a home screen.
+"""`/start` (UI-01, UI-06): the front door for a person who has done nothing here yet, shown
+once; Today for everyone else, and from then on.
 
-    o1:l:en / o1:l:ru   switch the language (an explicit choice, ID-06)
+"Shown once" is `account.welcomed`, written by `MarkWelcomed` on the first `/start`. A link
+from a teacher or a shala (`/start t_…`, `h_…`, `hs_…`) writes it too, alongside its own
+read: someone who arrived by invitation never meets the front door, then or later.
+
+    o1:l:en / o1:l:ru   the language button under greetings sent before UI-06: switches the
+                        language and shows Today
 """
 
+import asyncio
+from collections.abc import Awaitable
 from typing import TYPE_CHECKING
 
 from aiogram import F, Router
 from aiogram.filters import CommandObject, CommandStart
 from aiogram.methods import SendMessage
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 
+from tristhana.application.accounts import MarkWelcomed
 from tristhana.application.policies import Principal
-from tristhana.application.ports.i18n import Translator
 from tristhana.bots.telegram.days import DayScreens
+from tristhana.bots.telegram.home import HomeScreens
 from tristhana.bots.telegram.runtime import SettingsUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, app_button, nothing, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show
 from tristhana.bots.telegram.settings import client_profile
-from tristhana.bots.telegram.tour_callbacks import Origin, step
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.shalas import parse_shala_invite
@@ -38,10 +45,6 @@ def decode(data: str | None) -> Locale | None:
     return None
 
 
-def encode(locale: Locale) -> str:
-    return f"{PREFIX}:l:{locale}"
-
-
 def register_start(
     router: Router,
     screens: "StartScreens",
@@ -58,11 +61,11 @@ def register_start(
         code = parse_invite(command.args)
         shala = parse_shala_invite(command.args)
         if code is not None and invites is not None:
-            screen = await invites.invited(principal, code)
+            screen = await screens.by_invite(principal, invites.invited(principal, code))
         elif shala is not None and shalas is not None:
-            screen = await shalas.invited(principal, shala)
+            screen = await screens.by_invite(principal, shalas.invited(principal, shala))
         else:
-            screen = await screens.start(principal)
+            screen = await screens.entry(principal)
         return message.answer(screen.text, reply_markup=screen.markup)
 
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
@@ -76,19 +79,38 @@ def register_start(
         return show(callback, screen)
 
 
-def tour_button(t: Translator, locale: Locale, origin: Origin) -> InlineKeyboardButton:
-    """Opens the quick tour (UI-02) on its first step."""
-    return InlineKeyboardButton(text=t.t(locale, "tour-open"), callback_data=step(1, origin))
-
-
 class StartScreens:
     def __init__(
-        self, days: DayScreens, settings: SettingsUseCases, translator: Translator, app: str
+        self,
+        days: DayScreens,
+        settings: SettingsUseCases,
+        home: HomeScreens,
+        welcome: MarkWelcomed | None = None,
     ) -> None:
         self._days = days
         self._s = settings
-        self._t = translator
-        self._app = app
+        self._home = home
+        self._welcome = welcome  # None: a runtime built without it never shows the front door
+
+    async def entry(self, principal: Principal) -> Screen:
+        """`/start` with no invite. The first one records that the person was welcomed (one
+        write, which also says whether they have a logged day): the front door for someone
+        who has done nothing yet, Today with the one-time Menu hint for anyone else. Every
+        later one is Today (one read)."""
+        if principal.account.welcomed or self._welcome is None:
+            return await self.start(principal)
+        met = await self._welcome.execute(principal)
+        if met.front_door:
+            return self._home.front(principal.account.locale)
+        return await self._days.today_screen(principal, hint=met.first)
+
+    async def by_invite(self, principal: Principal, invited: Awaitable[Screen]) -> Screen:
+        """`/start` with an invite: its own screen. Until the person is welcomed, that is
+        recorded alongside the invite's read, so the front door never shows later."""
+        if principal.account.welcomed or self._welcome is None:
+            return await invited
+        screen, _ = await asyncio.gather(invited, self._welcome.execute(principal))
+        return screen
 
     async def start(
         self,
@@ -96,37 +118,8 @@ class StartScreens:
         lead: str | None = None,
         lead_row: list[InlineKeyboardButton] | None = None,
     ) -> Screen:
-        """Greeting + "how was today?" + today's status grid (✓ on today's status). An
-        answered invite (ID-04) puts its line and button on top."""
-        locale = principal.account.locale
-        today, _ = self._days.today(principal)
-        picker, auto = await self._days.today_picker(principal)
-        text = "\n\n".join(
-            [
-                *([lead] if lead else []),
-                self._t.t(locale, "start-greeting"),
-                *([auto] if auto else []),  # today shows as auto-rest (PR-09)
-                self._t.t(locale, "start-prompt", day=self._days.day(locale, today, today)),
-            ]
-        )
-        other: Locale = next(code for code in LOCALES if code != locale)  # type: ignore[assignment]  # two languages today
-        last: list[InlineKeyboardButton] = [
-            InlineKeyboardButton(
-                text=self._t.t(
-                    locale, "start-switch-language", language=self._t.t(other, f"language-{other}")
-                ),
-                callback_data=encode(other),
-            )
-        ]
-        if self._app:
-            last.append(app_button(self._t, locale, self._app))
-        rows = [
-            *([lead_row] if lead_row else []),
-            *picker.markup.inline_keyboard,
-            last,
-            [tour_button(self._t, locale, "s")],
-        ]
-        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+        """Today. An answered invite (ID-04, SC-01) puts its line and button on top."""
+        return await self._days.today_screen(principal, lead=lead, lead_row=lead_row)
 
     async def switch(self, principal: Principal, locale: Locale, client: ExternalProfile) -> Screen:
         account = await self._s.profile.execute(principal, ProfilePatch(locale=locale), client)

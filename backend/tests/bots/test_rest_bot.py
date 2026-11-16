@@ -562,28 +562,45 @@ def test_week_picker_shows_covered_days_privately(
 # Hide 🌸
 
 
-def test_grid_without_the_ladies_button(client: TestClient, storage: InMemoryStorage) -> None:
+def test_other_reasons_without_the_ladies_button(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    # UI-06: 🌸 lives under "Other reason" (T1), and "hide the 🌸 button" leaves it out there.
     _me(client, storage, hide_ladies=True)
 
-    body = _command(client, "/log")
+    today = _command(client, "/log")
+    body = _tap(client, f"d1:r:{_ymd(0)}:t")
 
-    assert _rows(body)[:4] == [
-        ["🧘 Practiced"],
-        ["😌 Rest day", "🌙 Moon day"],
-        ["🤒 Sick / injury", "✈️ Travel"],
+    assert all("🌸" not in t for t in _texts(today))
+    assert _rows(body) == [
+        ["🌙 Moon day"],
+        ["🤒 Sick / injury"],
+        ["✈️ Travel"],
         ["🌱 No practice"],
+        ["‹ Back"],  # noqa: RUF001
     ]
 
 
-def test_a_ladies_day_keeps_its_button_while_hidden(
+def test_other_reasons_with_the_ladies_button(client: TestClient, storage: InMemoryStorage) -> None:
+    _me(client, storage)
+
+    body = _tap(client, f"d1:r:{_ymd(0)}:t")
+
+    assert _rows(body)[:2] == [["🌙 Moon day"], ["🌸 Ladies' holiday"]]
+
+
+def test_a_ladies_day_still_shows_on_the_persons_own_today_while_hidden(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
+    # Hiding the button never hides the person's own log from them: Today says what the day
+    # is, with ✓ on "Other reason". "Other reason" itself is a pure render and stays without 🌸.
     me = _me(client, storage, hide_ladies=True)
     _log(storage, me, 0, L)
 
     body = _command(client, "/log")
 
-    assert "✓ 🌸 Ladies' holiday" in _texts(body)
+    assert "✓ In your log: 🌸 Ladies' holiday" in body["text"]
+    assert "✓ Other reason…" in _texts(body)
 
 
 def test_start_honours_hide(client: TestClient, storage: InMemoryStorage) -> None:

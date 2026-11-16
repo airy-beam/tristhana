@@ -230,7 +230,7 @@ def test_moon_day_on_the_day_off_names_the_city_and_both(
     _me(client, storage)
     _set_off(storage, frozenset({_today().isoweekday()}))
     storage.moon_repo.days_by_location["mysuru"] = [MoonDay(_today(), MoonDayKind.PURNIMA)]
-    body = _command(client, "/start")
+    body = _command(client, "/log")  # Today (UI-06 T0): the auto-rest line stays on it
     expected = "🌙 Moon day (📍 Mysuru), a traditional rest day and your weekly day off too."
     assert expected in body["text"]
 

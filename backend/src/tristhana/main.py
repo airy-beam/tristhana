@@ -19,7 +19,7 @@ from tristhana.api.body_limit import NoteBodyLimit
 from tristhana.api.errors import install_error_handlers
 from tristhana.api.ical import NoCorsForFeed, make_ical_router
 from tristhana.api.share import make_share_router
-from tristhana.application.accounts import EnsureAccount, RecordDeviceTimezone
+from tristhana.application.accounts import EnsureAccount, MarkWelcomed, RecordDeviceTimezone
 from tristhana.application.announcements import (
     AnnouncementUseCases,
     DeleteAnnouncement,
@@ -552,6 +552,7 @@ class _Services:
         app.state.listings = listings
         self._bot.listings = listings
         self._bot.ensure_account = ensure
+        self._bot.welcome = MarkWelcomed(self._storage.accounts, clock)  # UI-06
         self._bot.days = days
         self._bot.practices = practices
         self._bot.moon = moon
@@ -585,6 +586,7 @@ class _LazyBot:
         self._settings = settings
         self._runtime: BotRuntime | None = None
         self.ensure_account: EnsureAccount | None = None  # set in the lifespan
+        self.welcome: MarkWelcomed | None = None  # UI-06: the front door, shown once
         self.calendar_feed: CalendarFeedUseCases | None = None  # SC-06
         self.days: DayUseCases | None = None
         self.practices: PracticeUseCases | None = None
@@ -633,6 +635,7 @@ class _LazyBot:
                 self.calendar_feed,
                 self.listings,
                 site_url=self._settings.public_site_url,
+                welcome=self.welcome,
             )
         return self._runtime
 

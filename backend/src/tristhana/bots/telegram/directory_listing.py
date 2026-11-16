@@ -2,14 +2,14 @@
 
 A teacher sees their status and can remove the line; the form itself is in the Mini App. A
 platform admin answers requests behind `/admin`: in no menu, and for anyone else it replies
-with the ordinary fallback text, so it can't be probed. The admin opens the public directory
-in a browser by a URL button; the server never calls that site.
+exactly as to any typed text (the Menu, UI-06), so it can't be probed. The admin opens the
+public directory in a browser by a URL button; the server never calls that site.
 
 The line is always its own text line and never part of a button label: a display name can't
 hold a line break, so a name can't imitate it. Names, regions and notes are never logged.
 """
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from datetime import date
 from uuid import UUID
 
@@ -306,13 +306,18 @@ async def _now(screen: Screen) -> Screen:
     return screen
 
 
-def register_listing(router: Router, screens: ListingScreens, translator: Translator) -> None:
+def register_listing(
+    router: Router, screens: ListingScreens, typed_reply: Callable[[Message, Account], SendMessage]
+) -> None:
+    """`typed_reply` is the reply to any typed text (`HomeScreens.typed_reply`)."""
+
     @router.message(Command("admin"))
     async def on_admin(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
         principal = Principal(account)
         if not screens.available or not screens.checks(principal):
-            # The same reply as any unknown text: the command can't be probed.
-            return message.answer(translator.t(account.locale, "fallback-text"))
+            # The same reply as any typed text, built by the same function: the command
+            # can't be probed (ADR-0042).
+            return typed_reply(message, account)
         screen = await screens.requests(principal, False, 0)
         return message.answer(screen.text, reply_markup=screen.markup)
 

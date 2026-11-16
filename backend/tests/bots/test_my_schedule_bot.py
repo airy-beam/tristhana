@@ -705,7 +705,7 @@ def test_classes_for_a_student_names_the_empty_filter(
     assert "You teach no classes this week." in _lines(body)
 
 
-def test_schedule_is_in_help_and_the_command_menu(client: TestClient) -> None:
+def test_schedule_is_in_the_command_menu_as_classes(client: TestClient) -> None:
     import importlib.util
     from pathlib import Path
 
@@ -716,8 +716,10 @@ def test_schedule_is_in_help_and_the_command_menu(client: TestClient) -> None:
     tool = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tool)
 
+    # UI-06: one of the five listed commands, described as "Classes"; /help names no command.
     assert "schedule" in tool.COMMANDS
-    assert "/schedule" in _command(client, "/help")["text"]
+    assert FluentTranslator().t("en", "command-schedule") == "Classes"
+    assert "/schedule" not in _command(client, "/help")["text"]
 
 
 # Size, data, answers

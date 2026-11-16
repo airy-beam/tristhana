@@ -5,7 +5,7 @@ import pytest
 from tristhana.domain.locale import LOCALES
 from tristhana.infrastructure.i18n.fluent import FluentTranslator, message_ids
 
-BOT_KEYS = ["start-greeting", "help-text", "fallback-text"]
+BOT_KEYS = ["start-greeting", "help-title", "menu-title"]
 
 
 def test_every_locale_has_the_same_keys() -> None:
@@ -762,13 +762,62 @@ def test_progression_copy_avoids_competitive_or_guilty_words(locale: str) -> Non
         assert not [line for line in lines if word in line], word
 
 
+# UI-06 (spec §4): the keys the front door, Today, the Menu and Help need, and the ones the
+# retired tour, the old /help text and the hidden commands took with them.
+UI06_KEYS = (
+    "welcome-ask", "welcome-path-practice", "welcome-path-invite", "welcome-path-shala",
+    "welcome-later", "welcome-teacher-next", "welcome-own-practice", "welcome-shala-text",
+    "welcome-shala-student", "invite-simple", "invite-send", "today-other",
+    "today-reasons-title", "today-logged", "today-menu-hint", "today-back", "menu-open",
+    "menu-title", "menu-text-lead", "menu-teach", "teach-title", "help-title",
+    "help-earlier-day", "help-reminder", "help-asanas", "help-join", "help-guide",
+)  # fmt: skip
+UI06_RETIRED = (
+    "tour-open", "tour-progress", "tour-next", "tour-back", "tour-done", "tour-log",
+    "tour-rest", "tour-remind", "tour-asanas", "tour-links", "tour-app", "help-text",
+    "fallback-text", "command-log", "command-asanas", "command-remind", "command-teachers",
+    "command-classes", "log-prompt", "log-zone-hint",
+)  # fmt: skip
+
+
 @pytest.mark.parametrize("locale", ["en", "ru"])
-def test_tour_copy_stays_gentle_and_never_names_the_ladies_holiday(locale: str) -> None:
+def test_ui06_keys_exist_and_the_retired_ones_are_gone(locale: str) -> None:
+    from tristhana.domain.journey import MenuItem
+
+    keys = message_ids(locale)  # type: ignore[arg-type]
+
+    assert set(UI06_KEYS) <= keys
+    assert {f"menu-{item.value}" for item in MenuItem} <= keys  # one label per Menu row
+    assert not set(UI06_RETIRED) & keys
+
+
+def test_the_front_door_labels_in_russian_are_the_approved_ones() -> None:
+    t = FluentTranslator()
+
+    assert t.t("ru", "welcome-path-practice") == "Моя практика"
+    assert t.t("ru", "welcome-path-invite") == "Пригласить учеников"
+    assert t.t("ru", "welcome-path-shala") == "Шала и занятия"
+
+
+def test_the_prompt_stays_neutral() -> None:
+    # Spec §7: "Practice or rest? Both go in your log.", never "Did you practice today?".
+    text = FluentTranslator().t("en", "start-prompt", day="Today, Mon, Nov 16")
+
+    assert text == "Today, Mon, Nov 16\nPractice or rest? Both go in your log."
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_journey_copy_stays_gentle_and_never_names_the_ladies_holiday(locale: str) -> None:
     text = (files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl").read_text(
         encoding="utf-8"
     )
-    section = text.split("(UI-02)", 1)[1].split("fallback-text", 1)[0].split("\n", 1)[1].lower()
-    assert "tour-app" in section
+    block = text.split("(UI-06)", 1)[1].split("error-temporary", 1)[0]
+    section = "\n".join(
+        line.split("=", 1)[-1].lower()
+        for line in block.splitlines()[1:]
+        if not line.startswith("#")
+    )
+    assert "☰" in section
     banned = (*_AVOID[locale], "🌸", "ladies", "женск", "missed", "skipped", "серия")
     assert not [word for word in banned if word in section]
 

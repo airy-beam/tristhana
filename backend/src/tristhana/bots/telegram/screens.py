@@ -18,6 +18,7 @@ from aiogram.types import (
 )
 
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
+from tristhana.bots.telegram import home_callbacks
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
 
@@ -39,6 +40,11 @@ def button(
 ) -> InlineKeyboardButton:
     text = t.t(locale, key)
     return InlineKeyboardButton(text=f"✓ {text}" if mark else text, callback_data=data)
+
+
+def menu_row(t: Translator, locale: Locale) -> list[InlineKeyboardButton]:
+    """`[☰ Menu]`: the last row of every top-level screen (UI-06)."""
+    return [button(t, locale, "menu-open", home_callbacks.MENU)]
 
 
 def app_url(base: str, open: str | None = None, **params: str | None) -> str:

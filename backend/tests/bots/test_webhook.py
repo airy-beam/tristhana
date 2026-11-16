@@ -89,12 +89,21 @@ def test_start_replies_in_the_webhook_response(
     assert body["text"].startswith(greeting)
 
 
-def test_help_and_fallback(bot_client: TestClient) -> None:
-    help_text = _post(bot_client, _update("/help", language_code="ru")).json()["text"]
-    other = _post(bot_client, _update("hello", language_code="en")).json()["text"]
+def test_help_and_typed_text(bot_client: TestClient) -> None:
+    # UI-06: Help is a list of buttons, and anything typed opens the Menu.
+    helped = _post(bot_client, _update("/help", language_code="ru")).json()
+    other = _post(bot_client, _update("hello", language_code="en")).json()
 
-    assert "/log" in help_text
-    assert other.startswith("I can't answer messages yet")
+    assert helped["text"].startswith("❓ Помощь")
+    assert "/" not in helped["text"]  # it names no command
+    assert helped["reply_markup"]["inline_keyboard"][-1] == [
+        {"text": "☰ Меню", "callback_data": "w1:m"}
+    ]
+    assert other["text"].startswith("I can't answer messages yet")
+    assert other["text"].endswith("☰ Menu")
+    assert other["reply_markup"]["inline_keyboard"][0] == [
+        {"text": "📝 Today", "callback_data": "w1:n"}
+    ]
 
 
 def test_ignores_group_chats(bot_client: TestClient) -> None:
@@ -204,25 +213,32 @@ def test_polling_failure_is_logged_and_shutdown_is_clean(monkeypatch: pytest.Mon
     assert "telegram polling stopped: RuntimeError" in messages
 
 
-def test_start_offers_the_mini_app_when_configured() -> None:
+def test_the_menu_opens_the_mini_app_when_configured() -> None:
+    # UI-06: "Open the app" left /start; the Mini App is the Menu's "My practice".
     settings = _settings(miniapp_url="https://tristhana.web.app")
     with TestClient(create_app(settings, InMemoryStorage())) as client:
-        body = _post(client, _update("/start", language_code="ru")).json()
+        start = _post(client, _update("/start", language_code="ru")).json()
+        menu = _post(client, _update("/menu", language_code="ru")).json()
 
-    [language, app] = body["reply_markup"]["inline_keyboard"][-2]
-    assert language == {"text": "🗣 English", "callback_data": "o1:l:en"}
-    assert app["web_app"] == {"url": "https://tristhana.web.app"}
-    assert app["text"] == "Открыть приложение"
+    assert start["reply_markup"]["inline_keyboard"][-1] == [
+        {"text": "🗣 English", "callback_data": "w1:l:en"}
+    ]
+    assert "web_app" not in str(start["reply_markup"])
+    [app] = menu["reply_markup"]["inline_keyboard"][1]
+    assert app["web_app"] == {"url": "https://tristhana.web.app?open=practice"}
+    assert app["text"] == "📊 Моя практика"
 
 
-def test_start_without_a_mini_app_url_has_only_the_language_button(
+def test_start_without_a_mini_app_url_still_ends_with_the_language_button(
     bot_client: TestClient,
 ) -> None:
-    body = _post(bot_client, _update("/start")).json()
+    start = _post(bot_client, _update("/start")).json()
+    menu = _post(bot_client, _update("/menu")).json()
 
-    assert body["reply_markup"]["inline_keyboard"][-2] == [
-        {"text": "🗣 Русский", "callback_data": "o1:l:ru"}
+    assert start["reply_markup"]["inline_keyboard"][-1] == [
+        {"text": "🗣 Русский", "callback_data": "w1:l:ru"}
     ]
+    assert "web_app" not in str(menu["reply_markup"])
 
 
 def test_first_message_creates_the_account(
@@ -243,7 +259,7 @@ def test_language_change_in_telegram_updates_the_account(
 
     [account] = storage.repo.accounts.values()
     assert account.locale == "en"
-    assert body["text"].startswith("I'm Tristhana")
+    assert body["text"].startswith("❓ Help")
 
 
 def test_database_down_gets_a_gentle_retry(

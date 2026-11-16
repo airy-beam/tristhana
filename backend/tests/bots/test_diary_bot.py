@@ -51,7 +51,8 @@ TOO_LONG = re.compile(
     r"That's a bit long for one note: up to 2[, ]?000 characters\. Your text is still "  # noqa: RUF001
     r"above, so you can shorten it and resend\."
 )
-FALLBACK = "I can't answer messages yet. Try /start or /help 🙏"
+# UI-06: anything typed opens the Menu, with this line on top.
+FALLBACK = "I can't answer messages yet. Here is everything I can do 🙏\n\n☰ Menu"
 EXPLAIN = "⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional."
 BACK = "‹ Back"  # noqa: RUF001
 STATUS_EMOJI = ["🧘", "😌", "🌙", "🌸", "🤒", "✈️", "🌱", "✓"]
@@ -869,14 +870,14 @@ def test_a_non_text_reply_gets_text_only(
     [
         _prompt_message(TODAY, from_id=42, is_bot=False),  # the person's own message
         _prompt_message(TODAY, from_id=999_999, is_bot=True),  # another bot's message
-        _prompt_message("", body="Today, Tue, Oct 27\n\nHow was your day?"),  # ours, no token
+        _prompt_message("", body="Today, Tue, Oct 27\nPractice or rest?"),  # ours, no token
         _prompt_message("📓 27.10.2026\n"),  # not the token
         _prompt_message("📓 2026-10-27 "),  # the token must end the first line
         _prompt_message("x📓 2026-10-27\n"),
         _prompt_message("📓 2026-13-45\n"),  # not a date
     ],
 )
-def test_other_replies_get_the_fallback_and_save_nothing(
+def test_other_replies_get_the_menu_and_save_nothing(
     client: TestClient, storage: InMemoryStorage, outbound: list[Any], target: dict[str, Any]
 ) -> None:
     _me(client, storage)
@@ -906,7 +907,7 @@ def test_a_command_sent_as_a_reply_to_another_bot_message_runs(
 ) -> None:
     _me(client, storage)
     command = [{"type": "bot_command", "offset": 0, "length": 4}]
-    target = _prompt_message("", body="Today, Tue, Oct 27\n\nHow was your day?")
+    target = _prompt_message("", body="Today, Tue, Oct 27\nPractice or rest?")
 
     body = _one(_message(client, "/log", target, entities=command), outbound)
 
@@ -914,7 +915,7 @@ def test_a_command_sent_as_a_reply_to_another_bot_message_runs(
     assert storage.day_repo.diary_rows == {}
 
 
-def test_plain_text_without_a_reply_gets_the_fallback(
+def test_plain_text_without_a_reply_gets_the_menu(
     client: TestClient, storage: InMemoryStorage, outbound: list[Any]
 ) -> None:
     _me(client, storage)

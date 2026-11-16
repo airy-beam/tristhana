@@ -1,8 +1,10 @@
-"""Day-status screens (PR-01, PR-04): `/log`, the status picker, the week picker.
+"""Day-status screens (PR-01, PR-04, UI-06): Today (`/log`, and `/start` once the front door
+was met), the per-day editor, "Other reason", the week picker.
 
-Every tap edits the same message (the webhook reply, ADR-0012) and answers the callback in
-parallel. One DB statement per tap besides the account lookup. Saving 🧘 Practiced opens
-the practice-details screen (PR-02, `practice.py`).
+Today and the editor are one builder: three choices (🧘, 😌, "Other reason"), with ✓ on the
+logged one. Every tap edits the same message (the webhook reply, ADR-0012) and answers the
+callback in parallel. One DB statement per tap besides the account lookup; "Other reason" is
+a pure render. Saving 🧘 Practiced opens the practice-details screen (PR-02, `practice.py`).
 """
 
 from __future__ import annotations
@@ -17,9 +19,9 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from tristhana.application.days import DaysView
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, Translator
-from tristhana.bots.telegram import practice_callbacks as pcb
+from tristhana.bots.telegram import home_callbacks as hcb
 from tristhana.bots.telegram import rest_callbacks as acb
-from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, decode, encode
+from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, Origin, decode, encode
 from tristhana.bots.telegram.check_in import CheckInScreens, register_check_in
 from tristhana.bots.telegram.diary import DiaryScreens, note_button, preview, register_diary
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
@@ -38,31 +40,19 @@ from tristhana.bots.telegram.screens import (
     answered,
     app_button,
     day_label,
+    menu_row,
     nothing,
     show,
 )
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
+from tristhana.domain.journey import OTHER_REASONS
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
 from tristhana.domain.rest_days import AutoKind
 from tristhana.domain.rest_periods import PAUSE_DAYS, RestPeriod
 
 WEEK = 7
-# Grid order: Practiced alone on top; "No practice" last, next to Travel (ashtanga-expert).
-_GRID: tuple[tuple[DayStatus, ...], ...] = (
-    (DayStatus.PRACTICED,),
-    (DayStatus.REST, DayStatus.MOON),
-    (DayStatus.LADIES, DayStatus.SICK),
-    (DayStatus.TRAVEL, DayStatus.SKIPPED),
-)
-# "Hide the 🌸 button" (WH-01): the same order without it.
-_GRID_NO_LADIES: tuple[tuple[DayStatus, ...], ...] = (
-    (DayStatus.PRACTICED,),
-    (DayStatus.REST, DayStatus.MOON),
-    (DayStatus.SICK, DayStatus.TRAVEL),
-    (DayStatus.SKIPPED,),
-)
 CHIPS_PER_ROW = 3
 # The week picker is glanceable in chat history, so a ladies' holiday shows as rest there.
 _WEEK_EMOJI: dict[DayStatus | None, str] = {
@@ -108,7 +98,7 @@ def register(
 
     @router.message(Command("log"))
     async def on_log(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        screen = await screens.status(Principal(account), None)
+        screen = await screens.today_screen(Principal(account))
         return message.answer(screen.text, reply_markup=screen.markup)
 
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
@@ -159,67 +149,111 @@ class DayScreens:
                 return await self.week(principal, day)
             case "open", date() as day, _:
                 return await self.status(principal, day)
+            case "reasons", date() as day, _:
+                return self.reasons(principal, day, cb.origin or "t")
             case _:
-                return await self.status(principal, None)
+                return await self.today_screen(principal)
 
-    async def status(
-        self, principal: Principal, day: date | None, note: str | None = None
+    async def today_screen(
+        self,
+        principal: Principal,
+        lead: str | None = None,
+        lead_row: list[InlineKeyboardButton] | None = None,
+        hint: bool = False,
     ) -> Screen:
-        """The picker for one day (today when `day` is None), with ✓ on the current status.
-        An auto-rest day (PR-09) has no ✓, just a line saying why it shows as rest."""
-        screen, _ = await self._picker(principal, day, note)
-        return screen
+        """Today (UI-06 T0): the three choices and the Menu. `lead` and `lead_row` go on top
+        (an answered invite, an ended pause); `hint` adds the one-time "everything else is
+        under Menu" line."""
+        return await self._picker(principal, None, lead=lead, lead_row=lead_row, hint=hint)
 
-    async def today_picker(self, principal: Principal) -> tuple[Screen, str | None]:
-        """Today's picker and its auto-rest line (for /start, which has its own text)."""
-        return await self._picker(principal, None, None)
+    async def status(self, principal: Principal, day: date, note: str | None = None) -> Screen:
+        """The editor for one day (UI-06 E0): the same three choices as Today, then the note,
+        Clear, another day and the way back to Today. An auto-rest day (PR-09) has no ✓,
+        just a line saying why it shows as rest."""
+        return await self._picker(principal, day, note)
 
     async def _picker(
-        self, principal: Principal, day: date | None, note: str | None, lead: str | None = None
-    ) -> tuple[Screen, str | None]:
+        self,
+        principal: Principal,
+        day: date | None,
+        note: str | None = None,
+        *,
+        lead: str | None = None,
+        lead_row: list[InlineKeyboardButton] | None = None,
+        hint: bool = False,
+    ) -> Screen:
+        """Today (`day` None) and the day editor: one read."""
         today, _ = self._days.get.today(principal)
+        editor = day is not None
         day = day or today
         view = await self._days.get.execute(principal, day, day)
         current = view.days[0].status if view.days else None
         locale = principal.account.locale
         label = self.day(locale, day, today)
-        lines = [self._t.t(locale, note, day=label)] if note else []
-        if lead:
-            lines.insert(0, lead)
+        lines = [lead] if lead else []
+        if note:
+            lines.append(self._t.t(locale, note, day=label))
+        if hint:
+            lines.append(self._t.t(locale, "today-menu-hint"))
         auto = self.auto_line(locale, view, day)
         if auto:
             lines.append(auto)
-        text = "\n\n".join([*lines, self._t.t(locale, "log-prompt", day=label)])
-        note = preview(self._t, locale, view.notes.get(day)) if self.notes else None
-        if note:  # under the day itself; single-day screens only (never the week picker)
-            text += "\n\n" + note
-        shown = current or view.covered.get(day)
-        rows = self.status_rows(principal, day, current, shown)
+        lines.append(self._t.t(locale, "start-prompt", day=label))
+        if current is not None:  # the person's own screen: the status as they logged it
+            lines.append(self._t.t(locale, "today-logged", label=self.label(locale, current)))
+        shown = preview(self._t, locale, view.notes.get(day)) if editor and self.notes else None
+        if shown:  # under the day itself; the editor only (never Today or the week picker)
+            lines.append(shown)
+        rows = [lead_row] if lead_row else []
+        rows += self.choice_rows(locale, day, current, "e" if editor else "t")
         period = view.period_on(day)
         if period is not None and period.end >= today:  # still running: it can end early
             rows.append([self.end_button(locale, period, view.practice_on)])
-        last = [self._button(locale, "log-another-day", encode(DayCallback("week", today)))]
-        if current is DayStatus.PRACTICED:
-            last.insert(0, self._button(locale, "practice-details", _details(day)))
-        if current is not None:
-            last.append(self._button(locale, "log-clear", encode(DayCallback("clear", day))))
-        if self.notes:
-            rows.append([note_button(self._t, locale, day, "d")])
-        return Screen(text, InlineKeyboardMarkup(inline_keyboard=[*rows, last])), auto
+        if editor:
+            if self.notes:
+                rows.append([note_button(self._t, locale, day, "d")])
+            last = [self._button(locale, "log-another-day", encode(DayCallback("week", today)))]
+            if current is not None:
+                last.insert(0, self._button(locale, "log-clear", encode(DayCallback("clear", day))))
+            rows.append(last)
+            rows.append([self._button(locale, "today-back", hcb.TODAY)])
+        else:
+            rows.append(menu_row(self._t, locale))
+        return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
-    def status_rows(
-        self,
-        principal: Principal,
-        day: date,
-        current: DayStatus | None,
-        shown: DayStatus | None,
+    def choice_rows(
+        self, locale: Locale, day: date, current: DayStatus | None, origin: Origin
     ) -> list[list[InlineKeyboardButton]]:
-        """The status grid, ✓ on the logged status; without 🌸 when the person hid it,
-        unless the day shows as 🌸 (WH-01)."""
-        locale = principal.account.locale
-        hide = principal.account.hide_ladies and shown is not DayStatus.LADIES
-        grid = _GRID_NO_LADIES if hide else _GRID
-        return [[self._status_button(locale, day, s, current) for s in row] for row in grid]
+        """🧘 Practiced, 😌 Rest day, "Other reason": one per row, ✓ on the logged choice
+        (on "Other reason" for any status behind it)."""
+        other = self._t.t(locale, "today-other")
+        reasons = encode(DayCallback("reasons", day, origin=origin))
+        return [
+            [self._status_button(locale, day, DayStatus.PRACTICED, current)],
+            [self._status_button(locale, day, DayStatus.REST, current)],
+            [
+                InlineKeyboardButton(
+                    text=f"✓ {other}" if current in OTHER_REASONS else other,
+                    callback_data=reasons,
+                )
+            ],
+        ]
+
+    def reasons(self, principal: Principal, day: date, origin: Origin) -> Screen:
+        """ "Other reason" (UI-06 T1): a pure render, so no ✓ here. Without 🌸 when the
+        person hid it (WH-01)."""
+        account = principal.account
+        locale = account.locale
+        today, _ = self._days.get.today(principal)
+        rows = [
+            [self._status_button(locale, day, status, None)]
+            for status in OTHER_REASONS
+            if not (status is DayStatus.LADIES and account.hide_ladies)
+        ]
+        back = hcb.TODAY if origin == "t" else _open(day)
+        rows.append([self._button(locale, "log-back", back)])
+        text = self._t.t(locale, "today-reasons-title", day=self.day(locale, day, today))
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     def auto_line(self, locale: Locale, view: DaysView, day: date) -> str | None:
         """ "🌙 Moon day (📍 Mysuru), a traditional rest day…" for an unlogged auto day, or
@@ -315,7 +349,7 @@ class DayScreens:
         if period.end >= today:
             rows.append([self.end_button(locale, period, reminders_on)])
         rows.append(self._change_row(locale, day, today))
-        rows += self.app_rows(principal)
+        rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def pause_set_line(self, locale: Locale, period: RestPeriod, reminders_on: bool) -> str:
@@ -336,10 +370,9 @@ class DayScreens:
         )
 
     async def ended(self, principal: Principal, lead: str | None) -> Screen:
-        """After "End the pause": the line, then today's picker (so today can be logged in
-        the same message)."""
-        screen, _ = await self._picker(principal, None, None, lead=lead)
-        return screen
+        """After "End the pause": the line, then Today (so today can be logged in the same
+        message)."""
+        return await self.today_screen(principal, lead=lead)
 
     def label(self, locale: Locale, status: DayStatus) -> str:
         return self._t.t(locale, f"status-{status.value}")
@@ -351,11 +384,10 @@ class DayScreens:
         ]
 
     def saved_screen(self, principal: Principal, day: date, status: DayStatus) -> Screen:
-        """What a day shows once logged (not practiced: that has its own summary)."""
+        """What a day shows once logged (UI-06 S; not practiced: that has its own summary)."""
         today, _ = self._days.get.today(principal)
         locale = principal.account.locale
-        rows = [self._change_row(locale, day, today)]
-        rows += self.app_rows(principal)
+        rows = [self._change_row(locale, day, today), menu_row(self._t, locale)]
         return Screen(
             "\n\n".join(self.saved_lines(principal, day, status)),
             InlineKeyboardMarkup(inline_keyboard=rows),
@@ -368,9 +400,10 @@ class DayScreens:
         return [[app_button(self._t, principal.account.locale, self.app_url)]]
 
     def saved_lines(self, principal: Principal, day: date, status: DayStatus) -> list[str]:
-        """ "✓ Today, Sun, Oct 18: 🧘 Practiced" + the cheer, privacy note, zone hint."""
+        """ "✓ Today, Sun, Oct 18: 🧘 Practiced" + the cheer and the privacy note. No time-zone
+        tip here (UI-06 Q314)."""
         locale = principal.account.locale
-        today, zone_known = self._days.get.today(principal)
+        today, _ = self._days.get.today(principal)
         label = self._t.t(locale, f"status-{status.value}")
         lines = [
             self._t.t(
@@ -383,8 +416,6 @@ class DayScreens:
         ]
         if status is DayStatus.LADIES:
             lines.append(self._t.t(locale, "log-private-note"))
-        if not zone_known:
-            lines.append(self._t.t(locale, "log-zone-hint"))
         return lines
 
     async def week(self, principal: Principal, end: date, note: str | None = None) -> Screen:
@@ -450,7 +481,3 @@ def _until(period: RestPeriod) -> DateArg:
 
 def _open(day: date) -> str:
     return encode(DayCallback("open", day))
-
-
-def _details(day: date) -> str:
-    return pcb.encode(pcb.PracticeCallback("open", day))

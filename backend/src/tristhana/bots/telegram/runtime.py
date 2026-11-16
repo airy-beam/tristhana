@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from tristhana.application.accounts import EnsureAccount
+from tristhana.application.accounts import EnsureAccount, MarkWelcomed
 from tristhana.application.calendar_feed import CalendarFeedUseCases
 from tristhana.application.check_in import ClearCheckIn, SaveCheckIn, SetCheckInTag
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
@@ -194,6 +194,7 @@ def build_runtime(
     calendar: CalendarFeedUseCases | None = None,
     listings: ListingUseCases | None = None,
     site_url: str = "",
+    welcome: MarkWelcomed | None = None,
 ) -> BotRuntime:
     """No network: `Bot()` only validates the token format."""
     from aiogram import Bot, Dispatcher
@@ -221,6 +222,7 @@ def build_runtime(
             calendar,
             listings,
             site_url=site_url,
+            welcome=welcome,
         )
     )
     return BotRuntime(

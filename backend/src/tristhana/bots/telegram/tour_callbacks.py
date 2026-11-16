@@ -1,15 +1,16 @@
-"""Stateless callback data for the quick tour (UI-02, ADR-0008), versioned `q1:`.
+"""Callback data of the bot's quick tour (UI-02), versioned `q1:`. The tour itself was
+retired by UI-06; only the decoder stays, for the buttons still in chat history, which land
+on Help or Today (`home.py`). No screen builds this data any more.
 
-q1:2:s    show step 2; `s` or `h`: the tour was opened from /start or /help
-q1:d:s    Done: back to where it was opened
+q1:2:s    was "show step 2"; `s` or `h`: the tour was opened from /start or /help
+q1:d:s    was "Done": back to where it was opened
 """
 
 from dataclasses import dataclass
 from typing import Literal
 
 PREFIX = "q1"
-STEP_KEYS = ("tour-log", "tour-rest", "tour-remind", "tour-asanas", "tour-links", "tour-app")
-STEPS = len(STEP_KEYS)
+STEPS = 6  # the tour had six steps
 type Origin = Literal["s", "h"]
 
 
@@ -19,16 +20,8 @@ class TourTap:
     origin: Origin
 
 
-def step(n: int, origin: Origin) -> str:
-    return f"{PREFIX}:{n}:{origin}"
-
-
-def done(origin: Origin) -> str:
-    return f"{PREFIX}:d:{origin}"
-
-
 def decode(data: str | None) -> TourTap | None:
-    """None for anything malformed. A step past the end (an old keyboard) is the last one."""
+    """None for anything malformed. A step past the end is the last one."""
     parts = (data or "").split(":")
     if len(parts) != 3 or parts[0] != PREFIX or parts[2] not in ("s", "h"):
         return None
