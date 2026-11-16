@@ -18,7 +18,7 @@ It's the chat with [@tristhana_bot](https://t.me/tristhana_bot). Use it to:
 
 You don't need to type commands. :ftl[menu-open] is the last button under today's question and leads to everything else. Writing any message to the bot opens it too.
 
-<!-- shots-pending: ![The bot's Menu](../../../assets/shots/en/bot-menu.webp) -->
+![The bot's Menu](../../../assets/shots/en/bot-menu.webp)
 
 ## The app
 

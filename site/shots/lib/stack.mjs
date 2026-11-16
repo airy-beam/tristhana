@@ -70,6 +70,9 @@ export async function startStack(log = console.log) {
     INTERNAL_TICK_TOKEN: DEMO.secret,
     // Turns the calendar subscription on; `.invalid` never resolves, so the links lead nowhere.
     PUBLIC_API_URL: "https://demo.invalid",
+    // Puts the "Guide" row under Help, as people see it in production (the button is a link;
+    // nothing is fetched).
+    PUBLIC_SITE_URL: "https://tristhana.app",
   };
   const uv = ["run", "--project", join(REPO, "backend")];
 

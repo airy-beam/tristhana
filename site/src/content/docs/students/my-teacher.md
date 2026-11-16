@@ -12,7 +12,7 @@ Connect with your teacher with a link or a QR code, and see exactly what they ca
 2. Open it. The bot shows who is inviting you and, in a few lines, what they would see. :ftl[consent-details] has the full text.
 3. Tap :ftl[invite-accept], or :ftl[invite-decline]. If you decline, your teacher isn't told.
 
-<!-- shots-pending: ![The bot asking to confirm a teacher: what they would see, in short](../../../assets/shots/en/bot-consent.webp) -->
+![The bot asking to confirm a teacher: what they would see, in short](../../../assets/shots/en/bot-consent.webp)
 
 Accept only if you know the person: anyone can type any name.
 

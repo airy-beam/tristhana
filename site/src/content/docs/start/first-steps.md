@@ -15,7 +15,7 @@ Open the bot, say where to start and log your first day. It takes about two minu
 
 ![The bot's greeting and its first question, with three answers](../../../assets/shots/en/bot-start.webp)
 
-<!-- shots-pending: ![Today in the bot: practice, rest, other, and the Menu](../../../assets/shots/en/bot-today.webp) -->
+![Today in the bot: practice, rest, other, and the Menu](../../../assets/shots/en/bot-today.webp)
 
 _Pictures of the bot are drawn from its real messages._
 

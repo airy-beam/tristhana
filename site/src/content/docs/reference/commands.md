@@ -18,7 +18,7 @@ The menu next to the message field lists five.
 | :cmd[settings] | Language, city, day off, reminders and the rest.                      |
 | :cmd[help]     | The things people ask most, one tap each, and a link to this guide.   |
 
-<!-- shots-pending: ![Help in the bot: a list of things to do, one tap each](../../../assets/shots/en/bot-help.webp) -->
+![Help in the bot: a list of things to do, one tap each](../../../assets/shots/en/bot-help.webp)
 
 ## Shortcuts
 
