@@ -62,7 +62,13 @@ from tristhana.domain.notifications import (
     defaults_for,
     effective,
 )
-from tristhana.domain.practice import RECENT_LIMIT, Practice, PracticeContext, usual
+from tristhana.domain.practice import (
+    RECENT_LIMIT,
+    Practice,
+    PracticeContext,
+    copy_would_overwrite,
+    usual,
+)
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
     TIMELINE_LIMIT,
@@ -99,6 +105,10 @@ class InMemoryAccounts:
     # Simulates a concurrent first contact: the next create finds the identity taken.
     steal_next_create: bool = False
     deleted: list[UUID] = field(default_factory=list[UUID])
+    # UI-06: when each account was marked welcomed, and whether it has any logged day (the
+    # DB reads that in the same statement; `InMemoryStorage` wires it to its days).
+    welcomed_at: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
+    has_days: Callable[[UUID], bool] = lambda _: False
 
     async def find_by_identity(self, key: IdentityKey) -> Account | None:
         self._check()
@@ -170,6 +180,14 @@ class InMemoryAccounts:
     async def dismiss_day_off_question(self, account_id: UUID) -> None:
         self._check()
         self._save(replace(self.accounts[account_id], day_off_dismissed=True))
+
+    async def mark_welcomed(self, account_id: UUID, at: datetime) -> bool | None:  # UI-06
+        self._check()
+        if account_id in self.welcomed_at or self.accounts[account_id].welcomed:
+            return None
+        self.welcomed_at[account_id] = at
+        self._save(replace(self.accounts[account_id], welcomed=True))
+        return self.has_days(account_id)
 
     async def delete(self, account_id: UUID) -> bool:  # ST-09
         self._check()
@@ -363,6 +381,7 @@ class InMemoryDays:
             self.practice_rows.pop((account_id, when), None)
             self.check_in_rows.pop((account_id, when), None)  # PR-06: same statement
         became = day.status is DayStatus.PRACTICED and not again
+        kept = day.status is DayStatus.PRACTICED and again  # as the SQL: details stay
         return Upserted(
             day,
             prev=prev[0].status if prev else None,
@@ -370,6 +389,7 @@ class InMemoryDays:
             practice_on=self.practice_on(account_id),
             cut=cut,
             reached=self._ledger(account_id, thresholds) if became else None,
+            practice=self.practice_rows.get((account_id, when)) if kept else None,
         )
 
     async def insert_if_absent(
@@ -492,8 +512,16 @@ class InMemoryPractices:
         previous = usual(await self.recent(account_id, local_date, RECENT_LIMIT))
         if previous is None:
             return None
-        copied = replace(previous, start_time=None, timezone=timezone)
         before = self.days.practice_rows.get((account_id, local_date))
+        if copy_would_overwrite(before):  # as the SQL: details the day has are kept
+            assert before is not None
+            return self._saved(account_id, local_date, before, before)
+        # As the SQL: the day's own start time (and its zone) stays.
+        copied = replace(
+            previous,
+            start_time=before.start_time if before else None,
+            timezone=before.timezone if before else timezone,
+        )
         self.days.practice_rows[(account_id, local_date)] = copied
         return self._saved(account_id, local_date, copied, before)
 
@@ -1120,6 +1148,8 @@ class InMemoryStorage:
 
         self.day_repo.practice_on = practice_on
         self.day_repo.periods.practice_on = practice_on
+        days = self.day_repo
+        self.repo.has_days = lambda account_id: any(a == account_id for a, _ in days.rows)
 
     started: bool = False
 

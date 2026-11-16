@@ -10,15 +10,19 @@ Tristhana has two parts that share one log. The bot is for quick taps and remind
 
 It's the chat with [@tristhana_bot](https://t.me/tristhana_bot). Use it to:
 
-- log today in one or two taps (:cmd[start] or :cmd[log]);
+- log today in two taps (:cmd[start] opens today);
 - get a gentle daily reminder and a heads-up before moon days;
-- see the next moon days (:cmd[moon]) and your classes (:cmd[schedule]);
-- mark a new asana (:cmd[asanas]);
+- see the next moon days and your classes;
+- mark a new asana;
 - receive messages from your teacher or your shala.
+
+You don't need to type commands. :ftl[menu-open] is the last button under today's question and leads to everything else. Writing any message to the bot opens it too.
+
+![The bot's Menu](../../../assets/shots/en/bot-menu.webp)
 
 ## The app
 
-It opens inside Telegram: tap the button next to the message field, or :ftl[start-open-app] under a bot message. Use it to:
+It opens inside Telegram: tap the button next to the message field, or :ftl[menu-open] → :ftl[menu-practice] in the bot. Use it to:
 
 - see your year at a glance and each month in detail;
 - fill in or change earlier days from a calendar;
@@ -32,7 +36,7 @@ It opens inside Telegram: tap the button next to the message field, or :ftl[star
 - Everything you log in the bot shows up in the app, and the other way round.
 - You don't need the app to use the bot, or the bot to use the app. Reminders, though, always come from the bot.
 - The app follows your Telegram theme, light or dark.
-- Want a quick look around? :ftl[tour-open]{from=bot} under :cmd[help] walks through the bot in six short steps, teachers and shalas included. The app has its own :ftl[tour-open] in :ftl[settings-open]: it points at what is on your screen, so a teacher or a shala member sees a step or two more.
+- Want a quick look around? In the bot, :ftl[menu-help] lists the things people ask most, one tap each. The app has a :ftl[tour-open] in :ftl[settings-open]: it points at what is on your screen, so a teacher or a shala member sees a step or two more.
 
 ## Next
 

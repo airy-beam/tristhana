@@ -33,18 +33,11 @@ MENU_BUTTON_TEXT = "Tristhana"
 LOCALES_DIR = (
     Path(__file__).resolve().parents[2] / "backend/src/tristhana/infrastructure/i18n/locales"
 )
-COMMANDS = (
-    "log",
-    "asanas",
-    "remind",
-    "moon",
-    "teachers",
-    "schedule",
-    "classes",
-    "settings",
-    "help",
-    "start",
-)
+# The command menu (UI-06): five, in the order Telegram lists them.
+COMMANDS = ("start", "schedule", "moon", "settings", "help")
+# Handled by the bot, listed nowhere: they need no `command-*` line. (`/admin` is not here on
+# purpose: it must not appear in any list, ADR-0042.)
+HIDDEN_COMMANDS = ("log", "asanas", "remind", "teachers", "classes", "menu")
 
 
 def gcloud(*args: str) -> str:

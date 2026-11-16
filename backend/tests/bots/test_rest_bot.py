@@ -393,23 +393,23 @@ def test_practiced_inside_a_pause_offers_to_keep_it(
     _log(storage, me, -1, K)
     _period(storage, me, -1, 2, K)
 
-    details = _tap(client, f"d1:s:{_ymd(0)}:p")
+    saved = _tap(client, f"d1:s:{_ymd(0)}:p")
 
     assert (
         f"⏸ Practice logged for today, so the following days, through {_until(2)}, "
         "no longer show as 🤒 Sick / injury. Keep them as they were?"
-    ) in details["text"]
-    assert "Add details?" in details["text"]  # still PR-02's details screen
-    keep = f"a1:k:{_ymd(-1)}:{_ymd(2)}:k:{_ymd(0)}"  # + the 🧘 day whose details return
-    assert "⏸ Keep the pause" in _texts(details)
-    assert keep in _data(details)
+    ) in saved["text"]
+    keep = f"a1:k:{_ymd(-1)}:{_ymd(2)}:k:{_ymd(0)}"  # + the 🧘 day whose screen returns
+    # UI-06 P0: the conditional row stays, on top of the buttons that follow 🧘.
+    assert _texts(saved) == ["⏸ Keep the pause", "📝 Add details", "✓ Done"]
+    assert keep in _data(saved)
     assert _periods(storage, me) == []  # cut: only its start day was left
 
     kept = _tap(client, keep)
 
     assert _periods(storage, me) == [RestPeriod(_d(-1), _d(2), K)]
     assert f"⏸ Pause kept: 🤒 Sick / injury through {_until(2)}." in kept["text"]
-    assert "⏸ Keep the pause" not in _texts(kept)
+    assert _texts(kept) == ["📝 Add details", "✓ Done"]  # the same screen, without the undo
     assert storage.day_repo.rows[(me.id, _d(0))][0].status is DayStatus.PRACTICED
 
 
@@ -430,7 +430,10 @@ def test_a_stale_keep_is_a_quiet_no_op(client: TestClient, storage: InMemoryStor
     body = _tap(client, f"a1:k:{_ymd(-6)}:{_ymd(-2)}:k:{_ymd(-3)}")
 
     assert _periods(storage, me) == []
-    assert body is None or "Pause kept" not in body.get("text", "")
+    # UI-06 §5: never only an answer. The day the button sat under, as it is now.
+    assert body["method"] == "editMessageText"
+    assert "Pause kept" not in body["text"]
+    assert f"d1:s:{_ymd(-3)}:p" in _data(body)
 
 
 @pytest.mark.parametrize(
@@ -562,28 +565,45 @@ def test_week_picker_shows_covered_days_privately(
 # Hide 🌸
 
 
-def test_grid_without_the_ladies_button(client: TestClient, storage: InMemoryStorage) -> None:
+def test_other_reasons_without_the_ladies_button(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    # UI-06: 🌸 lives under "Other reason" (T1), and "hide the 🌸 button" leaves it out there.
     _me(client, storage, hide_ladies=True)
 
-    body = _command(client, "/log")
+    today = _command(client, "/log")
+    body = _tap(client, f"d1:r:{_ymd(0)}:t")
 
-    assert _rows(body)[:4] == [
-        ["🧘 Practiced"],
-        ["😌 Rest day", "🌙 Moon day"],
-        ["🤒 Sick / injury", "✈️ Travel"],
+    assert all("🌸" not in t for t in _texts(today))
+    assert _rows(body) == [
+        ["🌙 Moon day"],
+        ["🤒 Sick / injury"],
+        ["✈️ Travel"],
         ["🌱 No practice"],
+        ["‹ Back"],  # noqa: RUF001
     ]
 
 
-def test_a_ladies_day_keeps_its_button_while_hidden(
+def test_other_reasons_with_the_ladies_button(client: TestClient, storage: InMemoryStorage) -> None:
+    _me(client, storage)
+
+    body = _tap(client, f"d1:r:{_ymd(0)}:t")
+
+    assert _rows(body)[:2] == [["🌙 Moon day"], ["🌸 Ladies' holiday"]]
+
+
+def test_a_ladies_day_still_shows_on_the_persons_own_today_while_hidden(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
+    # Hiding the button never hides the person's own log from them: Today says what the day
+    # is, with ✓ on "Other reason". "Other reason" itself is a pure render and stays without 🌸.
     me = _me(client, storage, hide_ladies=True)
     _log(storage, me, 0, L)
 
     body = _command(client, "/log")
 
-    assert "✓ 🌸 Ladies' holiday" in _texts(body)
+    assert "✓ In your log: 🌸 Ladies' holiday" in body["text"]
+    assert "✓ Other…" in _texts(body)
 
 
 def test_start_honours_hide(client: TestClient, storage: InMemoryStorage) -> None:
@@ -607,26 +627,30 @@ def test_old_ladies_keyboards_still_work_while_hidden(
 def test_settings_hide_and_show_the_button(client: TestClient, storage: InMemoryStorage) -> None:
     me = _me(client, storage)
 
-    shown = _command(client, "/settings")
+    first = _command(client, "/settings")
+    shown = _tap(client, "s1:m")  # UI-06: the switch is under Settings → More
     hidden = _tap(client, "s1:h:1")
+    stored_hidden = storage.repo.accounts[me.id].hide_ladies
     back = _tap(client, "s1:h:0")
 
-    assert "🌸 Ladies' holiday button: shown" in shown["text"]
-    assert "🌸 Hide the button" in _texts(shown)
+    assert "🌸" not in f"{first['text']} {_texts(first)}"
+    assert "🌸 Hide “Ladies' holiday”" in _texts(shown)
     assert "s1:h:1" in _data(shown)
-    assert "🌸 Ladies' holiday button: hidden" in hidden["text"]
-    assert "🌸 Show the button" in _texts(hidden)
-    assert "🌸 Ladies' holiday button: shown" in back["text"]
+    assert "🌸 Show “Ladies' holiday”" in _texts(hidden)  # the label is the state
+    assert "s1:h:0" in _data(hidden)
+    assert stored_hidden is True
+    assert "🌸 Hide “Ladies' holiday”" in _texts(back)
     assert storage.repo.accounts[me.id].hide_ladies is False
 
 
 def test_settings_in_russian_quote_the_label(client: TestClient, storage: InMemoryStorage) -> None:
     _me(client, storage, lang="ru")
 
-    body = _command(client, "/settings", "ru")
+    body = _tap(client, "s1:m", lang="ru")
+    hidden = _tap(client, "s1:h:1", lang="ru")
 
-    assert "🌸 Кнопка „Женские дни“: показана" in body["text"]
-    assert "🌸 Скрыть кнопку" in _texts(body)
+    assert "🌸 Скрыть «Женские дни»" in _texts(body)
+    assert "🌸 Показать «Женские дни»" in _texts(hidden)
 
 
 # /remind during a pause
@@ -654,7 +678,7 @@ def test_remind_without_a_pause_has_no_resume(client: TestClient, storage: InMem
 # The reminder's 🧘 / 😌 (Q26): insert-if-absent
 
 
-def test_reminder_practiced_logs_an_empty_day_and_opens_the_details(
+def test_reminder_practiced_logs_an_empty_day_and_offers_details_or_done(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
@@ -662,7 +686,7 @@ def test_reminder_practiced_logs_an_empty_day_and_opens_the_details(
     body = _tap(client, f"r1:p:{_ymd(0)}")
 
     assert storage.day_repo.rows[(me.id, _d(0))][0].status is DayStatus.PRACTICED
-    assert "Add details?" in body["text"]
+    assert _texts(body) == ["📝 Add details", "✓ Done"]  # UI-06 P0
 
 
 def test_reminder_rest_logs_an_empty_day(client: TestClient, storage: InMemoryStorage) -> None:
@@ -885,7 +909,7 @@ def test_the_pause_stays_on_remind_after_a_tap(
 # Second review (2026-10-27)
 
 
-def test_practiced_inside_an_unreadable_pause_shows_the_details_without_keep(
+def test_practiced_inside_an_unreadable_pause_shows_the_buttons_without_keep(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     """A period whose seal can't be read is plain rest: 🧘 inside still works, no Keep."""
@@ -894,8 +918,7 @@ def test_practiced_inside_an_unreadable_pause_shows_the_details_without_keep(
 
     body = _tap(client, f"d1:s:{_ymd(0)}:p")
 
-    assert "Add details?" in body["text"]
-    assert "⏸ Keep the pause" not in _texts(body)
+    assert _texts(body) == ["📝 Add details", "✓ Done"]
     assert storage.day_repo.rows[(me.id, _d(0))][0].status is DayStatus.PRACTICED
 
 

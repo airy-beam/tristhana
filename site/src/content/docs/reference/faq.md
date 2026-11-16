@@ -16,7 +16,7 @@ Yes. Most of Tristhana is your own log: practice, rest, moon days and your asana
 
 ## I forgot to log a few days. What now?
 
-Nothing is lost. Send :cmd[log] and choose an earlier day, or tap the day in the app's calendar. You can also leave days empty. An empty day is just an empty day.
+Nothing is lost. In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-earlier-day], or tap the day in the app's calendar. You can also leave days empty. An empty day is just an empty day.
 
 ## Does a rest day interrupt my practices in a row?
 
@@ -24,17 +24,17 @@ No. Rest days, moon days, days off, sick days, travel and 🌸 days don't interr
 
 ## Why is my moon day different from my friend's?
 
-Moon days depend on the place, so two cities can differ by a day. Your dates also follow a city: your own, your teacher's or your shala's. :cmd[moon] shows which one. See [How moon days are calculated](../moon-calculation/).
+Moon days depend on the place, so two cities can differ by a day. Your dates also follow a city: your own, your teacher's or your shala's. :ftl[menu-moon] in the bot shows which one. See [How moon days are calculated](../moon-calculation/).
 
 ## The times look wrong
 
-Tristhana shows every time in your own time zone, and it needs your city for that. Send :cmd[settings] and choose your city. See [Settings and your city](../../students/settings/).
+Tristhana shows every time in your own time zone, and it needs your city for that. Open :ftl[menu-open] → :ftl[menu-settings] in the bot and choose your city. See [Settings and your city](../../students/settings/).
 
 ## My reminders stopped coming
 
 - Check that your city is set: reminders start once it is.
 - Practice reminders skip moon days, your days off and days you have already logged.
-- After ten practice reminders in a row with nothing logged, the bot sends one note and turns them off, so it doesn't nag. Turn them on again with :cmd[remind].
+- After ten practice reminders in a row with nothing logged, the bot sends one note and turns them off, so it doesn't nag. Turn them on again under :ftl[menu-help] → :ftl[help-reminder].
 
 ## What does my teacher see?
 
@@ -42,11 +42,11 @@ Your name, practice or rest from the day you added them, your practice length an
 
 ## How do I delete everything?
 
-:cmd[settings] → :ftl[settings-data-button]. You can download your data first. See [Your data](../../students/your-data/).
+:ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-data-button]. You can download your data first. See [Your data](../../students/your-data/).
 
 ## Where do I find this guide again?
 
-In the bot, send :cmd[help] and tap :ftl[help-guide]{from=bot}. In the app, open :ftl[settings-open] and tap :ftl[guide-open]. Both open the guide in your language.
+In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-guide]{from=bot}. In the app, open :ftl[settings-open] and tap :ftl[guide-open]. Both open the guide in your language.
 
 ## Something isn't working, or I have an idea
 

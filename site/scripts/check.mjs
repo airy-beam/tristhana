@@ -9,7 +9,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { checkGuide, guideMap, readMap, stalePages } from "../src/lib/check.mjs";
-import { createLabels, menuCommands } from "../src/lib/labels.mjs";
+import { createLabels, hiddenCommands, menuCommands } from "../src/lib/labels.mjs";
 import { readManifest } from "../shots/lib/manifest.mjs";
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -20,6 +20,7 @@ const problems = checkGuide({
   docsDir,
   label: createLabels().label,
   commands: menuCommands(),
+  hidden: hiddenCommands(),
   shots: {
     names: readManifest(join(site, "shots/manifest.yaml")).map((shot) => shot.name),
     dir: join(site, "src/assets/shots"),

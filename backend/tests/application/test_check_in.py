@@ -6,7 +6,7 @@ rule in the caller's zone, and no teacher or aggregate seam that could leak them
 The new modules are imported inside the tests (test-first: the suite keeps collecting)."""
 
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -412,7 +412,7 @@ async def test_update_profile_patches_offer_check_in_alone() -> None:
     assert default.display_name == "Anna"
 
 
-# Today / yesterday in the caller's zone (provisional allowed), from the clock
+# Today in the caller's zone (provisional allowed), from the clock
 
 
 # One instant, two dates: Kiritimati (UTC+14) is already on Tue Oct 20, Honolulu (UTC-10)
@@ -421,20 +421,19 @@ EDGE = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
 
 
 @pytest.mark.parametrize(
-    ("zone", "today", "offered"),
+    ("zone", "today"),
     [
-        ("Pacific/Kiritimati", date(2026, 10, 20), False),
-        ("Pacific/Honolulu", date(2026, 10, 19), True),
+        ("Pacific/Kiritimati", date(2026, 10, 20)),
+        ("Pacific/Honolulu", date(2026, 10, 19)),
     ],
 )
-async def test_the_mood_row_follows_the_callers_own_date(
-    days: InMemoryDays, zone: str, today: date, offered: bool
-) -> None:
+async def test_today_is_the_callers_own_date(days: InMemoryDays, zone: str, today: date) -> None:
     me = _me(timezone=zone)
     local_today, known = _get_days(days, EDGE).today(me)
 
     assert (local_today, known) == (today, True)
-    assert _dm().offer_mood_row(SUN, local_today, None, True) is offered
+    # UI-06 (Q313): the "How do you feel?" button no longer depends on the day at all.
+    assert _dm().entry_shown(None, True) is True
 
 
 # 18:20 UTC on Sun Oct 18: Kathmandu (+5:45) is already on Mon 00:05, Kolkata (+5:30)
@@ -453,14 +452,11 @@ LATE_SUNDAY = datetime(2026, 10, 18, 18, 20, tzinfo=UTC)
         ("America/New_York", SUN),
     ],
 )
-async def test_today_and_yesterday_per_zone(days: InMemoryDays, zone: str, today: date) -> None:
+async def test_today_per_zone(days: InMemoryDays, zone: str, today: date) -> None:
     me = _me(timezone=zone)
     local_today, _ = _get_days(days, LATE_SUNDAY).today(me)
 
     assert local_today == today
-    for back, offered in ((0, True), (1, True), (2, False)):
-        day = local_today - timedelta(days=back)
-        assert _dm().offer_mood_row(day, local_today, None, True) is offered
 
 
 async def test_a_provisional_zone_still_gives_a_today(days: InMemoryDays) -> None:
@@ -469,8 +465,6 @@ async def test_a_provisional_zone_still_gives_a_today(days: InMemoryDays) -> Non
     local_today, known = _get_days(days, datetime(2026, 10, 18, 22, 30, tzinfo=UTC)).today(me)
 
     assert (local_today, known) == (MON, False)
-    assert _dm().offer_mood_row(SUN, local_today, None, True) is True
-    assert _dm().offer_mood_row(date(2026, 10, 17), local_today, None, True) is False
 
 
 # Owner only: teachers and aggregates never see check-ins (ADR-0024)

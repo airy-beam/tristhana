@@ -157,6 +157,6 @@ def test_the_settings_line_is_the_same_for_a_choice_and_the_default(
 ) -> None:
     _store(client, storage, stored)
 
-    body = _command(client, "/settings")
+    body = _tap(client, "s1:m")  # UI-06: the moon city is under Settings → More
 
     assert "🌙 Moon days: 📍 Mysuru" in body["text"]

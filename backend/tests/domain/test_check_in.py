@@ -5,7 +5,7 @@ one-tap mood row is offered. Pure: no I/O, "today" is passed in.
 keeps collecting before the module exists)."""
 
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 import pytest
@@ -32,11 +32,11 @@ def _c(**values: Any) -> Any:
 # The scales: each optional, 1..5
 
 
-def test_the_scale_is_one_to_five_and_the_row_covers_two_days() -> None:
+def test_the_scale_is_one_to_five() -> None:
     m = _m()
 
     assert list(m.SCALE) == [1, 2, 3, 4, 5]
-    assert m.OFFER_DAYS == 2
+    assert not hasattr(m, "offer_mood_row")  # UI-06: the two-day mood row is retired
 
 
 @pytest.mark.parametrize("field", ["mood", "energy", "effort"])
@@ -129,41 +129,33 @@ def test_no_pain_injury_bandha_or_drishti_tags() -> None:
     assert not keys & {"pain", "injury", "injured", "bandha", "drishti", "sleepy"}
 
 
-# The mood row: today or yesterday, setting on, no check-in yet
+# UI-06 (Q313): the setting shows or hides the "How do you feel?" button
 
 
-@pytest.mark.parametrize(
-    ("back", "offered"),
-    [
-        (0, True),  # today
-        (1, True),  # yesterday
-        (2, False),
-        (30, False),  # a backfilled day: only ✨ Check-in
-        (-1, False),  # never ahead of the caller's today
-    ],
-)
-def test_the_mood_row_is_for_today_and_yesterday_only(back: int, offered: bool) -> None:
-    day = TODAY - timedelta(days=back)
-
-    assert _m().offer_mood_row(day, TODAY, None, True) is offered
-
-
-def test_no_mood_row_with_the_setting_off() -> None:
+def test_the_entry_is_shown_while_the_setting_is_on() -> None:
     m = _m()
 
-    assert m.offer_mood_row(TODAY, TODAY, None, False) is False
-    assert m.offer_mood_row(TODAY - timedelta(days=1), TODAY, None, False) is False
+    assert m.entry_shown(None, True) is True
+    assert m.entry_shown(_c(), True) is True
+    assert m.entry_shown(_c(mood=4), True) is True
 
 
-def test_no_mood_row_once_a_check_in_exists() -> None:
+def test_the_entry_is_hidden_when_the_setting_is_off_and_nothing_is_recorded() -> None:
     m = _m()
 
-    assert m.offer_mood_row(TODAY, TODAY, _c(mood=4), True) is False
-    assert m.offer_mood_row(TODAY, TODAY, _c(tags=["sore"]), True) is False
+    assert m.entry_shown(None, False) is False
+    assert m.entry_shown(_c(), False) is False  # an empty check-in is no check-in
 
 
-def test_an_empty_check_in_counts_as_none() -> None:
+def test_an_existing_check_in_always_stays_editable() -> None:
     m = _m()
 
-    assert m.offer_mood_row(TODAY, TODAY, _c(), True) is True
-    assert m.offer_mood_row(TODAY - timedelta(days=1), TODAY, _c(), True) is True
+    assert m.entry_shown(_c(mood=4), False) is True
+    assert m.entry_shown(_c(tags=["sore"]), False) is True
+
+
+def test_the_entry_does_not_depend_on_the_day() -> None:
+    """Unlike the retired one-tap mood row, there is no two-day window."""
+    import inspect
+
+    assert list(inspect.signature(_m().entry_shown).parameters) == ["existing", "enabled"]

@@ -5,7 +5,7 @@ import pytest
 from tristhana.domain.locale import LOCALES
 from tristhana.infrastructure.i18n.fluent import FluentTranslator, message_ids
 
-BOT_KEYS = ["start-greeting", "help-text", "fallback-text"]
+BOT_KEYS = ["start-greeting", "help-title", "menu-title"]
 
 
 def test_every_locale_has_the_same_keys() -> None:
@@ -91,6 +91,62 @@ def test_time_labels_name_the_home_city_in_its_zone(zone: str, locale: str, labe
     assert FluentTranslator().t(locale, "time-label", time=arg) == label  # type: ignore[arg-type]
 
 
+# ADR-0044: the offset shows only outside the viewer's own zone; the city always stays.
+
+
+@pytest.mark.parametrize(
+    ("zone", "viewer", "locale", "label"),
+    [
+        ("Asia/Almaty", "Asia/Almaty", "en", "06:30 Almaty"),  # my own zone
+        ("Asia/Almaty", "Asia/Almaty", "ru", "06:30 Алматы"),
+        ("Europe/Berlin", "Asia/Almaty", "en", "06:30 Berlin (UTC+1)"),  # somewhere else
+        ("Asia/Tashkent", "Asia/Almaty", "en", "06:30 Tashkent (UTC+5)"),  # the same clock
+        ("Asia/Almaty", None, "en", "06:30 Almaty (UTC+5)"),  # the viewer's zone is unknown
+        ("Asia/Kolkata", "Asia/Kolkata", "en", "06:30 Kolkata"),
+        ("Asia/Kolkata", "Asia/Almaty", "en", "06:30 Kolkata (UTC+5:30)"),
+        ("UTC", "UTC", "en", "06:30 UTC"),
+        ("UTC", "Asia/Almaty", "en", "06:30 UTC"),
+        ("Asia/Almaty", "UTC", "en", "06:30 Almaty (UTC+5)"),
+    ],
+)
+def test_time_labels_drop_the_offset_only_in_the_viewers_own_zone(
+    zone: str, viewer: str | None, locale: str, label: str
+) -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+
+    arg = TimeArg(date(2026, 11, 16), time(6, 30), zone, viewer=viewer)
+
+    assert FluentTranslator().t(locale, "time-label", time=arg) == label  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("day", "label"), [("2026-03-28", "06:30 Berlin"), ("2026-03-29", "06:30 Berlin")]
+)
+def test_the_own_zone_label_is_the_same_across_a_daylight_saving_date(day: str, label: str) -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+
+    arg = TimeArg(date.fromisoformat(day), time(6, 30), "Europe/Berlin", viewer="Europe/Berlin")
+
+    assert FluentTranslator().t("en", "time-label", time=arg) == label
+
+
+def test_the_own_zone_label_still_names_the_home_city() -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+    from tristhana.domain.moon import City, MoonLocation
+
+    astana = City("astana", "Astana", "Астана", MoonLocation(51.17, 71.45, "Asia/Almaty"))
+    arg = TimeArg(date(2026, 11, 16), time(6, 30), "Asia/Almaty", astana, viewer="Asia/Almaty")
+
+    assert FluentTranslator().t("en", "time-label", time=arg) == "06:30 Astana"
+    assert FluentTranslator().t("ru", "time-label", time=arg) == "06:30 Астана"
+
+
 # WH-01 part 2 (spec §7): new keys exist in both locales and format as written.
 
 WH01_KEYS = [
@@ -107,7 +163,6 @@ WH01_KEYS = [
     "pause-kept",
     "remind-paused-until",
     "remind-resume",
-    "settings-ladies-line",
     "settings-ladies-hide",
     "settings-ladies-show",
 ]
@@ -233,18 +288,35 @@ def test_pause_cut_and_kept_name_the_period_gently() -> None:
         assert "пропущ" not in text
 
 
-def test_period_line_paused_line_and_settings_line() -> None:
+def test_the_missing_zone_line_asks_for_the_city_and_names_no_button() -> None:
+    # It shows on five screens (the reminder reply, /remind, /moon, the moon reminders,
+    # Settings → Reminders) and only the first has a "🏙 My city" button, so it points at
+    # the command. Plain words: never "time zone" (Q314).
+    assert _t("en", "moon-zone-needed") == (
+        "To remind you at the right hour I need to know your city: choose it in /settings."
+    )
+    assert _t("ru", "moon-zone-needed") == (
+        "Чтобы напоминать в нужный час, мне нужно знать твой город: выбери его в /settings."  # noqa: RUF001
+    )
+    for locale in ("en", "ru"):
+        assert "🏙" not in _t(locale, "moon-zone-needed")
+
+
+def test_period_line_paused_line_and_the_settings_switch() -> None:
     travel = _label("en", "travel")
     assert _flat("en", "log-auto-period", label=travel, until=_until()) == (
         "✈️ Travel through Thu, Oct 29. If the day went differently, log it below."
     )
     assert _t("ru", "remind-paused-until", until=_until()) == RU_PAUSED
     assert _t("en", "remind-resume") == "▶️ Resume now"
-    assert _t("ru", "settings-ladies-line", shown="yes") == "🌸 Кнопка „Женские дни“: показана"
-    assert _t("en", "settings-ladies-line", shown="no") == "🌸 Ladies' holiday button: hidden"
+    # UI-06: the status line is gone; under Settings → More each switch says what a tap does.
     assert (_t("en", "settings-ladies-hide"), _t("en", "settings-ladies-show")) == (
-        "🌸 Hide the button",
-        "🌸 Show the button",
+        "🌸 Hide “Ladies' holiday”",
+        "🌸 Show “Ladies' holiday”",
+    )
+    assert (_t("ru", "settings-ladies-hide"), _t("ru", "settings-ladies-show")) == (
+        "🌸 Скрыть «Женские дни»",
+        "🌸 Показать «Женские дни»",
     )
 
 
@@ -252,7 +324,6 @@ def test_period_line_paused_line_and_settings_line() -> None:
 # has a label, and the copy avoids judging words.
 
 PR06_KEYS = [
-    "checkin-prompt",
     "checkin-explain",
     "checkin-mood-chip",
     "checkin-energy-chip",
@@ -264,7 +335,6 @@ PR06_KEYS = [
     "checkin-tags-pick",
     "checkin-clear",
     "checkin-tag",
-    "settings-checkin-line",
     "settings-checkin-off",
     "settings-checkin-on",
 ]
@@ -304,13 +374,37 @@ AVOID = [
 @pytest.mark.parametrize("locale", ["en", "ru"])
 def test_pr06_keys_exist(locale: str) -> None:
     assert set(PR06_KEYS) - message_ids(locale) == set()  # type: ignore[arg-type]
+    assert "checkin-prompt" not in message_ids(locale)  # type: ignore[arg-type]  # UI-06: retired
+
+
+# UI-06, what follows "Practiced" (P0, R0): three buttons, and the reply to the reminder offer.
 
 
 @pytest.mark.parametrize(
     ("locale", "key", "text"),
     [
-        ("en", "checkin-prompt", "How do you feel after practice? Optional."),
-        ("ru", "checkin-prompt", "Как ты после практики? По желанию."),
+        ("en", "practice-add-details", "📝 Add details"),
+        ("ru", "practice-add-details", "📝 Добавить детали"),
+        ("en", "remind-change-time", "⏰ Change the time"),
+        ("ru", "remind-change-time", "⏰ Изменить время"),
+    ],
+)
+def test_ui06_after_practiced_labels(locale: str, key: str, text: str) -> None:
+    assert _flat(locale, key) == text
+
+
+def test_the_reminder_offer_reply_names_the_time() -> None:
+    assert _flat("en", "remind-offer-set", time="10:00 Almaty") == (
+        "🔔 I'll ask once a day at 10:00 Almaty."
+    )
+    assert _flat("ru", "remind-offer-set", time="10:00 по твоему времени") == (
+        "🔔 Буду спрашивать раз в день в 10:00 по твоему времени."
+    )
+
+
+@pytest.mark.parametrize(
+    ("locale", "key", "text"),
+    [
         (
             "en",
             "checkin-explain",
@@ -322,18 +416,19 @@ def test_pr06_keys_exist(locale: str) -> None:
             "⚡ Энергия: 1 мало → 5 много · 🔥 Усилие: 1 легко → 5 тяжело. "
             "Отметь, что подходит, всё по желанию.",
         ),
-        ("en", "checkin-edit", "✨ Check-in"),
-        ("ru", "checkin-edit", "✨ Самочувствие"),
+        ("en", "checkin-edit", "✨ How do you feel?"),  # UI-06: the entry reads as a question
+        ("ru", "checkin-edit", "✨ Как самочувствие?"),
         ("en", "checkin-tags-open", "🏷 Body and mind…"),
         ("ru", "checkin-tags-open", "🏷 Тело и ум…"),
         ("en", "checkin-tags-pick", "How did body and mind feel? Pick any."),
         ("ru", "checkin-tags-pick", "Как тело и ум? Отметь, что подходит."),
         ("en", "checkin-clear", "Remove check-in"),
         ("ru", "checkin-clear", "Убрать самочувствие"),
-        ("en", "settings-checkin-off", "✨ Don't offer"),
-        ("ru", "settings-checkin-off", "✨ Не предлагать"),  # noqa: RUF001
-        ("en", "settings-checkin-on", "✨ Offer"),
-        ("ru", "settings-checkin-on", "✨ Предлагать"),
+        # UI-06 (Q313): the setting shows or hides the "How do you feel?" button.
+        ("en", "settings-checkin-off", "✨ Hide “How do you feel?”"),
+        ("ru", "settings-checkin-off", "✨ Скрыть «Как самочувствие?»"),
+        ("en", "settings-checkin-on", "✨ Show “How do you feel?”"),
+        ("ru", "settings-checkin-on", "✨ Показать «Как самочувствие?»"),
     ],
 )
 def test_pr06_copy_reads_as_written(locale: str, key: str, text: str) -> None:
@@ -360,17 +455,12 @@ def test_summary_parts_are_plural_free() -> None:
     assert _t("ru", "checkin-summary-effort", n=5) == "🔥 усилие 5/5"
 
 
-def test_settings_line_says_offered_or_not() -> None:
-    assert _t("en", "settings-checkin-line", offered="yes") == "✨ Check-in after practice: offered"
-    assert _t("en", "settings-checkin-line", offered="no") == (
-        "✨ Check-in after practice: not offered"
-    )
-    assert _t("ru", "settings-checkin-line", offered="yes") == (
-        "✨ Самочувствие после практики: предлагаю"
-    )
-    assert _t("ru", "settings-checkin-line", offered="no") == (
-        "✨ Самочувствие после практики: не предлагаю"
-    )
+def test_the_settings_switch_quotes_the_button_it_shows_or_hides() -> None:
+    """Q313: the switch names the button by its own label, so the two cannot drift apart."""
+    for locale in ("en", "ru"):
+        label = _t(locale, "checkin-edit").removeprefix("✨ ")
+        for key in ("settings-checkin-off", "settings-checkin-on"):
+            assert label in _t(locale, key)
 
 
 def test_every_tag_has_a_label_in_both_locales() -> None:
@@ -706,13 +796,68 @@ def test_progression_copy_avoids_competitive_or_guilty_words(locale: str) -> Non
         assert not [line for line in lines if word in line], word
 
 
+# UI-06 (spec §4): the keys the front door, Today, the Menu and Help need, and the ones the
+# retired tour, the old /help text and the hidden commands took with them.
+UI06_KEYS = (
+    "welcome-ask", "welcome-path-practice", "welcome-path-invite", "welcome-path-shala",
+    "welcome-later", "welcome-teacher-next", "welcome-own-practice", "welcome-shala-text",
+    "welcome-shala-student", "invite-simple", "invite-send", "today-other",
+    "today-reasons-title", "today-logged", "today-menu-hint", "today-back", "menu-open",
+    "menu-title", "menu-text-lead", "menu-teach", "teach-title", "help-title",
+    "help-earlier-day", "help-reminder", "help-asanas", "help-join", "help-guide",
+    # Settings, the consent layers and the invite's "More".
+    "settings-reminders-button", "settings-more-button", "settings-language-pick",
+    "settings-reminders-title", "settings-more-title", "consent-details", "consent-short-back",
+    "invite-consent-short", "shala-join-consent-short", "shala-staff-consent-short",
+    "invite-more",
+)  # fmt: skip
+UI06_RETIRED = (
+    "tour-open", "tour-progress", "tour-next", "tour-back", "tour-done", "tour-log",
+    "tour-rest", "tour-remind", "tour-asanas", "tour-links", "tour-app", "help-text",
+    "fallback-text", "command-log", "command-asanas", "command-remind", "command-teachers",
+    "command-classes", "log-prompt", "log-zone-hint", "settings-ladies-line",
+    "settings-checkin-line", "settings-city-nudge", "settings-city-not-now", "invite-hint",
+)  # fmt: skip
+
+
 @pytest.mark.parametrize("locale", ["en", "ru"])
-def test_tour_copy_stays_gentle_and_never_names_the_ladies_holiday(locale: str) -> None:
+def test_ui06_keys_exist_and_the_retired_ones_are_gone(locale: str) -> None:
+    from tristhana.domain.journey import MenuItem
+
+    keys = message_ids(locale)  # type: ignore[arg-type]
+
+    assert set(UI06_KEYS) <= keys
+    assert {f"menu-{item.value}" for item in MenuItem} <= keys  # one label per Menu row
+    assert not set(UI06_RETIRED) & keys
+
+
+def test_the_front_door_labels_in_russian_are_the_approved_ones() -> None:
+    t = FluentTranslator()
+
+    assert t.t("ru", "welcome-path-practice") == "Моя практика"
+    assert t.t("ru", "welcome-path-invite") == "Пригласить учеников"
+    assert t.t("ru", "welcome-path-shala") == "Шала и занятия"
+
+
+def test_the_prompt_stays_neutral() -> None:
+    # Spec §7: "Practice or rest? Both go in your log.", never "Did you practice today?".
+    text = FluentTranslator().t("en", "start-prompt", day="Today, Mon, Nov 16")
+
+    assert text == "Today, Mon, Nov 16\nPractice or rest? Both go in your log."
+
+
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_journey_copy_stays_gentle_and_never_names_the_ladies_holiday(locale: str) -> None:
     text = (files("tristhana.infrastructure.i18n") / "locales" / locale / "bot.ftl").read_text(
         encoding="utf-8"
     )
-    section = text.split("(UI-02)", 1)[1].split("fallback-text", 1)[0].split("\n", 1)[1].lower()
-    assert "tour-app" in section
+    block = text.split("(UI-06)", 1)[1].split("error-temporary", 1)[0]
+    section = "\n".join(
+        line.split("=", 1)[-1].lower()
+        for line in block.splitlines()[1:]
+        if not line.startswith("#")
+    )
+    assert "☰" in section
     banned = (*_AVOID[locale], "🌸", "ladies", "женск", "missed", "skipped", "серия")
     assert not [word for word in banned if word in section]
 

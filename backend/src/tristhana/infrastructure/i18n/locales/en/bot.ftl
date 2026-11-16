@@ -2,58 +2,80 @@
 
 start-greeting =
     Namaste 🙏
-    I'm Tristhana, your Ashtanga practice companion. Glad you're here.
+    I'm Tristhana, your Ashtanga practice companion.
 
 start-prompt =
     { $day }
     Practice or rest? Both go in your log.
 # The other-language button; $language is that language's own name ("Русский").
 start-switch-language = 🗣 { $language }
-# Mini App button: under /start and under a saved day while the time zone is unknown.
+# Mini App button: under a practice's details while the time zone is unknown.
 start-open-app = Open the app
 
-help-text =
-    I'm Tristhana, a companion for your Ashtanga practice.
-    📝 /log: today or an earlier day
-    🔔 /remind: practice reminder
-    🧘 /asanas: my asanas, mark a new one
-    🌙 /moon: upcoming moon days and reminders
-    👥 /teachers: your teachers and students
-    🗓 /schedule: classes of all your shalas, in your time
-    🧑‍🏫 /classes: the classes you teach this week
-    ⚙️ /settings: language, city, reminders
-    📊 Your practice log and stats live in the app (the button next to the message field).
+## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
+## `welcome-ask` and the three front-door labels are fixed by the owner.
 
+welcome-ask = Where shall we start?
+welcome-path-practice = My practice
+welcome-path-invite = Invite students
+welcome-path-shala = Shala and classes
+# Under the invite on the first run. A URL button tells the bot nothing, so this must read
+# right both before and after the link was sent.
+welcome-later = Continue ›
+# Shown before the first student joins: the Menu has no "My students" row yet, so the link
+# is named where it is now ("For teachers and shalas"), and "My students" as what comes next.
+welcome-teacher-next = Your link is under ☰ Menu → For teachers and shalas. Students who confirm appear under ☰ Menu → My students.
+welcome-own-practice = 🧘 Log my own practice
+welcome-shala-text = A shala here is a page for your students: the class schedule, announcements and one link to join. Tap 🏛 Create a shala: it takes a minute.
+welcome-shala-student = Looking for your shala's classes? Ask your shala for its link. Once you join, the schedule is under ☰ Menu → Classes.
+invite-simple = Send your link to your students. Each one confirms for themselves, and then you see what they share.
+invite-send = ✉️ Send the link
+# Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
+invite-more = More…
+
+# Today: the third choice, and the screen behind it. $day as in start-prompt. Never
+# "reason": a moon day or a rest day of the method needs no excuse.
+today-other = Other…
+today-reasons-title =
+    { $day }
+    Pick what fits. Any day belongs in your log.
+# $label = a status-* label: the person's own screen, so it says what they logged.
+today-logged = ✓ In your log: { $label }
+# Once, on the first /start after UI-06 for someone who already uses the bot.
+today-menu-hint = Everything else is now under ☰ Menu.
+today-back = ‹ Today
+
+# The last row of every top-level screen.
+menu-open = ☰ Menu
+menu-title = ☰ Menu
+# On top of the Menu when the person typed something instead of tapping.
+menu-text-lead = I can't answer messages yet. Here is everything I can do 🙏
+menu-today = 📝 Today
+menu-practice = 📊 My practice
+menu-moon = 🌙 Moon days
+menu-classes = 🗓 Classes
+# Everyone sees this row, with or without a teacher, and the screen lists shalas too.
+menu-teacher = 🙏 Teacher and shala
+menu-students = 👥 My students
+menu-settings = ⚙️ Settings
+menu-help = ❓ Help
+# The quiet last row, for anyone without students and not on a shala's staff; also in Help.
+menu-teach = For teachers and shalas
+teach-title =
+    For teachers and shalas
+    Invite your students with one link, or create a shala with its class schedule.
+
+help-title =
+    ❓ Help
+    What would you like to do?
+# Each row uses the words of the place it opens: "📅 Another day", the practice reminder,
+# "My asanas", "🙏 Teacher and shala".
+help-earlier-day = 📅 Log another day
+help-reminder = 🔔 Practice reminder
+help-asanas = 🧘 My asanas
+help-join = 🙏 Add my teacher or shala
 # UI-05: a link under /help to the public guide site, in the person's language.
 help-guide = 📖 Guide
-
-## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
-
-tour-open = 🧭 Quick tour
-tour-progress = { $n } of { $total }
-tour-next = Next ›
-tour-back = ‹ Back
-tour-done = ✓ Done
-tour-log =
-    📝 Your log
-    Practice or rest? Both go in your log. Mysore, led or on your own, short or full: it's all practice. After a practice you can add details, how it felt and a private note. An earlier day? /log takes you back.
-tour-rest =
-    🌿 Rest and moon days
-    Rest is part of the practice. Full and new moon days are traditional rest days: they fill in on their own, and so does your weekly day off once you set it in /settings. If a day goes differently, just log it. Dates and moon reminders are in /moon.
-tour-remind =
-    🔔 Reminders
-    If you'd like, /remind asks once a day how it went, with a one-tap log. It comes on your practice days, not on moon days. Out for a few days, say sick or traveling? Log the first day and I'll offer a pause.
-tour-asanas =
-    🧘 My asanas
-    /asanas keeps your last asana, so logging a practice takes fewer taps. New asana from your teacher? Mark it there, or your teacher can mark it for you 🎉
-tour-links =
-    👥 Teachers and shalas
-    Got a link or a QR code from your teacher or your shala? Open it: before you confirm, I'll show what they will see. /teachers keeps your list, and /schedule shows your shalas' classes in your time zone. Teaching? Invite students from /teachers. On your own? Your log works the same.
-tour-app =
-    📊 The app
-    Your year at a glance, month summaries and a calendar for earlier days. Everything you log here is there too. This tour and the full guide stay in /help.
-
-fallback-text = I can't answer messages yet. Try /start or /help 🙏
 
 # The database is unreachable; the person should simply try again.
 error-temporary = Sorry, I've hit a small hiccup on my side. Please try again in a minute.
@@ -68,9 +90,6 @@ day-label =
        *[other] { $date }
     }
 
-log-prompt =
-    { $day }
-    How was your day?
 
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day
@@ -90,7 +109,6 @@ log-saved =
        *[other] Rest is part of the practice 🌿
     }
 log-private-note = Only you see this. Others see “Rest day”.
-log-zone-hint = Tip: open the app once so I know your time zone and your days land on the right date.
 log-cleared = Cleared.
 log-date-future = That day hasn't come yet in your time zone.
 log-date-too-early = I keep days from 2000 onwards.
@@ -103,9 +121,8 @@ log-earlier = ‹ Earlier
 log-later = Later ›
 
 ## Bot command menu (setMyCommands, via tools/telegram/set_webhook.py). One line each.
-command-log = Log today or an earlier day
-command-help = What I can do
-command-start = Start
+command-help = Help
+command-start = Today
 
 ## The bot's profile (UI-05), set by tools/telegram/set_webhook.py --texts, not shown by
 ## the bot itself. Description: the empty chat above Start, up to 512 characters. About: the
@@ -130,6 +147,7 @@ practice-last-time = Last time: { $summary }
 # The practice is more than 14 days older than the day being logged (Q296).
 practice-last-time-dated = Last time ({ $date }): { $summary }
 practice-same-as-last = 🔁 Same as last time
+practice-add-details = 📝 Add details
 context-mysore = Mysore
 context-led = Led
 context-private = 1:1
@@ -210,7 +228,7 @@ page-next = ▶
 
 ## Moon days and reminders (MD-03). City names come from data/seed/cities.yaml.
 
-command-moon = Moon days and reminders
+command-moon = Moon days
 moon-title = 🌙 Moon days · 📍 { $city }
 moon-phase =
     { $phase ->
@@ -249,7 +267,7 @@ moon-offsets =
     }
 moon-reminders-on = 🔔 Reminders: { $offsets } before at { $time }
 moon-reminders-off = 🔕 Reminders are off
-moon-zone-needed = To remind you at the right hour I need your time zone: pick your city or open the app once.
+moon-zone-needed = To remind you at the right hour I need to know your city: choose it in /settings.
 moon-change-city = 📍 Change city
 moon-reminders = 🔔 Reminders
 moon-pick-city = Which city's moon days do you follow?
@@ -300,7 +318,6 @@ moon-reminder-off = 🔕 Moon reminders are off. You can turn them back on in /m
 moon-reminder-on = 🔔 Moon reminders are on again.
 
 ## Practice reminder (PR-10). { $day } and { $date } arrive formatted ("Mon, Oct 19"); { $d } is an ISO weekday (1 = Monday).
-command-remind = Practice reminder
 remind-practice = 🌿 { $day }: practice or rest? One tap to log it.
 remind-same = ✅ Practiced, same as last time
 remind-practiced = 🧘 Practiced…
@@ -316,6 +333,9 @@ remind-copied-from = Copied from { $date }.
 remind-offer = 🔔 Want me to ask once a day, so logging takes one tap?
 remind-offer-yes = 🔔 Yes, remind me
 remind-offer-no = No, thanks
+# After "yes" on the offer (UI-06). $time: "10:00 Almaty", or "10:00 your time" without a zone.
+remind-offer-set = 🔔 I'll ask once a day at { $time }.
+remind-change-time = ⏰ Change the time
 remind-explain = Once a day I'll ask how it went, with one-tap buttons. Not on moon days, days you've already logged, or while a pause is on.
 remind-status-on = 🔔 Practice reminder: { $days } at { $time }
 remind-status-off = 🔕 Practice reminder is off
@@ -346,18 +366,28 @@ remind-practice-link = 🧘 Practice reminder
 
 ## Settings (ID-06).
 command-settings = Language, city, reminders
+# UI-06: the first screen is five buttons, and each label carries its value.
 settings-title = ⚙️ Settings
+settings-language-pick = 🗣 Which language shall I use?
+settings-reminders-button = 🔔 Reminders
+settings-reminders-title = 🔔 Reminders
+settings-more-button = More…
+settings-more-title = ⚙️ More settings
 language-auto = As in Telegram
 language-en = English
 language-ru = Русский
 settings-language-line = 🗣 Language: { $language }
-# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)".
+# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)". Button labels,
+# one row at 320 px, so the words around { $zone } stay very short:
+#   city chosen                       "My city: Astana"             (their own city: no offset, ADR-0044)
+#   no city yet, the clock is known   "My city? 🕐 Almaty (UTC+5)"   (a question: tap to choose)
+#   "My city isn't listed"            "🕐 My time: Almaty (UTC+5)"   (there is a clock, no city)
+#   no city and no clock              the one place in Settings that says the zone is missing
+#                                     (Q314), in plain words: never "time zone" here.
 settings-city-line = 🏙 My city: { $zone }
-settings-city-unset-line = 🏙 My city: not chosen yet · 🕐 { $zone }
-settings-city-unlisted-line = 🏙 My city: not chosen · 🕐 { $zone }
-settings-city-no-zone-line = 🏙 My city: not chosen yet. Reminders start once it's set.
-settings-city-nudge = Pick your city if you like: times will then show its name.
-settings-city-not-now = Not now
+settings-city-unset-line = 🏙 My city? 🕐 { $zone }
+settings-city-unlisted-line = 🕐 My time: { $zone }
+settings-city-no-zone-line = 🏙 My city? 🕐 not known yet
 settings-moon-line = 🌙 Moon days: 📍 { $city }
 settings-moon-line-teacher = 🌙 Moon days: 📍 { $city } (as { $name })
 settings-quiet-line = 🔕 Quiet hours { $start }–{ $end } · { $n ->
@@ -480,16 +510,13 @@ pause-keep = ⏸ Keep the pause
 pause-kept = ⏸ Pause kept: { $label } through { $until }.
 remind-paused-until = ⏸ Paused through { $until }
 remind-resume = ▶️ Resume now
-settings-ladies-line = 🌸 Ladies' holiday button: { $shown ->
-        [yes] shown
-       *[no] hidden
-    }
-settings-ladies-hide = 🌸 Hide the button
-settings-ladies-show = 🌸 Show the button
+# Switches under Settings → More: each label says what a tap does, and names the button it
+# hides or shows by that button's own label, in quotes (as `settings-checkin-off` / `-on`).
+settings-ladies-hide = 🌸 Hide “Ladies' holiday”
+settings-ladies-show = 🌸 Show “Ladies' holiday”
 
 ## After-practice check-in (PR-06). Always optional: never "you haven't checked in".
 # Mood is stored as 1–5; the emoji are presentation only. Tags are domain keys.
-checkin-prompt = How do you feel after practice? Optional.
 checkin-explain = ⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional.
 checkin-mood-chip = { $n ->
         [1] 😔
@@ -502,7 +529,7 @@ checkin-energy-chip = ⚡{ $n }
 checkin-effort-chip = 🔥{ $n }
 checkin-summary-energy = ⚡ energy { $n }/5
 checkin-summary-effort = 🔥 effort { $n }/5
-checkin-edit = ✨ Check-in
+checkin-edit = ✨ How do you feel?
 checkin-tags-open = 🏷 Body and mind…
 checkin-tags-pick = How did body and mind feel? Pick any.
 checkin-clear = Remove check-in
@@ -518,12 +545,9 @@ checkin-tag = { $tag ->
         [scattered] Scattered
        *[steady_breath] Steady breath
     }
-settings-checkin-line = ✨ Check-in after practice: { $offered ->
-        [yes] offered
-       *[no] not offered
-    }
-settings-checkin-off = ✨ Don't offer
-settings-checkin-on = ✨ Offer
+# UI-06 (Q313): the setting shows or hides the "How do you feel?" button after practice.
+settings-checkin-off = ✨ Hide “How do you feel?”
+settings-checkin-on = ✨ Show “How do you feel?”
 
 ## Diary note (PR-07). Private, per day, any status. Never asked for; never echoed back.
 # $rel = today | yesterday | other, $date = a formatted date (as in day-label).
@@ -551,7 +575,6 @@ diary-text-only = Notes are text for now. Type your note as a reply to the promp
 ## Progression (PR-08) and its celebrations (GM-01). Asana, item and series names come from
 ## the catalog; $series is a `series-name`, $traditional a traditional name or "none".
 
-command-asanas = My asanas: where my practice ends
 progression-title = 🧘 My asanas
 progression-unset = Where does your practice end now? Set it once, then mark it here when you get a new asana.
 progression-suggest = From your log: { $length }
@@ -703,6 +726,15 @@ invite-consent =
     • Check-ins, diary notes and the reason for a rest stay private.
     • { $name } can send announcements to all their students through the bot. You can mute them.
     • You can remove { $name } from your list any time in /teachers. No one gets a message.
+# The short consent screen (ADR-0045). The full text above is the consent record and stays
+# as it is; ✅ on the short screen agrees to all of it. The first line must name every item
+# the full text says { $name } sees; nothing here may promise more than the full text does.
+invite-consent-short =
+    • { $name } sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, { $name } sees a short note saying just that.
+    • Check-ins, diary notes and the reason for a rest stay private.
+    • You can remove { $name } from your list any time in /teachers. No one gets a message.
+consent-details = 📄 Details
+consent-short-back = ‹ In short
 invite-know-them = Anyone can choose any name here, so confirm only if you know this person.
 invite-not-told = If you tap Not now, { $name } isn't told.
 invite-accept = ✅ Confirm
@@ -714,7 +746,6 @@ invite-invalid = This invite link no longer works. The person who shared it can 
 invite-full = This link can't add a teacher right now.
 link-student-joined = 👥 { $name } is on your list of students now.
 link-students-open = 👥 My students
-invite-hint = Share this link or QR code. Each student confirms for themselves.
 invite-moon-hint = Students who haven't chosen a moon city will follow the city you choose in /moon.
 invite-share-text = My link to add me as your teacher in Tristhana. The bot shows what I'd see before you confirm.
 invite-new-ask = Get a new link? The old link and QR stop working. People already on your list stay.
@@ -722,13 +753,11 @@ invite-qr-caption = Scan to add me as your teacher in Tristhana.
 link-unlink-ask = Remove { $name } from your teachers? They won't get a message, but you'll no longer be on their list.
 link-next-main = { $name } becomes your main teacher.
 link-remove-ask = Remove { $name } from your students? They won't get a message.
-links-empty = No teachers on your list. Your log works the same either way.
+links-empty = No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.
 links-no-students = No students on your list.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
-links-title = 👥 Teachers and students
-command-teachers = My teachers and students
 link-no-name = (no name)
 export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
 export-readme-shalas = shalas in data.json: the shalas you're in. side: "staff" or "student"; owner: the shala is yours; roles: your roles there ("admin" = manager, "office" = front desk). No one else's names.
@@ -782,6 +811,11 @@ shala-join-consent =
     • Your moon days follow the shala's calendar, unless you've chosen a city, or your teacher has. If your teacher teaches here, the shala's calendar comes first.
     • The shala's staff can mark that you came to a class, and so can you. You see these marks and can remove them any time.
     • You can leave any time in /teachers. No one gets a message.
+# The short consent screen (ADR-0045): see invite-consent-short.
+shala-join-consent-short =
+    • The shala's teachers and staff see your name{ $me }. Nothing from your log.
+    • The shala's staff can mark that you came to a class, and so can you. You see these marks and can remove them any time.
+    • You can leave any time in /teachers. No one gets a message.
 shala-know-them = Join only a shala you know: anyone can create one with any name.
 shala-join-yes = ✅ Join
 shala-staff-ask = 🏛 { $name } invites you to { $shala } as { $role }.
@@ -791,6 +825,11 @@ shala-staff-consent =
     • You'll see the names of its students and staff, not their logs.
     • The shala's announcements come to you through the bot too. You can mute them.
     • You can mark who came to its classes.
+    • You can leave any time in /teachers.
+# The short consent screen (ADR-0045): see invite-consent-short.
+shala-staff-consent-short =
+    • Everyone in the shala, students included, sees your name{ $me } and role.
+    • You'll see the names of its students and staff, not their logs.
     • You can leave any time in /teachers.
 shala-staff-yes = ✅ Confirm
 shala-staff-joined = 🏛 { $name } joined { $shala } as { $role }.
@@ -886,12 +925,11 @@ class-gone = This class has just changed. Here's the current schedule.
 class-caps = That's the limit for this shala for now.
 class-invalid = That change doesn't fit the schedule.
 # A teacher's own week (/classes), every shala where they're on the staff. Times in each shala's zone.
-command-classes = The classes I teach this week
 my-classes-covered = { $name } is covering
 my-classes-covering = you're covering for { $name }
 
 ## My schedule (SC-03): every shala I'm in, in my zone. { $zone } is "Almaty (UTC+5)".
-command-schedule = My schedule: classes of all my shalas
+command-schedule = Classes
 my-schedule-open = 🗓 My schedule
 my-schedule-title = 🗓 My schedule, { $range }
 my-schedule-filter = { $f ->
@@ -924,7 +962,7 @@ my-schedule-empty = { $f ->
         [mine] You teach no classes this week.
        *[all] No classes this week.
     }
-my-schedule-none = Your schedule shows the classes of the shalas you join. Ask your shala for its link.
+my-schedule-none = Your shala's classes appear here once you join. Ask your shala for its link.
 my-schedule-zone-unknown = Times are in { $zone }. Set your city to see your own time.
 my-schedule-more = The full week is in the app.
 

@@ -51,7 +51,8 @@ TOO_LONG = re.compile(
     r"That's a bit long for one note: up to 2[, ]?000 characters\. Your text is still "  # noqa: RUF001
     r"above, so you can shorten it and resend\."
 )
-FALLBACK = "I can't answer messages yet. Try /start or /help 🙏"
+# UI-06: anything typed opens the Menu, with this line on top.
+FALLBACK = "I can't answer messages yet. Here is everything I can do 🙏\n\n☰ Menu"
 EXPLAIN = "⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional."
 BACK = "‹ Back"  # noqa: RUF001
 STATUS_EMOJI = ["🧘", "😌", "🌙", "🌸", "🤒", "✈️", "🌱", "✓"]
@@ -602,6 +603,27 @@ def test_back_from_n_opened_on_k_returns_to_k(
     assert EXPLAIN in back["text"]
 
 
+def test_back_from_n_opened_on_the_details_returns_to_them(
+    client: TestClient, storage: InMemoryStorage, outbound: list[Any]
+) -> None:
+    """UI-06 P1 carries the note button; a day that stopped being 🧘 falls back to its editor."""
+    me = _me(client, storage)
+    _logged(storage, me, TODAY, DayStatus.PRACTICED)
+    d = _ymd(TODAY)
+
+    details = _one(_tap(client, f"p1:o:{d}"), outbound)
+    opened = _one(_tap(client, f"n1:o:{d}:p"), outbound)
+    back = _one(_tap(client, f"n1:b:{d}:p"), outbound)
+    _logged(storage, me, TODAY, DayStatus.REST)
+    changed = _one(_tap(client, f"n1:b:{d}:p"), outbound)
+
+    assert _data_of(details, "📓 Note") == f"n1:o:{d}:p"
+    assert _data_of(opened, BACK) == f"n1:b:{d}:p"
+    assert _data_of(opened, "✏️ Write") == f"n1:w:{d}:p"
+    assert "Add details? Optional" in back["text"]
+    assert "✓ 😌 Rest day" in _texts(changed)  # the day editor
+
+
 # Removing: confirm first
 
 
@@ -869,14 +891,14 @@ def test_a_non_text_reply_gets_text_only(
     [
         _prompt_message(TODAY, from_id=42, is_bot=False),  # the person's own message
         _prompt_message(TODAY, from_id=999_999, is_bot=True),  # another bot's message
-        _prompt_message("", body="Today, Tue, Oct 27\n\nHow was your day?"),  # ours, no token
+        _prompt_message("", body="Today, Tue, Oct 27\nPractice or rest?"),  # ours, no token
         _prompt_message("📓 27.10.2026\n"),  # not the token
         _prompt_message("📓 2026-10-27 "),  # the token must end the first line
         _prompt_message("x📓 2026-10-27\n"),
         _prompt_message("📓 2026-13-45\n"),  # not a date
     ],
 )
-def test_other_replies_get_the_fallback_and_save_nothing(
+def test_other_replies_get_the_menu_and_save_nothing(
     client: TestClient, storage: InMemoryStorage, outbound: list[Any], target: dict[str, Any]
 ) -> None:
     _me(client, storage)
@@ -906,7 +928,7 @@ def test_a_command_sent_as_a_reply_to_another_bot_message_runs(
 ) -> None:
     _me(client, storage)
     command = [{"type": "bot_command", "offset": 0, "length": 4}]
-    target = _prompt_message("", body="Today, Tue, Oct 27\n\nHow was your day?")
+    target = _prompt_message("", body="Today, Tue, Oct 27\nPractice or rest?")
 
     body = _one(_message(client, "/log", target, entities=command), outbound)
 
@@ -914,7 +936,7 @@ def test_a_command_sent_as_a_reply_to_another_bot_message_runs(
     assert storage.day_repo.diary_rows == {}
 
 
-def test_plain_text_without_a_reply_gets_the_fallback(
+def test_plain_text_without_a_reply_gets_the_menu(
     client: TestClient, storage: InMemoryStorage, outbound: list[Any]
 ) -> None:
     _me(client, storage)
@@ -1030,7 +1052,8 @@ def test_malformed_note_taps_are_only_answered(
 
 
 def _all_note_callbacks(day: date) -> list[str]:
-    return [f"n1:{a}:{_ymd(day)}:{origin}" for a in "owryxb" for origin in "dk"]
+    # Origins: d = day editor, k = check-in K, p = practice details (UI-06 P1).
+    return [f"n1:{a}:{_ymd(day)}:{origin}" for a in "owryxb" for origin in "dkp"]
 
 
 @pytest.mark.parametrize("day", [date(2000, 1, 1), TODAY, date(2099, 12, 31)])
@@ -1042,7 +1065,7 @@ def test_every_note_callback_round_trips_and_fits(day: date) -> None:
         assert cb is not None, data
         assert diary_callbacks.encode(cb) == data
         assert len(data.encode()) <= 17  # spec §5; Telegram's limit is 64
-    assert len(set(_all_note_callbacks(day))) == 12
+    assert len(set(_all_note_callbacks(day))) == 18
 
 
 @pytest.mark.parametrize(

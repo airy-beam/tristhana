@@ -64,7 +64,10 @@ class CopyLastPractice:
         self._practices = practices
 
     async def execute(self, principal: Principal, local_date: date) -> SavedPractice:
-        """Raises `DayNotPracticed` or `NoPreviousPractice`."""
+        """Fills in a day that has no details yet. A day that already has them keeps them
+        (the button may be an old one in chat history) and they are returned as stored, so
+        the caller shows what the day holds either way; the repository decides that on the
+        row itself, in the one statement. Raises `DayNotPracticed` or `NoPreviousPractice`."""
         account = principal.account
         copied = await self._practices.copy_latest(account.id, local_date, account.timezone)
         if copied is not None:

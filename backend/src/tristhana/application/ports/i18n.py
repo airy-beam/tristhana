@@ -20,13 +20,17 @@ class DateArg:
 
 @dataclass(frozen=True, slots=True)
 class TimeArg:
-    """A wall-clock time in a zone on a date: "06:30 Almaty (UTC+5)" (CLAUDE.md time label;
-    the offset is the one on that date, so daylight saving is right)."""
+    """A wall-clock time in a zone on a date: "06:30 Almaty" for a viewer in that zone,
+    "06:30 Almaty (UTC+5)" for anyone else (ADR-0044; the offset is the one on that date, so
+    daylight saving is right)."""
 
     day: date
     at: time
     zone: str
     place: City | None = None  # the home city: names the zone only if it is its zone (MD-04)
+    # The reader's own IANA zone. None (unknown, or a text read later or elsewhere, like an
+    # ICS description) always shows the offset.
+    viewer: str | None = None
 
 
 class Translator(Protocol):

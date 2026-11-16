@@ -8,21 +8,21 @@ features: [PR-06, PR-07]
 
 ## Самочувствие
 
-Сразу после отметки сегодняшней практики бот показывает ряд смайликов. Нажми один или просто пропусти.
+Когда ты отмечаешь практику и нажимаешь :ftl[practice-done], бот показывает кнопку :ftl[checkin-edit]{from=bot} — нажми её или просто оставь.
 
 - **Настроение:** пять смайликов.
 - **⚡ Энергия** и **🔥 Усилие:** от 1 до 5.
 - :ftl[checkin-tags-open]: слова вроде :ftl[checkin-tag]{from=bot tag=open}, :ftl[checkin-tag]{from=bot tag=stiff} или :ftl[checkin-tag]{from=bot tag=calm}.
 
-Всё по желанию. Для прошлого дня практики открой день и нажми :ftl[checkin-edit].
+Всё по желанию. Для прошлого дня практики выбери этот день, нажми :ftl[status-practiced], а потом :ftl[practice-done]: там та же кнопка.
 
-Вопрос не нужен? :cmd[settings] → :ftl[settings-checkin-off].
+Кнопка не нужна? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-checkin-off].
 
 ## Дневник
 
 У каждого дня может быть одна личная заметка: после практики, в день отдыха, в любой день.
 
-1. Открой день (:cmd[log]) и нажми :ftl[diary-button].
+1. Под отмеченным днём нажми :ftl[log-change], а потом :ftl[diary-button].
 2. Нажми :ftl[diary-write] и отправь заметку ответом на сообщение бота.
 
 ![Пустая заметка дневника в боте с подсказкой, о чём можно написать](../../../../assets/shots/ru/bot-note.webp)

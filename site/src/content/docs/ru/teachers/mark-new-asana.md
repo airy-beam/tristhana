@@ -8,7 +8,7 @@ features: [PR-08]
 
 ## Как отметить
 
-1. Открой карточку ученика: :cmd[teachers] → :ftl[link-students-open] → имя.
+1. Открой карточку ученика: :ftl[menu-open] → :ftl[menu-students] → имя.
 2. Нажми :ftl[students-give].
 3. Выбери асану. Первая строка — следующая асана в серии. Строки со стрелкой → отмечают сразу несколько, до трёх.
 4. Нажми :ftl[students-give-yes].

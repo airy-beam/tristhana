@@ -2,16 +2,15 @@
 
 A teacher sees their status and can remove the line; the form itself is in the Mini App. A
 platform admin answers requests behind `/admin`: in no menu, and for anyone else it replies
-with the ordinary fallback text, so it can't be probed. The admin opens the public directory
-in a browser by a URL button; the server never calls that site.
+exactly as to any typed text (the Menu, UI-06), so it can't be probed. The admin opens the
+public directory in a browser by a URL button; the server never calls that site.
 
 The line is always its own text line and never part of a button label: a display name can't
 hold a line break, so a name can't imitate it. Names, regions and notes are never logged.
 """
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from datetime import date
-from urllib.parse import urlencode
 from uuid import UUID
 
 from aiogram import F, Router
@@ -31,7 +30,15 @@ from tristhana.application.ports.directory_listing import PAGE, RequestCard
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.bots.telegram import directory_listing_callbacks as cb
 from tristhana.bots.telegram import teacher_links_callbacks as links_cb
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, nothing, show
+from tristhana.bots.telegram.screens import (
+    Reply,
+    Screen,
+    answered,
+    app_url,
+    button,
+    nothing,
+    show,
+)
 from tristhana.domain.accounts import Account
 from tristhana.domain.directory_listing import (
     DIRECTORY_URL,
@@ -97,7 +104,7 @@ class ListingScreens:
         return self._l.checks(principal)
 
     def entry_button(self, locale: Locale) -> InlineKeyboardButton:
-        """The quiet row on the invite screen."""
+        """The quiet row on the invite's "More" screen."""
         return button(self._t, locale, "listing-open", cb.mine("o"))
 
     def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
@@ -126,14 +133,13 @@ class ListingScreens:
                 lines.append(t.t(locale, "listing-listed-hint"))
         rows: list[list[InlineKeyboardButton]] = []
         if self._app and self._l.available:  # off: no form, but my row can still be removed
-            query = urlencode({"open": "listing"})
-            url = f"{self._app}{'&' if '?' in self._app else '?'}{query}"
+            url = app_url(self._app, "listing")
             rows.append(
                 [InlineKeyboardButton(text=t.t(locale, "listing-app"), web_app=WebAppInfo(url=url))]
             )
         if removable:
             rows.append([self._button(locale, "listing-remove", cb.mine("w"))])
-        rows.append([self._button(locale, "log-back", links_cb.plain("i"))])
+        rows.append([self._button(locale, "log-back", links_cb.plain("im"))])
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def ask_remove(self, principal: Principal) -> Screen:
@@ -300,13 +306,18 @@ async def _now(screen: Screen) -> Screen:
     return screen
 
 
-def register_listing(router: Router, screens: ListingScreens, translator: Translator) -> None:
+def register_listing(
+    router: Router, screens: ListingScreens, typed_reply: Callable[[Message, Account], SendMessage]
+) -> None:
+    """`typed_reply` is the reply to any typed text (`HomeScreens.typed_reply`)."""
+
     @router.message(Command("admin"))
     async def on_admin(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
         principal = Principal(account)
         if not screens.available or not screens.checks(principal):
-            # The same reply as any unknown text: the command can't be probed.
-            return message.answer(translator.t(account.locale, "fallback-text"))
+            # The same reply as any typed text, built by the same function: the command
+            # can't be probed (ADR-0042).
+            return typed_reply(message, account)
         screen = await screens.requests(principal, False, 0)
         return message.answer(screen.text, reply_markup=screen.markup)
 

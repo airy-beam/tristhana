@@ -13,6 +13,7 @@ from aiogram.methods import SendMessage
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.bots.statements import Statements
 from tests.fakes import (
     FixedClock,
     InMemoryAccounts,
@@ -150,8 +151,9 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
     evening = _tap(client, "r1:t:2000", "ru")
     sunday_off = _tap(client, "r1:d:7", "ru")  # the day off decides the days (PR-09)
 
-    assert on["text"].startswith(
-        "🔔 Напоминание о практике: каждый день, кроме субботы в 10:00 Алматы (UTC+5)"  # noqa: RUF001
+    # ADR-0044: my own reminder time names the city and carries no offset.
+    assert on["text"].splitlines()[0] == (
+        "🔔 Напоминание о практике: каждый день, кроме субботы в 10:00 Алматы"  # noqa: RUF001
     )
     assert "✓ 20:00" in _texts(evening)
     assert sunday_off["text"].startswith(
@@ -172,7 +174,7 @@ def test_without_a_zone_the_time_is_local_and_the_zone_is_asked_for(client: Test
     body = _command(client, "/remind")
     on = _tap(client, "r1:o:1")
 
-    assert "To remind you at the right hour I need your time zone" in body["text"]
+    assert "To remind you at the right hour I need to know your city" in body["text"]
     assert "at 10:00 your time" in on["text"]
 
 
@@ -193,31 +195,149 @@ def test_offer_under_practice_saved_yes_and_no(
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")
     summary = _tap(client, f"p1:v:{d}")
-    assert _texts(summary)[-2:] == ["🔔 Yes, remind me", "No, thanks"]
+    assert _rows(summary)[-2:] == [["🔔 Yes, remind me", "No, thanks"], ["☰ Menu"]]
 
     no = _tap(client, f"r1:n:{d}")
 
     assert "Want me to ask" not in no["text"]
     assert "No, thanks" not in _texts(no)
+    assert _rows(no)[-2:] == [["📝 Details", "✏️ Change", "📅 Another day"], ["☰ Menu"]]  # V
     again = _tap(client, f"p1:v:{d}")
     assert "Want me to ask" not in again["text"]  # offered once
     [settings] = storage.notifications.stored.values()
     assert settings.practice.on is False
 
 
-def test_offer_yes_turns_it_on_and_shows_the_settings(
+def test_offer_yes_turns_it_on_and_says_when(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """UI-06 R0: the reply names the time and stays out of the settings screen."""
+    _me(client, storage)
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p")
+    statements = Statements(monkeypatch, storage)
+
+    yes = _tap(client, f"r1:y:{d}")
+
+    [settings] = storage.notifications.stored.values()
+    assert settings.practice.on is True
+    assert settings.practice.at in (time(10), time(20))
+    # No "✓ … Practiced" line: the reply is built from the button's date without a read, so
+    # it says only what this tap did. ADR-0044: my own zone names its city, with no offset.
+    assert yes["text"] == f"🔔 I'll ask once a day at {settings.practice.at:%H:%M} Almaty."
+    assert _rows(yes) == [["⏰ Change the time"], ["☰ Menu"]]
+    data = [b["callback_data"] for row in yes["reply_markup"]["inline_keyboard"] for b in row]
+    assert data == ["r1:v", "w1:m"]
+    assert len(statements.names) == 2  # as before UI-06: the settings read and the write
+
+
+def test_offer_yes_without_a_zone_asks_for_the_city(client: TestClient) -> None:
+    d = datetime.now(UTC).strftime("%Y%m%d")  # no zone yet: en counts days in UTC
+    _tap(client, f"d1:s:{d}:p")
+
+    yes = _tap(client, f"r1:y:{d}")
+
+    assert "🔔 I'll ask once a day at " in yes["text"]
+    assert " your time." in yes["text"]
+    assert yes["text"].endswith(
+        "To remind you at the right hour I need to know your city: choose it in /settings."
+    )
+    assert _rows(yes) == [["⏰ Change the time"], ["🏙 My city"], ["☰ Menu"]]
+    data = [b["callback_data"] for row in yes["reply_markup"]["inline_keyboard"] for b in row]
+    assert data == ["r1:v", "s1:cp:0", "w1:m"]
+
+
+def test_offer_yes_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
+    _me(client, storage, "ru")
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p", "ru")
+
+    yes = _tap(client, f"r1:y:{d}", "ru")
+
+    [settings] = storage.notifications.stored.values()
+    assert f"🔔 Буду спрашивать раз в день в {settings.practice.at:%H:%M} Алматы." in yes["text"]
+    assert _rows(yes) == [["⏰ Изменить время"], ["☰ Меню"]]
+
+
+def _offer_then_rest(client: TestClient, d: str) -> None:
+    """The done screen with the offer on it, then the day changed to rest in another message."""
+    _tap(client, f"d1:s:{d}:p")
+    summary = _tap(client, f"p1:v:{d}")
+    assert _rows(summary)[-2] == ["🔔 Yes, remind me", "No, thanks"]
+    _tap(client, f"d1:s:{d}:r")
+
+
+def test_offer_no_on_a_day_no_longer_practiced_shows_that_days_editor(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    _me(client, storage)
+    d = _ymd(_today())
+    _offer_then_rest(client, d)
+
+    no = _tap(client, f"r1:n:{d}")
+
+    assert no["method"] == "editMessageText"  # never a bare answer
+    assert no["text"].startswith("This day isn't marked as practice anymore.")
+    assert "✓ In your log: 😌 Rest day" in no["text"]
+    assert _rows(no)[:3] == [["🧘 Practiced"], ["✓ 😌 Rest day"], ["Other…"]]
+    data = [b["callback_data"] for row in no["reply_markup"]["inline_keyboard"] for b in row]
+    assert data[0] == f"d1:s:{d}:p"  # the editor of the offer's own date
+    [settings] = storage.notifications.stored.values()
+    assert settings.practice.on is False  # the answer itself stands
+
+
+def test_offer_yes_on_a_day_no_longer_practiced_never_says_practiced(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _me(client, storage)
+    d = _ymd(_today())
+    _offer_then_rest(client, d)
+    statements = Statements(monkeypatch, storage)
+
+    yes = _tap(client, f"r1:y:{d}")
+
+    [settings] = storage.notifications.stored.values()
+    assert settings.practice.on is True
+    assert yes["text"] == f"🔔 I'll ask once a day at {settings.practice.at:%H:%M} Almaty."
+    assert "Practice" not in yes["text"]
+    assert "✓" not in yes["text"]
+    assert _rows(yes) == [["⏰ Change the time"], ["☰ Menu"]]
+    assert len(statements.names) == 2  # the settings read and the write, no day read
+
+
+def test_an_old_offer_never_claims_a_reminder_that_was_turned_off(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _me(client, storage)
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")
+    _tap(client, f"r1:n:{d}")  # answered since, in another message
 
-    yes = _tap(client, f"r1:y:{d}")
+    yes = _tap(client, f"r1:y:{d}")  # the old offer still on screen
 
-    assert yes["text"].startswith("🔔 Practice reminder: every day except Saturday at ")
+    assert "I'll ask once a day at" not in yes["text"]
+    assert yes["text"].startswith("🔕 Practice reminder is off")  # as it is, with the switch
     [settings] = storage.notifications.stored.values()
-    assert settings.practice.on is True
-    assert settings.practice.at in (time(10), time(20))
+    assert settings.practice.on is False
+
+
+def test_a_reminders_practiced_tap_shows_the_three_buttons(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    me = _me(client, storage)
+    today, before = _today(), _today() - timedelta(days=1)
+    storage.day_repo.rows[(me.id, before)] = (DayLog(before, DayStatus.PRACTICED), ZONE)
+    storage.day_repo.practice_rows[(me.id, before)] = Practice(PracticeContext.MYSORE)
+    statements = Statements(monkeypatch, storage)
+
+    body = _tap(client, f"r1:p:{_ymd(today)}")
+
+    assert body["text"].endswith("Last time: Mysore")
+    assert _rows(body) == [["🔁 Same as last time"], ["📝 Add details"], ["✓ Done"]]
+    assert statements.names == [
+        "InMemoryDays.insert_if_absent",
+        "InMemoryPractices.recent_with_progression",
+    ]
 
 
 def test_no_offer_for_another_day(client: TestClient, storage: InMemoryStorage) -> None:
@@ -246,19 +366,26 @@ def test_same_as_last_time_logs_and_shows_what_was_copied(
     assert body["text"].startswith("✓ Today")
     assert "Mysore · Primary → Navasana" in body["text"]
     assert "Copied from" in body["text"]  # more than two weeks ago
-    assert _texts(body)[:2] == ["📝 Details", "✏️ Change"]
+    assert _rows(body) == [
+        ["✨ How do you feel?"],
+        ["📝 Details", "✏️ Change", "📅 Another day"],
+        ["☰ Menu"],
+    ]
     assert storage.day_repo.rows[(me.id, today)][0].status is DayStatus.PRACTICED
 
 
-def test_same_as_last_time_without_history_opens_the_details(
-    client: TestClient, storage: InMemoryStorage
+def test_same_as_last_time_without_history_offers_details_or_done(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     me = _me(client, storage)
+    statements = Statements(monkeypatch, storage)
 
     body = _tap(client, f"r1:s:{_ymd(_today())}")
 
-    assert "Add details?" in body["text"]
+    assert _rows(body) == [["📝 Add details"], ["✓ Done"]]
     assert storage.day_repo.rows[(me.id, _today())][0].status is DayStatus.PRACTICED
+    # The copy found nothing, so nothing is read to offer it again.
+    assert statements.names == ["InMemoryDays.insert_if_absent", "InMemoryPractices.copy_usual"]
 
 
 def test_same_as_last_time_never_overwrites_a_logged_day(

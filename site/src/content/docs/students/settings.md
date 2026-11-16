@@ -8,7 +8,7 @@ Your name, language, city and time zone, and whose moon days you follow.
 
 ## Where the settings are
 
-- **In the bot:** :cmd[settings] shows everything on one screen.
+- **In the bot:** :ftl[menu-open] → :ftl[menu-settings] (or :cmd[settings]). Five rows: language, city, day off, :ftl[settings-reminders-button], and :ftl[settings-more-button] for everything else.
 - **In the app:** :ftl[settings-open]{from=app} at the bottom of the first screen. Some things are only here: your name, quiet hours and the daily limit.
 
 ![The settings screen in the bot](../../../assets/shots/en/bot-settings.webp)
@@ -17,7 +17,7 @@ Your name, language, city and time zone, and whose moon days you follow.
 
 Your city sets your time zone, so reminders come at the right hour and days get the right date.
 
-1. Tap :ftl[settings-city-button] and pick your city.
+1. Tap the second row, the one with your city, and pick your city.
 2. Not on the list? Tap :ftl[settings-city-unlisted]. You can send your location once, or let the app use your phone's time.
 
 A location you send is used only to find the time zone. It isn't stored.
@@ -26,7 +26,7 @@ Travelling? When your phone's time differs, the app asks whether to switch or ke
 
 ## Whose moon days
 
-:ftl[settings-moon-link] chooses the city your moon days are calculated for. It can be different from the city you live in, for example your teacher's.
+:ftl[settings-more-button] → :ftl[settings-moon-link] chooses the city your moon days are calculated for. It can be different from the city you live in, for example your teacher's.
 
 ## The rest
 

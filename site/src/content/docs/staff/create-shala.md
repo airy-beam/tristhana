@@ -8,7 +8,7 @@ Set up your shala in a few minutes and invite the other teachers and helpers.
 
 ## Create your shala
 
-1. In the app, open :ftl[settings-open] → :ftl[links-title] and tap :ftl[shala-create].
+1. In the bot, open :ftl[menu-open] → :ftl[menu-teach] → :ftl[welcome-path-shala] and tap :ftl[shala-create]: the app opens straight on the form. Already have students or a shala? Then that Menu row is gone, and the same button is in the app, under :ftl[settings-open] → :ftl[links-title].
 2. Fill in :ftl[shala-name-label] and :ftl[shala-city-label]. The city sets the shala's time zone and its moon days. For a shala with no room, tick :ftl[shala-online-only].
 3. Under :ftl[shala-my-roles], tick Teacher if you teach there yourself.
 4. Tap :ftl[shala-create-submit].
@@ -17,7 +17,7 @@ Set up your shala in a few minutes and invite the other teachers and helpers.
 
 ## The shala card
 
-In the bot, send :cmd[teachers] and tap the shala's name.
+In the bot, open :ftl[menu-open] → :ftl[menu-teacher] and tap the shala's name.
 
 ![The shala card in the bot](../../../assets/shots/en/bot-shala.webp)
 

@@ -8,10 +8,14 @@ New things in Tristhana, newest first.
 
 ## November 2026
 
+- **A simpler bot.** The first time, it asks :ftl[welcome-ask] After that it opens on today, and everything else is under :ftl[menu-open]. There are no commands to remember: the old ones still work as shortcuts.
+- **Three buttons after a practice**: :ftl[practice-same-as-last]{from=bot}, :ftl[practice-add-details] and :ftl[practice-done]. The :ftl[checkin-edit]{from=bot} button now opens the check-in.
+- **:ftl[menu-help]** is a list of things to do, one tap each. It replaces the bot's quick tour; the app keeps its own.
+- **Settings in five rows**, and shorter screens for invites and joining, with :ftl[consent-details] for the full text.
 - **:ftl[practice-same-as-last]{from=bot}** now skips a led class: after a led day it offers the practice you did before it.
 - **Check-ins over time**: the averages of your after-practice check-ins by month, by weekday and around full and new moon. Yours alone.
 - **This guide**, in English and Russian.
-- **The quick tour** now covers teachers and shalas, in the bot and in the app.
+- **The quick tour** now covers teachers and shalas.
 - **Teachers and students.** A teacher shares a link, a student confirms, and the teacher sees a small card: practice or rest, practice length, the last asana.
 - **A teacher can mark a new asana** for a student, and the student can undo it.
 - **Shalas**: a team with roles, a weekly schedule, closures, moon-day swaps and substitutes.

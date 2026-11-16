@@ -477,7 +477,7 @@ def test_settings_has_the_entry_row_in_russian(
 ) -> None:
     _me(client, storage, "ru")
 
-    [button] = _entry(_command(client, "/settings", "ru"))
+    [button] = _entry(_tap(client, "s1:m", "ru"))  # UI-06: under Settings → More
 
     assert button["text"] == "📅 Добавить в календарь"
 
@@ -489,6 +489,7 @@ def test_no_entry_rows_without_a_public_url(
         me = _me(client, storage)
         _join(storage, me)
         bodies = [_command(client, c) for c in ("/schedule", "/moon", "/settings")]
+        bodies.append(_tap(client, "s1:m"))
 
     for body in bodies:
         assert _entry(body) == []

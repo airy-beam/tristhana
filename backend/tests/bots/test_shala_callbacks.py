@@ -7,7 +7,14 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from tristhana.bots.telegram.shalas_callbacks import PREFIX, decode, parse_short_id, short_id
+from tristhana.bots.telegram.shalas_callbacks import (
+    PREFIX,
+    Consent,
+    consent,
+    decode,
+    parse_short_id,
+    short_id,
+)
 
 CODE = "aB3dE6gH9jK2mN5p"
 MAX = UUID("ffffffff-ffff-ffff-ffff-ffffffffffff")
@@ -56,6 +63,7 @@ def _all(shala: UUID, acct: UUID) -> list[str]:
         f"h1:l:ru:{CODE}",
         f"h1:l:en:{CODE}",
         f"h1:b:{CODE}",
+        *(f"h1:{letter}:{CODE}" for letter in ("d", "ds", "r", "rs")),
         f"h1:c:{s}",
         f"h1:m:{s}:0",
         f"h1:m:{s}:99",
@@ -80,11 +88,32 @@ def test_every_tap_decodes_and_fits(data: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("staff", "details", "data"),
+    [
+        (False, True, f"h1:d:{CODE}"),
+        (True, True, f"h1:ds:{CODE}"),
+        (False, False, f"h1:r:{CODE}"),
+        (True, False, f"h1:rs:{CODE}"),
+    ],
+)
+def test_the_consent_layers_round_trip_in_22_bytes(staff: bool, details: bool, data: str) -> None:
+    """UI-06 §2, ADR-0045: the layer switch says which kind of link the code belongs to."""
+    assert consent(CODE, staff, details) == data
+    assert decode(data) == Consent(CODE, staff, details)
+    assert len(data.encode()) <= 22
+
+
+@pytest.mark.parametrize(
     "data",
     [
         None,
         "",
         "h1",
+        "h1:d",
+        "h1:d:short",
+        f"h1:ds:{CODE}x",
+        f"h1:r:{CODE}:1",
+        f"h1:rd:{CODE}",
         "h1:",
         "h2:n",
         "t1:n",

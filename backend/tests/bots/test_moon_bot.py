@@ -117,8 +117,8 @@ def test_moon_screen_lists_days_names_the_calendar_and_asks_for_a_zone(client: T
     assert "🌕 Full moon (Purnima)" in body["text"]
     assert "in 3 days" in body["text"]
     assert "follow your teacher" in body["text"]
-    assert "I need your time zone" in body["text"]  # no zone yet: no reminders
-    assert _texts(body) == ["📍 Change city", "🔔 Reminders"]
+    assert "I need to know your city" in body["text"]  # no zone yet: no reminders
+    assert _texts(body) == ["📍 Change city", "🔔 Reminders", "☰ Menu"]  # UI-06: a way back
 
 
 def test_moon_screen_shows_reminders_with_a_time_label(
@@ -129,7 +129,9 @@ def test_moon_screen_shows_reminders_with_a_time_label(
 
     body = _moon(client, "ru")
 
-    assert "🔔 Напоминания: за неделю и за день в 19:00 Алматы (UTC+5)" in body["text"]
+    # ADR-0044: my own zone, so the city without the offset.
+    assert "🔔 Напоминания: за неделю и за день в 19:00 Алматы" in body["text"]
+    assert "19:00 Алматы (UTC" not in body["text"]
 
 
 def test_city_picker_and_city_zone(client: TestClient, storage: InMemoryStorage) -> None:
@@ -144,7 +146,8 @@ def test_city_picker_and_city_zone(client: TestClient, storage: InMemoryStorage)
     zoned = _tap(client, "m1:z:almaty")
     [account] = storage.repo.accounts.values()
     assert account.timezone == "Asia/Almaty"
-    assert "🔔 Reminders: 7 and 1 day before at 19:00 Almaty (UTC+5)" in zoned["text"]
+    assert "🔔 Reminders: 7 and 1 day before at 19:00 Almaty" in zoned["text"]
+    assert "19:00 Almaty (UTC" not in zoned["text"]
 
 
 def _set_home(storage: InMemoryStorage, slug: str, zone: str) -> None:
@@ -168,7 +171,8 @@ def test_the_home_citys_other_date_shows_under_the_day(
 
     assert f"\n{INFO} In 📍 Astana it falls on " in en["text"]
     assert f"\n{INFO} 📍 Астана: " in ru["text"]
-    assert "19:00 Astana (UTC+5)" in en["text"]  # the reminder label names the home city
+    assert "19:00 Astana" in en["text"]  # the reminder label names the home city
+    assert "19:00 Astana (UTC" not in en["text"]  # ADR-0044: my own zone
 
 
 def test_no_fyi_when_the_dates_match_or_no_city(

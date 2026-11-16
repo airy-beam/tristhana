@@ -51,6 +51,23 @@ function target(step, locale, from) {
   return { text: labels.label(locale, step, {}, from), exact: true };
 }
 
+/**
+ * What a bot shot's person sends. `=invite` is the start code of the demo teacher's invite
+ * link, which exists only once the cast is seeded: `/start =invite` is someone opening it.
+ * @param {ReturnType<typeof createClient>} client
+ * @param {string} say
+ * @param {"en" | "ru"} locale
+ */
+async function message(client, say, locale) {
+  if (!say.includes("=invite")) return say;
+  const invite = /** @type {{ url: string }} */ (
+    await client.call(CAST[locale].teacher, "POST", "/me/invite", {})
+  );
+  const code = /[?&]start=([\w-]+)/.exec(invite.url)?.[1];
+  if (!code) throw new Error(`no start code in the invite link ${invite.url}`);
+  return say.replace("=invite", code);
+}
+
 /** PNG bytes → a WebP file, small enough for a phone on a slow network. */
 async function save(/** @type {Buffer} */ png, /** @type {string} */ file) {
   mkdirSync(dirname(file), { recursive: true });
@@ -78,13 +95,15 @@ try {
       /** @type {Buffer} */
       let png;
       if (shot.kind === "bot") {
-        let reply = await client.say(user, /** @type {string} */ (shot.say));
+        const say = /** @type {string} */ (shot.say);
+        let reply = await client.say(user, await message(client, say, locale));
         for (const key of shot.tap ?? []) {
           const to = target(key, locale, "bot");
           reply = await client.tap(user, reply, "index" in to ? to.index : to.text);
         }
         await page.setContent(
-          botHtml(reply, { said: shot.tap ? undefined : shot.say, lang: locale }),
+          // A typed command is drawn above the reply; a tapped path or an opened link is not.
+          botHtml(reply, { said: shot.tap || say.includes("=") ? undefined : say, lang: locale }),
         );
         png = await page.locator("body").screenshot();
       } else {

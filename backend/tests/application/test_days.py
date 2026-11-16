@@ -12,6 +12,7 @@ from tristhana.domain.days import DateInFuture, DayLog, DayStatus, InvalidRange
 from tristhana.domain.locale import Locale
 from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import MoonDay, MoonDayKind
+from tristhana.domain.practice import Practice, PracticeContext
 from tristhana.domain.rest_days import AutoDay, AutoKind, DayOff
 
 # 20:00 UTC: already Oct 19 in Almaty (UTC+5), still Oct 18 in Moscow (UTC+3) and UTC.
@@ -98,6 +99,24 @@ async def test_clear_is_idempotent(repo: InMemoryDays, clock: FixedClock) -> Non
     await ClearDayStatus(repo).execute(me, date(2026, 10, 19))
 
     assert repo.rows == {}
+
+
+async def test_practiced_again_returns_the_details_the_day_holds(
+    repo: InMemoryDays, clock: FixedClock
+) -> None:
+    """UI-06 P0: the screen after 🧘 needs no read to show what is stored."""
+    me, day = _principal(), date(2026, 10, 19)
+    use_case = SetDayStatus(repo, clock, NO_COUNTS)
+    first = await use_case.execute(me, day, DayStatus.PRACTICED)
+    repo.practice_rows[(me.account.id, day)] = Practice(PracticeContext.MYSORE, duration_min=90)
+
+    again = await use_case.execute(me, day, DayStatus.PRACTICED)
+    rest = await use_case.execute(me, day, DayStatus.REST)
+    back = await use_case.execute(me, day, DayStatus.PRACTICED)
+
+    assert first.practice is None
+    assert again.practice == Practice(PracticeContext.MYSORE, duration_min=90)
+    assert (rest.practice, back.practice) == (None, None)  # a status change drops details
 
 
 async def test_days_are_per_account(repo: InMemoryDays, clock: FixedClock) -> None:

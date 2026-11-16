@@ -1,4 +1,4 @@
-"""Migration 0027 `directory_listing` (ID-05 spec §9; ADR-0042), without a database: the head,
+"""Migration 0027 `directory_listing` (ID-05 spec §9; ADR-0042), without a database: its place,
 the columns, the two foreign keys and the export coverage. CHECKs, up/down and `alembic check`
 run on Postgres in `test_db_directory_listing.py`."""
 
@@ -9,12 +9,11 @@ from tristhana.infrastructure.db.export import EXCLUDED_TABLES, EXPORTED_TABLES
 from tristhana.infrastructure.db.migrate import alembic_config
 
 
-def test_0027_follows_0026_and_is_the_head() -> None:
+def test_0027_follows_0026() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0027")
     assert revision is not None
     assert revision.down_revision == "0026"
-    assert script.get_current_head() == "0027"
 
 
 def test_the_table() -> None:

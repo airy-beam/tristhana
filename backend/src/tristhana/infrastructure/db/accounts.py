@@ -38,6 +38,7 @@ from tristhana.domain.rest_days import DayOff, Weekdays
 from tristhana.infrastructure.db.engine import connection, sqlstate
 from tristhana.infrastructure.db.tables import (
     account,
+    day_log,
     identity,
     shala,
     shala_staff,
@@ -151,6 +152,7 @@ _STORED = (
     account.c.hide_ladies,
     account.c.offer_check_in,
     account.c.home_city,
+    account.c.welcomed_at,
 )
 _COLUMNS = (*_STORED, _TEACHES, _MAIN_TEACHER, MAIN_SHALA)
 # The same row shape for an INSERT's RETURNING. The subqueries above cannot be used there:
@@ -317,6 +319,20 @@ class SqlAccountRepository:
         async with connection(self._engine) as conn:
             await conn.execute(stmt)
 
+    async def mark_welcomed(self, account_id: UUID, at: datetime) -> bool | None:
+        # Two `/start`s at once: the second waits for the row, re-checks the WHERE and
+        # matches nothing, so the instant is set once and only one caller gets a row.
+        has_days = exists().where(day_log.c.account_id == account.c.id).correlate_except(day_log)
+        stmt = (
+            update(account)
+            .where(account.c.id == account_id, account.c.welcomed_at.is_(None))
+            .values(welcomed_at=at)
+            .returning(has_days.label("has_days"))
+        )
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one_or_none()
+        return None if row is None else bool(row.has_days)
+
     async def delete(self, account_id: UUID) -> bool:
         """ST-09: every per-account FK cascades; others' `progression_event.marked_by` → NULL."""
         stmt = delete(account).where(account.c.id == account_id).returning(literal(1))
@@ -359,6 +375,7 @@ def _account(row: Row[*tuple[Any, ...]]) -> Account:
         teaches=row.teaches,
         main_teacher=to_teacher(row.main_teacher),
         shala=to_shala(row.main_shala),
+        welcomed=row.welcomed_at is not None,
     )
 
 

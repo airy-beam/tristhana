@@ -9,6 +9,8 @@ legacy `d1:t` is relative: the "Log today" button under /start greetings sent be
     d1:s:20261018:p     set a status (codes below)
     d1:x:20261018       clear the status
     d1:w:20261018       week picker ending on that date
+    d1:r:20261018:t     "Other reason" for a date (UI-06); the letter is where Back goes:
+                        `t` Today, `e` the day's editor
 """
 
 from dataclasses import dataclass
@@ -18,7 +20,8 @@ from typing import Literal
 from tristhana.domain.days import MIN_LOG_DATE, DayStatus
 
 PREFIX = "d1"
-type Action = Literal["today", "open", "set", "clear", "week"]
+type Action = Literal["today", "open", "set", "clear", "week", "reasons"]
+type Origin = Literal["t", "e"]
 
 _CODES: dict[DayStatus, str] = {
     DayStatus.PRACTICED: "p",
@@ -42,6 +45,7 @@ class DayCallback:
     action: Action
     day: date | None = None  # None only for "today"
     status: DayStatus | None = None  # only for "set"
+    origin: Origin | None = None  # only for "reasons"
 
 
 def encode(cb: DayCallback) -> str:
@@ -54,6 +58,10 @@ def encode(cb: DayCallback) -> str:
         if cb.status is None:
             raise ValueError("set needs a status")
         return f"{PREFIX}:s:{day}:{_CODES[cb.status]}"
+    if cb.action == "reasons":
+        if cb.origin is None:
+            raise ValueError("reasons needs an origin")
+        return f"{PREFIX}:r:{day}:{cb.origin}"
     return f"{PREFIX}:{_LETTERS[cb.action]}:{day}"
 
 
@@ -72,6 +80,8 @@ def decode(data: str | None) -> DayCallback | None:
         return None
     if parts[1] == "s" and len(parts) == 4 and parts[3] in _STATUSES:
         return DayCallback("set", day, _STATUSES[parts[3]])
+    if parts[1] == "r" and len(parts) == 4 and parts[3] in ("t", "e"):
+        return DayCallback("reasons", day, origin=parts[3])  # type: ignore[arg-type]
     if parts[1] in _ACTIONS and len(parts) == 3:
         return DayCallback(_ACTIONS[parts[1]], day)
     return None

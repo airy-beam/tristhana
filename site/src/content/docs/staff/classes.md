@@ -33,7 +33,7 @@ For a single date, see [Closures, swaps and substitutes](../closures-and-swaps/)
 
 ## The classes you teach
 
-:cmd[classes] shows your own week across all your shalas, including a class you are covering for someone.
+In the bot, open :ftl[menu-open] → :ftl[menu-classes] and tap :ftl[my-schedule-filter]{f=mine} to see your own week across all your shalas, including a class you are covering for someone. :cmd[classes] is a shortcut.
 
 ![The classes a teacher teaches this week, in the bot](../../../assets/shots/en/bot-classes.webp)
 

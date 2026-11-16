@@ -3,6 +3,8 @@
 64 bytes; an id here is no capability: every write checks the caller's membership.
 
 h1:a:<code>  h1:n  h1:l:<locale>:<code>  h1:b:<code>   join, not now, language, staff accept
+h1:d:<code>  h1:ds:<code>                              consent: the full text (join, staff)
+h1:r:<code>  h1:rs:<code>                              consent: the short screen again (ADR-0045)
 h1:c:<s>  h1:m:<s>:<page>  h1:v:<s>:<acct>             card, students page, student
 h1:i:<s>  h1:q:<s>  h1:w:<s>  h1:wy:<s>                join link, QR, new link ask, new link
 h1:e:<s>  h1:e:<s>:<t|a|o|m>                           staff link: pick a role, create one
@@ -51,6 +53,16 @@ class Language:
 
 
 @dataclass(frozen=True, slots=True)
+class Consent:
+    """A consent screen again (ADR-0045): `details` is the full text, else the short one;
+    `staff` tells a staff link's code from a join link's."""
+
+    code: str
+    staff: bool
+    details: bool
+
+
+@dataclass(frozen=True, slots=True)
 class NotNow:
     pass
 
@@ -80,7 +92,15 @@ class StaffLink:
     role: ShalaRole
 
 
-type ShalaTap = Join | AcceptStaff | Language | NotNow | Shala | Students | Member | StaffLink
+type ShalaTap = (
+    Join | AcceptStaff | Language | Consent | NotNow | Shala | Students | Member | StaffLink
+)
+_CONSENT: dict[str, tuple[bool, bool]] = {  # letter → (staff, details)
+    "d": (False, True),
+    "ds": (True, True),
+    "r": (False, False),
+    "rs": (True, False),
+}
 
 
 def short_id(id: UUID) -> str:
@@ -108,6 +128,11 @@ def accept_staff(code: str) -> str:
 
 def language(locale: Locale, code: str) -> str:
     return f"{PREFIX}:l:{locale}:{code}"
+
+
+def consent(code: str, staff: bool, details: bool) -> str:
+    letter = next(k for k, v in _CONSENT.items() if v == (staff, details))
+    return f"{PREFIX}:{letter}:{code}"
 
 
 def not_now() -> str:
@@ -149,6 +174,8 @@ def decode(data: str | None) -> ShalaTap | None:
             return Join(code)
         case [p, "b", value] if p == PREFIX and (code := _code(value)):
             return AcceptStaff(code)
+        case [p, letter, value] if p == PREFIX and letter in _CONSENT and (code := _code(value)):
+            return Consent(code, *_CONSENT[letter])
         case [p, "l", locale, value] if (
             p == PREFIX and locale in LOCALES and (code := _code(value))
         ):

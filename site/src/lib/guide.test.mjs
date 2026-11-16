@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkGuide, directivesIn, guideMap, stalePages } from "./check.mjs";
 import { guideDirectives } from "./directives.mjs";
-import { LabelError, createLabels, localeOfPath, menuCommands } from "./labels.mjs";
+import { LabelError, createLabels, hiddenCommands, localeOfPath, menuCommands } from "./labels.mjs";
 
 /** @type {string} */
 let root;
@@ -76,9 +76,30 @@ describe("the real product files", () => {
     expect(real.label("ru", "start-open-app")).not.toBe("Open the app");
   });
 
-  it("list the bot's menu commands, without /admin", () => {
-    expect(menuCommands()).toContain("log");
-    expect(menuCommands()).not.toContain("admin");
+  it("list the bot's five menu commands, and the hidden ones apart (UI-06)", () => {
+    expect(menuCommands()).toEqual(["start", "schedule", "moon", "settings", "help"]);
+    expect(hiddenCommands()).toContain("log");
+    expect(hiddenCommands()).toContain("menu");
+    expect([...menuCommands(), ...hiddenCommands()]).not.toContain("admin");
+  });
+
+  it("read each tuple by its own name, and say which one a file lacks", () => {
+    const tool = write("tool.py", 'COMMANDS = ("start", "help")\nHIDDEN_COMMANDS = ("log",)\n');
+    expect(menuCommands(tool)).toEqual(["start", "help"]);
+    expect(hiddenCommands(tool)).toEqual(["log"]);
+    const old = write("old.py", 'COMMANDS = ("start",)\n');
+    expect(() => hiddenCommands(old)).toThrow(/no HIDDEN_COMMANDS tuple/);
+  });
+
+  it("let a guide quote a menu command or a hidden one, never /admin", () => {
+    const en = guideDirectives()({ fileURL: pathToFileURL("/s/docs/a.md") });
+    const cmd = (/** @type {string} */ value) => ({
+      name: "cmd",
+      children: [{ type: "text", value }],
+    });
+    expect(en.textDirective(cmd("moon"))).toEqual({ type: "inlineCode", value: "/moon" });
+    expect(en.textDirective(cmd("log"))).toEqual({ type: "inlineCode", value: "/log" });
+    expect(() => en.textDirective(cmd("admin"))).toThrow(/a\.md: :cmd\[admin\]/);
   });
 });
 
@@ -176,6 +197,25 @@ describe("checkGuide", () => {
   it("reports a menu command no page mentions", () => {
     pair(page("text"), page("текст"));
     expect(run()).toEqual(["/log is in the bot's menu but in no guide"]);
+  });
+
+  it("lets a page quote a hidden command, and asks no page to document it", () => {
+    const hidden = () =>
+      checkGuide({
+        docsDir: join(root, "docs"),
+        label: labels().label,
+        commands: ["log"],
+        hidden: ["menu"],
+      });
+    pair(page(":cmd[log] :cmd[menu]"), page(":cmd[log] :cmd[menu]"));
+    expect(hidden()).toEqual([]);
+    pair(page(":cmd[log]"), page(":cmd[log]"));
+    expect(hidden()).toEqual([]);
+    pair(page(":cmd[log] :cmd[admin]"), page(":cmd[log] :cmd[admin]"));
+    expect(hidden()).toEqual([
+      expect.stringMatching(/a\/one\.md: :cmd\[admin\] is not one of the bot's commands/),
+      expect.stringMatching(/ru\/a\/one\.md: :cmd\[admin\]/),
+    ]);
   });
 
   it("reports missing or malformed front matter", () => {

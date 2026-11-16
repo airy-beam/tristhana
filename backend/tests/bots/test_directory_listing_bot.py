@@ -174,15 +174,31 @@ def _row(w: World) -> Any:
 # /admin and the gate
 
 
-def test_admin_for_anyone_else_is_the_fallback_reply_byte_for_byte(w: World) -> None:
+TYPED = f"{T.t('en', 'menu-text-lead')}\n\n{T.t('en', 'menu-title')}"  # UI-06: the Menu
+
+
+def test_admin_for_anyone_else_is_the_typed_text_reply_byte_for_byte(w: World) -> None:
     probe = _text(w, "/admin", tg=ANNA_TG)
     other = _text(w, "what is this", tg=ANNA_TG)
-    assert probe == other
-    assert probe["text"] == T.t("en", "fallback-text")
+    assert probe == other  # the text and the keyboard: one function builds both
+    assert probe["text"] == TYPED
+    assert probe["reply_markup"]["inline_keyboard"]  # the Menu's rows
 
 
-def test_admin_with_no_admin_configured_is_the_fallback_too(off: World) -> None:
-    assert _text(off, "/admin")["text"] == T.t("en", "fallback-text")
+def test_admin_with_no_admin_configured_is_the_typed_text_reply_too(off: World) -> None:
+    probe = _text(off, "/admin")
+    assert probe == _text(off, "what is this")
+    assert probe["text"] == TYPED
+
+
+def test_admin_and_typed_text_come_from_one_function() -> None:
+    # ADR-0042: not two renders that happen to match today.
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2] / "src" / "tristhana" / "bots" / "telegram"
+    assert "typed_reply(message, account)" in (src / "directory_listing.py").read_text()
+    assert "home.typed_reply(message, account)" in (src / "router.py").read_text()
+    assert "home.typed_reply" in (src / "router.py").read_text().split("register_listing(")[1]
 
 
 async def test_every_admin_tap_from_a_non_admin_only_answers(w: World) -> None:
@@ -400,14 +416,22 @@ async def test_my_status_not_found_never_claims_the_name_is_absent(w: World) -> 
     assert "couldn't confirm" in body["text"]
 
 
-def test_the_invite_screen_has_the_quiet_row(w: World) -> None:
-    labels = {b["text"]: b.get("callback_data") for b in _buttons(_tap(w, "t1:i", tg=ANNA_TG))}
+def test_the_invites_more_screen_has_the_quiet_row(w: World) -> None:
+    """UI-06: the directory line is under the invite's "More" (My students → Invite → More)."""
+    first = [b["text"] for b in _buttons(_tap(w, "t1:i", tg=ANNA_TG))]
+    more = _tap(w, "t1:im", tg=ANNA_TG)
+    labels = {b["text"]: b.get("callback_data") for b in _buttons(more)}
+    assert T.t("en", "listing-open") not in first
     assert labels[T.t("en", "listing-open")] == cb.mine("o")
+    # ... and its own Back returns there.
+    status = _tap(w, cb.mine("o"), tg=ANNA_TG)
+    assert [b.get("callback_data") for b in _buttons(status)][-1] == "t1:im"
 
 
 def test_no_entry_row_with_no_admin_configured(off: World) -> None:
-    body = _tap(off, "t1:i", tg=ANNA_TG)
-    assert T.t("en", "listing-open") not in [b["text"] for b in _buttons(body)]
+    for data in ("t1:i", "t1:im"):
+        body = _tap(off, data, tg=ANNA_TG)
+        assert T.t("en", "listing-open") not in [b["text"] for b in _buttons(body)]
 
 
 async def test_my_line_can_still_be_removed_with_no_admin_configured(off: World) -> None:
@@ -445,12 +469,15 @@ async def test_the_consent_screen_shows_the_line_on_its_own_and_never_the_level(
     await _listed(w)
     _invite(w)
     body = _text(w, f"/start t_{CODE}", tg=STUDENT_TG, lang=lang)
-    paragraphs = body["text"].split("\n\n")
-    assert paragraphs[1] == line  # its own paragraph, right under the ask
-    assert "Certified" not in body["text"]
-    assert T.t(lang, "invite-know-them") in body["text"]  # stays for everyone
-    assert all("✔" not in b["text"] for b in _buttons(body))  # never on a button
-    assert len(body["text"]) <= 4096
+    details = _tap(w, f"t1:d:{CODE}", tg=STUDENT_TG, lang=lang)
+    for screen in (body, details):  # the short consent and the full text behind "Details"
+        paragraphs = screen["text"].split("\n\n")
+        assert paragraphs[1] == line  # its own paragraph, right under the ask
+        assert "Certified" not in screen["text"]
+        assert T.t(lang, "invite-know-them") in screen["text"]  # stays for everyone
+        assert all("✔" not in b["text"] for b in _buttons(screen))  # never on a button
+        assert len(screen["text"]) <= 4096
+    assert T.t(lang, "invite-know-them") == body["text"].split("\n\n")[-1]  # the fourth line
 
 
 @pytest.mark.parametrize("status", ["none", "pending", "not_found"])

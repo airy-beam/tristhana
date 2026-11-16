@@ -535,6 +535,9 @@ class _UnavailableAccounts:
     async def dismiss_day_off_question(self, account_id: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def mark_welcomed(self, account_id: UUID, at: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def delete(self, account_id: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 

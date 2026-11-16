@@ -1,8 +1,10 @@
 import asyncio
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import pytest
-from sqlalchemy import func, make_url, select, text
+from sqlalchemy import event, func, make_url, select, text
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -168,3 +170,143 @@ async def test_errors_do_not_echo_parameters(engine: AsyncEngine) -> None:
     with pytest.raises(IntegrityError) as e:
         await repo.create_with_identity(KEY, NewAccount(display_name="Secretname" * 7, locale="en"))
     assert "Secretname" not in str(e.value)
+
+
+# UI-06 (spec §3, §6): `welcomed_at` and `mark_welcomed`
+
+WELCOMED = datetime(2026, 11, 16, 6, 0, tzinfo=UTC)
+
+
+async def _welcomed_at(engine: AsyncEngine, account_id: UUID) -> datetime | None:
+    async with engine.connect() as conn:
+        return (
+            await conn.execute(select(account.c.welcomed_at).where(account.c.id == account_id))
+        ).scalar_one()
+
+
+async def _log_a_day(engine: AsyncEngine, account_id: UUID) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO tristhana.day_log (account_id, local_date, status)"
+                " VALUES (:a, '2026-11-15', 'practiced')"
+            ),
+            {"a": account_id},
+        )
+
+
+async def test_a_new_account_is_not_welcomed(engine: AsyncEngine) -> None:
+    repo = SqlAccountRepository(engine)
+
+    created = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
+
+    assert created.welcomed is False
+    assert await _welcomed_at(engine, created.id) is None
+
+
+async def test_mark_welcomed_sets_the_instant_and_the_account_loads_welcomed(
+    engine: AsyncEngine,
+) -> None:
+    repo = SqlAccountRepository(engine)
+    me = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
+
+    has_days = await repo.mark_welcomed(me.id, WELCOMED)
+
+    assert has_days is False  # nothing logged yet
+    assert await _welcomed_at(engine, me.id) == WELCOMED
+    found = await repo.find_by_identity(KEY)
+    assert found is not None
+    assert found.welcomed is True
+
+
+async def test_mark_welcomed_returns_the_day_flag(engine: AsyncEngine) -> None:
+    repo = SqlAccountRepository(engine)
+    me = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
+    other = await repo.create_with_identity(
+        IdentityKey(IdentityProvider.TELEGRAM, "43"), NewAccount(display_name="B", locale="en")
+    )
+    await _log_a_day(engine, me.id)
+
+    assert await repo.mark_welcomed(me.id, WELCOMED) is True
+    assert await repo.mark_welcomed(other.id, WELCOMED) is False  # someone else's day
+
+
+async def test_mark_welcomed_sets_once(engine: AsyncEngine) -> None:
+    repo = SqlAccountRepository(engine)
+    me = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
+
+    first = await repo.mark_welcomed(me.id, WELCOMED)
+    await _log_a_day(engine, me.id)
+    again = await repo.mark_welcomed(me.id, WELCOMED + timedelta(days=1))
+
+    assert (first, again) == (False, None)  # None: already recorded, whatever happened since
+    assert await _welcomed_at(engine, me.id) == WELCOMED
+
+
+async def test_mark_welcomed_under_two_concurrent_calls_sets_once(engine: AsyncEngine) -> None:
+    """A double `/start`: exactly one call records it (and may show the front door)."""
+    repo = SqlAccountRepository(engine)
+    me = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
+    instants = [WELCOMED + timedelta(seconds=n) for n in range(8)]
+
+    results = await asyncio.gather(*(repo.mark_welcomed(me.id, at) for at in instants))
+
+    winners = [at for at, r in zip(instants, results, strict=True) if r is not None]
+    assert len(winners) == 1
+    assert results.count(None) == len(instants) - 1
+    assert await _welcomed_at(engine, me.id) == winners[0]
+
+
+async def test_mark_welcomed_is_one_statement(engine: AsyncEngine) -> None:
+    repo = SqlAccountRepository(engine)
+    me = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
+    seen: list[str] = []
+
+    def record(_conn: object, _cursor: object, statement: str, *_: object) -> None:
+        if "tristhana." in statement:
+            seen.append(statement)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", record)
+    try:
+        await repo.mark_welcomed(me.id, WELCOMED)
+        await repo.mark_welcomed(me.id, WELCOMED)
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", record)
+
+    assert len(seen) == 2  # one each, the second writing nothing
+    assert all(s.lstrip().startswith("UPDATE tristhana.account") for s in seen)
+
+
+async def test_mark_welcomed_for_a_deleted_account_writes_nothing(engine: AsyncEngine) -> None:
+    repo = SqlAccountRepository(engine)
+    me = await repo.create_with_identity(KEY, NewAccount(display_name="A", locale="en"))
+    await repo.delete(me.id)
+
+    assert await repo.mark_welcomed(me.id, WELCOMED) is None
+
+
+async def test_mark_welcomed_leaves_the_rest_of_the_account_alone(engine: AsyncEngine) -> None:
+    repo = SqlAccountRepository(engine)
+    me = await repo.create_with_identity(KEY, NewAccount(display_name="Аня", locale="ru"))
+    before = await repo.set_timezone_if_unset(me.id, "Asia/Almaty")
+
+    await repo.mark_welcomed(me.id, WELCOMED)
+
+    after = await repo.find_by_identity(KEY)
+    assert after == replace(before, welcomed=True)
+
+
+async def test_0028_up_down_up_and_no_drift(migrated_url: str, engine: AsyncEngine) -> None:
+    exists = text(
+        "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'tristhana'"
+        " AND table_name = 'account' AND column_name = 'welcomed_at'"
+    )
+    await asyncio.to_thread(migrate.downgrade, migrated_url, "0027")
+    try:
+        async with engine.connect() as conn:
+            assert (await conn.execute(exists)).scalar_one() == 0
+    finally:
+        await asyncio.to_thread(migrate.upgrade, migrated_url)
+    async with engine.connect() as conn:
+        assert (await conn.execute(exists)).scalar_one() == 1
+    await asyncio.to_thread(migrate.check, migrated_url)

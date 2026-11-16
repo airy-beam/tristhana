@@ -9,8 +9,10 @@ Connect with your teacher with a link or a QR code, and see exactly what they ca
 ## Add your teacher
 
 1. Your teacher sends you a link or shows a QR code.
-2. Open it. The bot shows who is inviting you and what they would see.
+2. Open it. The bot shows who is inviting you and, in a few lines, what they would see. :ftl[consent-details] has the full text.
 3. Tap :ftl[invite-accept], or :ftl[invite-decline]. If you decline, your teacher isn't told.
+
+![The bot asking to confirm a teacher: what they would see, in short](../../../assets/shots/en/bot-consent.webp)
 
 Accept only if you know the person: anyone can type any name.
 
@@ -30,7 +32,7 @@ Accept only if you know the person: anyone can type any name.
 
 ## Your list
 
-:cmd[teachers] shows your teachers and your shalas.
+:ftl[menu-open] → :ftl[menu-teacher] shows your teachers and your shalas.
 
 ![The list of teachers and shalas in the bot](../../../assets/shots/en/bot-teachers.webp)
 

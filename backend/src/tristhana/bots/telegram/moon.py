@@ -17,7 +17,7 @@ from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.calendar_feed import entry_button
 from tristhana.bots.telegram.moon_callbacks import PREFIX, MoonCallback, decode, encode
 from tristhana.bots.telegram.runtime import MoonUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, button, menu_row, show
 from tristhana.domain.accounts import Account, home_city_of, moon_follow_of
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay, MoonDayKind, MoonFollow, MoonPhase, MoonSource
@@ -98,7 +98,8 @@ def moon_status(
     today: date,
     place: City | None = None,
 ) -> str:
-    """The moon reminder line ("🔔 Reminders: 7 and 1 day before at 19:00 …")."""
+    """The moon reminder line ("🔔 Reminders: 7 and 1 day before at 19:00 …"). `zone` is the
+    reader's own zone, so the time carries its city and no offset (ADR-0044)."""
     if zone is None:
         return t.t(locale, "moon-zone-needed")
     if not settings.moon.on:
@@ -108,7 +109,7 @@ def moon_status(
         locale,
         "moon-reminders-on",
         offsets=t.t(locale, "moon-offsets", code=int(code)),  # numeric variant keys
-        time=TimeArg(today, settings.moon.at, zone, place),
+        time=TimeArg(today, settings.moon.at, zone, place, viewer=zone),
     )
 
 
@@ -246,6 +247,7 @@ class MoonScreens:
             )
         if self._calendar:
             rows.append([entry_button(self._t, locale)])
+        rows.append(menu_row(self._t, locale))  # UI-06: opened from the Menu
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _source(self, locale: Locale, follow: MoonFollow) -> str | None:

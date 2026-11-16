@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from tests.fakes import InMemoryStorage
-from tristhana.bots.telegram.tour_callbacks import done, step
 from tristhana.domain.locale import Locale
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.main import create_app
@@ -104,7 +103,8 @@ TAPS = [
     pytest.param("d1:t", id="d1 open today"),
     pytest.param(f"p1:c:{DAY}:m", id="p1 practice context"),
     pytest.param("o1:l:en", id="o1 language"),
-    pytest.param(done("s"), id="q1 tour Done back to /start"),
+    pytest.param("q1:d:s", id="q1 an old tour's Done: Today"),
+    pytest.param("w1:n", id="w1 Today"),
     pytest.param(f"k1:m:{DAY}:4", id="k1 check-in"),
     pytest.param(f"n1:o:{DAY}:d", id="n1 diary"),
     pytest.param("g1:o", id="g1 progression"),
@@ -132,7 +132,9 @@ def test_a_tap_during_an_outage_gets_the_retry_message(
 def test_a_command_during_an_outage_gets_the_retry_message(
     client: TestClient, storage: InMemoryStorage, command: str
 ) -> None:
-    _command(client, "/help")  # creates the account without reading a day
+    # The first /start is the front door (UI-06): it creates the account, marks it welcomed
+    # and reads no day. Every later /start is Today, which does.
+    _command(client, "/start")
     storage.day_repo.down = True
 
     body = _command(client, command)
@@ -158,6 +160,6 @@ def test_a_screen_that_reads_nothing_still_works_during_an_outage(
     _command(client, "/start")
     storage.day_repo.down = True
 
-    body = _tap(client, step(2, "s"))
+    body = _tap(client, "w1:m")  # the Menu renders from the account alone (UI-06)
 
     assert body["method"] == "editMessageText"

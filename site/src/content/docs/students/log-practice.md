@@ -10,9 +10,9 @@ Log today, yesterday or any earlier day, and add as much detail as you like: whe
 
 ### In the bot
 
-1. Send :cmd[log] (or :cmd[start]).
-2. Tap how the day went. For a practice, tap :ftl[status-practiced].
-3. Done. The bot shows what it saved.
+1. Send :cmd[start], or tap :ftl[menu-open] → :ftl[menu-today].
+2. Tap how the day went: :ftl[status-practiced], :ftl[status-rest], or :ftl[today-other] for a moon day and everything else.
+3. After a practice, tap :ftl[practice-done]. The bot shows what it saved.
 
 ### In the app
 
@@ -22,23 +22,23 @@ Open the app and tap a status on the :ftl[today-title] card.
 
 ## Add details (optional)
 
-One tap is enough. If you'd like more, right after logging a practice you can add:
+The steps above are enough. If you'd like more, tap :ftl[practice-add-details] right after :ftl[status-practiced]. You can add:
 
 - **Where:** :ftl[context-mysore], :ftl[context-led], :ftl[context-private] or :ftl[context-self]. Add :ftl[practice-online] if it was online.
 - **How far:** :ftl[practice-length]{from=bot} offers :ftl[preset-short], :ftl[preset-half-primary] and :ftl[preset-full-primary]. :ftl[preset-other] lets you pick the series and your last asana.
 - **How long:** :ftl[practice-duration]{from=bot}, from 30 minutes to 3 hours.
 - **Start time:** in the app only.
 
-:ftl[practice-same-as-last] copies the details of your previous practice in one tap. A led class doesn't count: after one, the button offers the practice before it. The line above the button shows what will be copied, and names the day if that practice was a while ago.
+:ftl[practice-same-as-last] copies the details of your previous practice in one tap. A led class doesn't count: after one, the button offers the practice before it. The line above the buttons shows what will be copied, and names the day if that practice was a while ago.
 
 ## Log an earlier day
 
-- **In the bot:** tap :ftl[log-another-day], then pick the day. :ftl[log-earlier] goes further back.
+- **In the bot:** tap :ftl[log-another-day] under a saved day, or :ftl[menu-help] → :ftl[help-earlier-day]. Pick the day. :ftl[log-earlier] goes further back.
 - **In the app:** open :ftl[stats-open], tap a day in the month calendar and choose its status.
 
 ## Change or clear a day
 
-Open the day again. :ftl[log-change] picks another status, :ftl[log-clear]{from=bot} removes the entry. Changing a practice day to rest also removes its details.
+Under a saved day, tap :ftl[log-change]. Then pick another status, or tap :ftl[log-clear]{from=bot} to remove the entry. Changing a practice day to rest also removes its details.
 
 ## Good to know
 

@@ -19,6 +19,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.bots.statements import Statements
 from tests.fakes import InMemoryStorage
 from tests.moon_follow_fakes import person
 from tests.shala_fakes import shala_storage
@@ -81,6 +82,40 @@ RU_STAFF = (
     "• Можно отмечать посещение занятий. "  # SC-05 (Q190)
     "• Выйти можно в любой момент в /teachers."
 )
+# ADR-0045: the short screens. Each keeps to what its full text says: who sees what, and the
+# way out; the know-this-shala line is the fourth line.
+EN_JOIN_SHORT = (
+    "🏛 Join Ashtanga Almaty (📍 Almaty)? "
+    "• The shala's teachers and staff see your name (Ash). Nothing from your log. "
+    "• The shala's staff can mark that you came to a class, and so can you. You see these marks "
+    "and can remove them any time. "
+    "• You can leave any time in /teachers. No one gets a message. "
+    "Join only a shala you know: anyone can create one with any name."
+)
+RU_JOIN_SHORT = (
+    "🏛 Присоединиться к шале Ashtanga Almaty (📍 Алматы)? "
+    "• Преподаватели и команда шалы увидят твоё имя (Ash). Ничего из журнала. "
+    "• Посещение занятий может отмечать команда шалы, и ты тоже. Эти отметки видны тебе, и их "
+    "можно снять в любой момент. "
+    "• Выйти можно в любой момент в /teachers. Сообщений никто не получит. "
+    "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
+)
+EN_STAFF_SHORT = (
+    "🏛 Anna invites you to Ashtanga Almaty as Assistant. "
+    "• Everyone in the shala, students included, sees your name (Ash) and role. "
+    "• You'll see the names of its students and staff, not their logs. "
+    "• You can leave any time in /teachers. "
+    "Join only a shala you know: anyone can create one with any name."
+)
+RU_STAFF_SHORT = (
+    "🏛 Anna приглашает тебя в шалу Ashtanga Almaty. Роль: Ассистент. "
+    "• Все в шале, включая учеников, увидят твоё имя (Ash) и роль. "
+    "• Тебе будут видны имена учеников и людей из команды, но не их журналы. "
+    "• Выйти можно в любой момент в /teachers. "
+    "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
+)
+KNOW_EN = "Join only a shala you know: anyone can create one with any name."
+KNOW_RU = "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 
 
 @dataclass
@@ -206,14 +241,18 @@ def _note(outbound: list[Sent], chat_id: int) -> Sent:
 
 
 @pytest.mark.parametrize(
-    ("lang", "consent", "other_language", "switch"),
-    [("en", EN_JOIN, "🗣 Русский", "ru"), ("ru", RU_JOIN, "🗣 English", "en")],
+    ("lang", "short", "details", "other_language", "switch"),
+    [
+        ("en", EN_JOIN_SHORT, "📄 Details", "🗣 Русский", "ru"),
+        ("ru", RU_JOIN_SHORT, "📄 Подробнее", "🗣 English", "en"),
+    ],
 )
-def test_a_brand_new_person_gets_the_join_consent_in_their_language(
+def test_a_brand_new_person_gets_the_short_join_consent_in_their_language(
     client: TestClient,
     storage: InMemoryStorage,
     lang: str,
-    consent: str,
+    short: str,
+    details: str,
     other_language: str,
     switch: str,
 ) -> None:
@@ -222,14 +261,87 @@ def test_a_brand_new_person_gets_the_join_consent_in_their_language(
     body = _command(client, f"/start h_{JOIN}", lang)
 
     assert body["method"] == "sendMessage"
-    assert _flat(body["text"]) == consent
+    assert _flat(body["text"]) == short
+    assert len([line for line in body["text"].splitlines() if line.startswith("•")]) == 3
     assert "parse_mode" not in body or body["parse_mode"] is None  # names are plain text
     datas = [b["callback_data"] for b in _buttons(body)]
-    assert datas == [f"h1:a:{JOIN}", "h1:n", f"h1:l:{switch}:{JOIN}"]
-    assert _texts(body)[2] == other_language
+    assert datas == [f"h1:a:{JOIN}", "h1:n", f"h1:d:{JOIN}", f"h1:l:{switch}:{JOIN}"]
+    assert _texts(body)[2:] == [details, other_language]
     if lang == "en":
-        assert _texts(body)[:2] == ["✅ Join", "Not now"]
+        assert _rows(body) == [["✅ Join", "Not now"], ["📄 Details"], ["🗣 Русский"]]
     assert storage.shalas.students_of(shala) == []
+
+
+@pytest.mark.parametrize(
+    ("lang", "full", "back"),
+    [("en", EN_JOIN, "‹ In short"), ("ru", RU_JOIN, "‹ Коротко")],
+)
+def test_join_details_shows_the_full_text_unchanged_and_leads_back(
+    client: TestClient, storage: InMemoryStorage, lang: str, full: str, back: str
+) -> None:
+    """ADR-0045: the full text is the consent record, exactly as before UI-06."""
+    shala = _shala(storage, _owner(storage))
+    short = _command(client, f"/start h_{JOIN}", lang)
+
+    details = _tap(client, _data(short, "📄"), lang)
+    again = _tap(client, _data(details, back), lang)
+
+    assert details["method"] == "editMessageText"
+    assert _flat(details["text"]) == full
+    datas = [b["callback_data"] for b in _buttons(details)]
+    assert datas == [f"h1:a:{JOIN}", "h1:n", f"h1:r:{JOIN}"]  # the same confirm
+    assert _texts(details)[2] == back
+    assert (again["text"], _rows(again)) == (short["text"], _rows(short))
+    assert storage.shalas.students_of(shala) == []
+
+
+@pytest.mark.parametrize("screen", ["short", "details"])
+def test_join_from_either_screen_is_the_same_join(
+    client: TestClient, storage: InMemoryStorage, screen: str
+) -> None:
+    shala = _shala(storage, _owner(storage))
+    consent = _command(client, f"/start h_{JOIN}")
+    if screen == "details":
+        consent = _tap(client, _data(consent, "📄 Details"))
+
+    body = _tap(client, _data(consent, "✅"))
+
+    assert body["text"].splitlines()[0] == "🏛 Ashtanga Almaty"
+    me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
+    assert storage.shalas.students_of(shala) == [me.id]
+    membership = storage.shalas.membership(shala, me.id)
+    assert membership is not None
+    assert (membership.student, membership.staff) == (True, False)
+
+
+def test_the_consents_cost_one_read_and_one_write_until_welcomed(
+    client: TestClient,
+    storage: InMemoryStorage,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """UI-06 §2 C0 and C1, for both kinds of shala link."""
+    shala = _shala(storage, _owner(storage))
+    _invite(storage, shala)
+    statements = Statements(monkeypatch, storage)
+    cost: dict[str, int] = {}
+
+    for name, send in {
+        "first": lambda: _command(client, f"/start h_{JOIN}"),
+        "join": lambda: _command(client, f"/start h_{JOIN}"),
+        "join details": lambda: _tap(client, f"h1:d:{JOIN}"),
+        "join short": lambda: _tap(client, f"h1:r:{JOIN}"),
+        "staff": lambda: _command(client, f"/start hs_{STAFF}"),
+        "staff details": lambda: _tap(client, f"h1:ds:{STAFF}"),
+        "staff short": lambda: _tap(client, f"h1:rs:{STAFF}"),
+    }.items():
+        statements.clear()
+        send()
+        cost[name] = statements.count
+        if name == "first":
+            assert [n for n in statements.names if n.endswith(".mark_welcomed")]
+
+    assert cost.pop("first") == 2
+    assert set(cost.values()) == {1}, cost
 
 
 def test_the_preview_shows_no_person(client: TestClient, storage: InMemoryStorage) -> None:
@@ -242,6 +354,26 @@ def test_the_preview_shows_no_person(client: TestClient, storage: InMemoryStorag
 
     assert "Secret" not in body["text"]
     assert all("Secret" not in t for t in _texts(body))
+
+
+def test_the_card_names_the_shala_time_without_the_offset_for_a_member_in_its_zone(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """ADR-0044: the offset is for people elsewhere (and for a viewer whose zone is unknown,
+    as in the join test below)."""
+    owner = _owner(storage)
+    shala = _shala(storage, owner)
+    me = _me(client, storage)
+    storage.shalas.add_student(shala, me.id)
+
+    storage.repo.accounts[me.id] = replace(me, timezone="Asia/Almaty")
+    mine = _tap(client, f"h1:c:{short_id(shala)}")["text"]
+    storage.repo.accounts[me.id] = replace(me, timezone="Europe/Berlin")
+    far = _tap(client, f"h1:c:{short_id(shala)}")["text"]
+
+    assert "📍 Almaty · shala time: Almaty\n" in mine
+    assert "shala time: Almaty (UTC" not in mine
+    assert "📍 Almaty · shala time: Almaty (UTC+5)" in far
 
 
 def test_join_edits_into_the_card(client: TestClient, storage: InMemoryStorage) -> None:
@@ -293,8 +425,9 @@ def test_the_language_button_keeps_the_code(client: TestClient, storage: InMemor
     ru = _tap(client, _data(first, "🗣"))
 
     assert ru["method"] == "editMessageText"
-    assert _flat(ru["text"]) == RU_JOIN
+    assert _flat(ru["text"]) == RU_JOIN_SHORT
     assert _data(ru, "✅") == f"h1:a:{JOIN}"
+    assert _data(ru, "📄") == f"h1:d:{JOIN}"
 
 
 def _state_text(client: TestClient) -> str:
@@ -346,27 +479,76 @@ def test_long_names_still_fit_one_message(
 
     join = _command(client, f"/start h_{JOIN}", lang, first_name="A" * 64)
     staff = _command(client, f"/start hs_{STAFF}", lang, first_name="A" * 64)
+    join_full = _tap(client, f"h1:d:{JOIN}", lang, first_name="A" * 64)
+    staff_full = _tap(client, f"h1:ds:{STAFF}", lang, first_name="A" * 64)
 
-    assert len(join["text"]) <= 4096
-    assert len(staff["text"]) <= 4096
+    for body in (join, staff, join_full, staff_full):
+        assert "A" * 64 in body["text"]
+        assert len(body["text"]) <= 4096
 
 
 # The staff consent (`/start hs_<code>`)
 
 
-@pytest.mark.parametrize(("lang", "consent"), [("en", EN_STAFF), ("ru", RU_STAFF)])
+@pytest.mark.parametrize(
+    ("lang", "short", "full", "know"),
+    [
+        ("en", EN_STAFF_SHORT, EN_STAFF, KNOW_EN),
+        ("ru", RU_STAFF_SHORT, RU_STAFF, KNOW_RU),
+    ],
+)
 def test_the_staff_consent_in_both_languages(
-    client: TestClient, storage: InMemoryStorage, lang: Locale, consent: str
+    client: TestClient, storage: InMemoryStorage, lang: Locale, short: str, full: str, know: str
 ) -> None:
     shala = _shala(storage, _owner(storage))
     _invite(storage, shala, ShalaRole.ASSISTANT)
 
     body = _command(client, f"/start hs_{STAFF}", lang)
+    details = _tap(client, _data(body, "📄"), lang)
+    again = _tap(client, f"h1:rs:{STAFF}", lang)
 
-    assert _flat(body["text"]).startswith(consent)
-    assert _t("shala-know-them", lang) in _flat(body["text"])  # on every join screen
-    assert _data(body, "✅") == f"h1:b:{STAFF}"
+    assert _flat(body["text"]) == short  # the short screen (ADR-0045)
+    assert [b["callback_data"] for b in _buttons(body)] == [
+        f"h1:b:{STAFF}",
+        "h1:n",
+        f"h1:ds:{STAFF}",
+    ]
+    # Details: the full text exactly as before UI-06, with the same confirm.
+    assert _flat(details["text"]) == f"{full} {know}"
+    assert [b["callback_data"] for b in _buttons(details)] == [
+        f"h1:b:{STAFF}",
+        "h1:n",
+        f"h1:rs:{STAFF}",
+    ]
+    assert (again["text"], _rows(again)) == (body["text"], _rows(body))
     assert storage.shalas.staff_of(shala) == [storage.shalas.shalas[shala].owner_id]
+
+
+def test_staff_accept_from_details_is_the_same_accept(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    shala = _shala(storage, _owner(storage))
+    _invite(storage, shala, ShalaRole.ASSISTANT)
+    details = _tap(client, f"h1:ds:{STAFF}")
+
+    body = _tap(client, _data(details, "✅"))
+
+    assert body["text"].splitlines()[0] == "🏛 Ashtanga Almaty"
+    me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
+    assert storage.shalas.membership(shala, me.id).roles == frozenset({ShalaRole.ASSISTANT})  # type: ignore[union-attr]
+
+
+def test_a_staff_code_is_not_a_join_code_on_either_layer(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """The letter says which kind of link the code is; a mixed-up pair finds nothing."""
+    shala = _shala(storage, _owner(storage))
+    _invite(storage, shala)
+
+    for data in (f"h1:d:{STAFF}", f"h1:r:{STAFF}", f"h1:ds:{JOIN}", f"h1:rs:{JOIN}"):
+        body = _tap(client, data)
+        assert _t("shala-invalid") in _flat(body["text"]), data
+        assert "✅" not in "".join(_texts(body))
 
 
 def test_staff_accept_edits_into_the_card_and_notes_the_inviter_silently(
@@ -403,8 +585,9 @@ def test_a_used_or_expired_staff_link_says_invalid(
 
     start = _command(client, f"/start hs_{STAFF}")
     tap = _tap(client, f"h1:b:{STAFF}")
+    details = _tap(client, f"h1:ds:{STAFF}")
 
-    for body in (start, tap):
+    for body in (start, tap, details):
         assert _t("shala-invalid") in _flat(body["text"])
         assert "✅" not in "".join(_texts(body))
 
@@ -658,15 +841,18 @@ def test_teachers_lists_my_shalas_above_open_the_app(
     assert _data(body, "🏛 Ashtanga Almaty") == f"h1:c:{short_id(shala)}"
 
 
-def test_the_invite_screen_offers_create_a_shala_in_the_app(
+def test_the_invites_more_screen_offers_create_a_shala_in_the_app(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _me(client, storage)
 
-    body = _tap(client, "t1:i")
+    first = _tap(client, "t1:i")
+    body = _tap(client, _data(first, "More…"))  # UI-06: under the invite's "More"
 
+    assert "🏛 Create a shala" not in _texts(first)
     [create] = [b for b in _buttons(body) if b["text"] == "🏛 Create a shala"]
-    assert "web_app" in create
+    # UI-06: straight to the form (the plain app URL used to open Home).
+    assert create["web_app"]["url"] == "https://tristhana.web.app?open=new-shala"
 
 
 # Moon: 🏛 Follow my shala (m1:h)

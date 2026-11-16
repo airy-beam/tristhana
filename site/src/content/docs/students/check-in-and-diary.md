@@ -8,21 +8,21 @@ A few taps on how the practice felt, and a private note for anything you want to
 
 ## Check-in
 
-Right after you log today's practice, the bot shows a row of faces. Tap one, or skip it.
+After you log a practice and tap :ftl[practice-done], the bot shows the :ftl[checkin-edit]{from=bot} button. Tap it, or leave it.
 
 - **Mood:** five faces.
 - **⚡ Energy** and **🔥 Effort:** from 1 to 5.
 - :ftl[checkin-tags-open]: words like :ftl[checkin-tag]{from=bot tag=open}, :ftl[checkin-tag]{from=bot tag=stiff} or :ftl[checkin-tag]{from=bot tag=calm}.
 
-Everything is optional. For an earlier practice day, open the day and tap :ftl[checkin-edit].
+Everything is optional. For an earlier practice day, pick that day, tap :ftl[status-practiced] and then :ftl[practice-done]: the same button is there.
 
-Don't want the question? :cmd[settings] → :ftl[settings-checkin-off].
+Don't want the button? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-checkin-off].
 
 ## Diary
 
 Every day can have one private note: after a practice, on a rest day, any day.
 
-1. Open the day (:cmd[log]) and tap :ftl[diary-button].
+1. Under a day you have logged, tap :ftl[log-change], then :ftl[diary-button].
 2. Tap :ftl[diary-write] and send your note as a reply to the bot's message.
 
 ![An empty diary note in the bot, with a hint about what to write](../../../assets/shots/en/bot-note.webp)

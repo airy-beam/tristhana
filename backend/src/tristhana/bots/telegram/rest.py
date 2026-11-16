@@ -4,7 +4,8 @@
 
 Every tap answers the callback first and edits the message in place. Other… / Back are a
 pure render; starting or keeping a pause is one statement; ending early also re-reads
-today's picker. A stale or forged tap changes nothing and shows nothing new.
+today's picker. A stale or forged tap changes nothing; an old "Keep the pause" with nothing
+left to keep shows its day as it is now (UI-06 §5: never only an answer).
 """
 
 from __future__ import annotations
@@ -98,19 +99,23 @@ class RestScreens:
         await self._rest.skip.execute(principal, cb.day)
         return self._days.saved_screen(principal, cb.day, cb.kind)
 
-    async def _keep(self, principal: Principal, cb: RestCallback) -> Screen | None:
+    async def _keep(self, principal: Principal, cb: RestCallback) -> Screen:
         assert cb.kind is not None  # noqa: S101
         assert cb.end is not None  # noqa: S101
         assert cb.practiced is not None  # noqa: S101
         kept = await self._rest.restore.execute(principal, RestPeriod(cb.day, cb.end, cb.kind))
         if kept is None:
-            return None  # over already, or no cut happened: nothing to keep
+            # Over already, or no cut happened: nothing to keep, and nothing changes. The
+            # day the button sat under, as it is now.
+            today, _ = self._days.today(principal)
+            return await self._days.status(principal, min(cb.practiced, today))
         practice = self._days.practice
         assert practice is not None  # noqa: S101 - wired by days.register
-        # The day that cut it (carried in the callback) gets its details screen back,
-        # without the undo.
+        # The day that cut it (carried in the callback) gets its screen back, without the
+        # undo.
         try:
-            return await practice.details(principal, cb.practiced, kept=kept)
+            stored = await practice.current(principal, cb.practiced)
+            return await practice.after_practiced(principal, cb.practiced, stored, kept=kept)
         except DayNotPracticed:  # changed since: today's picker with the line
             return await self._days.ended(principal, self._kept_line(principal, kept))
 

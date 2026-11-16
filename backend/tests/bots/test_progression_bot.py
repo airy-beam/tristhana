@@ -126,7 +126,8 @@ def test_asanas_unset_without_history(client: TestClient) -> None:
     assert body["method"] == "sendMessage"
     assert body["text"].startswith("🧘 My asanas")
     assert "Set it once" in body["text"]
-    assert _texts(body) == ["Choose…", "Sun salutations and standing"]
+    # UI-06: opened from Help, so the Menu row closes it.
+    assert _texts(body) == ["Choose…", "Sun salutations and standing", "☰ Menu"]
 
 
 def test_unset_suggests_from_the_log(client: TestClient, storage: InMemoryStorage) -> None:
@@ -288,6 +289,24 @@ def test_not_new_is_remembered_for_that_asana(client: TestClient, storage: InMem
     again = _tap(client, f"p1:l:{d}:11:kurmasana")
     assert "goes beyond" not in again["text"]
     assert _state(storage).position == Position("primary", "navasana")
+
+
+@pytest.mark.parametrize("answer", ["Not new", "Yes, new"])
+def test_the_new_asana_question_on_a_day_no_longer_practiced_opens_that_days_editor(
+    client: TestClient, answer: str
+) -> None:
+    """The question sits under the details; the day became rest in another message. Either
+    answer used to fail without a reply."""
+    _set(client, 1, "navasana")
+    d = _mysore_day(client)
+    body = _tap(client, f"p1:l:{d}:11:kurmasana")
+    _tap(client, f"d1:s:{d}:r")
+
+    reply = _tap(client, _data(body, answer))
+
+    assert reply["method"] == "editMessageText"
+    assert reply["text"].startswith("This day isn't marked as practice anymore.")
+    assert _data(reply, "🧘 Practiced") == f"d1:s:{d}:p"  # that day's editor
 
 
 @pytest.mark.parametrize("context", ["l", "s"])

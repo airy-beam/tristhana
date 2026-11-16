@@ -34,7 +34,15 @@ from tristhana.bots.telegram import classes_callbacks as cb
 from tristhana.bots.telegram import settings_callbacks, shalas_callbacks
 from tristhana.bots.telegram.attendance import entry_buttons, staff_button
 from tristhana.bots.telegram.calendar_feed import entry_button
-from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show, zone_label
+from tristhana.bots.telegram.screens import (
+    Reply,
+    Screen,
+    answered,
+    menu_row,
+    nothing,
+    show,
+    zone_label,
+)
 from tristhana.domain.accounts import Account
 from tristhana.domain.classes import (
     InvalidClass,
@@ -95,8 +103,8 @@ class ScheduleScreens:
     def _day(self, locale: Locale, day: date) -> str:
         return self._t.t(locale, "day-label", rel="other", date=DateArg(day))
 
-    def _zone(self, locale: Locale, s: Schedule, day: date) -> str:
-        return zone_label(self._t, locale, s.zone, day, self._cities.find(s.city))
+    def _zone(self, locale: Locale, s: Schedule, day: date, viewer: str | None = None) -> str:
+        return zone_label(self._t, locale, s.zone, day, self._cities.find(s.city), viewer)
 
     def _class(self, locale: Locale, o: Occurrence) -> str:
         name = type_name(self._t, locale, o.type)
@@ -168,11 +176,14 @@ class ScheduleScreens:
         locale = principal.account.locale
         first, last = s.days[0].date, s.days[-1].date
         span = f"{self._day(locale, first)} {DASH} {self._day(locale, last)}"
+        # The header drops the offset in my own zone (ADR-0044). A day row that marks a
+        # daylight-saving change keeps it: there the offset is the information.
         header = self._zone(locale, s, first)
         here = ZoneInfo(s.zone)
+        shown = self._zone(locale, s, first, principal.account.timezone)
         lines = [
             self._t.t(locale, "schedule-title", shala=s.name, range=span),
-            self._t.t(locale, "schedule-zone", zone=header),
+            self._t.t(locale, "schedule-zone", zone=shown),
         ]
         moved_away: dict[date, list[Occurrence]] = {}
         for o in s.occurrences:
@@ -249,18 +260,22 @@ class ScheduleScreens:
         account = principal.account
         locale = account.locale
         if not s.shalas:
+            rows = [menu_row(self._t, locale)]  # UI-06: a way on from an empty screen
             return Screen(
-                self._t.t(locale, "my-schedule-none"), InlineKeyboardMarkup(inline_keyboard=[])
+                self._t.t(locale, "my-schedule-none"), InlineKeyboardMarkup(inline_keyboard=rows)
             )
         first, last = s.days[0].date, s.days[-1].date
         span = f"{self._day(locale, first)} {DASH} {self._day(locale, last)}"
         home = self._cities.find(account.home_city if s.zone_known else s.shalas[0].city)
+        # As in `_week`: no offset on my own zone (ADR-0044), the full label on a day row
+        # that marks my own daylight-saving change. Unknown zone: my first shala's, in full.
         header = zone_label(self._t, locale, s.zone, first, home)
+        shown = zone_label(self._t, locale, s.zone, first, home, account.timezone)
         lines = [self._t.t(locale, "my-schedule-title", range=span)]
         if s.zone_known:
-            lines.append(self._t.t(locale, "schedule-zone", zone=header))
+            lines.append(self._t.t(locale, "schedule-zone", zone=shown))
         else:
-            lines.append(self._t.t(locale, "my-schedule-zone-unknown", zone=header))
+            lines.append(self._t.t(locale, "my-schedule-zone-unknown", zone=shown))
         names = {x.id: x.name for x in s.shalas}
         lines += self._shift_lines(locale, s, names)
         shift_days = {x.on for x in s.shifts}
@@ -277,7 +292,7 @@ class ScheduleScreens:
             if label != header:  # my own DST change inside the week
                 marks.append(f"· {label}")
             entries = [
-                self._my_row(locale, s, r, named, home)
+                self._my_row(account, s, r, named, home)
                 for r in s.rows
                 if r.occurrence.starts_at.astimezone(here).date() == day.date
             ]
@@ -318,9 +333,10 @@ class ScheduleScreens:
         return out
 
     def _my_row(
-        self, locale: Locale, s: MySchedule, r: MyRow, named: bool, home: City | None
+        self, account: Account, s: MySchedule, r: MyRow, named: bool, home: City | None
     ) -> str:
         """`06:00-09:30 Mysore · Anna 👤 · Ashtanga Almaty · 17:30 Berlin (UTC+1)` in my zone."""
+        locale = account.locale
         o, staff = r.occurrence, s.staff.get(r.shala_id, {})
         mine = ZoneInfo(s.zone)
         start = o.starts_at.astimezone(mine)
@@ -356,7 +372,8 @@ class ScheduleScreens:
         there = o.starts_at.astimezone(ZoneInfo(r.zone))
         if there.utcoffset() != start.utcoffset():
             # The class's own wall clock with the offset at that instant (a change night too).
-            at = TimeArg(there.date(), there.time(), r.zone, self._cities.find(r.city))
+            city = self._cities.find(r.city)
+            at = TimeArg(there.date(), there.time(), r.zone, city, account.timezone)
             text += " · " + self._t.t(locale, "time-label", time=at)
         if o.moved and o.on != o.key and o.planned is not None:
             moved = self._t.t(
@@ -409,6 +426,7 @@ class ScheduleScreens:
             rows.append([self._button(locale, "settings-city-button", city)])
         if self._feed is not None and self._feed.available:  # SC-06
             rows.append([entry_button(self._t, locale)])
+        rows.append(menu_row(self._t, locale))  # UI-06: opened from the Menu
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _button(self, locale: Locale, key: str, data: str, **args: str) -> InlineKeyboardButton:

@@ -5,7 +5,7 @@ one-time offer under "practice saved"."""
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, time
 from typing import TYPE_CHECKING
 
 from aiogram import F, Router
@@ -20,6 +20,7 @@ from tristhana.application.ports.notifications import (
     PracticeReminder,
     ReminderPatch,
 )
+from tristhana.application.practice import DayNotPracticed
 from tristhana.bots.telegram import callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import rest_callbacks as acb
@@ -27,7 +28,15 @@ from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.day_off import day_off_picker
 from tristhana.bots.telegram.remind_callbacks import PREFIX, RemindCallback, decode, encode
 from tristhana.bots.telegram.runtime import RemindUseCases, RestUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, day_label, show
+from tristhana.bots.telegram.screens import (
+    Reply,
+    Screen,
+    answered,
+    button,
+    day_label,
+    menu_row,
+    show,
+)
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import DateInFuture, DateTooEarly, DayStatus
 from tristhana.domain.locale import Locale
@@ -92,17 +101,24 @@ def practice_status(
     today: date,
     place: City | None = None,
 ) -> str:
-    """The practice reminder line ("🔔 Practice reminder: every day except Saturday, …")."""
+    """The practice reminder line ("🔔 Practice reminder: every day except Saturday, …").
+    `zone` is the reader's own zone (their reminders run in it), so the time carries its city
+    and no offset (ADR-0044)."""
     p = settings.practice
     if not p.enabled:
         return t.t(locale, "remind-status-off")
-    # Without a known zone there is no honest zone label: "10:00 your time".
-    time_text = (
-        t.t(locale, "time-label", time=TimeArg(today, p.at, zone, place))
-        if zone
-        else t.t(locale, "remind-local-time", time=f"{p.at:%H:%M}")
-    )
+    time_text = _time_text(t, locale, p.at, zone, today, place)
     return t.t(locale, "remind-status-on", days=_days_text(t, locale, p.days), time=time_text)
+
+
+def _time_text(
+    t: Translator, locale: Locale, at: time, zone: str | None, today: date, place: City | None
+) -> str:
+    """ "10:00 Almaty" in the reader's own zone (no offset, ADR-0044). Without a known zone
+    there is no honest zone label: "10:00 your time"."""
+    if zone:
+        return t.t(locale, "time-label", time=TimeArg(today, at, zone, place, viewer=zone))
+    return t.t(locale, "remind-local-time", time=f"{at:%H:%M}")
 
 
 def _days_text(t: Translator, locale: Locale, days: frozenset[int]) -> str:
@@ -174,10 +190,14 @@ class RemindScreens:
                     return self.settings_screen(principal, saved, pause)
                 case "yes" | "no":
                     saved = await self._r.offer.execute(principal, cb.action == "yes")
-                    if cb.action == "yes":
-                        return self.settings_screen(principal, saved)
                     assert cb.day is not None  # noqa: S101 - decoded with a date
-                    return await self._practice_summary(principal, cb.day)
+                    if cb.action == "no":
+                        return await self._after_no(principal, cb.day)
+                    if not saved.practice.enabled:
+                        # An old offer, answered or switched off since: the choice stands,
+                        # so show it as it is (with its switch) and never claim otherwise.
+                        return self.settings_screen(principal, saved)
+                    return self.offer_set(principal, saved)
                 case "same":
                     assert cb.day is not None  # noqa: S101
                     return await self._same(principal, cb.day)
@@ -207,6 +227,30 @@ class RemindScreens:
         except (InvalidSettings, InvalidDayOff):
             return await self.settings(principal)  # stale or forged: just reshow
 
+    def offer_set(self, principal: Principal, settings: NotificationSettings) -> Screen:
+        """R0 (UI-06): "yes" on the one-time offer under a saved practice. The time, where
+        to change it, and the city only while the zone is unknown; no read. So it says
+        nothing about the day: the offer may be old, and the day changed since."""
+        account = principal.account
+        locale = account.locale
+        today, _ = self._days.today(principal)
+        at = _time_text(
+            self._t,
+            locale,
+            settings.practice.at,
+            account.timezone,
+            today,
+            self._days.home_city(principal),
+        )
+        lines = [self._t.t(locale, "remind-offer-set", time=at)]
+        rows = [[button(self._t, locale, "remind-change-time", _data(action="view"))]]
+        if account.timezone is None:  # sending waits for a real zone: say so here (Q314)
+            lines.append(self._t.t(locale, "moon-zone-needed"))
+            cities = scb.encode(scb.SettingsCallback("cities", page=0))
+            rows.append([button(self._t, locale, "settings-city-button", cities)])
+        rows.append(menu_row(self._t, locale))
+        return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
     def day_off(self, principal: Principal) -> Screen:
         locale = principal.account.locale
         return day_off_picker(
@@ -218,10 +262,15 @@ class RemindScreens:
             button(self._t, locale, "remind-practice-link", _data(action="view")),
         )
 
-    async def _practice_summary(self, principal: Principal, day: date) -> Screen:
+    async def _after_no(self, principal: Principal, day: date) -> Screen:
+        """ "No, thanks": the done screen again, without the offer. On a day that is no
+        longer Practiced (changed in another message), that day's editor, saying so."""
         practice = self._days.practice
         assert practice is not None  # noqa: S101 - wired by days.register
-        return await practice.summary(principal, day, offer=False)
+        try:
+            return await practice.summary(principal, day, offer=False)
+        except DayNotPracticed:
+            return await self._days.status(principal, day, note="practice-day-not-practiced")
 
     async def _log(self, principal: Principal, day: date, status: DayStatus) -> Screen | None:
         """🧘 / 😌 from a reminder (Q26): logs the day only if it is still empty; a day
@@ -246,9 +295,9 @@ class RemindScreens:
                     principal, day, practice=stored, offer=False, check_ins=logged.day.check_ins
                 )
             return self._days.saved_screen(principal, day, logged.day.status)
-        if status is DayStatus.PRACTICED:
+        if status is DayStatus.PRACTICED:  # the day was empty until this tap
             lead = practice.count_lead(principal.account.locale, logged.celebrations)
-            return await practice.details(principal, day, cut=logged.cut, known=True, lead=lead)
+            return await practice.after_practiced(principal, day, cut=logged.cut, lead=lead)
         return self._days.saved_screen(principal, day, status)
 
     async def _same(self, principal: Principal, day: date) -> Screen:
@@ -271,8 +320,10 @@ class RemindScreens:
                 )
             return self._days.saved_screen(principal, day, logged.day.status)
         lead = practice.count_lead(principal.account.locale, logged.celebrations)
-        if not logged.day.practices:  # nothing to copy yet: the details screen
-            return await practice.details(principal, day, cut=logged.cut, known=True, lead=lead)
+        if not logged.day.practices:  # nothing to copy yet: "Add details" or "Done"
+            return await practice.after_practiced(
+                principal, day, cut=logged.cut, lead=lead, previous=False
+            )
         note = None
         if logged.copied_from is not None and day - logged.copied_from > COPIED_DATE_AFTER:
             locale = principal.account.locale
@@ -348,6 +399,7 @@ class RemindScreens:
                 )
             ],
             [button(self._t, locale, "settings-link", scb.encode(scb.SettingsCallback("view")))],
+            menu_row(self._t, locale),  # UI-06: opened from Help and `/remind`
         ]
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 

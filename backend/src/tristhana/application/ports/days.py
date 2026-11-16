@@ -6,6 +6,7 @@ from uuid import UUID
 
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.diary import DiaryNote
+from tristhana.domain.practice import Practice
 from tristhana.domain.rest_periods import RestPeriod
 
 
@@ -35,6 +36,8 @@ class Upserted:
     practice_on: bool = False
     cut: RestPeriod | None = None  # a period as it was before this 🧘 Practiced cut it
     reached: int | None = None  # a practice-count threshold this write celebrates (GM-01)
+    # The details the day already holds, for a 🧘 on a day that was 🧘 before (UI-06 P0).
+    practice: Practice | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +60,8 @@ class DayLogRepository(Protocol):
         computed in, or None when it was a provisional guess. When the write makes the day
         Practiced, the practice-count ledger is brought up to date in the same statement
         (ADR-0028): every threshold at or below the new count is recorded once, and the
-        one equal to it, newly recorded, is `reached`."""
+        one equal to it, newly recorded, is `reached`. A day that was Practiced already
+        keeps its details, and they come back as `practice` (no second read, UI-06)."""
         ...
 
     async def insert_if_absent(

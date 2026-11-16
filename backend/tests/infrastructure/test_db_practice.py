@@ -41,6 +41,10 @@ async def _setup(engine: AsyncEngine, *practiced: date) -> tuple[UUID, SqlDayLog
     return account.id, days
 
 
+async def _days_of(engine: AsyncEngine, account_id: UUID) -> list[DayLog]:
+    return await SqlDayLogRepository(engine, FieldCipher(KEYS)).list_range(account_id, FRI, MON)
+
+
 async def test_patches_upsert_only_their_fields(engine: AsyncEngine) -> None:
     me, _ = await _setup(engine, MON)
     repo = SqlPracticeRepository(engine)
@@ -90,6 +94,61 @@ async def test_status_change_deletes_details_in_the_same_statement(engine: Async
     assert left == 0
 
 
+async def test_practiced_again_returns_the_stored_details_in_the_same_statement(
+    engine: AsyncEngine,
+) -> None:
+    """UI-06 P0: the screen after 🧘 shows what the day already holds without a read."""
+    me, days = await _setup(engine, MON)
+    repo = SqlPracticeRepository(engine)
+    first = await days.upsert(me, DayLog(FRI, DayStatus.PRACTICED), "Asia/Almaty")
+    await repo.save(
+        me,
+        MON,
+        PracticePatch.of(
+            context=PracticeContext.LED,
+            online=True,
+            length=HALF_PLUS,
+            duration_min=90,
+            start_time=time(6, 30),
+            timezone="Asia/Almaty",
+        ),
+    )
+
+    again = await days.upsert(me, DayLog(MON, DayStatus.PRACTICED), "Asia/Almaty")
+    bare = await days.upsert(me, DayLog(FRI, DayStatus.PRACTICED), "Asia/Almaty")
+
+    assert first.practice is None  # a day logged just now holds nothing yet
+    assert again.practice == Practice(
+        PracticeContext.LED, True, HALF_PLUS, 90, time(6, 30), "Asia/Almaty"
+    )
+    assert bare.practice is None  # practiced before, never detailed
+    assert again.day == DayLog(MON, DayStatus.PRACTICED)  # the day itself stays as passed
+
+
+async def test_details_a_status_change_removes_are_not_returned(engine: AsyncEngine) -> None:
+    me, days = await _setup(engine, MON)
+    repo = SqlPracticeRepository(engine)
+    await repo.save(me, MON, PracticePatch.of(duration_min=60))
+
+    rest = await days.upsert(me, DayLog(MON, DayStatus.MOON), None)
+    back = await days.upsert(me, DayLog(MON, DayStatus.PRACTICED), None)
+
+    assert (rest.practice, back.practice) == (None, None)
+
+
+async def test_details_left_on_a_rest_day_are_not_returned_on_re_practice(
+    engine: AsyncEngine,
+) -> None:
+    me, days = await _setup(engine, FRI)
+    await SqlPracticeRepository(engine).save(me, FRI, PracticePatch.of(duration_min=60))
+    async with engine.connect() as conn:  # a race / old revision, as below
+        await conn.execute(text("UPDATE tristhana.day_log SET status = 'skipped'"))
+
+    back = await days.upsert(me, DayLog(FRI, DayStatus.PRACTICED), None)
+
+    assert back.practice is None  # removed by this statement, so never shown as stored
+
+
 async def test_list_range_carries_practices_of_practiced_days(engine: AsyncEngine) -> None:
     me, days = await _setup(engine, FRI, MON)
     repo = SqlPracticeRepository(engine)
@@ -130,6 +189,40 @@ async def test_copy_latest_in_one_statement_keeps_the_start_time(engine: AsyncEn
         timezone="Asia/Almaty",
     )
     assert await repo.copy_latest(me, FRI, None) is None  # nothing earlier
+
+
+async def test_copy_latest_never_overwrites_details_the_day_already_has(
+    engine: AsyncEngine,
+) -> None:
+    # A stale "Same as last time" button: the stored details are kept and returned as they
+    # are, still in one statement, whichever of the copied fields the day holds.
+    me, _ = await _setup(engine, FRI, MON)
+    repo = SqlPracticeRepository(engine)
+    await repo.save(
+        me,
+        FRI,
+        PracticePatch.full(Practice(PracticeContext.LED, length=FULL_PRIMARY, duration_min=90)),
+    )
+    for own in (
+        Practice(PracticeContext.MYSORE),
+        Practice(length=HALF_PRIMARY),
+        Practice(duration_min=60),
+    ):
+        await repo.delete(me, MON)
+        await repo.save(me, MON, PracticePatch.full(own))
+        async with engine.connect() as conn:
+            stamp = "SELECT updated_at FROM tristhana.practice WHERE local_date = :d"
+            before = (await conn.execute(text(stamp), {"d": MON})).scalar_one()
+
+        kept = await repo.copy_latest(me, MON, "Asia/Almaty")
+
+        assert kept is not None
+        assert kept.practice == own
+        assert kept.length_changed is False
+        async with engine.connect() as conn:
+            assert (await conn.execute(text(stamp), {"d": MON})).scalar_one() == before
+    [logged] = [d for d in await _days_of(engine, me) if d.local_date == MON]
+    assert logged.practices == (Practice(duration_min=60),)
 
 
 async def test_copy_latest_skips_a_led_class(engine: AsyncEngine) -> None:

@@ -1,5 +1,7 @@
-"""`/settings` (ID-06): language, "🏙 My city" (which sets the zone, MD-04 / ADR-0029), links
-to the reminder screens. The name, quiet hours and the daily cap are set in the Mini App."""
+"""`/settings` (ID-06, UI-06): five rows, each label carrying its value: language, "🏙 My
+city" (which sets the zone, MD-04 / ADR-0029), day off, Reminders, More. The first screen and
+More are rendered from the loaded account (no statement); Reminders reads the notification
+settings (one). The name, quiet hours and the daily cap are set in the Mini App."""
 
 from datetime import date
 
@@ -28,7 +30,15 @@ from tristhana.bots.telegram.day_off import day_off_line, day_off_picker
 from tristhana.bots.telegram.moon import moon_status
 from tristhana.bots.telegram.remind import practice_status
 from tristhana.bots.telegram.runtime import SettingsUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show, zone_label
+from tristhana.bots.telegram.screens import (
+    Reply,
+    Screen,
+    answered,
+    button,
+    menu_row,
+    show,
+    zone_label,
+)
 from tristhana.bots.telegram.settings_callbacks import PREFIX, SettingsCallback, decode, encode
 from tristhana.domain.accounts import (
     NOT_LISTED,
@@ -78,7 +88,7 @@ def register_settings(
 
     @router.message(Command("settings"))
     async def on_settings(message: Message, account: Account) -> SendMessage:  # pyright: ignore[reportUnusedFunction]
-        screen = await screens.view(Principal(account))
+        screen = screens.view(Principal(account))
         return message.answer(screen.text, reply_markup=screen.markup)
 
     @router.callback_query(F.data.startswith(f"{PREFIX}:"))
@@ -126,20 +136,26 @@ class SettingsScreens:
             return None
         match cb.action:
             case "view":
-                return await self.view(principal)
+                return self.view(principal)
+            case "language_pick":
+                return self.languages(principal)
+            case "reminders":
+                return await self.reminders(principal)
+            case "more":
+                return self.more(principal)
             case "cities":
                 return self.cities(principal, cb.page)
             case "language":
                 account = await self._s.profile.execute(
                     principal, ProfilePatch(locale=cb.locale), client
                 )
-                return await self.view(Principal(account))  # in the new language at once
+                return self.view(Principal(account))  # in the new language at once
             case "city":
                 return await self._profile(principal, ProfilePatch(home_city=cb.slug), client)
             case "utc":
                 patch = ProfilePatch(timezone="UTC", home_city=None)
                 return await self._profile(principal, patch, client)
-            case "not_now":  # the nudge is answered (unless a city was chosen since)
+            case "not_now":  # the retired city nudge, on an old message (UI-06 §5)
                 return await self._profile(principal, ProfilePatch(home_city=NOT_NOW), client)
             case "unlisted":  # sent as a new message by the handler
                 return None
@@ -155,12 +171,12 @@ class SettingsScreens:
                 account = await self._s.profile.execute(
                     principal, ProfilePatch(hide_ladies=cb.hide), client
                 )
-                return await self.view(Principal(account))
-            case "offer_check_in":  # PR-06: one account setting for the bot and the app
+                return self.more(Principal(account))
+            case "offer_check_in":  # PR-06, Q313: one account setting for the bot and the app
                 account = await self._s.profile.execute(
                     principal, ProfilePatch(offer_check_in=cb.offer), client
                 )
-                return await self.view(Principal(account))
+                return self.more(Principal(account))
 
     async def _profile(
         self, principal: Principal, patch: ProfilePatch, client: ExternalProfile
@@ -168,8 +184,8 @@ class SettingsScreens:
         try:
             account = await self._s.profile.execute(principal, patch, client)
         except (UnknownCity, InvalidTimezone):  # stale or forged
-            return await self.view(principal)
-        return await self.view(Principal(account))
+            return self.view(principal)
+        return self.view(Principal(account))
 
     async def location_prompt(self, principal: Principal) -> tuple[str, ReplyKeyboardMarkup]:
         """ "My city isn't listed": ask for a location once (the zone comes from it)."""
@@ -207,29 +223,79 @@ class SettingsScreens:
             button(self._t, locale, "settings-link", _data(action="view")),
         )
 
-    async def view(self, principal: Principal) -> Screen:
+    def _back(self, locale: Locale) -> list[InlineKeyboardButton]:
+        return [button(self._t, locale, "log-back", _data(action="view"))]
+
+    def view(self, principal: Principal) -> Screen:
+        """G0: five rows, each label carrying its value, from the loaded account alone."""
+        account = principal.account
+        locale = account.locale
+        today, _ = self._s.today(principal)
+        home = home_city_of(account, self._s.cities)
+        language = self._t.t(
+            locale, "language-auto" if not account.locale_custom else f"language-{locale}"
+        )
+        rows = [
+            [
+                InlineKeyboardButton(
+                    text=self._t.t(locale, "settings-language-line", language=language),
+                    callback_data=_data(action="language_pick"),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=self._city_line(account, home, today),
+                    callback_data=_data(action="cities", page=0),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=day_off_line(self._t, locale, account.day_off.days),
+                    callback_data=_data(action="day_off_pick"),
+                )
+            ],
+            [button(self._t, locale, "settings-reminders-button", _data(action="reminders"))],
+            [button(self._t, locale, "settings-more-button", _data(action="more"))],
+            menu_row(self._t, locale),
+        ]
+        return Screen(
+            self._t.t(locale, "settings-title"), InlineKeyboardMarkup(inline_keyboard=rows)
+        )
+
+    def languages(self, principal: Principal) -> Screen:
+        """G1: the three choices, ✓ on the current one."""
+        account = principal.account
+        locale = account.locale
+        current = None if not account.locale_custom else locale
+        rows = [
+            [
+                button(
+                    self._t,
+                    locale,
+                    key,
+                    _data(action="language", locale=code),
+                    mark=code == current,
+                )
+            ]
+            for code, key in _LANGUAGES
+        ]
+        rows.append(self._back(locale))
+        return Screen(
+            self._t.t(locale, "settings-language-pick"), InlineKeyboardMarkup(inline_keyboard=rows)
+        )
+
+    async def reminders(self, principal: Principal) -> Screen:
+        """G2: both reminders as they are set, and the quiet hours (one read)."""
         account = principal.account
         locale = account.locale
         settings = await self._s.settings.get(principal)
         today, _ = self._s.today(principal)
         zone = account.timezone
         home = home_city_of(account, self._s.cities)
-        follow = moon_follow_of(account, self._s.cities)
-        language = self._t.t(
-            locale, "language-auto" if not account.locale_custom else f"language-{locale}"
-        )
         lines = [
-            self._t.t(locale, "settings-title"),
-            self._t.t(locale, "settings-language-line", language=language),
-            self._city_line(account, home, today),
-            self._moon_line(locale, follow),
-            day_off_line(self._t, locale, account.day_off.days),
-            self._t.t(locale, "settings-ladies-line", shown="no" if account.hide_ladies else "yes"),
-            self._t.t(
-                locale, "settings-checkin-line", offered="yes" if account.offer_check_in else "no"
-            ),
-            moon_status(self._t, locale, settings, zone, today, home),
+            self._t.t(locale, "settings-reminders-title"),
             practice_status(self._t, locale, settings, zone, today, home),
+            moon_status(self._t, locale, settings, zone, today, home),
             self._t.t(locale, "settings-quiet-off-line", n=settings.daily_cap)
             if settings.quiet.start == settings.quiet.end  # start == end: no quiet hours
             else self._t.t(
@@ -240,30 +306,28 @@ class SettingsScreens:
                 n=settings.daily_cap,
             ),
         ]
-        current = None if not account.locale_custom else locale
         rows = [
-            [
-                InlineKeyboardButton(
-                    text=("✓ " if code == current else "") + self._t.t(locale, key),
-                    callback_data=_data(action="language", locale=code),
-                )
-                for code, key in _LANGUAGES
-            ],
-            [
-                button(self._t, locale, "settings-city-button", _data(action="cities", page=0)),
-                button(self._t, locale, "settings-day-off-button", _data(action="day_off_pick")),
-            ],
-            [
-                button(self._t, locale, "settings-moon-link", mcb.encode(mcb.MoonCallback("view"))),
-                button(
-                    self._t, locale, "moon-reminders", mcb.encode(mcb.MoonCallback("reminders"))
-                ),
-            ],
             [
                 button(
                     self._t, locale, "remind-practice-link", rcb.encode(rcb.RemindCallback("view"))
                 )
             ],
+            [
+                button(
+                    self._t, locale, "remind-moon-link", mcb.encode(mcb.MoonCallback("reminders"))
+                )
+            ],
+            self._back(locale),
+        ]
+        return Screen("\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def more(self, principal: Principal) -> Screen:
+        """G3: what is set once and rarely again, from the loaded account alone."""
+        account = principal.account
+        locale = account.locale
+        follow = moon_follow_of(account, self._s.cities)
+        rows = [
+            [button(self._t, locale, "settings-moon-link", mcb.encode(mcb.MoonCallback("view")))],
             [
                 button(
                     self._t,
@@ -281,11 +345,6 @@ class SettingsScreens:
                 )
             ],
         ]
-        if not account.home_city_chosen:  # the one-time nudge: any answer ends it
-            lines.insert(3, self._t.t(locale, "settings-city-nudge"))
-            rows.insert(
-                2, [button(self._t, locale, "settings-city-not-now", _data(action="not_now"))]
-            )
         if self._my_data:
             rows.append(
                 [
@@ -308,7 +367,9 @@ class SettingsScreens:
                     )
                 ]
             )
-        return Screen("\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+        rows.append(self._back(locale))
+        text = f"{self._t.t(locale, 'settings-more-title')}\n{self._moon_line(locale, follow)}"
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _moon_line(self, locale: Locale, follow: MoonFollow) -> str:
         city = follow.city.name(locale)
@@ -323,9 +384,12 @@ class SettingsScreens:
         locale, zone = account.locale, account.timezone
         if zone is None:
             return self._t.t(locale, "settings-city-no-zone-line")
-        label = self._zone_label(locale, zone, today, home)
         if home is not None:
+            # The person's own city: its name, no offset (ADR-0044): "🏙 My city: Almaty".
+            label = self._zone_label(locale, zone, today, home, viewer=zone)
             return self._t.t(locale, "settings-city-line", zone=label)
+        # No city: the row says what the clock is, so the offset is the information.
+        label = self._zone_label(locale, zone, today, home)
         key = (
             "settings-city-unlisted-line"
             if account.home_city_chosen
@@ -333,8 +397,10 @@ class SettingsScreens:
         )
         return self._t.t(locale, key, zone=label)
 
-    def _zone_label(self, locale: Locale, zone: str, today: date, home: City | None) -> str:
-        return zone_label(self._t, locale, zone, today, home)
+    def _zone_label(
+        self, locale: Locale, zone: str, today: date, home: City | None, viewer: str | None = None
+    ) -> str:
+        return zone_label(self._t, locale, zone, today, home, viewer)
 
     def cities(self, principal: Principal, page: int) -> Screen:
         account = principal.account

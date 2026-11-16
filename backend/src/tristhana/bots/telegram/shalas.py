@@ -1,5 +1,6 @@
-"""Shalas in the bot (SC-01, ADR-0033): the consent screens on `/start h_<code>` (students) and
-`/start hs_<code>` (staff), the card, the students list, links, remove and leave. Creating,
+"""Shalas in the bot (SC-01, ADR-0033): the consent on `/start h_<code>` (students) and
+`/start hs_<code>` (staff), each a short screen with the full text one tap away (ADR-0045);
+the card, the students list, links, remove and leave. Creating,
 editing, roles and deleting are in the Mini App (Q103). Codes ride in the callback and are
 never logged. A preview names no one but the inviter of a staff link; students never see
 other students.
@@ -115,8 +116,12 @@ class ShalaScreens:
 
     # Joining
 
-    async def invited(self, principal: Principal, invite: ShalaInvite) -> Screen:
-        """`/start h_<code>` / `hs_<code>`: the consent, or the grid with one line on top."""
+    async def invited(
+        self, principal: Principal, invite: ShalaInvite, details: bool = False
+    ) -> Screen:
+        """`/start h_<code>` / `hs_<code>`: the short consent (`details`: the full text), or
+        Today with one line on top. The full text is the consent record, and the confirm
+        button is the same on both screens (ADR-0045). Every render re-reads the invite."""
         account = principal.account
         locale = account.locale
         found = await self._h.preview.execute(principal, invite)
@@ -133,36 +138,42 @@ class ShalaScreens:
                 return await self._start.start(principal, self._t.t(locale, "shala-full"))
             case JoinState.OPEN:
                 pass
-        city = self._city(locale, found.city)
-        if found.staff and found.role is not None:
+        role = found.role if found.staff else None
+        if role is not None:
             ask = self._t.t(
                 locale,
                 "shala-staff-ask",
                 name=self._name(locale, found.inviter_name),
                 shala=found.name,
-                role=self._role(locale, found.role),
+                role=self._role(locale, role),
             )
-            consent = self._t.t(locale, "shala-staff-consent", me=self._me(account))
-            rows = [
-                [
-                    self._button(locale, "shala-staff-yes", cb.accept_staff(invite.code)),
-                    self._button(locale, "invite-decline", cb.not_now()),
-                ]
-            ]
+            full, short = "shala-staff-consent", "shala-staff-consent-short"
+            yes = self._button(locale, "shala-staff-yes", cb.accept_staff(invite.code))
         else:
+            city = self._city(locale, found.city)
             ask = self._t.t(locale, "shala-join-ask", shala=found.name, city=city)
-            consent = self._t.t(locale, "shala-join-consent", me=self._me(account))
-            other = self._other(locale)
-            switch = self._t.t(
-                locale, "start-switch-language", language=self._t.t(other, f"language-{other}")
-            )
-            rows = [
-                [
-                    self._button(locale, "shala-join-yes", cb.join(invite.code)),
-                    self._button(locale, "invite-decline", cb.not_now()),
-                ],
-                [InlineKeyboardButton(text=switch, callback_data=cb.language(other, invite.code))],
-            ]
+            full, short = "shala-join-consent", "shala-join-consent-short"
+            yes = self._button(locale, "shala-join-yes", cb.join(invite.code))
+        consent = self._t.t(locale, full if details else short, me=self._me(account))
+        rows = [[yes, self._button(locale, "invite-decline", cb.not_now())]]
+        if details:  # the layer switch re-reads the same kind of link
+            back = cb.consent(invite.code, invite.staff, details=False)
+            rows.append([self._button(locale, "consent-short-back", back)])
+        else:
+            more = cb.consent(invite.code, invite.staff, details=True)
+            rows.append([self._button(locale, "consent-details", more)])
+            if role is None:  # as before UI-06: the staff link's screen has no language row
+                other = self._other(locale)
+                switch = self._t.t(
+                    locale, "start-switch-language", language=self._t.t(other, f"language-{other}")
+                )
+                rows.append(
+                    [
+                        InlineKeyboardButton(
+                            text=switch, callback_data=cb.language(other, invite.code)
+                        )
+                    ]
+                )
         text = "\n\n".join([ask, consent, self._t.t(locale, "shala-know-them")])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
@@ -225,7 +236,10 @@ class ShalaScreens:
         locale = principal.account.locale
         today: date = caller_today(principal, self._clock)
         city = self._cities.find(card.city)
-        zone = zone_label(self._t, locale, city.location.tz, today, city) if city else card.city
+        mine = principal.account.timezone
+        zone = (
+            zone_label(self._t, locale, city.location.tz, today, city, mine) if city else card.city
+        )
         place = (
             self._t.t(locale, "shala-online")
             if card.online
@@ -469,6 +483,10 @@ class ShalaScreens:
             self._t.t(locale, "invite-new-ask"), InlineKeyboardMarkup(inline_keyboard=rows)
         )
 
+    async def gone(self, principal: Principal) -> Screen:
+        """Where a tap about a shala the caller is not in (any more) lands: their list."""
+        return await self._links.overview(principal)
+
     async def qr(self, principal: Principal, shala: UUID) -> tuple[bytes, str] | None:
         if not self._username:
             return None
@@ -536,6 +554,8 @@ class ShalaScreens:
                 return self.accept_staff(principal, code)
             case cb.Language(locale, code):
                 return self.language(principal, locale, code, client_profile(callback.from_user))
+            case cb.Consent(code, staff, details):
+                return self.invited(principal, ShalaInvite(code, staff), details)
             case cb.NotNow():
                 return self._start.start(principal)  # stores nothing, tells no one
             case cb.Students(shala, page):
@@ -574,7 +594,9 @@ def register_shalas(router: Router, screens: ShalaScreens) -> None:
         principal = Principal(account)
         if isinstance(tap, cb.Shala) and tap.action == "q":
             qr = await answered(callback, screens.qr(principal, tap.id))
-            if qr is not None and callback.bot is not None:
+            if qr is None:  # not my shala (any more), or no bot name: the list, not silence
+                return show(callback, await screens.gone(principal))
+            if callback.bot is not None:
                 png, caption = qr  # a file can't be a webhook reply (ADR-0012)
                 await callback.bot.send_photo(
                     chat_id=callback.from_user.id,

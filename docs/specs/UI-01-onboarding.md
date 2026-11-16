@@ -1,5 +1,6 @@
 # UI-01 (Phase 1 slice): onboarding, `/start` → greeting → "How was today?" in one message
 
+- **Amended by UI-06 (owner, 2026-11-16):** a new person's first `/start` asks "Where shall we start?"; afterwards `/start` is the Today screen with three choices and the Menu. The first log is three taps on day one and two afterwards (`docs/specs/UI-06-simple-journey.md`).
 - Status: **accepted** (owner: all yes, 2026-10-19) · Date: 2026-10-19
 - Requirements: **UI-01** (`/start` → greeting → "Log today's practice?" right away; language from Telegram `language_code`). Touches ID-06 (language/zone), PR-01 (day picker), PR-10 (reminder offer). Roadmap: "Onboarding: `/start` → language → 'log today?'". Budget: < 300 ms p50 per tap (warm).
 - Related: ADR-0008 (stateless callbacks), 0012 (webhook reply), 0005 (time), 0021 (explicit choices). Earlier slice: `UI-01-telegram-webhook.md`. **No new ADR** (no lasting decision: no schema, no API).

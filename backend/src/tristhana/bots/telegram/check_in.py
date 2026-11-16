@@ -1,6 +1,7 @@
 """After-practice check-in screens (PR-06): K (mood, energy, effort) and T (body-and-mind
-tags). Every tap saves at once and renders from the saved value; nothing is ever asked
-twice, and ignoring the screens costs nothing.
+tags), opened by "How do you feel?" on the practice screens (UI-06; the mood chips of older
+messages still save and open K). Every tap saves at once and renders from the saved value;
+nothing is ever asked twice, and ignoring the screens costs nothing.
 """
 
 from __future__ import annotations
@@ -121,9 +122,9 @@ class CheckInScreens:
                 return self.tags(principal, day, saved)
             case "done":
                 return await self._practice.summary(principal, day, offer=False)
-            case "clear":  # V without the mood row: just removed, so don't ask again
+            case "clear":
                 await self._c.clear.execute(principal, day)
-                return await self._practice.summary(principal, day, offer=False, mood_row=False)
+                return await self._practice.summary(principal, day, offer=False)
 
     # Screen K: the scales.
     def check_in(self, principal: Principal, day: date, c: CheckIn | None) -> Screen:

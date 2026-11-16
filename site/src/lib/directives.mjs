@@ -2,10 +2,11 @@
 //   :ftl[start-open-app]            → the real button label, in the page's language, in bold
 //   :ftl[day-label]{rel=today}      → a message with arguments
 //   :ftl[some-key]{from=app}        → when the bot and the app both have the key
-//   :cmd[log]                       → /log, checked against the bot's command menu
+//   :cmd[moon]                      → /moon, checked against the bot's commands: the menu and
+//                                     the hidden shortcuts (UI-06), never /admin
 // An unknown key or command throws, which fails the build.
 import { fileURLToPath } from "node:url";
-import { LabelError, createLabels, localeOfPath, menuCommands } from "./labels.mjs";
+import { LabelError, createLabels, hiddenCommands, localeOfPath, menuCommands } from "./labels.mjs";
 
 /** @param {{ children?: { type: string, value?: string }[] }} node */
 function innerText(node) {
@@ -18,11 +19,12 @@ function innerText(node) {
 /**
  * A Sätteri mdast plugin entry: called once per file, returns the visitor for that file.
  * @param {{ labels?: ReturnType<typeof createLabels>, commands?: string[] }} [options]
+ *   `commands`: every command a guide may quote (the menu's and the hidden ones)
  * @returns {(file: { fileURL?: URL }) => { name: string, textDirective(node: any): any }}
  */
 export function guideDirectives(options = {}) {
   const labels = options.labels ?? createLabels();
-  const commands = options.commands ?? menuCommands();
+  const commands = options.commands ?? [...menuCommands(), ...hiddenCommands()];
 
   return ({ fileURL }) => {
     // No file (a string rendered outside the collection) reads as an English page.
@@ -49,7 +51,7 @@ export function guideDirectives(options = {}) {
         if (node.name === "cmd") {
           const command = innerText(node);
           if (!commands.includes(command)) {
-            throw fail(`:cmd[${command}] is not in the bot's command menu`);
+            throw fail(`:cmd[${command}] is not one of the bot's commands`);
           }
           return { type: "inlineCode", value: `/${command}` };
         }

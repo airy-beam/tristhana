@@ -20,6 +20,7 @@ from tristhana.domain.days import (
 from tristhana.domain.diary import DiaryNote
 from tristhana.domain.milestones import PracticeCounts
 from tristhana.domain.moon import Cities, City
+from tristhana.domain.practice import Practice
 from tristhana.domain.progression import Celebration, CelebrationKind
 from tristhana.domain.rest_days import AutoDay, auto_days, joined_on
 from tristhana.domain.rest_periods import (
@@ -58,6 +59,7 @@ class DaySaved:
     cut: RestPeriod | None = None  # the period as it was before a 🧘 cut it ("keep")
     practice_on: bool = False
     celebrations: tuple[Celebration, ...] = ()  # a practice count reached (GM-01)
+    practice: Practice | None = None  # the details a re-logged 🧘 day already holds (UI-06)
 
 
 def count_celebrations(reached: int | None) -> tuple[Celebration, ...]:
@@ -141,7 +143,8 @@ class SetDayStatus:
         """Raises `DateInFuture` / `DateTooEarly`. Overwrites any earlier status. 🧘 inside a
         rest period cuts it (returned as `cut`); after 🌸/🤒/✈️ on today or yesterday the
         pause question may follow (`offer`). A 🧘 that brings the practice count to a
-        threshold celebrates once ever (GM-01). One statement."""
+        threshold celebrates once ever (GM-01). A 🧘 on a day that was 🧘 already returns
+        the details it holds (`practice`). One statement."""
         account = principal.account
         now = self._clock.now()
         check_loggable(local_date, now, account.timezone)
@@ -167,6 +170,7 @@ class SetDayStatus:
             saved.cut,
             saved.practice_on,
             count_celebrations(saved.reached),
+            saved.practice,
         )
 
 

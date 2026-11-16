@@ -28,7 +28,6 @@ BOT_KEYS = (
     "invite-invalid",
     "invite-full",
     "link-student-joined",
-    "invite-hint",
     "invite-share-text",
     "invite-new-ask",
     "invite-qr-caption",
@@ -40,8 +39,6 @@ BOT_KEYS = (
     "links-primary-hint",
     "links-main-chosen",
     "links-main-auto",
-    "links-title",
-    "command-teachers",
     "link-no-name",
     "export-readme-links",
     "links-make-main",
@@ -96,12 +93,6 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "👥 Ash теперь в списке твоих учеников.",
     ),
     (
-        "invite-hint",
-        {},
-        "Share this link or QR code. Each student confirms for themselves.",
-        "Поделись ссылкой или QR-кодом. Каждый ученик подтверждает сам.",
-    ),
-    (
         "invite-share-text",
         {},
         "My link to add me as your teacher in Tristhana. The bot shows what I'd see before you "
@@ -145,8 +136,11 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     (
         "links-empty",
         {},
-        "No teachers on your list. Your log works the same either way.",
-        "Учителей в списке нет. Журнал практики работает и так.",
+        # UI-06: the empty "My teacher" screen says how a teacher gets there.
+        "No teacher on your list. To add a teacher or join a shala, open the link they send "
+        "you. Your log works the same either way.",
+        "Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой "
+        "ссылку, которую они пришлют. Журнал практики работает и так.",
     ),
     ("links-no-students", {}, "No students on your list.", "Учеников в списке нет."),
     (
@@ -167,8 +161,6 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "⭐ Main teacher: Лена (first on your list)",
         "⭐ Основной учитель: Лена (в начале списка)",
     ),
-    ("links-title", {}, "👥 Teachers and students", "👥 Учителя и ученики"),
-    ("command-teachers", {}, "My teachers and students", "Мои учителя и ученики"),
     ("link-no-name", {}, "(no name)", "(без имени)"),
     (
         "export-readme-links",
@@ -233,6 +225,14 @@ def _new_copy(locale: str) -> dict[str, str]:
 @pytest.mark.parametrize("locale", LOCALES)
 def test_every_new_bot_key_exists(locale: Locale) -> None:
     assert sorted(set(BOT_KEYS) - message_ids(locale)) == []
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_the_bot_keys_ui06_retired_are_gone(locale: Locale) -> None:
+    """`/teachers` is "My teacher" now, titled by the Menu row's label; the invite's hint
+    became `invite-simple`. The Mini App keeps its own `links-title` and `invite-hint`."""
+    assert not {"links-title", "invite-hint"} & message_ids(locale)
+    assert {"menu-teacher", "invite-simple", "invite-send", "invite-more"} <= message_ids(locale)
 
 
 @pytest.mark.parametrize(("key", "args", "en", "ru"), COPY, ids=[row[0] for row in COPY])

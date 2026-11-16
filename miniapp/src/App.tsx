@@ -36,9 +36,37 @@ function launchAnnounce(): { shala: string | null } | null {
   return { shala: shala && /^[0-9a-f-]{36}$/i.test(shala) ? shala : null };
 }
 
-/** ID-05: the bot's `[Open the app]` on the directory-line screen opens with `?open=listing`. */
-function launchListing(): boolean {
-  return new URLSearchParams(window.location.search).get("open") === "listing";
+type View =
+  | "home"
+  | "stats"
+  | "settings"
+  | "day-off"
+  | "progression"
+  | "links"
+  | "new-shala"
+  | "students"
+  | "links-students"
+  | "my-schedule"
+  | "announce"
+  | "listing";
+
+/** The screen a bot button asked for with `?open=…`, read once at launch. The values are a
+ * contract (old messages keep their URLs); one the app doesn't know opens Home.
+ * `listing`: ID-05, the directory-line screen's `[Open the app]`. `new-shala` and `practice`:
+ * UI-06, "Create a shala" and the Menu's "My practice". */
+function launchView(): View {
+  switch (new URLSearchParams(window.location.search).get("open")) {
+    case "announce":
+      return "announce";
+    case "listing":
+      return "listing";
+    case "new-shala":
+      return "new-shala";
+    case "practice":
+      return "stats";
+    default:
+      return "home";
+  }
 }
 
 const queryClient = new QueryClient({
@@ -74,19 +102,7 @@ function MyScheduleRow({ onOpen }: { onOpen: () => void }) {
 
 export function App({ locale, firstName, inTelegram }: AppProps) {
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
-  const [view, setView] = useState<
-    | "home"
-    | "stats"
-    | "settings"
-    | "day-off"
-    | "progression"
-    | "links"
-    | "students"
-    | "links-students"
-    | "my-schedule"
-    | "announce"
-    | "listing"
-  >(() => (launchAnnounce() ? "announce" : launchListing() ? "listing" : "home"));
+  const [view, setView] = useState<View>(launchView);
   const [announceTo] = useState(() => launchAnnounce()?.shala ?? null);
   const home = useCallback(() => {
     setView("home");
@@ -144,10 +160,11 @@ export function App({ locale, firstName, inTelegram }: AppProps) {
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Progression locale={me.locale} onBack={home} />
             </Suspense>
-          ) : me && view === "links" ? (
+          ) : me && (view === "links" || view === "new-shala") ? (
             <Suspense fallback={<main className="screen" aria-busy="true" />}>
               <Links
-                onBack={settings}
+                create={view === "new-shala"}
+                onBack={view === "new-shala" ? home : settings}
                 onStudents={() => {
                   setView("links-students");
                 }}

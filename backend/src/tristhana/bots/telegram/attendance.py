@@ -88,10 +88,13 @@ class AttendanceScreens:
             f" · {_one_line(r.shala_name)}"
         )
 
-    def _zone_line(self, locale: Locale, found: AttendList) -> str:
-        """The times' zone, as on My schedule: `Times: 07:00 Almaty (UTC+5)`-style label."""
+    def _zone_line(self, principal: Principal, found: AttendList) -> str:
+        """The times' zone, as on My schedule: `Times: Almaty`; with the offset while the
+        zone is not my own (unknown: my first shala's is shown, ADR-0044)."""
+        locale = principal.account.locale
         city = self._cities.find(found.city)
-        where = zone_label(self._t, locale, found.zone, found.today, city)
+        viewer = principal.account.timezone
+        where = zone_label(self._t, locale, found.zone, found.today, city, viewer)
         key = "schedule-zone" if found.zone_known else "my-schedule-zone-unknown"
         return self._t.t(locale, key, zone=where)
 
@@ -112,7 +115,7 @@ class AttendanceScreens:
         key = "attend-me-title" if found.rows else "attend-me-none"
         text = self._t.t(locale, key)
         if found.rows:
-            text += "\n" + self._zone_line(locale, found)
+            text += "\n" + self._zone_line(principal, found)
         if note:
             text = f"{note}\n\n{text}"
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
@@ -186,29 +189,31 @@ class AttendanceScreens:
         key = "attend-staff-pick" if found.rows else "attend-staff-none"
         text = self._t.t(locale, key)
         if found.rows:
-            text += "\n" + self._zone_line(locale, found)
+            text += "\n" + self._zone_line(principal, found)
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def roster(self, principal: Principal, class_id: UUID, key: date, page: int) -> Screen:
-        locale = principal.account.locale
         try:
             r = await self._a.roster.execute(
                 principal, class_id, key, offset=page * BOT_PAGE, limit=BOT_PAGE
             )
         except (NotFound, NotAllowed):
             return await self.pick(principal)
-        return self._roster(locale, r, page)
+        return self._roster(principal, r, page)
 
     def _counts(self, locale: Locale, c: Counts) -> str:
         return self._t.t(locale, "attend-roster-counts", confirmed=c.confirmed, claimed=c.claimed)
 
-    def _roster(self, locale: Locale, r: Roster, page: int) -> Screen:
+    def _roster(self, principal: Principal, r: Roster, page: int) -> Screen:
+        locale = principal.account.locale
         o = r.occurrence
         start = o.starts_at.astimezone(ZoneInfo(r.zone))
         end = start + (datetime.combine(o.on, o.end) - datetime.combine(o.on, o.start))
         if end < start:
             end += timedelta(days=1)
-        where = zone_label(self._t, locale, r.zone, o.on, self._cities.find(r.city))
+        where = zone_label(
+            self._t, locale, r.zone, o.on, self._cities.find(r.city), principal.account.timezone
+        )
         title = self._t.t(
             locale,
             "attend-roster-title",

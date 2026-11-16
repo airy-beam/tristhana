@@ -21,6 +21,7 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.notifications import AsanaMarked
 from tristhana.application.ports.progression import ProgressionView
+from tristhana.application.practice import DayNotPracticed
 from tristhana.application.progression import ChangeResult, NotLatest, ProgressionChanged
 from tristhana.bots.telegram.practice import GRID_PAGE
 from tristhana.bots.telegram.progression_callbacks import (
@@ -30,7 +31,7 @@ from tristhana.bots.telegram.progression_callbacks import (
     encode,
     position,
 )
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, button, menu_row, show
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
 from tristhana.domain.practice import PracticeCatalog
@@ -207,6 +208,14 @@ class ProgressionScreens:
                     return await self.grid(principal, cb.mode, cb.number, cb.page)
         except NotForward:  # a stale keyboard or a double tap
             return await self.open(principal, [self.t.t(locale, "progression-already")])
+        except DayNotPracticed:
+            # "New asana?" sat under a practice whose day is no longer Practiced: that
+            # day's editor, saying so (as the details' own buttons do).
+            if cb.day is None:
+                return await self.open(principal)
+            return await self._day_screens.status(
+                principal, cb.day, note="practice-day-not-practiced"
+            )
         except (ProgressionNotSet, ProgressionChanged, InvalidProgression, NotLatest):
             return await self.open(principal)  # stale or forged: show the current state
 
@@ -292,6 +301,7 @@ class ProgressionScreens:
             undo = data("undo", number=result.event.id)
             rows.insert(0, [self._button(locale, "progression-undo", undo)])
         rows += self._day_screens.app_rows(principal)
+        rows.append(menu_row(self.t, locale))  # UI-06: opened from Help and `/asanas`
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _state_lines(

@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Fragment, lazy, Suspense, useState, type SyntheticEvent } from "react";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import {
   ApiError,
@@ -38,14 +38,19 @@ const DirectoryListing = lazy(() => import("./DirectoryListing"));
 interface Props {
   onBack: () => void;
   onStudents: () => void;
+  /** UI-06: opened by the bot's "Create a shala" (`?open=new-shala`): the create form starts
+   * open with its name focused. */
+  create?: boolean;
 }
 
 /** "👥 Teachers and students" (ID-04): my teachers, my students, my invite. An invite is
  * confirmed in the bot. A teacher never sees who chose them as main. Loaded lazily, so Settings stays light. Writes are not optimistic. */
-export default function Links({ onBack, onStudents }: Props) {
+export default function Links({ onBack, onStudents, create = false }: Props) {
   const [shala, setShala] = useState<string | null>(null);
   const [feed, setFeed] = useState(false);
   const [listing, setListing] = useState(false);
+  // Once: coming back from a card, the feed or the directory line finds the form closed.
+  const [creating, setCreating] = useState(create);
   const locale: Locale = useMe().data?.locale ?? "en";
   if (listing)
     return (
@@ -85,11 +90,17 @@ export default function Links({ onBack, onStudents }: Props) {
     <Lists
       onBack={onBack}
       onStudents={onStudents}
-      onShala={setShala}
+      create={creating}
+      onShala={(id) => {
+        setCreating(false);
+        setShala(id);
+      }}
       onFeed={() => {
+        setCreating(false);
         setFeed(true);
       }}
       onListing={() => {
+        setCreating(false);
         setListing(true);
       }}
       locale={locale}
@@ -100,11 +111,12 @@ export default function Links({ onBack, onStudents }: Props) {
 function Lists({
   onBack,
   onStudents,
+  create,
   onShala,
   onFeed,
   onListing,
   locale,
-}: Props & {
+}: Required<Props> & {
   onShala: (id: string) => void;
   onFeed: () => void;
   onListing: () => void;
@@ -141,7 +153,7 @@ function Lists({
           <ListingRow onOpen={onListing} />
         </>
       )}
-      <Shalas onOpen={onShala} />
+      <Shalas onOpen={onShala} create={create} />
     </main>
   );
 }
@@ -150,10 +162,10 @@ const ROLES: ShalaRole[] = ["teacher", "assistant", "office", "admin"];
 const NAME_MAX = 64;
 
 /** SC-01: my shalas, and the create form (Q103: creating is in the Mini App only). */
-function Shalas({ onOpen }: { onOpen: (id: string) => void }) {
+function Shalas({ onOpen, create }: { onOpen: (id: string) => void; create: boolean }) {
   const { l10n } = useLocalization();
   const mine = useMyShalas().data;
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(create);
   return (
     <section className="card">
       <Localized id="links-shalas-title">
@@ -174,6 +186,7 @@ function Shalas({ onOpen }: { onOpen: (id: string) => void }) {
       ))}
       {creating ? (
         <CreateShala
+          focus={create}
           onDone={(id) => {
             setCreating(false);
             onOpen(id);
@@ -194,8 +207,12 @@ function Shalas({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
-function CreateShala({ onDone }: { onDone: (id: string) => void }) {
+function CreateShala({ onDone, focus }: { onDone: (id: string) => void; focus: boolean }) {
   const { l10n } = useLocalization();
+  const first = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (focus) first.current?.focus();
+  }, [focus]);
   const me = useMe().data;
   const cities = useMoonCities().data;
   const create = useCreateShala();
@@ -234,6 +251,7 @@ function CreateShala({ onDone }: { onDone: (id: string) => void }) {
           <span />
         </Localized>
         <input
+          ref={first}
           type="text"
           value={name}
           maxLength={NAME_MAX}

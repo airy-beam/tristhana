@@ -3,11 +3,16 @@ the `t_<code>` start payload. A uuid here is no capability: every write is keyed
 caller's account, so a forged id matches no row.
 
 t1:a:<code>  t1:n  t1:l:<locale>:<code>     consent: confirm, not now, language
-t1:y:<code>                                 old confirm (before ST-06): re-renders the consent only
+t1:d:<code>                                 consent: the full text ("Details", ADR-0045)
+t1:y:<code>                                 the short consent again: Back from Details, and the
+                                            old confirm (before ST-06), which never links
 t1:o  t1:s:<page>                           teachers screen, my students
 t1:c:<id>  t1:p:<id>  t1:u:<id>  t1:x:<id>  teacher card, make main, remove ask, remove
 t1:v:<id>[:<page>]  t1:r:<id>  t1:z:<id>    student card (Back keeps the page), remove ask, remove
 t1:i  t1:q  t1:w  t1:wy                     invite screen, send QR, new link ask, new link
+t1:im                                       invite: More (the link as text, new link, ...)
+t1:i:o  t1:im:o  t1:w:o  t1:wy:o            the same four screens opened from "Teacher and
+                                            shala" (`t1:o`): Back from the invite returns there
 t1:g:<id>:<page>                            mark a new asana: the picker (PR-08 Phase 3)
 t1:gp:<id>:<n>:<i>:<k>:<page>               picked → the confirm screen
 t1:gy:<id>:<n>:<i>:<k>:<page>               confirm and mark
@@ -26,9 +31,11 @@ from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.teacher_links import parse_invite
 
 PREFIX = "t1"
-type Plain = Literal["n", "o", "i", "q", "w", "wy"]
+type Plain = Literal["n", "o", "i", "im", "q", "w", "wy"]
 type Person = Literal["c", "p", "u", "x", "v", "r", "z"]
-_PLAIN = ("n", "o", "i", "q", "w", "wy")
+type Origin = Literal["o"]  # where the invite was opened from: "Teacher and shala" (`t1:o`)
+_PLAIN = ("n", "o", "i", "im", "q", "w", "wy")
+_WITH_ORIGIN = ("i", "im", "w", "wy")  # the invite and what is behind it
 _PERSON = ("c", "p", "u", "x", "v", "r", "z")
 
 
@@ -39,8 +46,16 @@ class Confirm:
 
 @dataclass(frozen=True, slots=True)
 class Reopen:
-    """An old ✅ (`t1:y`): its screen may show older consent text, so it only shows the current
-    one and never links (ST-06)."""
+    """`t1:y`: the short consent again. It is Back from Details (ADR-0045), and also an old ✅
+    from before ST-06: that screen may show older consent text, so the tap only shows the
+    current one and never links."""
+
+    code: str
+
+
+@dataclass(frozen=True, slots=True)
+class Details:
+    """`t1:d`: the full consent text, the consent record (ADR-0045)."""
 
     code: str
 
@@ -71,6 +86,7 @@ class OnPerson:
 @dataclass(frozen=True, slots=True)
 class Tap:
     action: Plain
+    origin: Origin | None = None  # only on the invite screens
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,11 +109,13 @@ class GiveStep:
     confirm: bool
 
 
-type LinkTap = Confirm | Reopen | Card | Language | Students | OnPerson | Tap | Give | GiveStep
+type LinkTap = (
+    Confirm | Reopen | Details | Card | Language | Students | OnPerson | Tap | Give | GiveStep
+)
 
 
-def plain(action: Plain) -> str:
-    return f"{PREFIX}:{action}"
+def plain(action: Plain, origin: Origin | None = None) -> str:
+    return f"{PREFIX}:{action}:{origin}" if origin else f"{PREFIX}:{action}"
 
 
 def person(action: Person, id: UUID) -> str:
@@ -106,6 +124,14 @@ def person(action: Person, id: UUID) -> str:
 
 def confirm(code: str) -> str:
     return f"{PREFIX}:a:{code}"
+
+
+def details(code: str) -> str:
+    return f"{PREFIX}:d:{code}"
+
+
+def reopen(code: str) -> str:
+    return f"{PREFIX}:y:{code}"
 
 
 def card(id: UUID, page: int) -> str:
@@ -164,10 +190,14 @@ def decode(data: str | None) -> LinkTap | None:
     match (data or "").split(":"):
         case [p, action] if p == PREFIX and action in _PLAIN:
             return Tap(action)  # type: ignore[arg-type]
+        case [p, action, "o"] if p == PREFIX and action in _WITH_ORIGIN:
+            return Tap(action, "o")  # type: ignore[arg-type]
         case [p, "a", value] if p == PREFIX and (code := _code(value)):
             return Confirm(code)
         case [p, "y", value] if p == PREFIX and (code := _code(value)):
             return Reopen(code)
+        case [p, "d", value] if p == PREFIX and (code := _code(value)):
+            return Details(code)
         case [p, "v", value, page] if p == PREFIX and _page(page):
             found = _person("v", value)
             return Card(found.id, int(page)) if found else None

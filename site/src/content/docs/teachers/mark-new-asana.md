@@ -8,7 +8,7 @@ Gave a student a new asana? Mark it in a few taps, and they get a small celebrat
 
 ## Mark it
 
-1. Open the student's card: :cmd[teachers] → :ftl[link-students-open] → the name.
+1. Open the student's card: :ftl[menu-open] → :ftl[menu-students] → the name.
 2. Tap :ftl[students-give].
 3. Choose the asana. The first row is the next one in the series. Rows with → mark several at once, up to three.
 4. Tap :ftl[students-give-yes].

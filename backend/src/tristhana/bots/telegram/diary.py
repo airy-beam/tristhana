@@ -24,6 +24,7 @@ from aiogram.types import (
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, Translator
+from tristhana.application.practice import DayNotPracticed
 from tristhana.bots.telegram.diary_callbacks import PREFIX, DiaryCallback, Origin, decode, encode
 from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
 from tristhana.domain.accounts import Account
@@ -158,6 +159,11 @@ class DiaryScreens:
             screen = await self._check_in.handle(principal, CheckInCallback("open", day))
             if screen is not None:
                 return screen
+        if origin == "p" and self._days.practice is not None:
+            try:
+                return await self._days.practice.details(principal, day)
+            except DayNotPracticed:  # the status changed since: the day editor below
+                pass
         return await self._days.status(principal, day)
 
     def _label(self, locale: Locale, principal: Principal, day: date) -> str:

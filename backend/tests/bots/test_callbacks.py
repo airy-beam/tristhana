@@ -16,6 +16,8 @@ DAY = date(2026, 10, 18)
         DayCallback("clear", DAY),
         DayCallback("week", DAY),
         *(DayCallback("set", DAY, s) for s in DayStatus),
+        DayCallback("reasons", DAY, origin="t"),  # UI-06: "Other reason", back to Today
+        DayCallback("reasons", DAY, origin="e"),  # ... or back to the day's editor
     ],
 )
 def test_round_trip_and_size(cb: DayCallback) -> None:
@@ -40,7 +42,17 @@ def test_round_trip_and_size(cb: DayCallback) -> None:
         "d1:s:20261018:?",
         "d1:o:20261018:p",
         "d1:q:20261018",
+        "d1:r:20261018",
+        "d1:r:20261018:x",
+        "d1:r:20261018:t:1",
     ],
 )
 def test_malformed_or_out_of_range_is_none(data: str | None) -> None:
     assert decode(data) is None
+
+
+def test_other_reason_data_is_short_and_needs_an_origin() -> None:
+    assert encode(DayCallback("reasons", DAY, origin="t")) == "d1:r:20261018:t"
+    assert len(encode(DayCallback("reasons", DAY, origin="e")).encode()) <= 22  # UI-06 §2
+    with pytest.raises(ValueError, match="origin"):
+        encode(DayCallback("reasons", DAY))

@@ -7,6 +7,7 @@ bytes, the entry buttons on My schedule and the shala week, the ` · 🙋` row m
 names, and the banned words. Clock: Mon 9 Nov 2026, 08:00 Almaty."""
 
 import re
+from dataclasses import replace
 from datetime import UTC, date, datetime, time
 from typing import Any
 
@@ -190,7 +191,7 @@ def test_staff_picker_roster_and_toggles(client: TestClient, storage: InMemorySt
     roster = _tap(client, cb.roster("r", mysore, MON))
     lines = _lines(roster)
     assert lines[0].startswith("📋 Mysore · Mon")
-    assert "Almaty (UTC+5)" in lines[0]
+    assert lines[0].endswith(" Almaty")  # ADR-0044: my own zone, no offset
     assert lines[1] == "Ashtanga Almaty"
     assert lines[2] == "✅ 0 · 🙋 1 to confirm"
     assert _texts(roster)[:3] == ["🙋 Dana", "◻️ Ilya", "◻️ Vera"]
@@ -241,11 +242,21 @@ def test_the_lists_carry_the_zone_label(client: TestClient, storage: InMemorySto
     """Review: times on the 🙋 list and the staff picker say whose clock they are."""
     _setup(client, storage, "assistant")
     listing = _tap(client, cb.my_list())
-    assert _lines(listing)[1].startswith("Times: ")
-    assert "(UTC+5)" in _lines(listing)[1]
+    assert _lines(listing)[1] == "Times: Almaty"  # ADR-0044: my own zone, no offset
     picker = _tap(client, cb.staff_pick())
-    assert _lines(picker)[1].startswith("Times: ")
-    assert "(UTC+5)" in _lines(picker)[1]
+    assert _lines(picker)[1] == "Times: Almaty"
+
+
+def test_a_roster_seen_from_another_zone_keeps_the_offset(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """ADR-0044: the class's own time is somewhere else for this viewer."""
+    me, _, mysore = _setup(client, storage, "office")
+    storage.repo.accounts[me.id] = replace(storage.repo.accounts[me.id], timezone="Europe/Berlin")
+
+    roster = _tap(client, cb.roster("r", mysore, MON))
+
+    assert _lines(roster)[0].endswith(" Almaty (UTC+5)")
 
 
 def test_an_unknown_zone_says_whose_times_these_are(

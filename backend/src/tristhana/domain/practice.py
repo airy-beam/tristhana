@@ -202,10 +202,20 @@ class Presets:
     last_day: date | None = None  # the day `last` was practised, when the caller knows it
 
 
+def copy_would_overwrite(stored: Practice | None) -> bool:
+    """Whether the day already holds something "same as last time" writes: the class type,
+    the length or the duration. Then nothing is copied: the button may be an old one, and
+    details added since are the person's own. A start time alone doesn't count, since the
+    copy leaves it in place."""
+    return stored is not None and any(
+        value is not None for value in (stored.context, stored.length, stored.duration_min)
+    )
+
+
 def usual(recent: list[Practice]) -> Practice | None:
     """What "same as last time" copies (Q27), `recent` newest first: the newest practice that
     was not a led class (a Friday led class is rarely what someone does on Monday; no context
-    counts as not led), else the newest. The details screen previews it and the repository's
+    counts as not led), else the newest. The screen after 🧘 previews it and the repository's
     `copy_latest` copies the same one, from the same `RECENT_LIMIT` window."""
     i = _usual_index(recent)
     return None if i is None else recent[i]

@@ -1,20 +1,32 @@
 ---
 title: "All bot commands"
 description: "Every command of the bot, with one line on what it does."
-features: [UI-01]
+features: [UI-01, UI-06]
 ---
 
-Every command of the bot, with one line on what it does. You can type a command or pick it from the menu next to the message field.
+Every command of the bot, with one line on what it does. You don't need any of them: every screen is a few taps from :ftl[menu-open]. Commands are shortcuts.
 
-| Command        | What it does                                                     |
-| -------------- | ---------------------------------------------------------------- |
-| :cmd[start]    | The greeting, and today's question: practice or rest?            |
-| :cmd[log]      | Log today or an earlier day, or change a day you already logged. |
-| :cmd[asanas]   | Your asanas: the last one, and marking a new one.                |
-| :cmd[remind]   | The daily practice reminder: on or off, and at what time.        |
-| :cmd[moon]     | Upcoming moon days and their reminders.                          |
-| :cmd[teachers] | Your teachers and shalas, and your students if you teach.        |
-| :cmd[schedule] | Classes of all your shalas, shown in your time zone.             |
-| :cmd[classes]  | The classes you teach this week.                                 |
-| :cmd[settings] | Language, city and reminders.                                    |
-| :cmd[help]     | A short list of what the bot can do, and the quick tour.         |
+## In the command menu
+
+The menu next to the message field lists five.
+
+| Command        | What it does                                                          |
+| -------------- | --------------------------------------------------------------------- |
+| :cmd[start]    | Today: practice or rest? The first time, the bot asks where to start. |
+| :cmd[schedule] | Classes of all your shalas, shown in your time zone.                  |
+| :cmd[moon]     | Upcoming moon days and their reminders.                               |
+| :cmd[settings] | Language, city, day off, reminders and the rest.                      |
+| :cmd[help]     | The things people ask most, one tap each, and a link to this guide.   |
+
+![Help in the bot: a list of things to do, one tap each](../../../assets/shots/en/bot-help.webp)
+
+## Shortcuts
+
+These are in no list, but they work when you type them.
+
+- :cmd[log]: today's question.
+- :cmd[asanas]: your asanas.
+- :cmd[remind]: the daily practice reminder.
+- :cmd[teachers]: your teachers and shalas.
+- :cmd[classes]: the classes you teach this week.
+- :cmd[menu]: the Menu.
