@@ -1,6 +1,6 @@
 # UI-06 stage 2: the Mini App shell (three tabs, a gear, the Today tab)
 
-- Status: **proposed** (the design in §1 is approved: owner, 2026-11-16, Q300 and Q304; open points are Q331–Q335 in §12) · Size **L**, one pull request, branch `ui-06/stage-2-app-shell` on top of stage 1 (PR #108)
+- Status: **accepted** (owner, 2026-11-16: the design in §1, and Q331–Q335 in §12 all as recommended) · Size **L**, one pull request, branch `ui-06/stage-2-app-shell` on top of stage 1 (PR #108)
 - Parent: `docs/specs/UI-06-simple-journey.md` (§1, §3 "Mini App", §10). Requirements: **UI-06**; changes UI-03, UI-04, PR-01/02/06/07; touches PR-10, ID-04, SC-01/03, MD-03; UI-02 depends on Q331.
 - Related: ADR-0013, 0015, 0021, 0029, 0044 (its TypeScript twin lands here). New, proposed: **ADR-0047** (three tabs and one stack; Back or tabs, never both).
 
