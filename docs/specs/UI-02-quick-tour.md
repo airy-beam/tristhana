@@ -1,5 +1,6 @@
 # UI-02: quick tour, a bot carousel and Mini App coach-marks
 
+- **Amended by UI-06 (owner, 2026-11-16):** the bot carousel is retired; the front door, the Menu and task-based `/help` replace it (`docs/specs/UI-06-simple-journey.md`). The Mini App coach-marks stay for now.
 - Status: **accepted** (owner: all as recommended, 2026-11-06) · Date: 2026-11-06 · Size **S/M** (~2 days), Phase 2
 - Requirements: **UI-02** (interactive quick tour, bot carousel and Mini App coach-marks, re-openable from /help). Touches UI-01 (`/start`, `/help`, `home-first-hint`), UI-04 (layered Back), NF-09 (bundle). Budget: < 300 ms p50 per tap (warm).
 - Related: ADR-0008 (stateless callbacks), 0012 (webhook reply), 0021 (explicit choices). **No new ADR:** no schema, no API, nothing hard to reverse. A later server flag would be purely additive.
