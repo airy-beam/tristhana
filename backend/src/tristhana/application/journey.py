@@ -2,10 +2,11 @@
 nothing is written, and a step is gone once the data it ends in exists. The bot can call the
 same use case."""
 
+from datetime import UTC
+
 from tristhana.application.policies import Principal
 from tristhana.application.ports.accounts import AccountRepository
 from tristhana.application.ports.storage import Clock
-from tristhana.domain.days import local_today, provisional_zone
 from tristhana.domain.journey import Step, next_steps
 
 
@@ -20,8 +21,8 @@ class GetNextSteps:
         and shala facts only for shalas they own: every step offered is one they may take.
         """
         account = principal.account
-        # A provisional zone is fine: `today` only measures the invite link's age in days.
-        zone = account.timezone or provisional_zone(account.locale)
-        today = local_today(self._clock.now(), zone)
+        # `today` only measures the invite link's age, and the link's date is UTC's
+        # (`invite_made_on`): two UTC dates, so the 30 days end at one moment for everyone.
+        today = self._clock.now().astimezone(UTC).date()
         facts = await self._accounts.journey_facts(account.id)
         return next_steps(account, facts, today)

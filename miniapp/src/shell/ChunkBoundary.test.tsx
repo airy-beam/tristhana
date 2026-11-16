@@ -15,7 +15,7 @@ vi.mock("../telegram", () => ({
   backButtonAvailable: () => backButton.available,
 }));
 
-const FAILED = "Couldn't load this screen. Check your connection and try again.";
+const FAILED = "Couldn't load this. Check your connection and try again.";
 
 function Screen({ title }: { title: string }) {
   return <h1>{title}</h1>;
@@ -147,4 +147,21 @@ test("a root has no back link, and neither has a screen with Telegram's Back", a
   );
   await screen.findByRole("alert");
   expect(screen.queryByRole("button", { name: "‹ Back" })).toBeNull();
+});
+
+// `React.lazy` keeps a failed load for good, so under it "Try again" could never work: every
+// lazy piece of the app, also one inside a screen, goes through `lazyRetry`.
+test("no source file but lazyRetry.ts uses React.lazy", () => {
+  const sources = import.meta.glob<string>("../**/*.{ts,tsx}", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  });
+  const plain = Object.entries(sources)
+    .filter(([path]) => !/\.test\.tsx?$/.test(path) && !path.endsWith("/lazyRetry.ts"))
+    .filter(([, source]) => /\blazy\(/.test(source))
+    .map(([path]) => path);
+
+  expect(Object.keys(sources).length).toBeGreaterThan(50);
+  expect(plain).toEqual([]);
 });

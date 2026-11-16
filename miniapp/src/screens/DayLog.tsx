@@ -21,7 +21,7 @@ import { ChunkGuard } from "../shell/ChunkGuard";
 import { lazyRetry } from "../shell/lazyRetry";
 import { haptics } from "../telegram";
 import { AutoNote } from "./AutoNote";
-import { DayChoice } from "./DayChoice";
+import { DayChoice, OTHER_REASONS } from "./DayChoice";
 import { DiaryNote } from "./DiaryNote";
 import { PauseOffer, PeriodLine } from "./PauseOffer";
 import { lastTimeText, practiceSummary } from "./practiceText";
@@ -41,6 +41,8 @@ interface Props {
   /** The loaded days that include `date` ("today" is the server's, never the device's). While
    * they load, the card is its heading. */
   days: Days | undefined;
+  /** The read failed and there are no days: the card says so (and still closes with Done). */
+  failed?: boolean;
   /** The account's IANA zone (null until the device reported it). */
   zone: string | null;
   locale: Locale;
@@ -56,17 +58,33 @@ interface Props {
 /** The one day card (UI-06), for today and for any earlier day, as the bot's Today and day
  * editor: what the day already is, three choices, then quiet entries. Nothing opens by
  * itself: details, the check-in and the note each wait for their own tap. */
-export function DayLog({ id, title, days, onDone, children, ...day }: Props) {
+export function DayLog({ id, title, days, failed, onDone, children, ...day }: Props) {
+  const done = onDone && (
+    <Localized id="stats-editor-done">
+      <button type="button" className="link" onClick={onDone} />
+    </Localized>
+  );
   return (
     <section
       className={onDone ? "card daylog editor" : "card daylog"}
       aria-labelledby={id}
-      aria-busy={days ? undefined : true}
+      aria-busy={days || failed ? undefined : true}
     >
       <h2 id={id}>{title}</h2>
       {days && children}
       {/* Another day starts clean: no answer, open reasons or note carried over. */}
-      {days && <Day key={day.date} id={id} days={days} onDone={onDone} {...day} />}
+      {days ? (
+        <Day key={day.date} id={id} days={days} done={done} {...day} />
+      ) : (
+        failed && (
+          <>
+            <Localized id="today-load-failed">
+              <p className="status" role="alert" />
+            </Localized>
+            <div className="row">{done}</div>
+          </>
+        )
+      )}
     </section>
   );
 }
@@ -78,8 +96,12 @@ function Day({
   zone,
   locale,
   showLadies = true,
-  onDone,
-}: Omit<Props, "title" | "children" | "days"> & { days: Days }) {
+  done,
+}: Omit<Props, "title" | "children" | "days" | "failed" | "onDone"> & {
+  days: Days;
+  /** The day editor's Done button: with it an unlogged day can get a note too. */
+  done: ReactNode;
+}) {
   const { l10n } = useLocalization();
   const setDay = useSetDay();
   const hideLadies = useMe().data?.hide_ladies === true;
@@ -102,7 +124,7 @@ function Day({
   // The note entry: on a logged day, where a note exists, and always in the day editor. Once
   // shown it stays while the card is open, so clearing the day never drops a note being typed.
   const [noted, setNoted] = useState(false);
-  if (!noted && (stored !== null || note !== undefined || onDone)) setNoted(true);
+  if (!noted && (stored !== null || note !== undefined || done)) setNoted(true);
 
   const save = (status: DayStatus | null) => {
     haptics.impact("light"); // feedback before the network call
@@ -140,19 +162,21 @@ function Day({
           showLadies={showLadies}
         />
       )}
-      {current !== null ? (
-        <Localized id="today-logged" vars={{ label: l10n.getString(`status-${current}`) }}>
-          <p className="logged" />
-        </Localized>
-      ) : (
-        // Only a day nothing has answered yet gets the question, as in the bot.
-        !auto &&
-        !period && (
-          <Localized id="today-prompt">
-            <p className="hint" />
-          </Localized>
-        )
-      )}
+      {current === null
+        ? // Only a day nothing has answered yet gets the question, as in the bot.
+          !auto &&
+          !period && (
+            <Localized id="today-prompt">
+              <p className="hint" />
+            </Localized>
+          )
+        : // A reason sits behind "Other…", so its name is said here. Practiced and Rest day
+          // are their own pressed buttons: no line repeats them.
+          OTHER_REASONS.includes(current) && (
+            <Localized id="today-logged" vars={{ label: l10n.getString(`status-${current}`) }}>
+              <p className="logged" />
+            </Localized>
+          )}
       {current === "ladies" && (
         <Localized id="today-private-note">
           <p className="hint small" />
@@ -191,7 +215,7 @@ function Day({
       )}
       {/* Another day starts clean: no draft or confirm carried over. */}
       {noted && <DiaryNote key={date} date={date} note={note} />}
-      {(current !== null || onDone) && (
+      {(current !== null || done) && (
         <div className="row">
           {current !== null && (
             <Localized id="today-clear">
@@ -204,11 +228,7 @@ function Day({
               />
             </Localized>
           )}
-          {onDone && (
-            <Localized id="stats-editor-done">
-              <button type="button" className="link" onClick={onDone} />
-            </Localized>
-          )}
+          {done}
         </div>
       )}
       {setDay.isError && (
@@ -223,7 +243,7 @@ function Day({
 const detailed = (p: Practice | undefined) =>
   !!p && (!!p.context || !!p.length || !!p.duration_min || !!p.start_time);
 
-/** One line under "In your log": what is stored (class type · how far · how long), else what
+/** One line over the choices of a practiced day: what is stored (class type · how far · how long), else what
  * "Same as last time" would copy, as the bot shows it (Q23, Q296). */
 function PracticeLine({
   date,
@@ -369,6 +389,12 @@ function PracticeEntries({
         </button>
       )}
       {open === "checkin" && panel(<CheckIn date={date} checkIns={checkIns} />)}
+      {/* "Same as last time" did not save: the entry is still there to tap again. */}
+      {save.isError && (
+        <Localized id="today-save-failed">
+          <p className="status" role="alert" />
+        </Localized>
+      )}
       {failed && (
         <Localized id="chunk-failed">
           <p className="status" role="alert" />

@@ -16,9 +16,13 @@ export type Screen =
   | { name: "announce"; shala: string | null }
   | { name: "listing" };
 
+/** What one shala's card is opened for: the class form in its schedule, or its student invite. */
+export type ShalaOpen = "class" | "join";
+
 /** A one-time intent for the Shala root: the create form open and focused, the invite card
- * open, or one shala's card open. */
-export type Start = "create" | "invite" | `shala:${string}`;
+ * open, or one shala's card open (`shala:<id>`), also for one thing on it (`class:<id>`,
+ * `join:<id>`). */
+export type Start = "create" | "invite" | `${"shala" | ShalaOpen}:${string}`;
 
 export interface Nav {
   tab: Tab;

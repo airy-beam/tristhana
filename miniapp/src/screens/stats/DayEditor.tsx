@@ -15,7 +15,7 @@ interface Props {
 
 /** Log or change one earlier day from the month calendar (the Mini App backfill, ST-01): the
  * same day card as Today's (UI-06, Q335), for that date, with Done. The day is named at once;
- * its choices follow the read of that day. */
+ * its choices follow the read of that day, or the card says the read failed. */
 export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Props) {
   useBackButton(onClose);
   const days = useDaysRange(date, date);
@@ -25,6 +25,7 @@ export function DayEditor({ date, label, zone, locale, showLadies, onClose }: Pr
       title={label}
       date={date}
       days={days.data}
+      failed={days.isError}
       zone={zone}
       locale={locale}
       showLadies={showLadies}

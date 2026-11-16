@@ -20,7 +20,9 @@ export function TodayCard({ zone, locale }: Props) {
   const moon = useMoonDays().data;
   const cities = useMoonCities().data;
   const dateLabel = useDateLabel();
-  if (days.isError) {
+  // Only when there is nothing to show: a refetch that fails after a failed save (offline)
+  // leaves the card, and a note being typed, where they were.
+  if (!days.data && days.isError) {
     return (
       <Localized id="today-load-failed">
         <p className="status" role="status" />

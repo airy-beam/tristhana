@@ -6,11 +6,40 @@
 const UTC = "UTC";
 const DAY_MS = 86_400_000;
 
-/** False in the viewer's own zone: the same IANA name, not an equal clock, so the answer
- * never flips on a daylight-saving date. An unknown viewer zone shows the offset (nothing is
- * "your own" yet). `UTC` never gets one: `07:00 UTC` already says it. */
+/** One zone, two names. Chrome and Android's WebView still report CLDR's ids (the keys); the
+ * seeded cities and Firefox use IANA's own (the values). The same table as the backend's
+ * `ZONE_ALIASES`; both test files pin it. */
+export const ZONE_ALIASES: Readonly<Partial<Record<string, string>>> = {
+  "Africa/Asmera": "Africa/Asmara",
+  "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+  "America/Catamarca": "America/Argentina/Catamarca",
+  "America/Cordoba": "America/Argentina/Cordoba",
+  "America/Jujuy": "America/Argentina/Jujuy",
+  "America/Mendoza": "America/Argentina/Mendoza",
+  "America/Coral_Harbour": "America/Atikokan",
+  "America/Godthab": "America/Nuuk",
+  "America/Indianapolis": "America/Indiana/Indianapolis",
+  "America/Louisville": "America/Kentucky/Louisville",
+  "Asia/Calcutta": "Asia/Kolkata",
+  "Asia/Katmandu": "Asia/Kathmandu",
+  "Asia/Rangoon": "Asia/Yangon",
+  "Asia/Saigon": "Asia/Ho_Chi_Minh",
+  "Atlantic/Faeroe": "Atlantic/Faroe",
+  "Europe/Kiev": "Europe/Kyiv",
+  "Pacific/Enderbury": "Pacific/Kanton",
+  "Pacific/Ponape": "Pacific/Pohnpei",
+  "Pacific/Truk": "Pacific/Chuuk",
+};
+
+/** IANA's own name for a zone that also goes by an older one (`Asia/Calcutta`). */
+const canonical = (zone: string) => ZONE_ALIASES[zone] ?? zone;
+
+/** False in the viewer's own zone: the same IANA zone (under either of its names), not an
+ * equal clock, so the answer never flips on a daylight-saving date. An unknown viewer zone
+ * shows the offset (nothing is "your own" yet). `UTC` never gets one: `07:00 UTC` already
+ * says it. */
 export function offsetShown(zone: string, viewer: string | null | undefined): boolean {
-  return zone !== UTC && zone !== viewer;
+  return zone !== UTC && (!viewer || canonical(zone) !== canonical(viewer));
 }
 
 const formats = new Map<string, Intl.DateTimeFormat>();

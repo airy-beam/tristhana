@@ -12,6 +12,8 @@ import { TodayCard } from "./TodayCard";
 
 vi.mock("../telegram", () => ({
   useBackButton: vi.fn(),
+  enableClosingConfirmation: vi.fn(),
+  disableClosingConfirmation: vi.fn(),
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
 }));
@@ -337,6 +339,33 @@ describe("TodayCard: three choices", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/Couldn't load/);
   });
 
+  // Offline: the save fails, and so does the refetch after it. The card had its days: it
+  // stays, with the note being typed, and says the save failed.
+  it("keeps the card and a typed note when a save and the refetch after it both fail", async () => {
+    stubApi(logged("rest"));
+    renderCard();
+    fireEvent.click(await screen.findByRole("button", { name: "Add a note" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Diary" }), {
+      target: { value: "Kapotasana felt lighter" },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "🧘 Practiced" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't save. Try again in a moment.",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30)); // the refetch has failed too
+    expect(screen.getByRole("textbox", { name: "Diary" })).toHaveValue("Kapotasana felt lighter");
+    expect(screen.getByRole("heading", { level: 2, name: /^Today, / })).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't load/)).not.toBeInTheDocument();
+    // Back as it was before the tap.
+    expect(screen.getByRole("button", { name: "😌 Rest day", pressed: true })).toBeInTheDocument();
+  });
+
   it("renders nothing until the days are loaded", () => {
     vi.stubGlobal(
       "fetch",
@@ -356,8 +385,12 @@ describe("TodayCard: three choices", () => {
       expect(await screen.findByText(PROMPT)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "😌 Rest day" }));
 
-      expect(await screen.findByText(/In your log/)).toBeInTheDocument();
+      // The pressed button is the answer: no line repeats it.
+      expect(
+        await screen.findByRole("button", { name: "😌 Rest day", pressed: true }),
+      ).toBeInTheDocument();
       expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+      expect(screen.queryByText(/In your log/)).not.toBeInTheDocument();
       // The old first-log hint and its device flag are gone.
       expect(screen.queryByText(/Start by logging today/)).not.toBeInTheDocument();
       expect(localStorage.getItem("onboard.logged")).toBeNull();
@@ -384,6 +417,12 @@ describe("TodayCard: after Practiced", () => {
     expect(controls()).toHaveLength(3); // before the tap
 
     fireEvent.click(screen.getByRole("button", { name: "🧘 Practiced" }));
+
+    // The pressed button says it: the label is repeated only for a reason behind "Other…".
+    expect(
+      await screen.findByRole("button", { name: "🧘 Practiced", pressed: true }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/In your log/)).not.toBeInTheDocument();
 
     // What "Same as last time" would copy: never the start time.
     expect(visible(await screen.findByText(/^Last time/))).toBe(
@@ -429,6 +468,19 @@ describe("TodayCard: after Practiced", () => {
     expect(screen.getByRole("button", { name: "📝 Details" })).toBeInTheDocument();
   });
 
+  it("a failed Same as last time says so and stays offered", async () => {
+    stubApi(logged("practiced"), { last: LAST, writeStatus: 503 });
+    renderCard();
+
+    fireEvent.click(await screen.findByRole("button", { name: "🔁 Same as last time" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't save. Try again in a moment.",
+    );
+    expect(haptics.notify).toHaveBeenCalledWith("error");
+    expect(screen.getByRole("button", { name: "🔁 Same as last time" })).toBeInTheDocument();
+  });
+
   it("offers no copy without a previous practice", async () => {
     stubApi(logged("practiced"));
     renderCard();
@@ -438,7 +490,7 @@ describe("TodayCard: after Practiced", () => {
     expect(screen.queryByText(/^Last time/)).not.toBeInTheDocument();
   });
 
-  it("Add details loads the panel on the tap; the start time is behind More…", async () => {
+  it("Add details loads the panel on the tap, the start time with it", async () => {
     stubApi(logged("practiced"));
     renderCard();
     const entry = await screen.findByRole("button", { name: "📝 Add details" });
@@ -450,8 +502,6 @@ describe("TodayCard: after Practiced", () => {
     expect(entry).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("Type of practice")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mysore" })).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Start time/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "More…" }));
     expect(screen.getByLabelText(/Start time/)).toBeInTheDocument();
 
     fireEvent.click(entry); // a second tap folds it again

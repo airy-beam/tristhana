@@ -1,7 +1,6 @@
 ## The day card's panels (UI-06): practice details and the check-in editor. Loaded with their
 ## lazy chunk (`dayExtras`); the entries that open them are in app.ftl. Matches the bot's wording.
 practice-context = Type of practice
-practice-more = More…
 practice-online = 🌐 Online
 practice-length = Length
 practice-duration = Duration

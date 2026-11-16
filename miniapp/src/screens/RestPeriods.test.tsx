@@ -148,11 +148,11 @@ async function reason(name: string) {
   fireEvent.click(await screen.findByRole("button", { name: "Other…", expanded: false }));
   return button(name);
 }
-/** The pause question's own "Other…" (more day counts), not the day card's. */
+/** The pause question's own "Another number…" (more day counts), not the day card's "Other…". */
 const moreDays = async () =>
   within(
     (await screen.findByText(/how many days|How many days/)).parentElement as HTMLElement,
-  ).getByRole("button", { name: "Other…" });
+  ).getByRole("button", { name: "Another number…" });
 
 async function sent(seen: Request[], method: string, path: string): Promise<unknown> {
   await vi.waitFor(() => {
@@ -210,7 +210,7 @@ describe("TodayCard: the pause offer", () => {
     });
   });
 
-  it("reveals the other choices on Other…", async () => {
+  it("reveals the other choices on Another number…", async () => {
     stubApi({ saved: OFFER });
     renderWith(<TodayCard zone="Asia/Almaty" locale="en" />);
     fireEvent.click(await reason("🌸 Ladies' holiday"));

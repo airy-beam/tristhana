@@ -301,24 +301,23 @@ describe("PracticeDetails", () => {
     });
   });
 
-  it("keeps the start time behind More…, with a zone label, only when the zone is known", async () => {
+  it("shows the start time as the last field, no fold, with a zone label, only when the zone is known", async () => {
     stubApi(practicedToday);
     const { unmount } = renderCard("Asia/Almaty");
     await openDetails();
-    const more = await screen.findByRole("button", { name: "More…" });
-    expect(more).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText(/Start time/)).not.toBeInTheDocument();
-    fireEvent.click(more);
     // My own zone: the place, no offset (ADR-0044).
-    expect(screen.getByLabelText(/Start time/)).toBeInTheDocument();
+    const start = await screen.findByLabelText(/Start time/);
     expect(screen.getByText("Almaty")).toBeInTheDocument();
+    // Nothing to unfold, and no field after it.
+    expect(screen.queryByRole("button", { name: /More|Start time/ })).not.toBeInTheDocument();
+    const fields = [...document.querySelectorAll(".details .label, .details input")];
+    expect(fields.at(-1)).toBe(start);
     unmount();
 
     stubApi(practicedToday);
     renderCard(null);
     await openDetails();
     await screen.findByRole("button", { name: "Mysore" });
-    expect(screen.queryByRole("button", { name: "More…" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Start time/)).not.toBeInTheDocument();
   });
 
@@ -347,9 +346,8 @@ describe("PracticeDetails", () => {
     renderCard("Asia/Almaty");
     await openDetails();
 
-    // A stored start time shows at once: More… is open.
     expect(await screen.findByText("Berlin (UTC+2)")).toBeInTheDocument(); // 19 October
-    expect(screen.getByRole("button", { name: "More…" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText(/Start time/)).toHaveValue("06:30");
   });
 
   it("self-practice hides the online toggle", async () => {
@@ -401,8 +399,7 @@ describe("PracticeDetails server sync", () => {
     const seen = stubApi(practicedToday);
     renderCard();
     await openDetails();
-    fireEvent.click(await screen.findByRole("button", { name: "More…" }));
-    const input = screen.getByLabelText(/Start time/);
+    const input = await screen.findByLabelText(/Start time/);
 
     fireEvent.change(input, { target: { value: "06:3" } });
     fireEvent.change(input, { target: { value: "06:30" } });

@@ -108,6 +108,38 @@ describe("DayEditor practice count (GM-01 part 2)", () => {
   });
 });
 
+describe("DayEditor: the day's read fails", () => {
+  it("says so and still closes with Done: never a dead, busy card", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ code: "unavailable" }), { status: 503 })),
+      ),
+    );
+    const onClose = vi.fn();
+    renderEditor(onClose);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Couldn't load/);
+    const card = screen.getByRole("region", { name: "Mar 1" });
+    expect(card).not.toHaveAttribute("aria-busy");
+    expect(within(card).getAllByRole("button").map(visible)).toEqual(["Done"]);
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("is busy, with no message, while the day loads", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => undefined)),
+    );
+    renderEditor();
+
+    expect(screen.getByRole("region", { name: "Mar 1" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
 // UI-06 stage 2 (Q335): the day editor is the same day card as Today's, for that date.
 describe("DayEditor: the three-choice card", () => {
   const controls = () =>
@@ -129,13 +161,16 @@ describe("DayEditor: the three-choice card", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("leads with what was logged, and offers Clear next to Done", async () => {
+  it("marks what was logged on its button, and offers Clear next to Done", async () => {
     stubApi([]);
     renderEditor();
 
     fireEvent.click(await screen.findByRole("button", { name: "😌 Rest day" }));
 
-    expect(visible(await screen.findByText(/In your log/))).toBe("✓ In your log: 😌 Rest day");
+    expect(
+      await screen.findByRole("button", { name: "😌 Rest day", pressed: true }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/In your log/)).not.toBeInTheDocument(); // the button says it
     expect(screen.queryByText(/Practice or rest/)).not.toBeInTheDocument();
     expect(controls()).toEqual([
       "🧘 Practiced",

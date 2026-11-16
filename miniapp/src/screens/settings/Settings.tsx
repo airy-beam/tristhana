@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 
 import {
   useLinks,
@@ -41,11 +41,13 @@ interface Props {
   /** Open scrolled to a section: the stats "Set your weekly day off" link, or the practice
    * reminder (UI-06). */
   focus?: SettingsFocus | undefined;
+  /** The shell focuses the heading when Settings opens. */
+  headingRef?: Ref<HTMLHeadingElement> | undefined;
 }
 
 /** Everything in one place (ID-06): profile, time zone, moon days, reminders, privacy.
  * Pushed by the gear and by Telegram's ⋯ item (UI-06). Loaded lazily, so Today stays light. */
-export default function Settings({ me, onBack, focus }: Props) {
+export default function Settings({ me, onBack, focus, headingRef }: Props) {
   useBackButton(onBack);
   // Once, when the section is there: the reminder card mounts after its settings load.
   const loaded = useNotificationSettings().isSuccess;
@@ -65,7 +67,7 @@ export default function Settings({ me, onBack, focus }: Props) {
         </Localized>
       )}
       <Localized id="settings-title">
-        <h1 />
+        <h1 ref={headingRef} tabIndex={-1} />
       </Localized>
       <Profile me={me} />
       <City me={me} />

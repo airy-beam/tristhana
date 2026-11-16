@@ -1,4 +1,6 @@
 /// <reference types="vitest/config" />
+import { readFile } from "node:fs/promises";
+
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
@@ -20,11 +22,28 @@ function preconnectApi(apiBaseUrl: string): Plugin {
   };
 }
 
+// Fluent comments are notes for whoever edits the copy; the app never reads them, so they do
+// not ship (NF-09: both languages' `app.ftl` are in the first chunk). A comment starts its
+// line with `#`; a message never does, its continuation lines are indented.
+function ftlWithoutComments(): Plugin {
+  return {
+    name: "tristhana-ftl-without-comments",
+    enforce: "pre",
+    async load(id) {
+      if (!id.endsWith(".ftl?raw")) return null;
+      const file = id.slice(0, -"?raw".length);
+      this.addWatchFile(file);
+      const source = await readFile(file, "utf8");
+      return `export default ${JSON.stringify(source.replace(/^#.*\n/gm, ""))}`;
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const devApi = process.env.DEV_API_TARGET ?? "http://localhost:8000";
   return {
-    plugins: [react(), preconnectApi(env.VITE_API_BASE_URL ?? "")],
+    plugins: [ftlWithoutComments(), react(), preconnectApi(env.VITE_API_BASE_URL ?? "")],
     build: { target: "es2022" },
     server: {
       // Dev: same-origin /api via the local backend (`uv run tristhana-dev`), so no CORS.

@@ -128,6 +128,8 @@ function stubApi(stub: Stub = {}): Request[] {
           occurrences: [],
           closures: [],
         }); // SC-02
+      if (path === `/api/v1/shalas/${SHALA}/join-link`)
+        return json({ url: "https://t.me/x?start=s_a", qr: "data:image/png;base64,AA==" });
       if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
       if (path === "/api/v1/me/invite") return json({ url: "https://t.me/x?start=t_a", qr: "" });
       if (path === "/api/v1/moon/cities") return json(CITIES);
@@ -446,6 +448,82 @@ describe("the shala card", () => {
       expect(invalidate).toHaveBeenCalled();
     });
   });
+});
+
+// UI-06 (review): Today's next step lands where the work is, not on the card's first row.
+describe("opened for one thing", () => {
+  const scrolled = vi.fn();
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = scrolled;
+  });
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+  const OWNS = shalaOut({ ...OWNER, schedule: true });
+  const form = () => screen.findByRole("button", { name: "Save the class" });
+
+  it("class: the schedule has its class form open and in view", async () => {
+    stubApi({ card: OWNS });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
+
+    const save = await form();
+    expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
+    expect(scrolled).toHaveBeenCalledOnce();
+    expect((scrolled.mock.contexts[0] as HTMLElement).contains(save)).toBe(true);
+  });
+
+  it("join: the student invite is made and shown at once, in view", async () => {
+    const seen = stubApi({ card: OWNS });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="join" />);
+
+    const qr = await screen.findByRole("img", { name: "QR code for the shala's link" });
+    expect(screen.queryByRole("button", { name: "➕ Invite students" })).toBeNull();
+    const posts = calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`);
+    expect(posts).toHaveLength(1);
+    expect(await posts[0]?.json()).toEqual({ rotate: false }); // the same link, never a new one
+    expect((scrolled.mock.contexts[0] as HTMLElement).contains(qr)).toBe(true);
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull(); // the class form stays shut
+  });
+
+  it("opened plainly, nothing is open and nothing scrolls", async () => {
+    const seen = stubApi({ card: OWNS });
+    renderWith(card());
+
+    await screen.findByRole("button", { name: "➕ Add a class" });
+    expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+    expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`)).toHaveLength(0);
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+
+  it("a staff member who may not edit classes gets the card, no form", async () => {
+    stubApi({ card: shalaOut(TEACHER) });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
+
+    await screen.findByRole("button", { name: "➕ Invite students" });
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull();
+  });
+
+  it.each(["class", "join"] as const)(
+    "the Shala tab's start %s:<id> opens that card so, once",
+    async (open) => {
+      stubApi({ mine: MINE, card: OWNS });
+      renderWith(<Links start={`${open}:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+      const opened = () =>
+        open === "class"
+          ? form()
+          : screen.findByRole("img", { name: "QR code for the shala's link" });
+      expect(await opened()).toBeInTheDocument();
+
+      act(() => {
+        vi.mocked(useBackButton).mock.lastCall?.[0](); // Back to the lists
+      });
+      fireEvent.click(await screen.findByRole("button", { name: /Ashtanga Almaty/ }));
+
+      // The same card again, as a tap opens it: nothing unfolded.
+      expect(await screen.findByRole("button", { name: "➕ Add a class" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+    },
+  );
 });
 
 describe("Follow my shala in Settings", () => {

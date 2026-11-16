@@ -18,7 +18,9 @@ import {
   themeParams,
   viewport,
 } from "@telegram-apps/sdk-react";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useContext, useEffect, useRef, useSyncExternalStore } from "react";
+
+import { Covered } from "./covered";
 
 export interface LaunchUser {
   firstName: string | null;
@@ -193,14 +195,15 @@ export const haptics = {
   },
 };
 
-/** Shows Telegram's main button with `text` while the component is mounted; `loading` shows
- * its spinner and disables it. */
+/** Shows Telegram's main button with `text` while the component is mounted and not `Covered`;
+ * `loading` shows its spinner and disables it. */
 export function useMainButton(
   text: string,
   onClick: () => void,
   loading = false,
-  visible = true,
+  shown = true,
 ): void {
+  const visible = !useContext(Covered) && shown;
   useEffect(() => {
     if (!mainButton.setParams.isAvailable()) return;
     if (!visible) {

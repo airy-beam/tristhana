@@ -11,6 +11,8 @@ const sdk = vi.hoisted(() => ({
   /** Listeners of Telegram's ⋯ "Settings" item. */
   settings: new Set<() => void>(),
   haptic: [] as string[],
+  /** What Telegram's main button was last told. */
+  main: [] as { text?: string; isVisible?: boolean }[],
 }));
 
 vi.mock("@telegram-apps/sdk-react", () => {
@@ -34,7 +36,13 @@ vi.mock("@telegram-apps/sdk-react", () => {
       onClick: listen(sdk.back),
     },
     settingsButton: { mount: safe(), show: safe(), onClick: listen(sdk.settings) },
-    mainButton: { mount: safe(), setParams: safe(), onClick: () => () => undefined },
+    mainButton: {
+      mount: safe(),
+      setParams: safe((params: { text?: string; isVisible?: boolean }) => {
+        sdk.main.push(params);
+      }),
+      onClick: () => () => undefined,
+    },
     closingBehavior: {
       mount: safe(),
       enableConfirmation: safe(),
@@ -92,15 +100,31 @@ const SHIVA = {
   name: "Shiva",
   linked_at: "2026-11-02T06:00:00Z",
 };
+const OWNED = {
+  id: SHALA,
+  name: "Ashtanga Almaty",
+  city: { slug: "almaty", name: "Almaty" },
+  zone: "Asia/Almaty",
+  online: false,
+  moon_city: null,
+  staff: [{ id: "00000000-0000-0000-0000-000000000001", name: "Ash", owner: true, roles: [] }],
+  students_total: 0,
+  days_off: null,
+  moon_policy: "closed",
+  me: { owner: true, roles: [], student: false, schedule: true, announce: true },
+};
 const QR = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AQ==";
 
 /** Who this person is, per test. Nobody by default: no teacher, no student, no shala. */
+let account: Record<string, unknown> = ME;
 let myShalas: unknown[] = [];
 let links: { teachers: unknown[]; students: unknown[] } = { teachers: [], students: [] };
 let seen: Request[] = [];
 /** What GET /me/next-steps offers, and today's classes in My schedule (UI-06). */
 let nextSteps: { kind: string; shala_id: string | null }[] = [];
 let classesToday: unknown[] = [];
+/** Whether GET /shalas/<id> answers with a card I own (else `{}`, as for any unknown path). */
+let ownedShala = false;
 /** The page's scroll, and a section scrolled into view (jsdom has neither). */
 const scrollTo = vi.fn();
 const scrollIntoView = vi.fn();
@@ -136,7 +160,7 @@ const STATS = {
 
 function respond(path: string): Response {
   // The device-timezone reply is the account too, and replaces it outside UTC.
-  if (path === "/api/v1/me" || path === "/api/v1/me/device-timezone") return json(ME);
+  if (path === "/api/v1/me" || path === "/api/v1/me/device-timezone") return json(account);
   if (path === "/api/v1/me/stats") return json(STATS);
   if (path === "/api/v1/me/badges") return json({ badges: [] });
   if (path === "/api/v1/health") return json({ version: "1", commit: "abcdef0" });
@@ -146,6 +170,19 @@ function respond(path: string): Response {
   if (path === "/api/v1/me/shalas") return json(myShalas);
   if (path === "/api/v1/me/invite")
     return json({ url: "https://t.me/tristhana_bot?start=t_a", qr: QR });
+  if (ownedShala && path === `/api/v1/shalas/${SHALA}`) return json(OWNED);
+  if (path === `/api/v1/shalas/${SHALA}/join-link`)
+    return json({ url: "https://t.me/tristhana_bot?start=s_a", qr: QR });
+  if (path === `/api/v1/shalas/${SHALA}/schedule`)
+    return json({
+      zone: "Asia/Almaty",
+      city: "almaty",
+      moon_policy: "closed",
+      days_off: null,
+      days: [],
+      occurrences: [],
+      closures: [],
+    });
   if (path === "/api/v1/me/students") return json({ total: 1, students: [] });
   // My asanas shows its heading while these load or fail; their shapes are its own tests'.
   if (path === "/api/v1/catalog" || path.startsWith("/api/v1/me/progression"))
@@ -195,12 +232,15 @@ function respond(path: string): Response {
 
 beforeEach(() => {
   localStorage.clear();
+  account = ME;
   myShalas = [];
   links = { teachers: [], students: [] };
   seen = [];
   nextSteps = [];
   classesToday = [];
+  ownedShala = false;
   sdk.haptic.length = 0;
+  sdk.main.length = 0;
   vi.stubGlobal(
     "fetch",
     vi.fn((request: Request) => {
@@ -225,6 +265,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.doUnmock("./screens/stats/Stats");
+  vi.doUnmock("./screens/settings/Settings");
+  vi.doUnmock("./telegram");
+  Reflect.deleteProperty(window, "scrollY");
   window.history.replaceState(null, "", "/");
 });
 
@@ -433,7 +476,142 @@ describe("Settings: the gear and Telegram's ⋯ item are one route", () => {
   });
 });
 
+// ADR-0047 as amended in review: what Settings was opened over stays mounted, hidden, so Back
+// returns to it as it was left (a half-filled form, an unsaved note), as Stats under Badges.
+describe("Settings keeps what it was opened over", () => {
+  const mainButtonShown = () => sdk.main.findLast((p) => p.isVisible !== undefined)?.isVisible;
+
+  test("a half-filled create-shala form is still filled after ⋯ Settings and Back", async () => {
+    await launch("/?open=new-shala");
+    await shala();
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "Ashtanga Almaty" } });
+
+    menuSettings();
+
+    await settings();
+    expect(screen.getByDisplayValue("Ashtanga Almaty")).not.toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "🏛 Shala" })).toBeNull();
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await shala()).toBeVisible();
+    expect(screen.getByDisplayValue("Ashtanga Almaty")).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
+    expect(sdk.backShown).toBe(false);
+    expect(bar()).not.toBeNull();
+  });
+
+  test("an unsaved note is still there: Back closes Settings first, the note keeps its own", async () => {
+    await launch();
+    await today();
+    fireEvent.click(await screen.findByRole("button", { name: "Add a note" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Diary" }), {
+      target: { value: "Kapotasana felt lighter" },
+    });
+
+    menuSettings();
+    await settings();
+    expect(screen.queryByRole("textbox", { name: "Diary" })).toBeNull(); // hidden, not gone
+    back();
+
+    expect(await screen.findByRole("textbox", { name: "Diary" })).toHaveValue(
+      "Kapotasana felt lighter",
+    );
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
+    expect(sdk.backShown).toBe(true); // the note's own layer, as before Settings
+    expect(bar()).toBeNull();
+  });
+
+  test("the month chosen on Practice is kept under the day-off setting", async () => {
+    await launch();
+    await today();
+    await go("practice");
+    const link = await screen.findByRole("button", { name: "😌 Set your weekly day off" });
+    const stats = seen.filter((r) => new URL(r.url).pathname === "/api/v1/me/stats").length;
+
+    fireEvent.click(link);
+    await settings();
+    back();
+
+    expect(await practice()).toBeVisible();
+    expect(link).toBeVisible(); // the same element: Practice was never unmounted
+    expect(seen.filter((r) => new URL(r.url).pathname === "/api/v1/me/stats")).toHaveLength(stats);
+  });
+
+  test("Settings opens at the top with its heading focused; Back gives the scroll back", async () => {
+    await launch();
+    await today();
+    await go("practice");
+    Object.defineProperty(window, "scrollY", { value: 420, configurable: true });
+    scrollTo.mockClear();
+
+    menuSettings();
+
+    await waitFor(async () => {
+      expect(await settings()).toHaveFocus();
+    });
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+    back();
+
+    await practice();
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 420 });
+    // The gear that opened it is drawn anew, so the focus lands on the screen's heading.
+    expect(await practice()).toHaveFocus();
+  });
+
+  test("Telegram's main button of the screen underneath is hidden meanwhile", async () => {
+    await launch();
+    await today();
+    await waitFor(() => {
+      expect(mainButtonShown()).toBe(true);
+    });
+    expect(sdk.main).toContainEqual({ text: "Check connection", isVisible: true });
+
+    menuSettings();
+    await settings();
+
+    expect(mainButtonShown()).toBe(false);
+    back();
+    await today();
+    await waitFor(() => {
+      expect(mainButtonShown()).toBe(true);
+    });
+  });
+});
+
 describe("Back or tabs, never both", () => {
+  test("a pushed screen has no bar from its first frame, before its Back layer is counted", async () => {
+    // The frame before effects run: no layer is counted yet.
+    vi.doMock("./telegram", async (original) => ({
+      ...(await original<typeof import("./telegram")>()),
+      useBackShown: () => false,
+    }));
+    await launch();
+    await today();
+    expect(bar()).not.toBeNull();
+
+    fireEvent.click(await screen.findByRole("button", { name: /New moon/ }));
+
+    expect(bar()).toBeNull();
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  });
+
+  test("after a pop the root is at the top with its heading focused", async () => {
+    await launch();
+    await today();
+    await go("practice");
+    fireEvent.click(await screen.findByRole("button", { name: "🧘 My asanas" }));
+    await heading("My asanas");
+    scrollTo.mockClear();
+
+    back();
+
+    await waitFor(async () => {
+      expect(await practice()).toHaveFocus();
+    });
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+  });
+
   test("the bar is absent inside a pushed screen and returns on the root", async () => {
     await launch();
     await today();
@@ -571,7 +749,7 @@ describe("Today: one next step, each leading to its place", () => {
     expect(asked("/api/v1/me/schedule")).toBe(false);
   });
 
-  test("the reminder step opens the reminder setting; Back returns to Today", async () => {
+  test("with no zone yet, the reminder step opens the reminder setting; Back returns to Today", async () => {
     nextSteps = [
       { kind: "reminder", shala_id: null },
       { kind: "position", shala_id: null },
@@ -579,7 +757,7 @@ describe("Today: one next step, each leading to its place", () => {
     await launch();
     await today();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Set the reminder" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
 
     await settings();
     await waitFor(() => {
@@ -588,6 +766,35 @@ describe("Today: one next step, each leading to its place", () => {
     expect(scrollIntoView.mock.contexts[0]).toHaveProperty("id", "remind");
     back();
     expect(await today()).toBeInTheDocument();
+  });
+
+  test("with a zone, the reminder step turns the reminder on right there, in one tap", async () => {
+    account = { ...ME, timezone: "Asia/Almaty" };
+    nextSteps = [{ kind: "reminder", shala_id: null }];
+    await launch();
+    await today();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
+
+    // The stub's settings: 20:00. My own zone, so no offset.
+    expect(plain((await screen.findByText(/once a day at/)).textContent)).toBe(
+      "🔔 I'll ask once a day at 20:00 Almaty.",
+    );
+    const patch = seen.find((r) => r.method === "PATCH");
+    expect(new URL(patch?.url ?? "").pathname).toBe("/api/v1/me/notification-settings");
+    expect(await patch?.json()).toEqual({ practice: { on: true } });
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
+    expect(bar()).not.toBeNull(); // still on Today
+
+    fireEvent.click(screen.getByRole("button", { name: "⏰ Change the time" }));
+
+    await settings();
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+    expect(scrollIntoView.mock.contexts[0]).toHaveProperty("id", "remind");
+    back();
+    expect(await today()).toBeVisible();
   });
 
   test("Not now shows the next step, which opens My asanas", async () => {
@@ -620,25 +827,40 @@ describe("Today: one next step, each leading to its place", () => {
     expect(sdk.backShown).toBe(false); // a tab root
   });
 
-  test.each(["add_class", "invite_shala_students"])(
-    "%s opens that shala's card on the Shala tab",
-    async (kind) => {
-      myShalas = [{ ...myShala("staff"), owner: true }];
-      nextSteps = [{ kind, shala_id: SHALA }];
-      await launch();
-      await today();
+  // Where the work is: not the shala card, where the same row would have to be found again.
+  test("add_class opens that shala's class form", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    nextSteps = [{ kind: "add_class", shala_id: SHALA }];
+    await launch();
+    await today();
 
-      fireEvent.click(
-        await screen.findByRole("button", {
-          name: kind === "add_class" ? "Add a class" : "Invite students",
-        }),
-      );
+    fireEvent.click(await screen.findByRole("button", { name: "Add a class" }));
 
-      await waitFor(() => {
-        expect(asked(`/api/v1/shalas/${SHALA}`)).toBe(true);
-      });
-    },
-  );
+    expect(await screen.findByRole("button", { name: "Save the class" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ashtanga Almaty");
+    expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
+    expect(bar()).toBeNull(); // the card is a layer over the Shala root
+    back();
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
+  });
+
+  test("invite_shala_students opens that shala's student invite", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    nextSteps = [{ kind: "invite_shala_students", shala_id: SHALA }];
+    await launch();
+    await today();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Invite students" }));
+
+    expect(await screen.findByRole("img", { name: "QR code for the shala's link" })).toBeVisible();
+    expect(
+      seen.filter((r) => new URL(r.url).pathname === `/api/v1/shalas/${SHALA}/join-link`),
+    ).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull(); // not the class form
+  });
 
   test("today's class is one row for people in a shala; it opens My schedule", async () => {
     myShalas = [myShala("student")];
@@ -682,7 +904,10 @@ describe("the empty Shala tab", () => {
         "Nobody here yet. To add a teacher or join a shala, open the link they send you.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
+    // The two starts sit under the bot's name for that row, so a student skips them.
+    const starts = screen.getByRole("heading", { level: 2, name: "For teachers and shalas" });
+    const invite = screen.getByRole("button", { name: "Invite students" });
+    expect(starts.compareDocumentPosition(invite)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByRole("button", { name: "Shala and classes" })).toBeInTheDocument();
     expect(screen.queryByText("No students on your list.")).toBeNull();
     expect(screen.queryByRole("heading", { name: "🏛 Shalas" })).toBeNull();
@@ -800,6 +1025,30 @@ describe("opened by a bot button (?open=…)", () => {
 });
 
 describe("a chunk that fails to load", () => {
+  test("Settings that fails to load still has Back, to the screen it was opened over", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined); // React reports the caught error
+    vi.doMock("./screens/settings/Settings", () => {
+      throw new Error("Failed to fetch dynamically imported module");
+    });
+    await launch();
+    await today();
+    await go("practice");
+
+    menuSettings();
+
+    expect(
+      await screen.findByText("Couldn't load this. Check your connection and try again."),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "My practice" })).toBeNull();
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await practice()).toBeVisible();
+    expect(screen.queryByText(/Couldn't load this/)).toBeNull();
+    expect(sdk.backShown).toBe(false);
+    vi.mocked(console.error).mockRestore();
+  });
+
   test("shows the retry line and keeps the bar; the other tabs still work", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined); // React reports the caught error
     vi.doMock("./screens/stats/Stats", () => {
@@ -811,7 +1060,7 @@ describe("a chunk that fails to load", () => {
     fireEvent.click(tab("practice"));
 
     expect(
-      await screen.findByText("Couldn't load this screen. Check your connection and try again."),
+      await screen.findByText("Couldn't load this. Check your connection and try again."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
     expect(current()).toEqual(["📊 Practice"]);

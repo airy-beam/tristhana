@@ -1,5 +1,5 @@
 import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
-import { lazy, Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 
 import {
   ApiError,
@@ -21,6 +21,7 @@ import { lengthText } from "../practiceText";
 import { CelebrationCard, shareOf } from "./CelebrationCard";
 import { ShareButton } from "../share/ShareButton";
 import { celebrationLines, get, isStanding, itemLabel, stopLabel } from "./progressionText";
+import { lazyRetry } from "../../shell/lazyRetry";
 
 interface Props {
   locale: Locale;
@@ -32,7 +33,7 @@ type Target = { series: string | null; last: string | null };
 const noop = () => undefined;
 
 // ST-04: its own chunk, so My asanas doesn't pay for it.
-const Timeline = lazy(() => import("./Timeline"));
+const Timeline = lazyRetry(() => import("./Timeline"));
 
 /** "🧘 My asanas" (PR-08): where the practice ends now, a new asana, the milestone items,
  * a correction (never celebrated), and a short history with Undo on each `undoable` entry (the

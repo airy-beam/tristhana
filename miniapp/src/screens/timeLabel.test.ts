@@ -1,4 +1,4 @@
-import { offsetShown, offsetText, timeLabel, zoneCity, zoneLabel } from "./timeLabel";
+import { ZONE_ALIASES, offsetShown, offsetText, timeLabel, zoneCity, zoneLabel } from "./timeLabel";
 
 // ADR-0044: a displayed time always names its place; the UTC offset shows only outside the
 // viewer's own IANA zone. The cases of `backend/tests/domain/test_time_label.py`, one for one.
@@ -89,6 +89,68 @@ describe("offsetText", () => {
       expect(offsetText("Europe/Paris", day, AT)).toBe(offsetText("Europe/Berlin", day, AT));
     },
   );
+});
+
+// One zone, two names: what Chrome and Android's WebView still report (CLDR's ids), and IANA's
+// own name (the seeded cities, Firefox). The same table as in `test_time_label.py`.
+const ALIASES: [alias: string, name: string][] = [
+  ["Africa/Asmera", "Africa/Asmara"],
+  ["America/Buenos_Aires", "America/Argentina/Buenos_Aires"],
+  ["America/Catamarca", "America/Argentina/Catamarca"],
+  ["America/Cordoba", "America/Argentina/Cordoba"],
+  ["America/Jujuy", "America/Argentina/Jujuy"],
+  ["America/Mendoza", "America/Argentina/Mendoza"],
+  ["America/Coral_Harbour", "America/Atikokan"],
+  ["America/Godthab", "America/Nuuk"],
+  ["America/Indianapolis", "America/Indiana/Indianapolis"],
+  ["America/Louisville", "America/Kentucky/Louisville"],
+  ["Asia/Calcutta", "Asia/Kolkata"],
+  ["Asia/Katmandu", "Asia/Kathmandu"],
+  ["Asia/Rangoon", "Asia/Yangon"],
+  ["Asia/Saigon", "Asia/Ho_Chi_Minh"],
+  ["Atlantic/Faeroe", "Atlantic/Faroe"],
+  ["Europe/Kiev", "Europe/Kyiv"],
+  ["Pacific/Enderbury", "Pacific/Kanton"],
+  ["Pacific/Ponape", "Pacific/Pohnpei"],
+  ["Pacific/Truk", "Pacific/Chuuk"],
+];
+
+describe("zone aliases", () => {
+  it.each(ALIASES)("two names of one zone are the viewer's own zone: %s, %s", (alias, name) => {
+    // A person in Mysuru whose phone says `Asia/Calcutta` reads `07:00 Mysuru`, no offset.
+    expect(offsetShown(name, alias)).toBe(false);
+    expect(offsetShown(alias, name)).toBe(false);
+    expect(offsetShown(alias, alias)).toBe(false);
+  });
+
+  it("the alias table is exactly this one", () => {
+    // The twin's test holds the same list: a name added on one side fails on the other.
+    expect(ZONE_ALIASES).toEqual(Object.fromEntries(ALIASES));
+    const names = new Set(Object.values(ZONE_ALIASES));
+    expect(Object.keys(ZONE_ALIASES).filter((alias) => names.has(alias))).toEqual([]); // no chains
+  });
+
+  it.each([ALIASES[10], ALIASES[15]] as [string, string][])(
+    "both names keep the same clock: %s, %s",
+    (alias, name) => {
+      expect(offsetText(alias, DAY, AT)).toBe(offsetText(name, DAY, AT));
+    },
+  );
+
+  it("an alias is still another zone for everyone else", () => {
+    // Kolkata and Colombo share a clock: still two zones, under either name.
+    expect(offsetShown("Asia/Calcutta", "Asia/Colombo")).toBe(true);
+    expect(offsetShown("Asia/Colombo", "Asia/Calcutta")).toBe(true);
+    expect(offsetShown("Europe/Kiev", "Europe/Berlin")).toBe(true);
+    expect(offsetShown("Asia/Calcutta", null)).toBe(true);
+  });
+
+  it("the label of a time in my own zone has no offset under either name", () => {
+    expect(timeLabel(AT, "Asia/Kolkata", DAY, { place: "Mysuru", viewer: "Asia/Calcutta" })).toBe(
+      "07:00 Mysuru",
+    );
+    expect(zoneLabel("Europe/Kyiv", DAY, { viewer: "Europe/Kiev" })).toBe("Kyiv");
+  });
 });
 
 describe("zoneLabel", () => {

@@ -1,16 +1,26 @@
 import { Localized } from "@fluent/react";
-import { Suspense, useCallback, useReducer, useRef, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import type { Me } from "../api/client";
 import { Home } from "../screens/Home";
 import { NextStep } from "../screens/NextStep";
 import { TravelPrompt } from "../screens/settings/TravelPrompt";
+import { placeFor } from "../screens/settings/zones";
 import { TodayCard } from "../screens/TodayCard";
 import { ClassRow, MoonRow } from "../screens/TodayRows";
 import { haptics, useBackButton, useBackShown, useSettingsButton } from "../telegram";
+import { Covered } from "../telegram/covered";
 import { ChunkBoundary } from "./ChunkBoundary";
 import { lazyRetry } from "./lazyRetry";
-import { launchNav, navigate, type Screen, type Start, type Tab } from "./nav";
+import { launchNav, navigate, type Screen, type SettingsFocus, type Start, type Tab } from "./nav";
 import { TabBar } from "./TabBar";
 
 // Today is in the first chunk; the other tabs and every pushed screen are their own chunks.
@@ -33,21 +43,29 @@ interface Props {
   firstName: string | null;
 }
 
-/** The Mini App's shell (UI-06 stage 2, ADR-0047): three tabs, one stack, a gear. One thing is
- * mounted: the top of the stack, else the tab's root. The tab bar and the gear are drawn only
- * while no Back layer is mounted, so a screen shows Back or the tabs, never both. */
+/** The Mini App's shell (UI-06 stage 2, ADR-0047): three tabs, one stack, a gear. What shows
+ * is the top of the stack, else the tab's root. Settings is the one screen that opens over
+ * anything (Telegram's ⋯ item works everywhere), so what it was opened over stays mounted,
+ * hidden, and Back finds it as it was left. The tab bar and the gear are drawn only on a root
+ * with no Back layer mounted, so a screen shows Back or the tabs, never both. */
 export function Shell({ me, firstName }: Props) {
   const [nav, dispatch] = useReducer(navigate, window.location.search, launchNav);
   const [showDetails, setShowDetails] = useState(import.meta.env.DEV);
   const backShown = useBackShown();
+  const top = nav.stack.at(-1);
+  const settings = top?.name === "settings" ? top : undefined;
+  /** The pushed screen that shows, or waits under Settings; none on a root. */
+  const below = settings ? nav.stack.at(-2) : top;
+  const pushed = below?.name === "settings" ? undefined : below; // never two Settings
+  const covered = settings !== undefined;
 
-  // After a tab switch the new root's heading takes the focus, whenever it mounts (a lazy
-  // root mounts later than the switch).
+  // After a tab switch, a pop or Settings opening, the heading of what mounts takes the
+  // focus, whenever it mounts (a lazy screen mounts later than the switch).
   const switched = useRef(false);
   const heading = useCallback((element: HTMLHeadingElement | null) => {
     if (!element || !switched.current) return;
     switched.current = false;
-    element.focus();
+    element.focus({ preventScroll: true }); // the page is scrolled on purpose, not by this
   }, []);
 
   const toTab = useCallback(
@@ -63,19 +81,51 @@ export function Shell({ me, firstName }: Props) {
     window.scrollTo({ top: 0 });
     dispatch({ type: "push", screen });
   }, []);
-  const pop = useCallback(() => {
-    dispatch({ type: "pop" });
-  }, []);
-  // The gear and Telegram's ⋯ "Settings" item (ID-06): one route.
-  const openSettings = useCallback(() => {
-    dispatch({ type: "settings" });
-  }, []);
-  useSettingsButton(openSettings);
 
-  const top = nav.stack.at(-1);
+  // The gear and Telegram's ⋯ "Settings" item (ID-06): one route. Where it was opened (the
+  // page's scroll, the focus) is given back when it closes.
+  const under = useRef<HTMLDivElement>(null);
+  const left = useRef<{ top: number; focus: Element | null } | null>(null);
+  const openSettings = useCallback(
+    (focus?: SettingsFocus) => {
+      if (covered) return;
+      left.current = { top: window.scrollY, focus: document.activeElement };
+      window.scrollTo({ top: 0 });
+      switched.current = true;
+      dispatch(focus ? { type: "settings", focus } : { type: "settings" });
+    },
+    [covered],
+  );
+  const menuSettings = useCallback(() => {
+    openSettings();
+  }, [openSettings]);
+  useSettingsButton(menuSettings);
+  useEffect(() => {
+    const was = left.current;
+    if (covered || !was) return;
+    left.current = null;
+    switched.current = false; // Settings may never have mounted (its chunk failed)
+    window.scrollTo({ top: was.top });
+    // What had the focus, when it is still there (the gear is drawn anew); else the heading.
+    const focus =
+      was.focus instanceof HTMLElement && was.focus !== document.body && was.focus.isConnected
+        ? was.focus
+        : under.current?.querySelector("h1");
+    focus?.focus({ preventScroll: true });
+  }, [covered]);
+
+  const pop = useCallback(() => {
+    if (!covered) {
+      // A root mounts anew: at the top, its heading focused.
+      window.scrollTo({ top: 0 });
+      switched.current = true;
+    }
+    dispatch({ type: "pop" });
+  }, [covered]);
+
   let shown: ReactNode;
-  if (top) {
-    shown = me ? <Pushed screen={top} me={me} onBack={pop} /> : busy;
+  if (pushed) {
+    shown = me ? <Pushed screen={pushed} me={me} onBack={pop} /> : busy;
   } else if (nav.tab === "today") {
     shown = (
       <Home
@@ -90,14 +140,16 @@ export function Shell({ me, firstName }: Props) {
         {me && <TodayCard zone={me.timezone} locale={me.locale} />}
         {me && (
           <NextStep
+            zone={me.timezone}
+            place={placeFor(me.home_city, me.timezone, me.locale)}
             onOpen={(step) => {
-              // Each step leads to the place where it is done (spec §6).
-              if (step.kind === "reminder") {
-                window.scrollTo({ top: 0 });
-                dispatch({ type: "settings", focus: "remind" });
-              } else if (step.kind === "position") push({ name: "asanas" });
-              else if (step.shala_id) toTab("shala", `shala:${step.shala_id}`);
-              else toTab("shala", "invite");
+              // Each step leads to the place where it is done (spec §6): a shala step to the
+              // class form or the student invite on that shala's card.
+              if (step.kind === "reminder") openSettings("remind");
+              else if (step.kind === "position") push({ name: "asanas" });
+              else if (!step.shala_id) toTab("shala", "invite");
+              else
+                toTab("shala", `${step.kind === "add_class" ? "class" : "join"}:${step.shala_id}`);
             }}
           />
         )}
@@ -131,8 +183,7 @@ export function Shell({ me, firstName }: Props) {
           push({ name: "asanas" });
         }}
         onDayOff={() => {
-          window.scrollTo({ top: 0 });
-          dispatch({ type: "settings", focus: "day-off" });
+          openSettings("day-off");
         }}
       />
     );
@@ -151,11 +202,12 @@ export function Shell({ me, firstName }: Props) {
     );
   }
 
-  const tabs = !backShown;
+  // `!top` as well: a pushed screen's Back layer is counted only after its first frame.
+  const tabs = !backShown && !top;
   return (
     <div className={tabs ? "shell tabs" : "shell"}>
       {/* Before the screen, so its own layers (a form, an unsaved note) sit above this one. */}
-      {top && <StackBack onBack={pop} />}
+      {pushed && <StackBack onBack={pop} />}
       {tabs && (
         <Localized id="settings-open" attrs={{ "aria-label": true }}>
           <button
@@ -168,12 +220,28 @@ export function Shell({ me, firstName }: Props) {
           />
         </Localized>
       )}
-      <ChunkBoundary
-        key={top ? `${String(nav.stack.length)}:${top.name}` : nav.tab}
-        onBack={top ? pop : undefined}
-      >
-        <Suspense fallback={busy}>{shown}</Suspense>
-      </ChunkBoundary>
+      {/* Settings' Back layer mounts when it opens: over every layer of the hidden screen, and
+          there while its chunk loads or fails. */}
+      {settings && <StackBack onBack={pop} />}
+      {/* First in the page, so an id both screens use (a card's heading) is found here. */}
+      {settings && (
+        <ChunkBoundary onBack={pop}>
+          <Suspense fallback={busy}>
+            {me ? (
+              <Settings me={me} onBack={pop} focus={settings.focus} headingRef={heading} />
+            ) : (
+              busy
+            )}
+          </Suspense>
+        </ChunkBoundary>
+      )}
+      <div className="under" ref={under} hidden={covered}>
+        <Covered value={covered}>
+          <ChunkBoundary key={pushed ? pushed.name : nav.tab} onBack={pushed ? pop : undefined}>
+            <Suspense fallback={busy}>{shown}</Suspense>
+          </ChunkBoundary>
+        </Covered>
+      </div>
       {tabs && <TabBar tab={nav.tab} onTab={toTab} />}
     </div>
   );
@@ -186,10 +254,16 @@ function StackBack({ onBack }: { onBack: () => void }) {
   return null;
 }
 
-function Pushed({ screen, me, onBack }: { screen: Screen; me: Me; onBack: () => void }) {
+function Pushed({
+  screen,
+  me,
+  onBack,
+}: {
+  screen: Exclude<Screen, { name: "settings" }>;
+  me: Me;
+  onBack: () => void;
+}) {
   switch (screen.name) {
-    case "settings":
-      return <Settings me={me} onBack={onBack} focus={screen.focus} />;
     case "asanas":
       return <Progression locale={me.locale} onBack={onBack} />;
     case "moon":

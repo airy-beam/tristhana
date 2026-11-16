@@ -50,8 +50,6 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
   const presets = usePracticePresets(date, true).data;
   const save = useSavePractice();
   const [custom, setCustom] = useState(false);
-  // The start time sits under "More"; open from the start when one is stored.
-  const [more, setMore] = useState(!!practice?.start_time);
   // PR-08: "New asana? 🎉" after a length change past the last asana (the PUT's answer).
   const [hint, setHint] = useState<{ series: string; last: string } | null>(null);
 
@@ -196,20 +194,8 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
         ))}
       </div>
 
+      {/* The last field, in the open: one field is not worth a fold. */}
       {zone && (
-        <Localized id="practice-more">
-          <button
-            type="button"
-            className="link"
-            aria-expanded={more}
-            onClick={() => {
-              haptics.selection();
-              setMore(!more);
-            }}
-          />
-        </Localized>
-      )}
-      {zone && more && (
         <StartTime
           key={current.start_time ?? ""} // a new saved value resets the draft
           value={current.start_time ?? null}

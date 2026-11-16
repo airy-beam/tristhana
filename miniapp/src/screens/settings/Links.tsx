@@ -29,7 +29,7 @@ import {
 import { confirmDestructive, haptics, openTelegramLink } from "../../telegram";
 import type { Locale } from "../../i18n/negotiate";
 import { lazyRetry } from "../../shell/lazyRetry";
-import type { Start } from "../../shell/nav";
+import type { ShalaOpen, Start } from "../../shell/nav";
 import { cityName } from "../cityName";
 import { checkedMonth, useListing, type ListingMark } from "./listing";
 
@@ -46,7 +46,8 @@ interface Props {
   onSchedule: () => void;
   /** UI-06: a one-time intent. `create`: the bot's "Create a shala" (`?open=new-shala`), the
    * form open with its name focused. `invite`: the invite card open. `shala:<id>`: that
-   * shala's card open. */
+   * shala's card open; `class:<id>` and `join:<id>`: that card with its class form or its
+   * student invite open (Today's next step). */
   start?: Start | null | undefined;
   /** The shell focuses the heading after a tab switch. */
   headingRef?: Ref<HTMLHeadingElement> | undefined;
@@ -55,14 +56,21 @@ interface Props {
 /** What a start opens on the lists themselves. */
 type Intent = "create" | "invite";
 
+const CARD = /^(shala|class|join):(.+)$/;
+/** The shala card a start opens, and what for. */
+function cardOf(start: Start | null): { id: string; open?: ShalaOpen } | null {
+  const [, kind, id] = (start && CARD.exec(start)) ?? [];
+  if (!id) return null;
+  return kind === "class" || kind === "join" ? { id, open: kind } : { id };
+}
+
 /** The Shala tab's root (UI-06): my schedule, my teachers, my students, my invite, my shalas
  * (ID-04, SC-01). A root registers no Back layer; a shala's card, the announcements and the
  * directory line open over it and do. An invite is confirmed in the bot. A teacher never sees
  * who chose them as main. Loaded lazily. Writes are not optimistic. */
 export default function Links({ onStudents, onSchedule, start = null, headingRef }: Props) {
-  const [shala, setShala] = useState<string | null>(
-    start?.startsWith("shala:") ? start.slice("shala:".length) : null,
-  );
+  // Once: back on the lists, a tap on the same shala opens its card plainly.
+  const [shala, setShala] = useState(() => cardOf(start));
   const [feed, setFeed] = useState(false);
   const [listing, setListing] = useState(false);
   // Once: coming back from a card, the feed or the directory line finds the form closed.
@@ -99,7 +107,8 @@ export default function Links({ onStudents, onSchedule, start = null, headingRef
     return (
       <Suspense fallback={null}>
         <ShalaScreen
-          id={shala}
+          id={shala.id}
+          open={shala.open}
           onBack={() => {
             setShala(null);
           }}
@@ -119,7 +128,7 @@ export default function Links({ onStudents, onSchedule, start = null, headingRef
       }}
       onShala={(id) => {
         setIntent(null);
-        setShala(id);
+        setShala({ id });
       }}
       onFeed={() => {
         setIntent(null);
@@ -212,8 +221,9 @@ function Lists({
   );
 }
 
-/** Nobody yet (UI-06): no teacher, no student, no shala. One plain line and two quiet starts
- * with the bot's labels; no empty cards. */
+/** Nobody yet (UI-06): no teacher, no student, no shala. One plain line, then two quiet starts
+ * with the bot's labels under the bot's name for that row, so a student reads past them; no
+ * empty cards. */
 function Nobody({ onStart }: { onStart: (intent: Intent) => void }) {
   const start = (intent: Intent) => () => {
     haptics.selection();
@@ -223,6 +233,9 @@ function Nobody({ onStart }: { onStart: (intent: Intent) => void }) {
     <>
       <Localized id="shala-empty">
         <p className="hint" />
+      </Localized>
+      <Localized id="shala-starts-title">
+        <h2 className="starts" />
       </Localized>
       <Localized id="shala-start-invite">
         <button type="button" className="row-button quiet" onClick={start("invite")} />

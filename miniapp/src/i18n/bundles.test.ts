@@ -415,3 +415,25 @@ describe("PR-07 diary copy", () => {
     }
   });
 });
+
+// NF-09: comments are notes for whoever edits the copy. The build drops them from every
+// `.ftl` (`vite.config.ts`), so the first chunk carries the messages only.
+describe("the copy as it ships", () => {
+  const sources = import.meta.glob<string>("../locales/*/*.ftl", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  });
+
+  it.each(Object.entries(sources))("%s has no comment lines", (_path, source) => {
+    expect(source.split("\n").filter((line) => line.startsWith("#"))).toEqual([]);
+    expect(source).toMatch(/^[a-z][a-z0-9-]* = /m); // and still has its messages
+  });
+
+  it("keeps every message: none is lost with its comment", () => {
+    for (const locale of LOCALES) {
+      expect(messageIds(locale).size).toBe(definedIdCount(locale));
+      expect(messageIds(locale).size).toBeGreaterThan(500);
+    }
+  });
+});

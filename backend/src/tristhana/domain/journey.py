@@ -114,6 +114,7 @@ def next_steps(account: Account, facts: JourneyFacts, today: date) -> tuple[Step
     Before the first logged day a student gets none: the day card is the step. A shala owner
     is never offered the teacher's invite, the shala steps cover it (Q334). A shala step names
     the oldest shala it applies to.
+    `today` is the UTC date, as `invite_made_on` is: the link's age is between the two.
     """
     no_class = next((s for s in facts.owned if s.classes == 0), None)
     no_student = next((s for s in facts.owned if s.classes > 0 and s.students == 0), None)

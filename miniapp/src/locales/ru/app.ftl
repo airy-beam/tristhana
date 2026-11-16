@@ -5,7 +5,8 @@ tab-today = 📝 Сегодня
 tab-practice = 📊 Практика
 tab-shala = 🏛 Шала
 tabs-label = Разделы
-chunk-failed = Не получилось загрузить экран. Проверь связь и попробуй ещё раз.
+# Also the day card's line when "Add details" or "How do you feel?" fails to open, so it names no screen.
+chunk-failed = Не получилось загрузить. Проверь связь и попробуй ещё раз.
 chunk-retry = Попробовать ещё раз
 
 # Главный экран: приветствие по имени из Telegram (только для показа).
@@ -45,7 +46,7 @@ today-title = Сегодня, { $date }
 today-prompt = Практика или отдых? В журнал идёт и то, и другое.
 today-other = Другое…
 today-reasons = Выбери, что подходит. В журнале есть место любому дню.
-# $label = подпись status-*: это экран самого человека, поэтому статус назван как есть.
+# Only for a reason behind «Другое…» ($label = its status-* label): «Практика» and «День отдыха» are their own pressed buttons.
 today-logged = ✓ В журнале: { $label }
 status-practiced = 🧘 Практика
 status-rest = 😌 День отдыха
@@ -360,7 +361,9 @@ pause-days = { $n ->
         [few] { $n } дня
        *[many] { $n } дней
     }
-pause-other = Другое…
+# More day counts. Never «Другое…» here: on the day card it sits right under the day's own «Другое…» (UI-06).
+# «дней» stays: «число» alone also reads as a date.
+pause-other = Другое число дней…
 pause-back = ‹ Назад
 pause-only = { $rel ->
         [yesterday] Только вчера
@@ -801,8 +804,10 @@ feed-off-done = Отключено.
 guide-open = 📖 Справка
 
 ## Shala tab (UI-06; ID-04, SC-01). shala-empty and the two starts: nobody on the lists yet;
-## the starts carry the bot's labels.
+## the starts carry the bot's labels, under the bot's name for that row (shala-starts-title), so a
+## student does not take them for their own next step.
 shala-empty = Здесь пока никого нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют.
+shala-starts-title = Учителям и шалам
 shala-start-invite = Пригласить учеников
 shala-start-shala = Шала и занятия
 links-empty = Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют. Журнал практики работает и так.
@@ -931,13 +936,16 @@ listing-about = Это имя есть в открытом списке учит
 
 ## «Сегодня»: следующий шаг (UI-06). По одной подсказке: фраза, её кнопка и «Не сейчас» (помнит только это устройство).
 next-reminder = 🔔 Спрашивать раз в день, чтобы отмечать одним нажатием?
-next-reminder-do = Настроить напоминание
-next-position = Где заканчивается твоя практика? Отметь последнюю асану, и варианты объёма подстроятся под тебя.
+next-reminder-do = Да, напоминай
+# After that one tap, as the bot's answer to «Да, напоминай»; $time is «10:00 Алматы».
+remind-offer-set = 🔔 Буду спрашивать раз в день в { $time }.
+remind-change-time = ⏰ Изменить время
+next-position = Укажи, где заканчивается твоя практика, и варианты объёма подстроятся под тебя.
 next-position-do = Открыть «Мои асаны»
-next-invite = Ссылка-приглашение готова. Отправь её первому ученику.
+next-invite = Ссылка-приглашение готова. Отправь её ученикам, и ты увидишь то, чем они с тобой делятся.
 next-invite-do = Открыть приглашение
 next-class = В шале пока нет занятий. Добавь первое, и ученики увидят расписание.
 next-class-do = Добавить занятие
-next-shala-invite = В шале есть расписание. Теперь пригласи учеников.
+next-shala-invite = В шале уже есть расписание. Пригласи учеников, и они увидят занятия.
 next-shala-invite-do = Пригласить учеников
 next-not-now = Не сейчас

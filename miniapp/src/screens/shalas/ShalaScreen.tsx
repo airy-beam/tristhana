@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { lazy, Suspense, useState, type SyntheticEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import {
   ApiError,
@@ -21,6 +21,8 @@ import {
   type ShalaRole,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
+import { lazyRetry } from "../../shell/lazyRetry";
+import type { ShalaOpen } from "../../shell/nav";
 import {
   backButtonAvailable,
   confirmDestructive,
@@ -57,16 +59,20 @@ interface Props {
   id: string;
   onBack: () => void;
   week?: number | undefined; // the schedule's first week shown (0-3), from My schedule
+  /** UI-06: opened for one thing (Today's next step): the class form or the student invite is
+   * open and in view. Once: not again after the announcements were opened from here. */
+  open?: ShalaOpen | undefined;
 }
 
 /** The shala card (SC-01): the place, its zone, its moon city and its staff for every member;
  * students, links, roles and delete per role. Students never see other students. */
-const Announcements = lazy(() => import("../announcements/Announcements"));
+const Announcements = lazyRetry(() => import("../announcements/Announcements"));
 
-export default function ShalaScreen({ id, onBack, week }: Props) {
+export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const me = useMe().data;
   const locale: Locale = me?.locale ?? "en";
   const [announcements, setAnnouncements] = useState<"feed" | "compose" | null>(null);
+  const [opened, setOpened] = useState(open);
   if (announcements)
     return (
       <Suspense fallback={<main className="screen" aria-busy="true" />}>
@@ -79,13 +85,25 @@ export default function ShalaScreen({ id, onBack, week }: Props) {
         />
       </Suspense>
     );
-  return <Card id={id} onBack={onBack} week={week} onAnnouncements={setAnnouncements} />;
+  return (
+    <Card
+      id={id}
+      onBack={onBack}
+      week={week}
+      open={opened}
+      onAnnouncements={(view) => {
+        setOpened(undefined);
+        setAnnouncements(view);
+      }}
+    />
+  );
 }
 
 function Card({
   id,
   onBack,
   week,
+  open,
   onAnnouncements,
 }: Props & { onAnnouncements: (view: "feed" | "compose") => void }) {
   useBackButton(onBack);
@@ -134,10 +152,10 @@ function Card({
             )}
           </section>
           {manages(shala.me) && <Edit shala={shala} locale={locale} />}
-          <ShalaSchedule shala={shala} week={week ?? 0} />
+          <ShalaSchedule shala={shala} week={week ?? 0} adding={open === "class"} />
           <Staff shala={shala} />
           {isStaff(shala.me) && <Students shala={shala} />}
-          {isStaff(shala.me) && <JoinLink shala={shala} />}
+          {isStaff(shala.me) && <JoinLink shala={shala} open={open === "join"} />}
           {grantable(shala.me).length > 0 && <StaffInvite shala={shala} />}
           <Leave shala={shala} myId={me?.id} onDone={onBack} />
           {shala.me.owner && <Delete shala={shala} onDone={onBack} />}
@@ -619,7 +637,7 @@ function LinkCard({ shala, link, hint }: { shala: Shala; link: ShalaLink; hint: 
   );
 }
 
-function JoinLink({ shala }: { shala: Shala }) {
+function JoinLink({ shala, open = false }: { shala: Shala; open?: boolean }) {
   const { l10n } = useLocalization();
   const link = useShalaJoinLink(shala.id);
   const [shown, setShown] = useState<ShalaLink | null>(null);
@@ -631,6 +649,22 @@ function JoinLink({ shala }: { shala: Shala }) {
       },
     });
   };
+  // UI-06: opened for the invite, the card makes the link as a tap on the row would, and
+  // brings it into view once it is there.
+  const section = useRef<HTMLElement>(null);
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!open || asked.current) return;
+    asked.current = true;
+    load(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when asked to open
+  }, [open]);
+  const scrolled = useRef(!open);
+  useEffect(() => {
+    if (scrolled.current || !shown) return;
+    scrolled.current = true;
+    section.current?.scrollIntoView({ block: "start" });
+  }, [shown]);
   const rotate = async () => {
     const ok = await confirmDestructive(
       l10n.getString("invite-new-ask"),
@@ -640,7 +674,7 @@ function JoinLink({ shala }: { shala: Shala }) {
     if (ok) load(true);
   };
   return (
-    <section className="card">
+    <section className="card" ref={section}>
       {!shown ? (
         <Localized id="shala-invite-students">
           <button

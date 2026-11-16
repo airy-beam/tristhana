@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState } from "react";
 
 import {
   useClaimAttendance,
@@ -19,11 +19,14 @@ import CalendarFeedCard from "./CalendarFeedCard";
 import { useTypeName } from "./ClassForm";
 import { lengthOf, useRowMarks } from "./ShalaSchedule";
 import { DASH, addDays, dateIn, dayName, hmOf, minutesOf, plain, timeIn } from "./scheduleText";
+import { lazyRetry } from "../../shell/lazyRetry";
 
 // The shala card is its own lazy chunk (as from Links).
-const ShalaScreen = lazy(() => import("./ShalaScreen"));
+const ShalaScreen = lazyRetry(() => import("./ShalaScreen"));
 // SC-05: "🧘 Log this day" opens the day editor of the month calendar (its own chunk).
-const DayEditor = lazy(() => import("../stats/DayEditor").then((m) => ({ default: m.DayEditor })));
+const DayEditor = lazyRetry(async () => ({
+  default: (await import("../stats/DayEditor")).DayEditor,
+}));
 
 const WEEKS = 4;
 const FIRST_WEEK = -1; // SC-05 (Q192): last week, for "🙋 I was there"

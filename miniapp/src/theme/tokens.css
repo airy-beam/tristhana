@@ -472,12 +472,12 @@ body {
   position: relative;
 }
 
-.shell.tabs > .screen {
+.shell.tabs > .under > .screen {
   padding-bottom: calc(var(--space) * 1.5 + var(--tabbar) + var(--shell-bottom));
 }
 
 /* The heading leaves room for the gear. Focused by the shell after a tab switch. */
-.shell.tabs > .screen > h1 {
+.shell.tabs > .under > .screen > h1 {
   padding-right: 40px;
 }
 
@@ -537,6 +537,14 @@ body {
    keyboard: iOS lays the keyboard over the page, Android resizes the page. */
 :root:has(textarea:focus, input:not([type="checkbox"], [type="radio"]):focus) .tabbar {
   display: none;
+}
+
+/* The empty Shala tab: a small heading over the starts for teachers and shalas. */
+.starts {
+  margin: calc(var(--space) * 1.5) 0 0;
+  color: var(--c-hint);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* A start that is offered, not pressed on anyone (the empty Shala tab). */

@@ -5,7 +5,8 @@ tab-today = 📝 Today
 tab-practice = 📊 Practice
 tab-shala = 🏛 Shala
 tabs-label = Sections
-chunk-failed = Couldn't load this screen. Check your connection and try again.
+# Also the day card's line when "Add details" or "How do you feel?" fails to open, so it names no screen.
+chunk-failed = Couldn't load this. Check your connection and try again.
 chunk-retry = Try again
 
 # Home: greeting with the Telegram first name (display only).
@@ -44,7 +45,7 @@ today-title = Today, { $date }
 today-prompt = Practice or rest? Both go in your log.
 today-other = Other…
 today-reasons = Pick what fits. Any day belongs in your log.
-# $label = a status-* label: the person's own screen, so it says what they logged.
+# Only for a reason behind "Other…" ($label = its status-* label): Practiced and Rest day are their own pressed buttons.
 today-logged = ✓ In your log: { $label }
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day
@@ -349,7 +350,8 @@ pause-days = { $n ->
         [one] { $n } day
        *[other] { $n } days
     }
-pause-other = Other…
+# More day counts. Never "Other…" here: on the day card it sits right under the day's own "Other…" (UI-06).
+pause-other = Another number…
 pause-back = ‹ Back
 pause-only = { $rel ->
         [yesterday] Just yesterday
@@ -777,8 +779,10 @@ feed-off-done = Turned off.
 guide-open = 📖 Guide
 
 ## Shala tab (UI-06; ID-04, SC-01). shala-empty and the two starts: nobody on the lists yet;
-## the starts carry the bot's labels.
+## the starts carry the bot's labels, under the bot's name for that row (shala-starts-title), so a
+## student does not take them for their own next step.
 shala-empty = Nobody here yet. To add a teacher or join a shala, open the link they send you.
+shala-starts-title = For teachers and shalas
 shala-start-invite = Invite students
 shala-start-shala = Shala and classes
 links-empty = No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.
@@ -913,13 +917,16 @@ listing-about = The name is in the public teachers directory of Sharath Yoga Cen
 
 ## Today: the next step (UI-06). One suggestion at a time: a sentence, its button, and "Not now" (kept on this device only).
 next-reminder = 🔔 Want me to ask once a day, so logging takes one tap?
-next-reminder-do = Set the reminder
-next-position = Where does your practice end? Mark your last asana, and length presets will fit you.
+next-reminder-do = Yes, remind me
+# After that one tap, as the bot's answer to "Yes, remind me"; $time is "10:00 Almaty".
+remind-offer-set = 🔔 I'll ask once a day at { $time }.
+remind-change-time = ⏰ Change the time
+next-position = Set where your practice ends, and the length choices will match your practice.
 next-position-do = Open My asanas
-next-invite = Your invite link is ready. Send it to your first student.
+next-invite = Your invite link is ready. Send it to your students, and you'll see what they share with you.
 next-invite-do = Open the invite
 next-class = Your shala has no classes yet. Add the first one, and students will see the schedule.
 next-class-do = Add a class
-next-shala-invite = Your shala has a schedule. Now invite students to it.
+next-shala-invite = Your shala has a schedule now. Invite students, and they'll see its classes.
 next-shala-invite-do = Invite students
 next-not-now = Not now

@@ -14,6 +14,8 @@ Three facts constrain the design. Telegram offers one header button, Close or Ba
 - **Settings is a pushed screen with one route:** the gear on the roots and Telegram's ⋯ item call the same function.
 - **Today is in the first chunk; the other tabs and every pushed screen are lazy**, inside one error boundary that keeps the tab bar on screen when a chunk fails to load.
 - **While a text field has focus the bar is hidden by CSS**, so it never sits on the keyboard on either platform.
+- **Amended in review (2026-11-16): Settings is the one exception to "one thing is mounted".** Telegram's ⋯ item opens it from anywhere, also over a half-filled form or an unsaved note, so what it was opened over stays mounted and hidden (as Stats under Badges) and Back returns to it as it was left, scroll and focus included. Settings' own Back layer is mounted after the hidden screen's layers, so Back closes Settings first; the hidden screen's main button is hidden with it (`telegram/covered.ts`). Every other pop still mounts the root anew, at the top, with its heading focused.
+- **Amended in review: `start` also names one thing on a shala's card**: `class:<id>` (the class form open in its schedule) and `join:<id>` (the student invite open), so Today's shala steps land where the work is.
 ## Consequences
 - A screen no longer chooses where Back goes: it pops. `onBack` props stay for the screens' own inner layers.
 - Leaving a tab drops its inner state (the month chosen on Stats, an open shala card). Cached queries make the return immediate; a stage that needs more keeps that state in the reducer.

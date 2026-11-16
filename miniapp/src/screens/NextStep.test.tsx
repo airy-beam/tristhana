@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { NextStep as Step } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
+import { haptics } from "../telegram";
 import { NextStep } from "./NextStep";
 
 // UI-06 stage 2 (spec §6): one suggestion at a time from GET /me/next-steps, the first the
@@ -23,13 +24,30 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-/** `steps`: the server's list; a number: that status; "never": no answer. */
-function stubApi(steps: Step[] | number | "never"): Request[] {
+const SETTINGS = {
+  moon: { offsets: [1, 7], at: "19:00:00" },
+  quiet: { start: "22:00:00", end: "07:00:00" },
+  daily_cap: 3,
+  practice: { on: true, at: "10:00:00", days: [1, 2, 3, 4, 5, 7] },
+  timezone: "Asia/Almaty",
+};
+
+/** `steps`: the server's list; a number: that status; "never": no answer. The reminder patch
+ * answers `patch` (a status: it fails); once it is on, the server no longer offers the step. */
+function stubApi(steps: Step[] | number | "never", patch: number = 200): Request[] {
   const seen: Request[] = [];
+  let on = false;
   vi.stubGlobal(
     "fetch",
     vi.fn((request: Request) => {
       seen.push(request);
+      if (request.method === "PATCH") {
+        if (patch !== 200) return Promise.resolve(json({ code: "unavailable" }, patch));
+        on = true;
+        return Promise.resolve(json(SETTINGS));
+      }
+      if (Array.isArray(steps) && on)
+        return Promise.resolve(json({ steps: steps.filter((s) => s.kind !== "reminder") }));
       if (steps === "never") return new Promise<Response>(() => undefined);
       if (typeof steps === "number") return Promise.resolve(json({ detail: "Not Found" }, steps));
       return Promise.resolve(json({ steps }));
@@ -38,16 +56,24 @@ function stubApi(steps: Step[] | number | "never"): Request[] {
   return seen;
 }
 
-function renderStep(onOpen: (step: Step) => void = () => undefined, locale: Locale = "en") {
+/** `zone`: the account's; unknown by default, as before the device reported one. */
+function renderStep(
+  onOpen: (step: Step) => void = () => undefined,
+  locale: Locale = "en",
+  zone: string | null = null,
+  place?: string,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <L10nProvider locale={locale}>
-        <NextStep onOpen={onOpen} />
+        <NextStep zone={zone} place={place} onOpen={onOpen} />
       </L10nProvider>
     </QueryClientProvider>,
   );
 }
+
+const visible = (el: HTMLElement) => el.textContent.replace(/[⁨⁩]/g, "");
 
 const answered = (seen: Request[]) =>
   vi.waitFor(() => {
@@ -69,10 +95,10 @@ describe("NextStep", () => {
       await screen.findByText("🔔 Want me to ask once a day, so logging takes one tap?"),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Set the reminder",
+      "Yes, remind me",
       "Not now",
     ]);
-    expect(screen.queryByText(/Where does your practice end/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Set where your practice ends/)).not.toBeInTheDocument();
     expect(new URL(seen[0]?.url ?? "").pathname).toBe("/api/v1/me/next-steps");
   });
 
@@ -106,10 +132,16 @@ describe("NextStep", () => {
     renderStep();
 
     expect(await screen.findByRole("button", { name: "Open My asanas" })).toBeInTheDocument();
+    // The sentence promises nothing the app may not do: the choices follow the practice.
+    expect(
+      screen.getByText(
+        "Set where your practice ends, and the length choices will match your practice.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it.each([
-    ["reminder", null, "Set the reminder"],
+    ["reminder", null, "Yes, remind me"],
     ["position", null, "Open My asanas"],
     ["invite_student", null, "Open the invite"],
     ["add_class", SHALA, "Add a class"],
@@ -124,6 +156,90 @@ describe("NextStep", () => {
     expect(onOpen).toHaveBeenCalledExactlyOnceWith({ kind, shala_id: shala });
   });
 
+  describe("the reminder in one tap", () => {
+    const patches = (seen: Request[]) => seen.filter((r) => r.method === "PATCH");
+
+    it("turns the reminder on at the default time and says when, with a quiet way to change it", async () => {
+      const seen = stubApi([step("reminder"), step("position")]);
+      const onOpen = vi.fn();
+      renderStep(onOpen, "en", "Asia/Almaty");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
+
+      // My own zone: the place, no offset (ADR-0044). The time is the server's answer.
+      expect(visible(await screen.findByRole("status"))).toBe(
+        "🔔 I'll ask once a day at 10:00 Almaty.",
+      );
+      expect(haptics.impact).toHaveBeenCalledWith("light");
+      expect(patches(seen)).toHaveLength(1);
+      expect(new URL(patches(seen)[0]?.url ?? "").pathname).toBe(
+        "/api/v1/me/notification-settings",
+      );
+      // On, and nothing else: the time is the default the server keeps (or one chosen before).
+      expect(await patches(seen)[0]?.json()).toEqual({ practice: { on: true } });
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
+        "⏰ Change the time",
+      ]);
+
+      fireEvent.click(screen.getByRole("button", { name: "⏰ Change the time" }));
+
+      expect(onOpen).toHaveBeenCalledExactlyOnceWith({ kind: "reminder", shala_id: null });
+    });
+
+    it("keeps the confirmation after the server stops offering the step", async () => {
+      const seen = stubApi([step("reminder"), step("position")]);
+      renderStep(undefined, "en", "Asia/Almaty");
+      fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
+      await screen.findByRole("status");
+
+      await vi.waitFor(() => {
+        expect(seen.filter((r) => r.method === "GET")).toHaveLength(2); // next-steps, again
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(screen.getByRole("status")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Open My asanas" })).not.toBeInTheDocument();
+    });
+
+    it("names the home city when it is the zone's, in Russian too", async () => {
+      stubApi([step("reminder")]);
+      renderStep(undefined, "ru", "Asia/Almaty", "Алматы");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Да, напоминай" }));
+
+      expect(visible(await screen.findByRole("status"))).toBe(
+        "🔔 Буду спрашивать раз в день в 10:00 Алматы.",
+      );
+      expect(screen.getByRole("button", { name: "⏰ Изменить время" })).toBeInTheDocument();
+    });
+
+    it("with no zone yet, opens the reminder setting and saves nothing", async () => {
+      const seen = stubApi([step("reminder")]);
+      const onOpen = vi.fn();
+      renderStep(onOpen);
+
+      fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
+
+      expect(onOpen).toHaveBeenCalledExactlyOnceWith({ kind: "reminder", shala_id: null });
+      expect(patches(seen)).toHaveLength(0);
+    });
+
+    it("a failed save says so and keeps the step", async () => {
+      stubApi([step("reminder")], 503);
+      renderStep(undefined, "en", "Asia/Almaty");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Couldn't save. Try again in a moment.",
+      );
+      expect(haptics.notify).toHaveBeenCalledWith("error");
+      expect(screen.getByRole("button", { name: "Yes, remind me" })).toBeEnabled();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+  });
+
   it("Not now hides that step on this device and shows the next", async () => {
     const steps = [step("reminder"), step("position")];
     const seen = stubApi(steps);
@@ -131,7 +247,7 @@ describe("NextStep", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
 
-    expect(screen.queryByRole("button", { name: "Set the reminder" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yes, remind me" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open My asanas" })).toBeInTheDocument();
     // Nothing is sent: the server still offers it, the device remembers.
     expect(seen.every((r) => r.method === "GET")).toBe(true);
@@ -140,7 +256,7 @@ describe("NextStep", () => {
     stubApi(steps);
     renderStep();
     expect(await screen.findByRole("button", { name: "Open My asanas" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Set the reminder" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yes, remind me" })).not.toBeInTheDocument();
   });
 
   it("remembers a shala step per shala", async () => {
@@ -181,8 +297,21 @@ describe("NextStep", () => {
     renderStep(undefined, "ru");
 
     expect(
-      await screen.findByText("Ссылка-приглашение готова. Отправь её первому ученику."),
+      await screen.findByText(
+        "Ссылка-приглашение готова. Отправь её ученикам, и ты увидишь то, чем они с тобой делятся.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Не сейчас" })).toBeInTheDocument();
+  });
+
+  it("the position step in Russian", async () => {
+    stubApi([step("position")]);
+    renderStep(undefined, "ru");
+
+    expect(
+      await screen.findByText(
+        "Укажи, где заканчивается твоя практика, и варианты объёма подстроятся под тебя.",
+      ),
+    ).toBeInTheDocument();
   });
 });

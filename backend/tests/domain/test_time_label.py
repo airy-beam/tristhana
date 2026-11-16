@@ -1,11 +1,12 @@
 """ADR-0044: a displayed time always names its place; the UTC offset shows only outside the
-viewer's own IANA zone. Pure (`zoneinfo` only): the city name is the formatter's business."""
+viewer's own IANA zone. Pure (`zoneinfo` only): the city name is the formatter's business.
+The Mini App's `timeLabel.test.ts` holds the same cases, one for one."""
 
 from datetime import date, time
 
 import pytest
 
-from tristhana.domain.time_label import offset_shown, offset_text
+from tristhana.domain.time_label import ZONE_ALIASES, offset_shown, offset_text
 
 DAY = date(2026, 11, 16)
 AT = time(7)
@@ -71,3 +72,55 @@ def test_the_answer_never_flips_on_a_daylight_saving_date(day: date) -> None:
     assert offset_shown("Europe/Berlin", "Europe/Berlin") is False
     assert offset_shown("Europe/Paris", "Europe/Berlin") is True
     assert offset_text("Europe/Paris", day, AT) == offset_text("Europe/Berlin", day, AT)
+
+
+# One zone, two names: what Chrome and Android's WebView still report (CLDR's ids), and IANA's
+# own name (the seeded cities, Firefox). The same table as in `timeLabel.test.ts`.
+ALIASES = [
+    ("Africa/Asmera", "Africa/Asmara"),
+    ("America/Buenos_Aires", "America/Argentina/Buenos_Aires"),
+    ("America/Catamarca", "America/Argentina/Catamarca"),
+    ("America/Cordoba", "America/Argentina/Cordoba"),
+    ("America/Jujuy", "America/Argentina/Jujuy"),
+    ("America/Mendoza", "America/Argentina/Mendoza"),
+    ("America/Coral_Harbour", "America/Atikokan"),
+    ("America/Godthab", "America/Nuuk"),
+    ("America/Indianapolis", "America/Indiana/Indianapolis"),
+    ("America/Louisville", "America/Kentucky/Louisville"),
+    ("Asia/Calcutta", "Asia/Kolkata"),
+    ("Asia/Katmandu", "Asia/Kathmandu"),
+    ("Asia/Rangoon", "Asia/Yangon"),
+    ("Asia/Saigon", "Asia/Ho_Chi_Minh"),
+    ("Atlantic/Faeroe", "Atlantic/Faroe"),
+    ("Europe/Kiev", "Europe/Kyiv"),
+    ("Pacific/Enderbury", "Pacific/Kanton"),
+    ("Pacific/Ponape", "Pacific/Pohnpei"),
+    ("Pacific/Truk", "Pacific/Chuuk"),
+]
+
+
+@pytest.mark.parametrize(("alias", "name"), ALIASES)
+def test_two_names_of_one_zone_are_the_viewers_own_zone(alias: str, name: str) -> None:
+    """A person in Mysuru whose phone says `Asia/Calcutta` reads `07:00 Mysuru`, no offset."""
+    assert offset_shown(name, alias) is False
+    assert offset_shown(alias, name) is False
+    assert offset_shown(alias, alias) is False
+
+
+def test_the_alias_table_is_exactly_this_one() -> None:
+    """The twin's test holds the same list: a name added on one side fails on the other."""
+    assert dict(ALIASES) == ZONE_ALIASES
+    assert not set(ZONE_ALIASES) & set(ZONE_ALIASES.values())  # no chains
+
+
+@pytest.mark.parametrize(("alias", "name"), [ALIASES[10], ALIASES[15]])
+def test_both_names_keep_the_same_clock(alias: str, name: str) -> None:
+    assert offset_text(alias, DAY, AT) == offset_text(name, DAY, AT)
+
+
+def test_an_alias_is_still_another_zone_for_everyone_else() -> None:
+    """Kolkata and Colombo share a clock: still two zones, under either name."""
+    assert offset_shown("Asia/Calcutta", "Asia/Colombo") is True
+    assert offset_shown("Asia/Colombo", "Asia/Calcutta") is True
+    assert offset_shown("Europe/Kiev", "Europe/Berlin") is True
+    assert offset_shown("Asia/Calcutta", None) is True
