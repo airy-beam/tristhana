@@ -8,7 +8,7 @@ Keep track of your last asana, mark a new one when your teacher gives it, and lo
 
 ## Set where your practice ends
 
-1. Send :cmd[asanas], or tap :ftl[progression-open] in the app.
+1. In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-asanas] (or send :cmd[asanas]). In the app, tap :ftl[progression-open].
 2. The first time, pick the series and your last asana.
 
 ![My asanas in the bot: the current practice and the buttons for a new asana](../../../assets/shots/en/bot-asanas.webp)
@@ -17,7 +17,7 @@ From then on, :ftl[practice-length]{from=bot} also offers your own practice when
 
 ## A new asana 🎉
 
-When your teacher gives you the next asana, open :cmd[asanas] and tap the button with its name. Got more than one? :ftl[progression-new-other] lets you choose.
+When your teacher gives you the next asana, open the same screen and tap the button with its name. Got more than one? :ftl[progression-new-other] lets you choose.
 
 Drop-backs, standing up from a backbend and tic-tacs have their own buttons. Mark them whenever they come, in any order.
 

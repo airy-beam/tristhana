@@ -17,7 +17,7 @@ More detail: [My teacher](../my-teacher/) and [Privacy in plain words](../../ref
 
 ## Download your data
 
-1. Send :cmd[settings] and tap :ftl[settings-data-button].
+1. Open :ftl[menu-open] → :ftl[menu-settings] → :ftl[settings-more-button] and tap :ftl[settings-data-button].
 2. Tap :ftl[export-button]{from=bot}.
 
 ![The My data screen in the bot](../../../assets/shots/en/bot-my-data.webp)

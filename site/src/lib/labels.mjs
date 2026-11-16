@@ -96,11 +96,24 @@ export function createLabels(sources = SOURCES) {
   return { label };
 }
 
-/** The commands the bot's menu shows, read from the tool that registers them. */
-export function menuCommands(file = WEBHOOK_TOOL) {
-  const match = /^COMMANDS = \(([^)]*)\)/m.exec(readFileSync(file, "utf8"));
-  if (!match) throw new LabelError(`no COMMANDS tuple in ${file}`);
+/** The names in the tuple `name` of the tool that registers the bot's commands. */
+function commandTuple(/** @type {string} */ name, /** @type {string} */ file) {
+  const match = new RegExp(`^${name} = \\(([^)]*)\\)`, "m").exec(readFileSync(file, "utf8"));
+  if (!match) throw new LabelError(`no ${name} tuple in ${file}`);
   return [...match[1].matchAll(/"([a-z_]+)"/g)].map((found) => found[1]);
+}
+
+/** The commands the bot's menu shows: each one must be documented in some guide. */
+export function menuCommands(file = WEBHOOK_TOOL) {
+  return commandTuple("COMMANDS", file);
+}
+
+/**
+ * The commands the bot handles but lists nowhere (UI-06): a guide may quote one as a shortcut.
+ * `/admin` is in neither tuple, so it can never be quoted (ADR-0042).
+ */
+export function hiddenCommands(file = WEBHOOK_TOOL) {
+  return commandTuple("HIDDEN_COMMANDS", file);
 }
 
 /** `ru` for files under a `/ru/` content folder, otherwise `en` (the root locale). */

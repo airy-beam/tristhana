@@ -62,11 +62,13 @@ const same = (/** @type {unknown} */ a, /** @type {unknown} */ b) =>
   JSON.stringify(a) === JSON.stringify(b);
 
 /**
- * @param {{ docsDir: string, label: (locale: string, key: string, args?: Record<string, string>, from?: string) => string, commands: string[], shots?: { names: string[], dir: string } }} input
+ * @param {{ docsDir: string, label: (locale: string, key: string, args?: Record<string, string>, from?: string) => string, commands: string[], hidden?: string[], shots?: { names: string[], dir: string } }} input
+ *   `commands`: the bot's menu, each to be documented somewhere · `hidden`: commands the bot
+ *   handles but does not list (UI-06), which a page may quote and none has to ·
  *   `shots`: the manifest's shot names and the folder holding `<locale>/<name>.webp`
  * @returns {string[]} one line per problem; empty when the guides are in order
  */
-export function checkGuide({ docsDir, label, commands, shots }) {
+export function checkGuide({ docsDir, label, commands, hidden = [], shots }) {
   /** @type {string[]} */
   const problems = [];
   const pages = readPages(docsDir);
@@ -92,7 +94,9 @@ export function checkGuide({ docsDir, label, commands, shots }) {
     for (const directive of directivesIn(page.body)) {
       if (directive.name === "cmd") {
         if (commands.includes(directive.key)) documented.add(directive.key);
-        else problems.push(`${page.file}: :cmd[${directive.key}] is not in the bot's command menu`);
+        else if (!hidden.includes(directive.key)) {
+          problems.push(`${page.file}: :cmd[${directive.key}] is not one of the bot's commands`);
+        }
         continue;
       }
       const { from, ...args } = directive.args;

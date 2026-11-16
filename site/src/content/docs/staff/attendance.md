@@ -8,7 +8,7 @@ See who came to a class and adjust the list. Attendance is separate from anyone'
 
 ## Open the list
 
-- **In the bot:** send :cmd[classes], or open the shala's schedule, and tap :ftl[attend-staff-open]{from=bot}. Choose the class.
+- **In the bot:** open :ftl[menu-open] → :ftl[menu-classes], or the shala's schedule, tap :ftl[attend-staff-open]{from=bot} and choose the class.
 - **In the app:** tap the class on its date in the shala's schedule.
 
 You can mark a class once it has started, for 7 days.

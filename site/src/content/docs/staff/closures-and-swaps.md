@@ -15,7 +15,7 @@ The class stays in the week, marked as cancelled, so nobody wonders where it wen
 
 ## A substitute for one morning
 
-Tap the class on its date in the app and choose someone under :ftl[occurrence-teacher]. The week shows their name with "substitute", and in :cmd[classes] both teachers see who is covering.
+Tap the class on its date in the app and choose someone under :ftl[occurrence-teacher]. The week shows their name with "substitute", and under :ftl[menu-classes] in the bot both teachers see who is covering.
 
 ## Close the shala for a few days
 

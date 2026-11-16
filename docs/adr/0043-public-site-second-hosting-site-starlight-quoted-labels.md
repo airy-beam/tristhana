@@ -1,6 +1,7 @@
 # ADR-0043: The public site is a second Hosting site built with Astro Starlight; guides quote the product's Fluent messages and use generated screenshots
 - Status: accepted (owner, 2026-11-11)
 - Date: 2026-11-11
+- Amended by UI-06 (2026-11-16): a guide may also quote, with `:cmd[name]`, a command the bot handles but does not list (`HIDDEN_COMMANDS` in `tools/telegram/set_webhook.py`); "every menu command documented somewhere" applies to the five listed in `COMMANDS`, and `/admin` is in neither list.
 ## Context
 UI-05 (spec `docs/specs/UI-05-public-site-guides.md`) adds a landing page and user guides for students, teachers and shala staff, in RU and EN, for the public launch. The Mini App already owns the root of `tristhana.web.app`, and BotFather points there. Guides go stale quickly in a product that ships several features a week, and the owner wants them refreshed by a skill, with screenshots.
 

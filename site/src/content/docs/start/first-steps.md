@@ -1,27 +1,30 @@
 ---
 title: "First steps"
-description: "Open the bot, pick your language and log your first day. It takes about two minutes."
-features: [UI-01, ID-01]
+description: "Open the bot, say where to start and log your first day. It takes about two minutes."
+features: [UI-01, UI-06, ID-01]
 ---
 
-Open the bot, pick your language and log your first day. It takes about two minutes.
+Open the bot, say where to start and log your first day. It takes about two minutes.
 
 ## Steps
 
-1. Open [@tristhana_bot](https://t.me/tristhana_bot) in Telegram and send :cmd[start].
-2. The bot greets you and asks about today. Tap :ftl[status-practiced] or :ftl[status-rest]: both go in your log.
-3. That's it, your first day is logged. After a practice you can add a few details, or just leave it at one tap.
+1. Open [@tristhana_bot](https://t.me/tristhana_bot) in Telegram and start it.
+2. The bot asks :ftl[welcome-ask] Tap :ftl[welcome-path-practice]. If you teach, the other two answers are for you.
+3. Now it asks about today. Tap :ftl[status-practiced] or :ftl[status-rest]: both go in your log.
+4. After a practice, tap :ftl[practice-done]. That's it, your first day is logged.
 
-![The bot's greeting with the buttons for today](../../../assets/shots/en/bot-start.webp)
+![The bot's greeting and its first question, with three answers](../../../assets/shots/en/bot-start.webp)
+
+<!-- shots-pending: ![Today in the bot: practice, rest, other, and the Menu](../../../assets/shots/en/bot-today.webp) -->
 
 _Pictures of the bot are drawn from its real messages._
 
 ## Good to know
 
-- **No sign-up.** Your account is created the moment you send :cmd[start]. There are no forms and no password.
-- **Language.** The bot starts in your Telegram language. The button with the other language's name switches it, and you can change it later in :cmd[settings].
-- **Your time zone.** Tap :ftl[start-open-app] once. The app tells the bot your phone's time zone, so your days land on the right date.
-- **A quick look around.** :ftl[tour-open]{from=bot} under :cmd[help] shows the main things in six short steps.
+- **Three taps today, two from tomorrow.** The first question comes only once. After that :cmd[start] opens today straight away.
+- **No sign-up, no commands to learn.** Your account is created the moment you start the bot. Everything else is behind :ftl[menu-open].
+- **Language.** The bot starts in your Telegram language. The button with the other language's name on the first screen switches it, and you can change it later in :ftl[menu-settings].
+- **Your time zone.** Open the app once: :ftl[menu-open] → :ftl[menu-practice]. The app tells the bot your phone's time zone, so your days land on the right date.
 
 ## Next
 

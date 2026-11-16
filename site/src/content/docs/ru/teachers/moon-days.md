@@ -12,7 +12,7 @@ features: [MD-02]
 
 ## Выбрать свой город
 
-1. Отправь :cmd[moon].
+1. Открой :ftl[menu-open] → :ftl[menu-moon] (или отправь :cmd[moon]).
 2. Нажми :ftl[moon-change-city] и выбери город, по которому живёт твой зал.
 
 ![Лунные дни учителя в боте со строкой про учеников](../../../../assets/shots/ru/bot-teacher-moon.webp)

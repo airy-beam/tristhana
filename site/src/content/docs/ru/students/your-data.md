@@ -17,7 +17,7 @@ features: [ST-09, WH-04]
 
 ## Скачать свои данные
 
-1. Отправь :cmd[settings] и нажми :ftl[settings-data-button].
+1. Открой :ftl[menu-open] → :ftl[menu-settings] → :ftl[settings-more-button] и нажми :ftl[settings-data-button].
 2. Нажми :ftl[export-button]{from=bot}.
 
 ![Экран «Мои данные» в боте](../../../../assets/shots/ru/bot-my-data.webp)

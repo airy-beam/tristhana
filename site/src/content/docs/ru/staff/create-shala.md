@@ -8,7 +8,7 @@ features: [SC-01]
 
 ## Создать шалу
 
-1. В приложении открой :ftl[settings-open] → :ftl[links-title] и нажми :ftl[shala-create].
+1. В боте открой :ftl[menu-open] → :ftl[menu-teach] → :ftl[welcome-path-shala] и нажми :ftl[shala-create]: приложение откроется сразу на форме. Ученики или шала уже есть? Тогда этой строки в меню нет, а та же кнопка есть в приложении: :ftl[settings-open] → :ftl[links-title].
 2. Заполни :ftl[shala-name-label] и :ftl[shala-city-label]. По городу определяются время шалы и её лунные дни. Если зала нет, отметь :ftl[shala-online-only].
 3. В разделе :ftl[shala-my-roles] отметь «Преподаватель», если ты там преподаёшь.
 4. Нажми :ftl[shala-create-submit].
@@ -17,7 +17,7 @@ features: [SC-01]
 
 ## Карточка шалы
 
-В боте отправь :cmd[teachers] и нажми на название шалы.
+В боте открой :ftl[menu-open] → :ftl[menu-teacher] и нажми на название шалы.
 
 ![Карточка шалы в боте](../../../../assets/shots/ru/bot-shala.webp)
 

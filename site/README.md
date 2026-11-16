@@ -26,7 +26,7 @@ Never type a button label or a command by hand:
 | `:ftl[start-open-app]`     | the real label in the page's language, in bold                  |
 | `:ftl[some-key]{n=3}`      | a message with arguments (numbers pick the right plural)        |
 | `:ftl[some-key]{from=app}` | when the bot and the Mini App both have the key with other text |
-| `:cmd[log]`                | `/log`, checked against the bot's command menu                  |
+| `:cmd[moon]`               | `/moon`, checked against the bot's commands (menu or hidden)    |
 
 The keys come from `backend/src/tristhana/infrastructure/i18n/locales/` and `miniapp/src/locales/`. An unknown key or command fails the build and names the page.
 
@@ -50,7 +50,7 @@ npm run shots -- --lang ru       # one language only
 
 Needs the local Postgres container (`tristhana-pg`), `uv` and Google Chrome. The script builds a private demo copy of the product and throws it away afterwards: its own database (`tristhana_demo`, dropped and re-created on every run), a backend on port 8010 that never reads `backend/.env` and has no real bot token, and a Mini App dev server on port 5183. Your own dev instance on port 8000 is not touched.
 
-- The list is `shots/manifest.yaml`; the comments at its top explain each field. A step is a Fluent key, `=student`, `=teacher` or `=shala` for a name from the demo cast, or `#2` for the second button of a bot message.
+- The list is `shots/manifest.yaml`; the comments at its top explain each field. A step is a Fluent key, `=student`, `=teacher` or `=shala` for a name from the demo cast, or `#2` for the second button of a bot message. `=invite` in a bot shot's `say` is the demo teacher's invite code.
 - The demo people and what they logged are in `shots/lib/cast.mjs` and `shots/lib/seed.mjs`. Everything is entered through the real REST API and the real bot webhook.
 - Mini App pictures are a phone-sized Chrome looking at the real app. Bot pictures are drawn from the bot's real reply (text and buttons) in the site's own style; they are drawings, and the guide says so.
 - Dates in the pictures follow the day you run it, so a full re-run changes every file. Use `--only` after a feature change.
