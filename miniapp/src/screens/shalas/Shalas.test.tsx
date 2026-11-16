@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import type { Me } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
 import Links from "../settings/Links";
 import Settings from "../settings/Settings";
+import { useBackButton } from "../../telegram";
 import ShalaScreen from "./ShalaScreen";
 
 // SC-01 (spec §2, §4, §7): the 🏛 Shalas part of 👥 Teachers and students, the create form
@@ -243,6 +244,40 @@ describe("the create form", () => {
     });
     const body: unknown = await calls(seen, "POST", "/api/v1/shalas")[0]?.json();
     expect(body).toMatchObject({ name: "Ashtanga Almaty", online: true, roles: ["teacher"] });
+  });
+
+  // UI-06: the bot's "Create a shala" button opens the app here (`?open=new-shala`).
+  it("starts open with the name focused when asked to (create)", async () => {
+    stubApi({ mine: MINE });
+
+    renderWith(<Links create onBack={vi.fn()} onStudents={vi.fn()} />);
+
+    expect(await screen.findByRole("textbox")).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
+  });
+
+  it("doesn't take the focus when the form is opened by its button", async () => {
+    stubApi();
+
+    const name = await openForm();
+
+    expect(name).not.toHaveFocus();
+  });
+
+  it("opens only once: back from the new shala's card the form is closed", async () => {
+    stubApi();
+    renderWith(<Links create onBack={vi.fn()} onStudents={vi.fn()} />);
+    const name = await screen.findByRole("textbox");
+    fireEvent.change(name, { target: { value: "Ashtanga Almaty" } });
+    fireEvent.submit(name.closest("form") as HTMLFormElement);
+    await screen.findByRole("button", { name: "➕ Invite staff" }); // the card
+
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+
+    expect(await screen.findByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("shows the caps error from a 409", async () => {

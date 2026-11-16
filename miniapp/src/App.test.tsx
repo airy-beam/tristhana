@@ -3,15 +3,24 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { App } from "./App";
 
 // UI-02 wiring: the Settings row starts the tour on Home, ⋯ Settings closes it.
+// UI-06 (spec §3, §8): the bot's buttons open the app on a screen with `?open=…`.
 
-const telegram = vi.hoisted(() => ({ openSettings: vi.fn() as () => void }));
+const telegram = vi.hoisted(() => ({
+  openSettings: vi.fn() as () => void,
+  /** What Telegram's Back button does on the screen now shown. */
+  back: vi.fn() as () => void,
+}));
 
 vi.mock("./telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
-  useBackButton: vi.fn(),
+  useBackButton: (back: () => void) => {
+    telegram.back = back;
+  },
   backButtonAvailable: vi.fn(() => true),
   markReady: vi.fn(),
+  confirmDestructive: vi.fn(() => Promise.resolve(false)),
+  openTelegramLink: vi.fn(),
   useMainButton: vi.fn(),
   useSettingsButton: (open: () => void) => {
     telegram.openSettings = open;
@@ -48,8 +57,36 @@ const myShala = (side: "staff" | "student") => ({
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
 
+const NO_DAYS = {
+  practiced: 0,
+  possible: 0,
+  skipped: 0,
+  unlogged: 0,
+  auto: 0,
+  rest: { rest: 0, moon: 0, ladies: 0, sick: 0, travel: 0 },
+  contexts: { mysore: 0, led: 0, private: 0, self: 0 },
+  online: 0,
+  series: [],
+  unspecified: 0,
+  duration: { total_min: 0, count: 0 },
+};
+const STATS = {
+  today: TODAY,
+  timezone_known: true,
+  auto: [],
+  year: 2026,
+  first_year: 2026,
+  cells: Array.from({ length: 310 }, () => "none"), // Jan 1 … Nov 6
+  moon: { location: "mysuru", days: [] },
+  months: Array.from({ length: 12 }, () => NO_DAYS),
+  year_total: NO_DAYS,
+  runs: { current: 0, longest: 0 },
+};
+
 function respond(path: string) {
   if (path === "/api/v1/me") return ME;
+  if (path === "/api/v1/me/stats") return STATS;
+  if (path === "/api/v1/me/badges") return { badges: [] };
   if (path === "/api/v1/health") return { version: "1", commit: "abcdef0" };
   if (path === "/api/v1/moon/cities") return [];
   if (path === "/api/v1/me/links") return { teachers: [], students: [] };
@@ -114,6 +151,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
 });
 
 const renderApp = () => render(<App locale="en" firstName="Ash" inTelegram />);
@@ -167,4 +205,79 @@ test("someone in no shala sees no My schedule row", async () => {
   await screen.findByText(OFFER);
 
   expect(screen.queryByRole("button", { name: "🗓 My schedule" })).toBeNull();
+});
+
+describe("opened by a bot button (?open=…)", () => {
+  const LINKS = "👥 Teachers and students";
+  const HOME_ROW = "📊 My practice";
+
+  /** The app as Telegram opens it at this address (a fresh App: its query cache is module-wide). */
+  async function launch(search: string) {
+    window.history.replaceState(null, "", search);
+    vi.resetModules();
+    const { App: Fresh } = await import("./App");
+    render(<Fresh locale="en" firstName="Ash" inTelegram />);
+  }
+  const back = () => {
+    act(() => {
+      telegram.back();
+    });
+  };
+
+  test("?open=new-shala opens the create form, ready to type the name", async () => {
+    await launch("/?open=new-shala");
+
+    const name = await screen.findByLabelText("Name");
+
+    expect(name).toHaveFocus();
+    expect(screen.getByRole("heading", { name: LINKS })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
+  });
+
+  test("Back from the create form goes Home, not to Settings", async () => {
+    await launch("/?open=new-shala");
+    await screen.findByLabelText("Name");
+
+    back();
+
+    expect(await screen.findByRole("button", { name: HOME_ROW })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: LINKS })).toBeNull();
+    expect(screen.queryByRole("button", { name: "🧭 Quick tour" })).toBeNull();
+  });
+
+  test("Teachers and students from Settings still starts closed and goes back to Settings", async () => {
+    await launch("/");
+    await screen.findByRole("button", { name: HOME_ROW });
+    openSettings();
+    fireEvent.click(await screen.findByRole("button", { name: LINKS }));
+
+    expect(await screen.findByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).toBeNull();
+    back();
+
+    expect(await screen.findByRole("button", { name: "🧭 Quick tour" })).toBeInTheDocument();
+  });
+
+  test("?open=practice opens My practice, and Back goes Home", async () => {
+    await launch("/?open=practice");
+
+    expect(await screen.findByRole("heading", { name: "My practice" })).toBeInTheDocument();
+    back();
+
+    expect(await screen.findByRole("button", { name: HOME_ROW })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "My practice" })).toBeNull();
+  });
+
+  test.each(["/?open=somewhere-new", "/?open=", "/?open=new-shala%20"])(
+    "an unknown value opens Home: %s",
+    async (search) => {
+      await launch(search);
+
+      expect(await screen.findByText(OFFER)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: HOME_ROW })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: LINKS })).toBeNull();
+      expect(screen.queryByRole("heading", { name: "My practice" })).toBeNull();
+    },
+  );
 });
