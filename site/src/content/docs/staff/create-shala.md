@@ -9,13 +9,30 @@ Set up your shala in a few minutes and invite the other teachers and helpers.
 ## Create your shala
 
 1. In the bot, open :ftl[menu-open] → :ftl[menu-teach] → :ftl[welcome-path-shala] and tap :ftl[shala-create]: the app opens straight on the form. Already have students or a shala? Then that Menu row is gone, and the same button is in the app, on the :ftl[tab-shala] tab.
-2. Fill in :ftl[shala-name-label] and :ftl[shala-city-label]. The city sets the shala's time zone and its moon days. For a shala with no room, tick :ftl[shala-online-only].
-3. Under :ftl[shala-my-roles], tick Teacher if you teach there yourself.
-4. Tap :ftl[shala-create-submit].
+2. Fill in :ftl[shala-name-label] and :ftl[shala-city-label]. The city sets the shala's time zone and its moon days.
+3. Tap :ftl[shala-create-submit]. Your shala's screen opens.
 
-![The shala's screen in the app](../../../assets/shots/en/app-shala.webp)
+![The form for a new shala in the app: a name and a city](../../../assets/shots/en/app-shala-new.webp)
+
+That's all the form asks. You are the owner and a :ftl[shala-role]{role=teacher} from the start. Online only? Tick :ftl[shala-online-only] later, under :ftl[shala-edit].
+
+## First steps
+
+On a new shala's screen the owner sees a short list, :ftl[setup-title]:
+
+1. :ftl[setup-class]: see [Classes and the week](../classes/).
+2. :ftl[setup-students]: a link and a QR code, the same for everyone.
+3. :ftl[setup-staff]: only if you want to. No team? Tap :ftl[setup-staff-skip] once it's the only step left.
+
+![A new shala's screen in the app, with the list of first steps](../../../assets/shots/en/app-shala-setup.webp)
+
+A finished step gets a tick. When nothing is left, the list goes away.
 
 ## The shala card
+
+In the app, open the :ftl[tab-shala] tab and tap the shala's name.
+
+![The shala's screen in the app](../../../assets/shots/en/app-shala.webp)
 
 In the bot, open :ftl[menu-open] → :ftl[menu-teacher] and tap the shala's name.
 
@@ -43,7 +60,7 @@ This link adds one person, works once and lasts 7 days. Before confirming, the p
 | :ftl[shala-role]{role=office}    | The same as a teacher, and can remove a student from the shala.                                                                                                         |
 | :ftl[shala-role]{role=assistant} | Attendance.                                                                                                                                                             |
 
-Everyone on the team sees the students' names, can show the student link and can mark attendance. One person can have several roles. The owner or a manager changes them by tapping the person on the shala's screen in the app.
+Everyone on the team sees the students' names, can show the student link and can mark attendance. One person can have several roles. The owner or a manager changes them by tapping the person under :ftl[shala-staff-title]{from=app} on the shala's screen in the app. The owner can change their own roles there too: tap your own name.
 
 ## Invite students
 

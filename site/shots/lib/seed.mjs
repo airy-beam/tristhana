@@ -1,6 +1,6 @@
 // UI-05: fills the demo database through the product's own doors (REST API and bot webhook),
 // so encrypted fields are sealed and every rule runs as it does for a real person.
-import { CAST, CITY, NEWS, SHALA, dayBefore, demoDay, todayIn } from "./cast.mjs";
+import { CAST, CITY, NEWS, NEW_SHALA, SHALA, dayBefore, demoDay, todayIn } from "./cast.mjs";
 
 const DAYS_BACK = 90;
 const SATURDAY = 6; // ISO weekday
@@ -11,7 +11,7 @@ const SATURDAY = 6; // ISO weekday
  * @param {{ today?: string, now?: Date, log?: (line: string) => void }} [options]
  */
 export async function seedCast(client, locale, options = {}) {
-  const { student, teacher, assistant } = CAST[locale];
+  const { student, teacher, assistant, owner } = CAST[locale];
   const today = options.today ?? todayIn(CITY.zone);
   const log = options.log ?? (() => {});
 
@@ -172,4 +172,20 @@ export async function seedCast(client, locale, options = {}) {
   log(
     `${locale}: ${assistant.name} covers ${covered}; ${student.name} marked ${came?.key ?? "no class"}`,
   );
+
+  // UI-06 stage 4: the owner has just created a shala, with the two fields of the create form
+  // (the body the app sends), and has done nothing else: no class, no student, nobody else on
+  // the team. Its screen shows the whole setup list, and nothing may be added to it here.
+  await client.call(owner, "POST", "/me/device-timezone", { timezone: CITY.zone });
+  await client.call(owner, "PATCH", "/me", { home_city: CITY.slug });
+  const fresh = /** @type {{ setup?: string[] | null }} */ (
+    await client.call(owner, "POST", "/shalas", {
+      name: NEW_SHALA[locale],
+      city: CITY.slug,
+      online: false,
+      roles: ["teacher"],
+    })
+  );
+  if (fresh.setup?.length !== 3) throw new Error(`${locale}: the new shala has no setup list`);
+  log(`${locale}: ${owner.name} created ${NEW_SHALA[locale]}`);
 }

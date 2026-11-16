@@ -34,6 +34,7 @@ The owner, managers, teachers and the front desk. Assistants can't.
 - Members can mute the shala's announcements and still read them in the app. Nobody is told.
 - An announcement can't be edited. For a typo, delete it and send it again.
 - Name the day and the time, not "tomorrow".
+- Cancelled a class on one date? :ftl[occurrence-tell] on that class opens this form with the text already written: see [Closures, swaps and substitutes](../closures-and-swaps/).
 
 ## Next
 

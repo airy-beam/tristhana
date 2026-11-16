@@ -8,10 +8,16 @@ A holiday, a moon-day swap, another teacher for one morning: how to change a sin
 
 ## Cancel one class
 
-- **In the app:** tap the class on its date, then :ftl[occurrence-cancel]. :ftl[occurrence-restore] brings it back.
+- **In the app:** tap the class on its date, then :ftl[occurrence-cancel]. Changed your mind? Tap :ftl[occurrence-restore].
 - **In the bot:** open the shala's :ftl[schedule-open] and tap :ftl[class-cancel-pick]. It lists the classes of the next 48 hours.
 
+![A class opened on one date in the app: what is for this date, and what is for the whole class](../../../assets/shots/en/app-occurrence.webp)
+
 The class stays in the week, marked as cancelled, so nobody wonders where it went.
+
+Cancelling sends nobody a message. After you cancel in the app, :ftl[occurrence-tell] appears right there and opens an announcement with the text already written. Read it, change it if you like, and send. It isn't offered for a 1:1 class.
+
+The rows at the top are for this one date. The rows under :ftl[occurrence-whole-class] change the class from this date on: see [Change, end or delete a class](../change-class/).
 
 ## A substitute for one morning
 
@@ -19,7 +25,7 @@ Tap the class on its date in the app and choose someone under :ftl[occurrence-te
 
 ## Close the shala for a few days
 
-1. In the app, open the shala and find :ftl[closure-title].
+1. In the app, open the shala and tap :ftl[closure-title], under the week's schedule.
 2. Set :ftl[closure-start] and :ftl[closure-end].
 3. Tap :ftl[closure-add].
 
@@ -36,7 +42,7 @@ What happens on a moon day follows the shala's setting: see [Classes and the wee
 
 When a moon day falls on a practice day, some shalas hold that day's classes on their day off that week. If yours does, you can set it up here.
 
-1. Find :ftl[swap-title] on the shala's screen.
+1. On the shala's screen, tap :ftl[swap-title], under the week's schedule.
 2. Choose the :ftl[swap-from] and the day to :ftl[swap-to].
 3. Tap :ftl[swap-add].
 

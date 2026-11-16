@@ -2,12 +2,16 @@
 // language and the screenshots exist in both. Telegram ids are from a made-up range.
 
 /** @typedef {import("./client.mjs").DemoUser} DemoUser */
-/** @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser, assistant: DemoUser }} Cast */
+/** @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser, assistant: DemoUser, owner: DemoUser }} Cast */
 
 export const CITY = { slug: "almaty", zone: "Asia/Almaty" };
 
 /** The demo shala, run by the demo teacher. */
 export const SHALA = { en: "Morning Mysore", ru: "Утренний Майсор" };
+
+/** The shala the demo owner has just created: no class, no student, nobody else on the team,
+ * so its screen still shows the setup list (UI-06 stage 4). */
+export const NEW_SHALA = { en: "Ashtanga Almaty", ru: "Аштанга Алматы" };
 
 /** @type {Record<"en" | "ru", Cast>} */
 export const CAST = {
@@ -16,12 +20,14 @@ export const CAST = {
     teacher: { id: 9002, name: "Arjun", lang: "en" },
     newcomer: { id: 9003, name: "Maya", lang: "en" },
     assistant: { id: 9004, name: "Lila", lang: "en" },
+    owner: { id: 9005, name: "Nina", lang: "en" },
   },
   ru: {
     student: { id: 9101, name: "Майя", lang: "ru" },
     teacher: { id: 9102, name: "Арджун", lang: "ru" },
     newcomer: { id: 9103, name: "Майя", lang: "ru" },
     assistant: { id: 9104, name: "Лила", lang: "ru" },
+    owner: { id: 9105, name: "Нина", lang: "ru" },
   },
 };
 

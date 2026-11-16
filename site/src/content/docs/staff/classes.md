@@ -8,12 +8,24 @@ Add Mysore, Led and other classes once, and everyone sees the week in their own 
 
 ## Add a class
 
-1. In the app, open the :ftl[tab-shala] tab, tap your shala and then :ftl[schedule-add-class].
+1. In the app, open the :ftl[tab-shala] tab, tap your shala and then :ftl[schedule-add-class], the first row of the schedule.
 2. Choose the :ftl[class-form-type]: :ftl[context-mysore], :ftl[context-led], :ftl[context-private], :ftl[class-type]{type=conference}, :ftl[class-type]{type=pranayama}, :ftl[class-type]{type=chanting} or :ftl[class-type]{type=workshop}.
-3. Set the teacher, the start and end in the shala's time, and the days of the week. A class can repeat every week or every 2 to 4 weeks. With no days ticked it happens once, on the first date.
+3. Set the start, in the shala's time, and the days under :ftl[class-form-days]. For a class on one day only, choose :ftl[class-form-once] and set the date.
 4. Tap :ftl[class-form-save].
 
-![The class form in the app, under the week's schedule](../../../assets/shots/en/app-class-form.webp)
+![The short class form in the app: type, start and days](../../../assets/shots/en/app-class-form.webp)
+
+Mysore comes filled in: 06:00 to 09:30, every day but the shala's day off. Two taps and it's saved.
+
+The rest is under :ftl[class-form-more]:
+
+- **How long it lasts**: 60, 75, 90 or 120 minutes, or :ftl[class-form-length-other] and a number of minutes. Mysore has :ftl[class-form-until] instead.
+- **A title and the teacher.** If you are a teacher in this shala, your name is already filled in.
+- **:ftl[class-form-every]**: every week, or every 2 to 4 weeks.
+- **:ftl[class-form-from]** and **:ftl[class-form-end]**.
+- **:ftl[class-form-online]**, with the city whose time the class goes by.
+
+Saved it and want something different? See [Change, end or delete a class](../change-class/).
 
 ## How people see it
 
@@ -21,15 +33,6 @@ Add Mysore, Led and other classes once, and everyone sees the week in their own 
 - 1:1 classes are shown to the team only.
 - An online class is marked 🌐, and you can set its time by another city.
 - You set times by the clock in the shala's city, so a 06:00 class stays at 06:00 when the clocks change.
-
-## Change or delete a class
-
-Tap a class in the schedule.
-
-- You can change it for all dates, or from a date you choose. Earlier dates stay as they were.
-- :ftl[occurrence-delete] removes it from every date.
-
-For a single date, see [Closures, swaps and substitutes](../closures-and-swaps/).
 
 ## The classes you teach
 
@@ -52,4 +55,5 @@ The owner or a manager sets these under :ftl[shala-edit]:
 
 ## Next
 
+- [Change, end or delete a class](../change-class/)
 - [Closures, swaps and substitutes](../closures-and-swaps/)

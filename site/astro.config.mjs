@@ -66,6 +66,7 @@ export default defineConfig({
         group("For shala staff", "Команде шалы", "staff", [
           "create-shala",
           "classes",
+          "change-class",
           "closures-and-swaps",
           "attendance",
           "announcements",

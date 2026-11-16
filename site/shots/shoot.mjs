@@ -12,7 +12,7 @@ import { chromium } from "playwright-core";
 import sharp from "sharp";
 import { createLabels, LOCALES } from "../src/lib/labels.mjs";
 import { botHtml } from "./lib/bot-html.mjs";
-import { CAST, CITY, SHALA } from "./lib/cast.mjs";
+import { CAST, CITY, NEW_SHALA, SHALA } from "./lib/cast.mjs";
 import { createClient } from "./lib/client.mjs";
 import { readManifest, select } from "./lib/manifest.mjs";
 import { seedCast } from "./lib/seed.mjs";
@@ -31,9 +31,12 @@ const locales = /** @type {("en" | "ru")[]} */ (lang.length ? lang : LOCALES);
 const shots = select(readManifest(join(here, "manifest.yaml")), only);
 const labels = createLabels();
 
+/** The demo shalas a step may name: `=shala` and `=new-shala`. */
+const PLACES = { shala: SHALA, "new-shala": NEW_SHALA };
+
 /**
- * What a manifest step points at: `=student`, `=teacher` or `=shala` is that name in the demo
- * cast, `#2` is the second button of a bot message, anything else is a Fluent key.
+ * What a manifest step points at: `=student`, `=teacher`, `=shala` or `=new-shala` is that name
+ * in the demo cast, `#2` is the second button of a bot message, anything else is a Fluent key.
  * @param {string} step
  * @param {"en" | "ru"} locale
  * @param {"bot" | "app"} from
@@ -46,12 +49,33 @@ function target(step, locale, from) {
   if (step.startsWith("=")) {
     const who = step.slice(1);
     const text =
-      who === "shala" ? SHALA[locale] : CAST[locale][/** @type {"student"} */ (who)]?.name;
+      who in PLACES
+        ? PLACES[/** @type {"shala"} */ (who)][locale]
+        : CAST[locale][/** @type {"student"} */ (who)]?.name;
     if (!text) throw new Error(`no "${who}" in the demo cast`);
     return { text, exact: false };
   }
   const name = labels.ariaLabel(locale, step, from) ?? undefined;
   return { text: labels.label(locale, step, {}, from), exact: true, name };
+}
+
+/**
+ * The thing on the Mini App's page that an app step names. `css=<selector>` is for a thing no
+ * Fluent key or cast name can point at (a class on the shala's week reads "06:00–08:30 Mysore ·
+ * Arjun"); the selector is Playwright's, so `>> nth=-1` picks the last match.
+ * @param {import("playwright-core").Page} page
+ * @param {string} step
+ * @param {"en" | "ru"} locale
+ * @param {string} shot the shot's name, for the error
+ */
+function locate(page, step, locale, shot) {
+  if (step.startsWith("css=")) return page.locator(step.slice(4)).first();
+  const to = target(step, locale, "app");
+  if ("index" in to) throw new Error(`${shot}: "#n" steps are for bot shots`);
+  const control = to.name
+    ? page.getByRole("button", { name: to.name, exact: true })
+    : page.getByText(to.text, { exact: to.exact });
+  return control.first();
 }
 
 /**
@@ -78,8 +102,14 @@ async function save(/** @type {Buffer} */ png, /** @type {string} */ file) {
   return Math.round(info.size / 1024);
 }
 
+// Chrome's own language, per shot language: its native time field follows it, not the page's
+// locale. British English, so the field reads "06:00" as the rest of the app does, not
+// "06:00 AM". Linux Chrome takes it from LANGUAGE, the others from the flag.
+const CHROME = { en: "en-GB", ru: "ru-RU" };
+
 const stop = await startStack();
-const browser = await chromium.launch({ channel: "chrome" });
+/** @type {import("playwright-core").Browser | undefined} */
+let browser;
 try {
   const client = createClient({ api: API, secret: DEMO.secret });
   for (const locale of locales) await seedCast(client, locale, { log: console.log });
@@ -100,6 +130,11 @@ try {
   );
 
   for (const locale of locales) {
+    browser = await chromium.launch({
+      channel: "chrome",
+      args: [`--lang=${CHROME[locale]}`],
+      env: { ...process.env, LANGUAGE: CHROME[locale].replace("-", "_") },
+    });
     const context = await browser.newContext({
       viewport: PHONE,
       deviceScaleFactor: 2,
@@ -128,12 +163,7 @@ try {
         const query = new URLSearchParams({ lang: locale, user: String(user.id), name: user.name });
         await page.goto(`${APP}/?${query}`, { waitUntil: "networkidle" });
         for (const key of shot.click ?? []) {
-          const to = target(key, locale, "app");
-          if ("index" in to) throw new Error(`${shot.name}: "#n" steps are for bot shots`);
-          const control = to.name
-            ? page.getByRole("button", { name: to.name, exact: true })
-            : page.getByText(to.text, { exact: to.exact });
-          await control.first().click();
+          await locate(page, key, locale, shot.name).click();
           await page.waitForLoadState("networkidle");
         }
         // Let fonts, lazy chunks and entry animations settle.
@@ -148,6 +178,27 @@ try {
             /** @type {HTMLElement} */ (line).style.display = "none";
           }
         }, serverLine[locale]);
+        /** @type {{ x: number, y: number, width: number, height: number } | undefined} */
+        let clip;
+        if (shot.top) {
+          // The picture begins at this thing, with a little air above it: what was opened
+          // sits far down a long screen. A short page cannot scroll that far, so there the
+          // picture is that thing alone, with the same air around it.
+          const thing = locate(page, shot.top, locale, shot.name);
+          await thing.evaluate((el) => {
+            /** @type {HTMLElement} */ (el).style.scrollMarginTop = "12px";
+            el.scrollIntoView({ block: "start" });
+          });
+          await page.waitForTimeout(200);
+          const box = await thing.evaluate((el) => {
+            const { top, bottom } = el.getBoundingClientRect();
+            return { top: Math.floor(top) - 12, bottom: Math.ceil(bottom) + 12 };
+          });
+          if (box.top > 0) {
+            const height = Math.min(box.bottom, PHONE.height) - box.top;
+            clip = { x: 0, y: box.top, width: PHONE.width, height };
+          }
+        }
         if (shot.full === true) {
           // The whole page, as one tall phone: a plain full-page capture would leave the
           // fixed tab bar where the first screen ends, across the middle of the picture.
@@ -158,15 +209,17 @@ try {
           });
           await page.waitForTimeout(200);
         }
-        png = await page.screenshot({ fullPage: shot.full === true });
+        png = await page.screenshot({ fullPage: shot.full === true, ...(clip ? { clip } : {}) });
       }
       await page.close();
       const kb = await save(png, join(outDir, locale, `${shot.name}.webp`));
       console.log(`${locale}/${shot.name}.webp  ${kb} KB`);
     }
     await context.close();
+    await browser.close();
+    browser = undefined;
   }
 } finally {
-  await browser.close();
+  await browser?.close();
   stop();
 }

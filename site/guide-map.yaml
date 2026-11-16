@@ -56,6 +56,7 @@ SC-01:
   - staff/create-shala
   - students/my-shala
 SC-02:
+  - staff/change-class
   - staff/classes
   - staff/closures-and-swaps
 SC-03:
