@@ -228,7 +228,7 @@ test("both lists, with a fallback for no name", async () => {
   expect(pageText()).toContain("(no name)");
 });
 
-test("nobody yet: one plain line and two quiet starts, no empty cards", async () => {
+test("nobody yet: one plain line and two starts in one small card, no empty cards", async () => {
   const seen = stubApi(() => ({ teachers: [], students: [] }));
 
   await openScreen();
@@ -237,10 +237,11 @@ test("nobody yet: one plain line and two quiet starts, no empty cards", async ()
     "Nobody here yet. To add a teacher or join a shala, open the link they send you.",
   );
   expect(screen.getByRole("heading", { level: 2, name: "For teachers and shalas" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
+  const invite = screen.getByRole("button", { name: "Invite students" });
   expect(screen.getByRole("button", { name: "Shala and classes" })).toBeInTheDocument();
   expect(pageText()).not.toContain("start below");
-  expect(document.querySelectorAll("main .card")).toHaveLength(0);
+  // The only card is the one that holds the two starts.
+  expect([...document.querySelectorAll("main .card")]).toEqual([invite.parentElement]);
   expect(pageText()).not.toContain("No students on your list.");
   expect(calls(seen, "POST", "/api/v1/me/invite")).toHaveLength(0); // nothing is made unasked
 });

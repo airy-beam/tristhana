@@ -155,31 +155,39 @@ describe("DayEditor: the three-choice card", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Mar 1" })).toBeInTheDocument();
     expect(await screen.findByText("Practice or rest? Both go in your log.")).toBeInTheDocument();
     // An earlier day can get a note before it is logged; nothing to clear yet.
-    expect(controls()).toEqual(["🧘 Practiced", "😌 Rest day", "Other…", "Add a note", "Done"]);
+    expect(controls()).toEqual(["🧘 Practiced", "😌 Rest day", "Other…", "📓 Add a note", "Done"]);
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("marks what was logged on its button, and offers Clear next to Done", async () => {
+  it("folds onto what was logged, with Change; Clear is behind Change, Done stays", async () => {
     stubApi([]);
     renderEditor();
 
     fireEvent.click(await screen.findByRole("button", { name: "😌 Rest day" }));
 
-    expect(
-      await screen.findByRole("button", { name: "😌 Rest day", pressed: true }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/In your log/)).not.toBeInTheDocument(); // the button says it
+    const change = await screen.findByRole("button", { name: "Change" });
+    expect(change).toHaveAccessibleDescription("😌 Rest day"); // the day's one line
+    expect(screen.queryByText(/In your log/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Practice or rest/)).not.toBeInTheDocument();
+    expect(controls()).toEqual(["Change", "📓 Add a note", "Done"]);
+
+    fireEvent.click(change);
+
     expect(controls()).toEqual([
+      "Change",
       "🧘 Practiced",
       "😌 Rest day",
       "Other…",
-      "Add a note",
       "Clear",
+      "📓 Add a note",
       "Done",
     ]);
+    expect(screen.getByRole("button", { name: "😌 Rest day" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("has no 🌸 among the reasons while 🌸 days are hidden on this device", async () => {

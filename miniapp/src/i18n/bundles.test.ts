@@ -277,6 +277,7 @@ describe("PR-06 check-in copy", () => {
 const PR07 = [
   "diary-title",
   "diary-add",
+  "diary-row",
   "diary-edit",
   "diary-save",
   "diary-cancel",
@@ -353,8 +354,11 @@ describe("PR-07 diary copy", () => {
     const ru = bundleFor("ru");
     expect(format(en, "diary-title")).toBe("Diary");
     expect(format(ru, "diary-title")).toBe("Дневник");
-    expect(format(en, "diary-add")).toBe("Add a note");
-    expect(format(ru, "diary-add")).toBe("Добавить заметку");
+    // The bot's 📓, as every list row has an icon (UI-06).
+    expect(format(en, "diary-add")).toBe("📓 Add a note");
+    expect(format(ru, "diary-add")).toBe("📓 Добавить заметку");
+    expect(format(en, "diary-row")).toBe("📓 Note");
+    expect(format(ru, "diary-row")).toBe("📓 Заметка");
     expect(format(en, "diary-private-hint")).toBe("Your diary is private: teachers don't see it.");
     expect(format(ru, "diary-private-hint")).toBe("Дневник личный: учителя его не видят.");
     expect(format(en, "diary-clear")).toBe("Remove note");

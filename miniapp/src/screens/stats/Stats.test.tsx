@@ -310,7 +310,12 @@ describe("Stats", () => {
     );
 
     const editor = await screen.findByRole("region", { name: (n) => plain(n).includes("Oct 18") });
-    const rest = await within(editor).findByRole("button", { name: "😌 Rest day", pressed: true });
+    // The day's line says rest; behind "Change" Rest day is the pressed choice, with no 🌸.
+    const change = await within(editor).findByRole("button", { name: "Change" });
+    expect(change).toHaveAccessibleDescription("😌 Rest day");
+    fireEvent.click(change);
+    const rest = within(editor).getByRole("button", { name: "😌 Rest day", pressed: true });
+    fireEvent.click(within(editor).getByRole("button", { name: "Other…" }));
     expect(
       within(editor).queryByRole("button", { name: "🌸 Ladies' holiday" }),
     ).not.toBeInTheDocument();

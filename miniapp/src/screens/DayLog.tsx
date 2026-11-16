@@ -21,11 +21,12 @@ import { ChunkGuard } from "../shell/ChunkGuard";
 import { lazyRetry } from "../shell/lazyRetry";
 import { haptics } from "../telegram";
 import { AutoNote } from "./AutoNote";
-import { DayChoice, OTHER_REASONS } from "./DayChoice";
+import { DayChoice } from "./DayChoice";
 import { DiaryNote } from "./DiaryNote";
 import { PauseOffer, PeriodLine } from "./PauseOffer";
-import { lastTimeText, practiceSummary } from "./practiceText";
+import { lastWhen, practiceSummary } from "./practiceText";
 import { CountCelebration } from "./progression/CountCelebration";
+import { Row } from "./Row";
 
 // Details and the check-in editor are one chunk outside the first one: they mount on a tap.
 const loadExtras = () => import("./dayExtras");
@@ -56,8 +57,9 @@ interface Props {
 }
 
 /** The one day card (UI-06), for today and for any earlier day, as the bot's Today and day
- * editor: what the day already is, three choices, then quiet entries. Nothing opens by
- * itself: details, the check-in and the note each wait for their own tap. */
+ * editor. An unanswered day shows three choices. A logged day folds them into one line that
+ * states it, with "Change" (the choices again, and Clear); under it the entries are list rows.
+ * Nothing opens by itself: details, the check-in and the note each wait for their own tap. */
 export function DayLog({ id, title, days, failed, onDone, children, ...day }: Props) {
   const done = onDone && (
     <Localized id="stats-editor-done">
@@ -125,6 +127,8 @@ function Day({
   // shown it stays while the card is open, so clearing the day never drops a note being typed.
   const [noted, setNoted] = useState(false);
   if (!noted && (stored !== null || note !== undefined || done)) setNoted(true);
+  // "Change" on a logged day: the three choices again, with Clear.
+  const [changing, setChanging] = useState(false);
 
   const save = (status: DayStatus | null) => {
     haptics.impact("light"); // feedback before the network call
@@ -162,28 +166,36 @@ function Day({
           showLadies={showLadies}
         />
       )}
-      {current === null
-        ? // Only a day nothing has answered yet gets the question, as in the bot.
-          !auto &&
-          !period && (
-            <Localized id="today-prompt">
-              <p className="hint" />
-            </Localized>
-          )
-        : // A reason sits behind "Other…", so its name is said here. Practiced and Rest day
-          // are their own pressed buttons: no line repeats them.
-          OTHER_REASONS.includes(current) && (
-            <Localized id="today-logged" vars={{ label: l10n.getString(`status-${current}`) }}>
-              <p className="logged" />
-            </Localized>
-          )}
+      {current === null ? (
+        // Only a day nothing has answered yet gets the question, as in the bot.
+        !auto &&
+        !period && (
+          <Localized id="today-prompt">
+            <p className="hint" />
+          </Localized>
+        )
+      ) : (
+        // The day's one line: what it is, a reason behind "Other…" by its own name.
+        <div className="state">
+          <p id={`${id}-state`}>{l10n.getString(`status-${current}`)}</p>
+          <Localized id="today-change">
+            <button
+              type="button"
+              className="link"
+              aria-expanded={changing}
+              aria-describedby={`${id}-state`}
+              onClick={() => {
+                haptics.selection();
+                setChanging(!changing);
+              }}
+            />
+          </Localized>
+        </div>
+      )}
       {current === "ladies" && (
         <Localized id="today-private-note">
           <p className="hint small" />
         </Localized>
-      )}
-      {current === "practiced" && logged && (
-        <PracticeLine date={date} practice={logged.practices[0]} locale={locale} />
       )}
       {counted.length > 0 && (
         <CountCelebration
@@ -193,7 +205,29 @@ function Day({
           }}
         />
       )}
-      <DayChoice current={current} ladies={ladies} labelledBy={id} onPick={save} />
+      {(current === null || changing) && (
+        <DayChoice
+          current={current}
+          ladies={ladies}
+          labelledBy={id}
+          onPick={(status) => {
+            setChanging(false);
+            if (status !== current) save(status);
+          }}
+        />
+      )}
+      {current !== null && changing && (
+        <Localized id="today-clear">
+          <button
+            type="button"
+            className="link clear"
+            onClick={() => {
+              setChanging(false);
+              save(null);
+            }}
+          />
+        </Localized>
+      )}
       {after && after.date === date && (
         <PauseOffer
           saved={after}
@@ -204,33 +238,22 @@ function Day({
           }}
         />
       )}
-      {current === "practiced" && logged && (
-        <PracticeEntries
-          date={date}
-          practice={logged.practices[0]}
-          checkIns={logged.check_ins}
-          zone={zone}
-          locale={locale}
-        />
-      )}
-      {/* Another day starts clean: no draft or confirm carried over. */}
-      {noted && <DiaryNote key={date} date={date} note={note} />}
-      {(current !== null || done) && (
-        <div className="row">
-          {current !== null && (
-            <Localized id="today-clear">
-              <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  save(null);
-                }}
-              />
-            </Localized>
+      {((current === "practiced" && logged) || noted) && (
+        <div className="list">
+          {current === "practiced" && logged && (
+            <PracticeEntries
+              date={date}
+              practice={logged.practices[0]}
+              checkIns={logged.check_ins}
+              zone={zone}
+              locale={locale}
+            />
           )}
-          {done}
+          {/* Another day starts clean: no draft or confirm carried over. */}
+          {noted && <DiaryNote key={date} date={date} note={note} />}
         </div>
       )}
+      {done && <div className="row">{done}</div>}
       {setDay.isError && (
         <Localized id="today-save-failed">
           <p className="status" role="alert" />
@@ -242,30 +265,6 @@ function Day({
 
 const detailed = (p: Practice | undefined) =>
   !!p && (!!p.context || !!p.length || !!p.duration_min || !!p.start_time);
-
-/** One line over the choices of a practiced day: what is stored (class type · how far · how long), else what
- * "Same as last time" would copy, as the bot shows it (Q23, Q296). */
-function PracticeLine({
-  date,
-  practice,
-  locale,
-}: {
-  date: string;
-  practice: Practice | undefined;
-  locale: Locale;
-}) {
-  const { l10n } = useLocalization();
-  const catalog = useCatalog().data;
-  const presets = usePracticePresets(date, true).data;
-  if (!catalog) return null;
-  const text =
-    practice && detailed(practice)
-      ? practiceSummary(l10n, catalog, practice, locale)
-      : presets?.last
-        ? lastTimeText(l10n, catalog, presets.last, presets.last_date ?? null, date, locale)
-        : "";
-  return text ? <p className="hint small">{text}</p> : null;
-}
 
 // Fluent's bidi isolation marks around variables: noise in a composed line.
 const plain = (text: string) => text.replace(/[⁨⁩]/g, "");
@@ -285,8 +284,9 @@ function checkInSummary(l10n: ReactLocalization, c: CheckInValue, catalog: Catal
 
 type Panel = "details" | "checkin";
 
-/** Under the choices of a practiced day: "Same as last time", "Add details" and "How do you
- * feel?". Each panel mounts on its own tap, one at a time. */
+/** The rows of a practiced day: "Same as last time" (with what it would copy, as the bot shows
+ * it: Q23, Q296), "Add details" or the details' summary, "How do you feel?" with the
+ * check-in's. Each panel mounts on its own tap, one at a time. */
 function PracticeEntries({
   date,
   practice,
@@ -304,7 +304,8 @@ function PracticeEntries({
   const { l10n } = useLocalization();
   const offered = useMe().data?.offer_check_in === true;
   const catalog = useCatalog().data;
-  const last = usePracticePresets(date, true).data?.last;
+  const presets = usePracticePresets(date, true).data;
+  const last = presets?.last;
   const save = useSavePractice();
   const [open, setOpen] = useState<Panel | null>(null);
   const [failed, setFailed] = useState(false);
@@ -332,61 +333,61 @@ function PracticeEntries({
   );
 
   return (
-    <div className="entries">
+    <>
       {last && !hasDetails && (
-        <Localized id="practice-same-as-last">
-          <button
-            type="button"
-            className="entry"
-            onClick={() => {
-              haptics.impact("light");
-              save.mutate(
-                {
-                  date,
-                  // Never the start time: that was the other day's.
-                  body: {
-                    context: last.context ?? null,
-                    online: last.context === "self" ? false : last.online,
-                    length: last.length ?? null,
-                    duration_min: last.duration_min ?? null,
-                    start_time: null,
-                  },
+        <Row
+          action
+          label={l10n.getString("practice-same-as-last")}
+          sub={
+            catalog &&
+            [
+              lastWhen(presets.last_date ?? null, date, locale),
+              practiceSummary(l10n, catalog, last, locale),
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          }
+          onClick={() => {
+            haptics.impact("light");
+            save.mutate(
+              {
+                date,
+                // Never the start time: that was the other day's.
+                body: {
+                  context: last.context ?? null,
+                  online: last.context === "self" ? false : last.online,
+                  length: last.length ?? null,
+                  duration_min: last.duration_min ?? null,
+                  start_time: null,
                 },
-                {
-                  onError: () => {
-                    haptics.notify("error");
-                  },
+              },
+              {
+                onError: () => {
+                  haptics.notify("error");
                 },
-              );
-            }}
-          />
-        </Localized>
-      )}
-      <Localized id={hasDetails ? "practice-details" : "practice-add-details"}>
-        <button
-          type="button"
-          className="entry"
-          aria-expanded={open === "details"}
-          onClick={toggle("details")}
+              },
+            );
+          }}
         />
-      </Localized>
+      )}
+      <Row
+        label={l10n.getString(hasDetails ? "practice-details" : "practice-add-details")}
+        sub={practice && catalog && practiceSummary(l10n, catalog, practice, locale)}
+        expanded={open === "details"}
+        onClick={toggle("details")}
+      />
       {open === "details" &&
         panel(
           <PracticeDetails date={date} practice={practice ?? null} zone={zone} locale={locale} />,
         )}
       {/* The setting shows or hides the entry; a check-in that exists stays editable (Q313). */}
       {(offered || felt !== "") && (
-        <button
-          type="button"
-          className="entry"
-          aria-expanded={open === "checkin"}
+        <Row
+          label={l10n.getString("checkin-edit")}
+          sub={felt}
+          expanded={open === "checkin"}
           onClick={toggle("checkin")}
-        >
-          <Localized id="checkin-edit">
-            <span />
-          </Localized>
-          {felt && <span className="hint small">{felt}</span>}
-        </button>
+        />
       )}
       {open === "checkin" && panel(<CheckIn date={date} checkIns={checkIns} />)}
       {/* "Same as last time" did not save: the entry is still there to tap again. */}
@@ -400,6 +401,6 @@ function PracticeEntries({
           <p className="status" role="alert" />
         </Localized>
       )}
-    </div>
+    </>
   );
 }

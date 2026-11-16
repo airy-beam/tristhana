@@ -153,21 +153,23 @@ export function Shell({ me, firstName }: Props) {
             }}
           />
         )}
+        {/* Today's class and the next moon day: two rows of one small card (gone while it has
+            neither). */}
         {me && (
-          <ClassRow
-            locale={me.locale}
-            onOpen={() => {
-              push({ name: "schedule" });
-            }}
-          />
-        )}
-        {me && (
-          <MoonRow
-            locale={me.locale}
-            onOpen={() => {
-              push({ name: "moon" });
-            }}
-          />
+          <div className="card list">
+            <ClassRow
+              locale={me.locale}
+              onOpen={() => {
+                push({ name: "schedule" });
+              }}
+            />
+            <MoonRow
+              locale={me.locale}
+              onOpen={() => {
+                push({ name: "moon" });
+              }}
+            />
+          </div>
         )}
       </Home>
     );

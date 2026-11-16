@@ -220,18 +220,21 @@ describe("Today's moon row (UI-06)", () => {
     const onOpen = vi.fn();
     renderWith(<MoonRow locale="en" onOpen={onOpen} />);
 
-    const row = await screen.findByRole("button");
-    expect(visible(row)).toBe("🌕 Full moon (Purnima) · Thu, Oct 22 · in 3 days");
+    // The row names the day; "(Purnima)" and "in 3 days" are on the screen it opens.
+    const row = await screen.findByRole("button", { name: "🌕 Next moon day" });
+    expect(row).toHaveAccessibleDescription("Full moon · Thu, Oct 22");
     fireEvent.click(row);
 
     expect(onOpen).toHaveBeenCalledOnce();
   });
 
-  it("counts the days from the server's today, in Russian too", async () => {
+  it("is in Russian too", async () => {
     stubApi();
     renderWith(<MoonRow locale="ru" onOpen={vi.fn()} />, "ru");
 
-    expect(visible(await screen.findByRole("button"))).toContain("через 3 дня");
+    expect(
+      await screen.findByRole("button", { name: "🌕 Следующий лунный день" }),
+    ).toHaveAccessibleDescription("Полнолуние · чт, 22 окт.");
   });
 
   it("with no day in the window, the row is the card's title: the screen stays reachable", async () => {

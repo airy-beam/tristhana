@@ -83,11 +83,10 @@ test("a details chunk that fails to load keeps the card; the next tap loads it",
 
   expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't load/);
   expect(haptics.notify).toHaveBeenCalledWith("error");
-  // The card is whole: the day, its choices and the entries, with the entry folded again.
+  // The card is whole: the day, its one line and the rows, with the row folded again.
   expect(screen.getByRole("heading", { level: 2, name: "Today, Sun, Oct 18" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "🧘 Practiced" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  expect(screen.getByRole("button", { name: "Change" })).toHaveAccessibleDescription(
+    "🧘 Practiced",
   );
   expect(entry).toHaveAttribute("aria-expanded", "false");
   expect(screen.getByRole("button", { name: "✨ How do you feel?" })).toBeInTheDocument();

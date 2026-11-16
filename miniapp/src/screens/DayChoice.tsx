@@ -14,12 +14,13 @@ interface Props {
   ladies: boolean;
   /** The card's heading: the group's accessible name. */
   labelledBy: string;
-  /** A tap on a choice that is not the current one. */
+  /** A tap on a choice, the current one too (the card folds either way). */
   onPick: (status: DayStatus) => void;
 }
 
 /** The day's three choices, one per row, as the bot's Today (UI-06): Practiced, Rest day and
- * "Other…", which opens the reasons right here. A reason saves and closes. */
+ * "Other…", which opens the reasons right here. A reason saves and closes. Shown for a day
+ * nothing has answered, and behind "Change" on a logged one. */
 export function DayChoice({ current, ladies, labelledBy, onPick }: Props) {
   const [open, setOpen] = useState(false);
   const reason = current !== null && OTHER_REASONS.includes(current);
@@ -31,7 +32,7 @@ export function DayChoice({ current, ladies, labelledBy, onPick }: Props) {
         aria-pressed={status === current}
         onClick={() => {
           setOpen(false);
-          if (status !== current) onPick(status);
+          onPick(status);
         }}
       />
     </Localized>

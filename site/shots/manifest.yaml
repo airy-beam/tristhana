@@ -70,8 +70,9 @@ shots:
   - {name: app-shala-announce, kind: app, as: teacher, click: [tab-shala, =shala, ann-announce], features: [NT-03]}
 
   # Last on purpose: these two change what the person has, so nothing may follow them.
-  # `app-today` puts the next step off (kept in the browser), clears the student's today and
-  # logs it again with one tap: the small card, with "Same as last time" on offer.
+  # `app-today` puts the next step off (kept in the browser), clears the student's today
+  # (Clear is behind "Change") and logs it again with one tap: the folded card, with "Same as
+  # last time" on offer.
   # `app-shala-empty` is the newcomer's first look at the app, which gives her a time zone.
-  - {name: app-today, kind: app, as: student, click: [next-not-now, today-clear, status-practiced], features: [UI-06, PR-01, PR-02]}
+  - {name: app-today, kind: app, as: student, click: [next-not-now, today-change, today-clear, status-practiced], features: [UI-06, PR-01, PR-02]}
   - {name: app-shala-empty, kind: app, as: newcomer, click: [tab-shala], features: [UI-06, ID-03]}

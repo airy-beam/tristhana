@@ -143,11 +143,20 @@ function renderWith(node: React.ReactNode) {
 const plain = (text: string) => text.replace(/[⁨⁩]/g, "");
 const button = (name: string) => screen.findByRole("button", { name: (n) => plain(n) === name });
 
-/** A reason behind the day card's "Other…": opens the reasons first. */
+/** A reason behind the day card's "Other…": opens the reasons first (on a logged day they
+ * are behind "Change"). */
 async function reason(name: string) {
-  fireEvent.click(await screen.findByRole("button", { name: "Other…", expanded: false }));
+  const first = await screen.findByRole("button", { name: /^(Other…|Change)$/, expanded: false });
+  fireEvent.click(first);
+  if (first.textContent === "Change")
+    fireEvent.click(screen.getByRole("button", { name: "Other…" }));
   return button(name);
 }
+/** The logged day's one line: the card has folded onto what was tapped. */
+const folded = (label: string) =>
+  vi.waitFor(() => {
+    expect(screen.getByRole("button", { name: "Change" })).toHaveAccessibleDescription(label);
+  });
 /** The pause question's own "Another number…" (more day counts), not the day card's "Other…". */
 const moreDays = async () =>
   within(
@@ -278,12 +287,7 @@ describe("TodayCard: the pause offer", () => {
 
     fireEvent.click(await button("😌 Rest day"));
 
-    await vi.waitFor(() => {
-      expect(screen.getByRole("button", { name: /Rest day/ })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-    });
+    await folded("😌 Rest day");
     expect(screen.queryByText(/How many days/)).not.toBeInTheDocument();
   });
 });
@@ -330,12 +334,7 @@ describe("TodayCard: keep the pause", () => {
 
     fireEvent.click(await button("🧘 Practiced"));
 
-    await vi.waitFor(() => {
-      expect(screen.getByRole("button", { name: /Practiced/ })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-    });
+    await folded("🧘 Practiced");
     expect(screen.queryByRole("button", { name: /Keep the pause/ })).not.toBeInTheDocument();
   });
 });
@@ -573,12 +572,7 @@ describe("Review fixes", () => {
 
     fireEvent.click(await button("🧘 Practiced"));
 
-    await vi.waitFor(() => {
-      expect(screen.getByRole("button", { name: /Practiced/ })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-    });
+    await folded("🧘 Practiced");
     expect(screen.queryByRole("button", { name: /Keep the pause/ })).not.toBeInTheDocument();
   });
 

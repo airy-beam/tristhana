@@ -31,6 +31,7 @@ import type { Locale } from "../../i18n/negotiate";
 import { lazyRetry } from "../../shell/lazyRetry";
 import type { ShalaOpen, Start } from "../../shell/nav";
 import { cityName } from "../cityName";
+import { Row } from "../Row";
 import { checkedMonth, useListing, type ListingMark } from "./listing";
 
 // SC-01: the card is its own lazy chunk, loaded when a shala is opened.
@@ -221,10 +222,11 @@ function Lists({
   );
 }
 
-/** Nobody yet (UI-06): no teacher, no student, no shala. One plain line, then two quiet starts
- * with the bot's labels under the bot's name for that row, so a student reads past them; no
- * empty cards. */
+/** Nobody yet (UI-06): no teacher, no student, no shala. One plain line, then two starts as
+ * list rows in one small card, with the bot's labels under the bot's name for that row, so a
+ * student reads past them. */
 function Nobody({ onStart }: { onStart: (intent: Intent) => void }) {
+  const { l10n } = useLocalization();
   const start = (intent: Intent) => () => {
     haptics.selection();
     onStart(intent);
@@ -237,12 +239,10 @@ function Nobody({ onStart }: { onStart: (intent: Intent) => void }) {
       <Localized id="shala-starts-title">
         <h2 className="starts" />
       </Localized>
-      <Localized id="shala-start-invite">
-        <button type="button" className="row-button quiet" onClick={start("invite")} />
-      </Localized>
-      <Localized id="shala-start-shala">
-        <button type="button" className="row-button quiet" onClick={start("create")} />
-      </Localized>
+      <div className="card list">
+        <Row label={l10n.getString("shala-start-invite")} onClick={start("invite")} />
+        <Row label={l10n.getString("shala-start-shala")} onClick={start("create")} />
+      </div>
     </>
   );
 }

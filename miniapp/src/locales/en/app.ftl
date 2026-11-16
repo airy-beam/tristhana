@@ -45,8 +45,9 @@ today-title = Today, { $date }
 today-prompt = Practice or rest? Both go in your log.
 today-other = Other…
 today-reasons = Pick what fits. Any day belongs in your log.
-# Only for a reason behind "Other…" ($label = its status-* label): Practiced and Rest day are their own pressed buttons.
-today-logged = ✓ In your log: { $label }
+# On a logged day the choices fold into one line (its status-* label) with this next to it:
+# the bot's word. It shows the three choices again, and Clear.
+today-change = Change
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day
 status-moon = 🌙 Moon day
@@ -62,10 +63,6 @@ today-load-failed = Couldn't load today's status. Try again in a moment.
 # Practice details on a practiced day (PR-02, PR-03, PR-05). Matches the bot's wording.
 practice-add-details = 📝 Add details
 practice-details = 📝 Details
-# What "Same as last time" will copy (the bot shows the same line).
-practice-last-time = Last time: { $summary }
-# The practice is more than 14 days older than the day being logged (Q296).
-practice-last-time-dated = Last time ({ $date }): { $summary }
 practice-online-suffix = online
 practice-same-as-last = 🔁 Same as last time
 context-mysore = Mysore
@@ -126,6 +123,18 @@ moon-in-days =
        *[other] in { $n } days
     }
 moon-day-line = { $phase } · { $date } · { $in }
+# Today's row for the next moon day (UI-06): this label, then the line under it.
+today-moon =
+    { $phase ->
+        [purnima] 🌕 Next moon day
+       *[amavasya] 🌑 Next moon day
+    }
+# $when: "Tue, Nov 24", or "today" / "tomorrow" (moon-in-days).
+today-moon-fact =
+    { $phase ->
+        [purnima] Full moon · { $when }
+       *[amavasya] New moon · { $when }
+    }
 moon-none = No moon days in the next two months yet: the calendar is being prepared.
 moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
 moon-city = City for the calendar
@@ -412,7 +421,9 @@ settings-checkin-hint = Mood, energy and effort on a day you practiced. A check-
 
 ## Diary note (PR-07). Private, per day, any status; never asked for.
 diary-title = Diary
-diary-add = Add a note
+diary-add = 📓 Add a note
+# The row of a note that exists (the bot's button); its first line shows under it.
+diary-row = 📓 Note
 diary-edit = Edit
 diary-save = Save
 diary-cancel = Cancel

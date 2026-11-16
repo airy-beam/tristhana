@@ -259,7 +259,7 @@ describe("CheckIn: when it shows", () => {
 
     const button = await entry();
     expect(button).toHaveAttribute("aria-expanded", "false");
-    expect(button.textContent.replace(/[⁨⁩]/g, "")).toBe("✨ How do you feel?😕 · ⚡ energy 5/5");
+    expect(button).toHaveAccessibleDescription("😕 · ⚡ energy 5/5");
     expect(await mood(2)).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -267,7 +267,7 @@ describe("CheckIn: when it shows", () => {
     stubApi({ days: days([day(TODAY, status)]) });
     renderToday();
 
-    await screen.findByRole("button", { pressed: true });
+    await screen.findByRole("button", { name: "Change" }); // logged: the card is folded
     expect(screen.queryByRole("button", { name: "Mood 3 of 5" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: ENTRY })).not.toBeInTheDocument();
   });

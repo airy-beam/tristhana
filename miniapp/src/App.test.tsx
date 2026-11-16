@@ -504,7 +504,7 @@ describe("Settings keeps what it was opened over", () => {
   test("an unsaved note is still there: Back closes Settings first, the note keeps its own", async () => {
     await launch();
     await today();
-    fireEvent.click(await screen.findByRole("button", { name: "Add a note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Diary" }), {
       target: { value: "Kapotasana felt lighter" },
     });
@@ -590,7 +590,7 @@ describe("Back or tabs, never both", () => {
     await today();
     expect(bar()).not.toBeNull();
 
-    fireEvent.click(await screen.findByRole("button", { name: /New moon/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "🌑 Next moon day" }));
 
     expect(bar()).toBeNull();
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
@@ -616,7 +616,7 @@ describe("Back or tabs, never both", () => {
     await launch();
     await today();
 
-    fireEvent.click(await screen.findByRole("button", { name: /New moon/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "🌑 Next moon day" }));
 
     await heading((n: string) => plain(n) === "🌙 Moon days · 📍 mysuru");
     expect(bar()).toBeNull();
@@ -631,7 +631,7 @@ describe("Back or tabs, never both", () => {
   test("the bar is absent while a note has unsaved text", async () => {
     await launch();
     await today();
-    fireEvent.click(await screen.findByRole("button", { name: "Add a note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
     expect(bar()).not.toBeNull(); // nothing typed yet: nothing to protect
 
     fireEvent.change(screen.getByRole("textbox", { name: "Diary" }), {
@@ -727,7 +727,9 @@ describe("what moved where", () => {
     await launch();
     await today();
 
-    fireEvent.click(await screen.findByRole("button", { name: /New moon \(Amavasya\)/ }));
+    const row = await screen.findByRole("button", { name: "🌑 Next moon day" });
+    expect(row).toHaveAccessibleDescription(/^New moon · /);
+    fireEvent.click(row);
 
     await heading((n: string) => plain(n) === "🌙 Moon days · 📍 mysuru");
     expect(screen.getByText(/follow your teacher/)).toBeInTheDocument();
@@ -884,8 +886,13 @@ describe("Today: one next step, each leading to its place", () => {
     await launch();
     await today();
 
-    const row = await screen.findByRole("button", { name: /Mysore/ });
-    expect(plain(row.textContent)).toBe("🗓 07:00 Almaty · Mysore · Ashtanga Almaty");
+    const row = await screen.findByRole("button", { name: "🗓 Today's class" });
+    expect(row).toHaveAccessibleDescription("Mysore · 07:00 Almaty · Ashtanga Almaty");
+    // One small card holds it and the moon row.
+    expect(row.parentElement).toHaveClass("card", "list");
+    expect(row.parentElement).toContainElement(
+      screen.getByRole("button", { name: "🌑 Next moon day" }),
+    );
     fireEvent.click(row);
 
     await heading("🗓 My schedule");
@@ -894,7 +901,7 @@ describe("Today: one next step, each leading to its place", () => {
 });
 
 describe("the empty Shala tab", () => {
-  test("nobody yet: one plain line and two quiet starts, no empty cards", async () => {
+  test("nobody yet: one plain line and two starts in one small card, no empty cards", async () => {
     await launch();
     await today();
     await go("shala");
@@ -908,7 +915,11 @@ describe("the empty Shala tab", () => {
     const starts = screen.getByRole("heading", { level: 2, name: "For teachers and shalas" });
     const invite = screen.getByRole("button", { name: "Invite students" });
     expect(starts.compareDocumentPosition(invite)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(screen.getByRole("button", { name: "Shala and classes" })).toBeInTheDocument();
+    // Two list rows of one card.
+    expect(invite.parentElement).toHaveClass("card", "list");
+    expect(invite.parentElement).toContainElement(
+      screen.getByRole("button", { name: "Shala and classes" }),
+    );
     expect(screen.queryByText("No students on your list.")).toBeNull();
     expect(screen.queryByRole("heading", { name: "🏛 Shalas" })).toBeNull();
     expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();

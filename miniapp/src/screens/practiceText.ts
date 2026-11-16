@@ -96,28 +96,19 @@ export function practiceSummary(
 const OLD_AFTER_DAYS = 14; // as the bot and the reminder: older practices say which day
 const utcDay = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
 
-/** "Last time: Mysore · Full Primary · 90 min", or "Last time (Thu, Oct 1): …" when the
- * practice is more than 14 days older than the day being logged (Q296). */
-export function lastTimeText(
-  l10n: ReactLocalization,
-  catalog: Catalog,
-  last: Practice,
-  lastDate: string | null,
-  day: string,
-  locale: Locale,
-): string {
-  const summary = practiceSummary(l10n, catalog, last, locale);
+/** "Thu, Oct 1" for a previous practice more than 14 days older than the day being logged
+ * (Q296); null for a recent one, and when its day is not known. */
+export function lastWhen(lastDate: string | null, day: string, locale: Locale): string | null {
   if (lastDate === null || utcDay(day) - utcDay(lastDate) <= OLD_AFTER_DAYS * 86_400_000) {
-    return get(l10n, "practice-last-time", { summary });
+    return null;
   }
-  const when = new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale, {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: lastDate.slice(0, 4) === day.slice(0, 4) ? undefined : "numeric",
     timeZone: "UTC",
   }).format(utcDay(lastDate));
-  return get(l10n, "practice-last-time-dated", { date: when, summary });
 }
 
 function get(l10n: ReactLocalization, id: string, args?: Record<string, string | number>): string {

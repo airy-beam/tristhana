@@ -4,7 +4,8 @@ import type { MoonDays } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 
 const DAY_MS = 86_400_000;
-const daysBetween = (from: string, to: string) =>
+/** Whole days from one calendar date to another. */
+export const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 
 /** "Thu, 5 Nov" for a calendar date (no zone: a date is not an instant). */

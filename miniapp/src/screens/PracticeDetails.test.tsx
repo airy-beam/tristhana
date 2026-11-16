@@ -81,9 +81,6 @@ const echo = async (request: Request) =>
   json({ slot: 1, timezone: null, ...((await request.json()) as object) });
 let putResponse: (request: Request) => Response | Promise<Response> = echo;
 
-const plain = (text: string | null | undefined) => (text ?? "").replace(/[\u2068\u2069]/g, "");
-const says = (text: string) => (_: string, el: Element | null) =>
-  el?.tagName === "P" && plain(el.textContent) === text;
 const daysBefore = (iso: string, n: number) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
 
@@ -165,7 +162,8 @@ describe("PracticeDetails", () => {
     });
     renderCard();
 
-    await screen.findByRole("button", { name: /Rest day/, pressed: true });
+    await screen.findByRole("button", { name: "Change" }); // logged: the card is folded
+    expect(screen.getByText(/Rest day/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /details/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
   });
@@ -215,31 +213,29 @@ describe("PracticeDetails", () => {
     });
   });
 
+  const same = () => screen.findByRole("button", { name: "🔁 Same as last time" });
+
   it("says what same as last time will copy, without a date while it is recent", async () => {
     stubApi(practicedToday);
     renderCard();
 
-    expect(await screen.findByText(says("Last time: Led · Full Primary · 90 min"))).toBeVisible();
+    expect(await same()).toHaveAccessibleDescription("Led · Full Primary · 90 min");
   });
 
   it("names the day when that practice is more than 14 days old", async () => {
     stubApi(practicedToday, { ...PRESETS, last_date: daysBefore(TODAY, 15) });
     renderCard();
 
-    expect(
-      await screen.findByText(
-        (_, el) =>
-          el?.tagName === "P" &&
-          /^Last time \(\w{3}, \w{3} \d{1,2}\): Led/.test(plain(el.textContent)),
-      ),
-    ).toBeVisible();
+    expect(await same()).toHaveAccessibleDescription(
+      /^\w{3}, \w{3} \d{1,2} · Led · Full Primary · 90 min$/,
+    );
   });
 
   it("gives no date at exactly 14 days", async () => {
     stubApi(practicedToday, { ...PRESETS, last_date: daysBefore(TODAY, 14) });
     renderCard();
 
-    expect(await screen.findByText(says("Last time: Led · Full Primary · 90 min"))).toBeVisible();
+    expect(await same()).toHaveAccessibleDescription("Led · Full Primary · 90 min");
   });
 
   it("same as last time is offered only while nothing is set", async () => {
@@ -267,9 +263,11 @@ describe("PracticeDetails", () => {
     });
     renderCard();
 
-    // The entry reads "Details" now, and the card's line is the day's own.
-    await screen.findByRole("button", { name: "📝 Details" });
-    expect(await screen.findByText(says("Led"))).toBeVisible();
+    // The row reads "Details" now, with the day's own summary under it.
+    const details = await screen.findByRole("button", { name: "📝 Details" });
+    await vi.waitFor(() => {
+      expect(details).toHaveAccessibleDescription("Led");
+    });
     expect(screen.queryByRole("button", { name: "🔁 Same as last time" })).not.toBeInTheDocument();
     await openDetails();
     expect(await screen.findByRole("button", { name: "Led", pressed: true })).toBeInTheDocument();

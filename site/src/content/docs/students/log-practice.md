@@ -31,9 +31,9 @@ The steps above are enough. If you'd like more, tap :ftl[practice-add-details] r
 
 :ftl[practice-same-as-last] copies the details of your previous practice in one tap. A led class doesn't count: after one, the button offers the practice before it. The line above the buttons shows what will be copied, and names the day if that practice was a while ago.
 
-In the app these are quiet lines under the three choices, and nothing opens until you tap it.
+In the app the card folds into one line that says what you logged, and these are rows under it. Nothing opens until you tap it.
 
-![Today in the app after a practice: Same as last time, Add details, How do you feel? and a note under the three choices](../../../assets/shots/en/app-today.webp)
+![Today in the app after a practice: one line that says Practiced, with Change, then Same as last time, Add details, How do you feel? and Add a note as rows](../../../assets/shots/en/app-today.webp)
 
 ## Log an earlier day
 
@@ -42,7 +42,7 @@ In the app these are quiet lines under the three choices, and nothing opens unti
 
 ## Change or clear a day
 
-Under a saved day, tap :ftl[log-change]. Then pick another status, or tap :ftl[log-clear]{from=bot} to remove the entry. Changing a practice day to rest also removes its details. In the app, tap another choice on the day's card, or :ftl[today-clear].
+Under a saved day, tap :ftl[log-change]. Then pick another status, or tap :ftl[log-clear]{from=bot} to remove the entry. Changing a practice day to rest also removes its details. In the app, tap :ftl[today-change] on the day's card, then another choice, or :ftl[today-clear].
 
 ## Good to know
 

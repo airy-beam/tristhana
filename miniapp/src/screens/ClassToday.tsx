@@ -7,6 +7,7 @@ import type { Locale } from "../i18n/negotiate";
 import enClassRow from "../locales/en/class-row.ftl?raw";
 import ruClassRow from "../locales/ru/class-row.ftl?raw";
 import { haptics } from "../telegram";
+import { Row } from "./Row";
 import { placeFor } from "./settings/zones";
 import { dateIn, plain, timeIn } from "./shalas/scheduleText";
 import { offsetText, timeLabel, zoneLabel } from "./timeLabel";
@@ -21,8 +22,10 @@ const CONTEXT: Partial<Record<MyRow["type"], string>> = {
 };
 
 /** Today's class row (UI-06), shown when a shala I'm in has a class today: the next one still
- * ahead, else the day's first. Times are in my zone (the place, no offset: ADR-0044), with the
- * class's own time when its clock differs. Lazy: mounted by `ClassRow` for shala members. */
+ * ahead, else the day's first. "Today's class", then one line: the class and its time in my
+ * zone (the place, no offset: ADR-0044), the class's own time when its clock differs, how many
+ * more, the shala. The shala's name is last: it is what a narrow screen may cut. Lazy: mounted
+ * by `ClassRow` for shala members. */
 export default function ClassToday({ locale, onOpen }: { locale: Locale; onOpen: () => void }) {
   const { l10n } = useLocalization();
   const me = useMe().data;
@@ -41,12 +44,11 @@ export default function ClassToday({ locale, onOpen }: { locale: Locale; onOpen:
   const type = l10n.getString(CONTEXT[row.type] ?? "class-type", { type: row.type });
   const parts = [
     l10n.getString("today-class", {
+      type: row.title ? `${type} ${row.title}` : type,
       time: timeLabel(start, mine, week.today, {
         place: placeFor(me?.home_city, viewer, locale),
         viewer,
       }),
-      type: row.title ? `${type} ${row.title}` : type,
-      shala: week.shalas.find((s) => s.id === row.shala_id)?.name ?? "",
     }),
   ];
   const there = timeIn(row.starts_at, row.zone);
@@ -56,16 +58,16 @@ export default function ClassToday({ locale, onOpen }: { locale: Locale; onOpen:
     parts.push(l10n.getString("today-class-there", { time: there, zone }));
   }
   if (rows.length > 1) parts.push(l10n.getString("today-class-more", { n: rows.length - 1 }));
+  const shala = week.shalas.find((s) => s.id === row.shala_id)?.name;
+  if (shala) parts.push(shala);
   return (
-    <button
-      type="button"
-      className="row-button"
+    <Row
+      label={l10n.getString("today-class-title")}
+      sub={plain(parts.join(" · "))}
       onClick={() => {
         haptics.selection();
         onOpen();
       }}
-    >
-      {plain(parts.join(" "))}
-    </button>
+    />
   );
 }

@@ -4,11 +4,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
 import { haptics } from "../telegram";
-import { ClassRow } from "./TodayRows";
+import { ClassRow, MoonRow } from "./TodayRows";
 
-// UI-06 stage 2 (spec §4, §9): today's class as one quiet row on Today, for people in a shala.
-// Times are in my zone with the place and no offset (ADR-0044); a class on another clock adds
-// its own time, with the offset. No class today: no row. No shala: no schedule request.
+// UI-06 stage 2 (spec §4, §9): today's class and the next moon day as two list rows on Today.
+// A row is named by what it is about ("Today's class"); the fact is its second line. Times are
+// in my zone with the place and no offset (ADR-0044); a class on another clock adds its own
+// time, with the offset. No class today: no row. No shala: no schedule request.
 
 vi.mock("../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
@@ -48,9 +49,16 @@ interface Stub {
   shalas?: { id: string; name: string }[];
   occurrences?: unknown[];
   zoneKnown?: boolean;
+  /** The followed city's coming moon days. */
+  moon?: { date: string; phase: string }[];
 }
 
-function stubApi({ shalas = [ALMATY], occurrences = [], zoneKnown = true }: Stub = {}): string[] {
+function stubApi({
+  shalas = [ALMATY],
+  occurrences = [],
+  zoneKnown = true,
+  moon = [],
+}: Stub = {}): string[] {
   const asked: string[] = [];
   vi.stubGlobal(
     "fetch",
@@ -73,6 +81,16 @@ function stubApi({ shalas = [ALMATY], occurrences = [], zoneKnown = true }: Stub
             occurrences,
           }),
         );
+      if (path === "/api/v1/me/moon-days")
+        return Promise.resolve(
+          json({ location: { slug: "mysuru", explicit: false }, today: TODAY, days: moon }),
+        );
+      if (path === "/api/v1/moon/cities")
+        return Promise.resolve(
+          json([
+            { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
+          ]),
+        );
       return Promise.resolve(json({ timezone: "Asia/Almaty", home_city: null }));
     }),
   );
@@ -90,7 +108,17 @@ function renderRow(onOpen: () => void = () => undefined, locale: Locale = "en") 
   );
 }
 
-const text = (el: HTMLElement) => el.textContent.replace(/[⁨⁩]/g, "");
+function renderMoon(onOpen: () => void = () => undefined, locale: Locale = "en") {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <L10nProvider locale={locale}>
+        <MoonRow locale={locale} onOpen={onOpen} />
+      </L10nProvider>
+    </QueryClientProvider>,
+  );
+}
+
 const settled = () => new Promise((resolve) => setTimeout(resolve, 30));
 
 beforeEach(() => {
@@ -110,8 +138,8 @@ describe("ClassRow", () => {
     const onOpen = vi.fn();
     renderRow(onOpen);
 
-    const button = await screen.findByRole("button");
-    expect(text(button)).toBe("🗓 07:00 Almaty · Mysore · Ashtanga Almaty");
+    const button = await screen.findByRole("button", { name: "🗓 Today's class" });
+    expect(button).toHaveAccessibleDescription("Mysore · 07:00 Almaty · Ashtanga Almaty");
     fireEvent.click(button);
 
     expect(haptics.selection).toHaveBeenCalled();
@@ -133,8 +161,9 @@ describe("ClassRow", () => {
     });
     renderRow();
 
-    expect(text(await screen.findByRole("button"))).toBe(
-      "🗓 21:30 Almaty · Led · Yoga Berlin · 17:30 Berlin (UTC+1)",
+    // The shala's name comes last: it is what a narrow screen may cut.
+    expect(await screen.findByRole("button")).toHaveAccessibleDescription(
+      "Led · 21:30 Almaty · 17:30 Berlin (UTC+1) · Yoga Berlin",
     );
   });
 
@@ -142,8 +171,8 @@ describe("ClassRow", () => {
     stubApi({ occurrences: [row("2026-11-07T02:00:00Z")], zoneKnown: false });
     renderRow();
 
-    expect(text(await screen.findByRole("button"))).toBe(
-      "🗓 07:00 Almaty (UTC+5) · Mysore · Ashtanga Almaty",
+    expect(await screen.findByRole("button")).toHaveAccessibleDescription(
+      "Mysore · 07:00 Almaty (UTC+5) · Ashtanga Almaty",
     );
   });
 
@@ -153,8 +182,8 @@ describe("ClassRow", () => {
     });
     renderRow();
 
-    expect(text(await screen.findByRole("button"))).toBe(
-      "🗓 16:00 Almaty · Conference Sutras · Ashtanga Almaty",
+    expect(await screen.findByRole("button")).toHaveAccessibleDescription(
+      "Conference Sutras · 16:00 Almaty · Ashtanga Almaty",
     );
   });
 
@@ -168,8 +197,8 @@ describe("ClassRow", () => {
     });
     renderRow();
 
-    expect(text(await screen.findByRole("button"))).toBe(
-      "🗓 18:00 Almaty · Led · Ashtanga Almaty · +1 more",
+    expect(await screen.findByRole("button")).toHaveAccessibleDescription(
+      "Led · 18:00 Almaty · +1 more · Ashtanga Almaty",
     );
   });
 
@@ -178,8 +207,8 @@ describe("ClassRow", () => {
     stubApi({ occurrences: [row("2026-11-07T02:00:00Z")] });
     renderRow();
 
-    expect(text(await screen.findByRole("button"))).toBe(
-      "🗓 07:00 Almaty · Mysore · Ashtanga Almaty",
+    expect(await screen.findByRole("button")).toHaveAccessibleDescription(
+      "Mysore · 07:00 Almaty · Ashtanga Almaty",
     );
   });
 
@@ -217,8 +246,59 @@ describe("ClassRow", () => {
     });
     renderRow(undefined, "ru");
 
-    expect(text(await screen.findByRole("button"))).toBe(
-      "🗓 07:00 Almaty · Майсор · Ashtanga Almaty · ещё 1",
-    );
+    const button = await screen.findByRole("button", { name: "🗓 Занятие сегодня" });
+    expect(button).toHaveAccessibleDescription("Майсор · 07:00 Almaty · ещё 1 · Ashtanga Almaty");
+  });
+});
+
+describe("MoonRow", () => {
+  it("names the next moon day: the phase and the date; a tap opens the moon screen", async () => {
+    stubApi({ moon: [{ date: "2026-11-24", phase: "purnima" }] });
+    const onOpen = vi.fn();
+    renderMoon(onOpen);
+
+    const button = await screen.findByRole("button", { name: "🌕 Next moon day" });
+    // "(Purnima)" and "in 17 days" are on the screen it opens.
+    expect(button).toHaveAccessibleDescription("Full moon · Tue, Nov 24");
+    fireEvent.click(button);
+
+    expect(haptics.selection).toHaveBeenCalled();
+    expect(onOpen).toHaveBeenCalledOnce();
+  });
+
+  it("a new moon has its own icon and word", async () => {
+    stubApi({ moon: [{ date: "2026-11-09", phase: "amavasya" }] });
+    renderMoon();
+
+    expect(
+      await screen.findByRole("button", { name: "🌑 Next moon day" }),
+    ).toHaveAccessibleDescription("New moon · Mon, Nov 9");
+  });
+
+  it.each([
+    [TODAY, "Full moon · today"],
+    ["2026-11-08", "Full moon · tomorrow"],
+  ])("a moon day on %s is said in a word, not a date", async (date, fact) => {
+    stubApi({ moon: [{ date, phase: "purnima" }] });
+    renderMoon();
+
+    expect(await screen.findByRole("button")).toHaveAccessibleDescription(fact);
+  });
+
+  it("with no moon day in the window the row is the screen's title", async () => {
+    stubApi();
+    renderMoon();
+
+    const button = await screen.findByRole("button", { name: /Moon days · 📍 Mysuru/ });
+    expect(button).not.toHaveAccessibleDescription();
+  });
+
+  it("is in Russian too", async () => {
+    stubApi({ moon: [{ date: "2026-11-24", phase: "purnima" }] });
+    renderMoon(undefined, "ru");
+
+    expect(
+      await screen.findByRole("button", { name: "🌕 Следующий лунный день" }),
+    ).toHaveAccessibleDescription("Полнолуние · вт, 24 нояб.");
   });
 });
