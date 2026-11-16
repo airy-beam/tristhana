@@ -162,7 +162,14 @@ def outbound(storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch) -> list[
 
 
 @pytest.fixture
-def client(storage: InMemoryStorage, outbound: list[Sent]) -> Iterator[TestClient]:
+def client(
+    storage: InMemoryStorage, outbound: list[Sent], monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    import tristhana.main
+
+    # The app reads the same clock as the fake: with the real one, the pins set at NOW + 7 days
+    # ran out on 2026-11-16 and the feed tests began to fail.
+    monkeypatch.setattr(tristhana.main, "SystemClock", lambda: storage.announcements.clock)
     settings = Settings(
         app_env="test",
         telegram_bot_token=SecretStr(TOKEN),
