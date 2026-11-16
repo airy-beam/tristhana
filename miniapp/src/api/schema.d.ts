@@ -601,6 +601,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/next-steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Next Steps
+         * @description What the Today tab may offer next. Derived from the caller's own data on every read:
+         *     nothing is stored, a step is gone once its data exists, and "Not now" never reaches the
+         *     server. Shala steps name only shalas the caller owns.
+         */
+        get: operations["get_my_next_steps_api_v1_me_next_steps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/notification-settings": {
         parameters: {
             query?: never;
@@ -2909,6 +2931,27 @@ export interface components {
             from: components["schemas"]["PositionOut"];
             /** @description One of the card's `next_asanas` */
             to: components["schemas"]["PositionOut"];
+        };
+        /** NextStepOut */
+        NextStepOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "add_class" | "invite_shala_students" | "invite_student" | "reminder" | "position";
+            /**
+             * Shala Id
+             * @description The caller's own shala the step is about (`add_class`, `invite_shala_students`); null for the others
+             */
+            shala_id: string | null;
+        };
+        /** NextStepsOut */
+        NextStepsOut: {
+            /**
+             * Steps
+             * @description Every step still due, in offer order; the app shows the first one the person has not put off on this device
+             */
+            steps: components["schemas"]["NextStepOut"][];
         };
         /** NotificationSettingsOut */
         NotificationSettingsOut: {
@@ -6076,6 +6119,44 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_my_next_steps_api_v1_me_next_steps_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NextStepsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

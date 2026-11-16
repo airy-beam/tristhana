@@ -3800,6 +3800,57 @@
         "title": "NewAsanaIn",
         "type": "object"
       },
+      "NextStepOut": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "add_class",
+              "invite_shala_students",
+              "invite_student",
+              "reminder",
+              "position"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "shala_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The caller's own shala the step is about (`add_class`, `invite_shala_students`); null for the others",
+            "title": "Shala Id"
+          }
+        },
+        "required": [
+          "kind",
+          "shala_id"
+        ],
+        "title": "NextStepOut",
+        "type": "object"
+      },
+      "NextStepsOut": {
+        "properties": {
+          "steps": {
+            "description": "Every step still due, in offer order; the app shows the first one the person has not put off on this device",
+            "items": {
+              "$ref": "#/components/schemas/NextStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "title": "NextStepsOut",
+        "type": "object"
+      },
       "NotificationSettingsOut": {
         "properties": {
           "announcements": {
@@ -9495,6 +9546,53 @@
         "summary": "Put Moon Location",
         "tags": [
           "moon"
+        ]
+      }
+    },
+    "/api/v1/me/next-steps": {
+      "get": {
+        "description": "What the Today tab may offer next. Derived from the caller's own data on every read:\nnothing is stored, a step is gone once its data exists, and \"Not now\" never reaches the\nserver. Shala steps name only shalas the caller owns.",
+        "operationId": "get_my_next_steps_api_v1_me_next_steps_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextStepsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get My Next Steps",
+        "tags": [
+          "journey"
         ]
       }
     },

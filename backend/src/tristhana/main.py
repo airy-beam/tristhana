@@ -75,6 +75,7 @@ from tristhana.application.directory_listing import (
     WithdrawListing,
 )
 from tristhana.application.export import DeleteMyAccount, SendMyExport
+from tristhana.application.journey import GetNextSteps
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
     FollowMoonSource,
@@ -393,6 +394,7 @@ class _Services:
             cities,
             clock,
         )
+        app.state.next_steps = GetNextSteps(self._storage.accounts, clock)  # UI-06 stage 2
         app.state.check_in_trends = GetCheckInTrends(  # ST-05
             self._storage.check_in_trends, cities, clock
         )

@@ -54,6 +54,7 @@ from tristhana.domain.accounts import (
 )
 from tristhana.domain.days import DayLog, DayStatus, public_status
 from tristhana.domain.export import ExportIdentity
+from tristhana.domain.journey import JourneyFacts
 from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import Cities, MoonDay, MoonDayKind, MoonLocation
 from tristhana.domain.notifications import (
@@ -109,6 +110,13 @@ class InMemoryAccounts:
     # DB reads that in the same statement; `InMemoryStorage` wires it to its days).
     welcomed_at: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
     has_days: Callable[[UUID], bool] = lambda _: False
+    # UI-06 stage 2: the facts behind the next step. A test seeds what only other tables
+    # know (the invite link, the owned shalas); `InMemoryStorage` wires in what its own
+    # repos know (a logged day, the reminder answer, the position).
+    journey: dict[UUID, JourneyFacts] = field(default_factory=dict[UUID, JourneyFacts])
+    journey_reads: list[UUID] = field(default_factory=list[UUID])
+    reminder_answered: Callable[[UUID], bool] = lambda _: False
+    position_set: Callable[[UUID], bool] = lambda _: False
 
     async def find_by_identity(self, key: IdentityKey) -> Account | None:
         self._check()
@@ -188,6 +196,17 @@ class InMemoryAccounts:
         self.welcomed_at[account_id] = at
         self._save(replace(self.accounts[account_id], welcomed=True))
         return self.has_days(account_id)
+
+    async def journey_facts(self, account_id: UUID) -> JourneyFacts:  # UI-06 stage 2
+        self._check()
+        self.journey_reads.append(account_id)
+        seeded = self.journey.get(account_id, JourneyFacts())
+        return replace(
+            seeded,
+            has_days=seeded.has_days or self.has_days(account_id),
+            reminder_answered=seeded.reminder_answered or self.reminder_answered(account_id),
+            position_set=seeded.position_set or self.position_set(account_id),
+        )
 
     async def delete(self, account_id: UUID) -> bool:  # ST-09
         self._check()
@@ -1150,6 +1169,13 @@ class InMemoryStorage:
         self.day_repo.periods.practice_on = practice_on
         days = self.day_repo
         self.repo.has_days = lambda account_id: any(a == account_id for a, _ in days.rows)
+
+        def reminder_answered(account_id: UUID) -> bool:  # "yes" and "no" both answer it
+            stored = notifications.stored.get(account_id)
+            return stored is not None and stored.practice.on is not None
+
+        self.repo.reminder_answered = reminder_answered
+        self.repo.position_set = lambda account_id: account_id in days.progression_rows
 
     started: bool = False
 
