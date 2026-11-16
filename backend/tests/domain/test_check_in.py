@@ -167,3 +167,35 @@ def test_an_empty_check_in_counts_as_none() -> None:
 
     assert m.offer_mood_row(TODAY, TODAY, _c(), True) is True
     assert m.offer_mood_row(TODAY - timedelta(days=1), TODAY, _c(), True) is True
+
+
+# UI-06 (Q313): the setting shows or hides the "How do you feel?" button
+
+
+def test_the_entry_is_shown_while_the_setting_is_on() -> None:
+    m = _m()
+
+    assert m.entry_shown(None, True) is True
+    assert m.entry_shown(_c(), True) is True
+    assert m.entry_shown(_c(mood=4), True) is True
+
+
+def test_the_entry_is_hidden_when_the_setting_is_off_and_nothing_is_recorded() -> None:
+    m = _m()
+
+    assert m.entry_shown(None, False) is False
+    assert m.entry_shown(_c(), False) is False  # an empty check-in is no check-in
+
+
+def test_an_existing_check_in_always_stays_editable() -> None:
+    m = _m()
+
+    assert m.entry_shown(_c(mood=4), False) is True
+    assert m.entry_shown(_c(tags=["sore"]), False) is True
+
+
+def test_the_entry_does_not_depend_on_the_day() -> None:
+    """Unlike the retired one-tap mood row, there is no two-day window."""
+    import inspect
+
+    assert list(inspect.signature(_m().entry_shown).parameters) == ["existing", "enabled"]

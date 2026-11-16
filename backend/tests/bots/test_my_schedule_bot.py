@@ -255,8 +255,8 @@ def test_schedule_in_english(client: TestClient, storage: InMemoryStorage) -> No
     assert body.get("parse_mode") is None
     lines = _lines(body)
     assert lines[0].startswith("🗓 My schedule, ")
-    assert "Times: Almaty (UTC+5)" in lines
-    assert sum("UTC+5" in line for line in lines) == 1  # once, in the header
+    assert "Times: Almaty" in lines  # ADR-0044: my own zone, no offset
+    assert not any("UTC" in line for line in lines)
     assert _rows_of(lines, "Mon") == ["06:00–09:30 Mysore · Anna 👤"]  # one shala: no name
     assert "▶" in _texts(body)
     assert _data(body, "▶") == "c1:m:1:a"
@@ -273,7 +273,7 @@ def test_schedule_in_russian(client: TestClient, storage: InMemoryStorage) -> No
 
     lines = _lines(body)
     assert lines[0].startswith("🗓 Моё расписание, ")
-    assert "Время: Алматы (UTC+5)" in lines
+    assert "Время: Алматы" in lines
     assert any(line.startswith("06:00–09:30 Майсор · Anna 👤") for line in lines)
     assert "Веду" in _text_of(body, "c1:m:0:m")
     assert "Мои учителя" in _text_of(body, "c1:m:0:t")
@@ -432,8 +432,8 @@ def test_a_berlin_viewer_sees_an_almaty_class_on_the_day_before(
 
     lines = _lines(_tap(client, "c1:m:0:a"))
 
-    assert "Times: Berlin (UTC+1)" in lines
-    assert _rows_of(lines, "Tue") == ["01:00–02:00 Mysore · 05:00 Almaty (UTC+5)"]
+    assert "Times: Berlin" in lines  # mine: no offset (ADR-0044)
+    assert _rows_of(lines, "Tue") == ["01:00–02:00 Mysore · 05:00 Almaty (UTC+5)"]  # not mine
 
 
 # Moon days and row marks (expert items 1-5)
@@ -673,7 +673,7 @@ def test_classes_opens_my_schedule_with_i_teach(
     assert body.get("parse_mode") is None
     lines = _lines(body)
     assert lines[0].startswith("🗓 My schedule, ")
-    assert "Times: Almaty (UTC+5)" in lines
+    assert "Times: Almaty" in lines
     assert "✓" in _text_of(body, "c1:m:0:m")
     assert "06:00–09:30 Mysore · Anna is covering" in lines
     assert "07:00–08:30 Led · you're covering for Anna" in lines

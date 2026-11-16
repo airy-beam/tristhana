@@ -39,6 +39,7 @@ from tristhana.bots.telegram.screens import (
     Screen,
     answered,
     app_button,
+    app_url,
     button,
     day_label,
     nothing,
@@ -140,8 +141,7 @@ class LinkScreens:
         """NT-03: `[📣 Announce]` opens the Mini App's compose screen (Q176)."""
         if not self._app or self.announcements is None:
             return None
-        query = {"open": "announce"} | ({"shala": str(shala)} if shala else {})
-        url = f"{self._app}{'&' if '?' in self._app else '?'}{urlencode(query)}"
+        url = app_url(self._app, "announce", shala=str(shala) if shala else None)
         return InlineKeyboardButton(
             text=self._t.t(locale, "ann-announce"), web_app=WebAppInfo(url=url)
         )
@@ -600,7 +600,9 @@ class LinkScreens:
             rows.append(
                 [
                     InlineKeyboardButton(
-                        text=self._t.t(locale, "shala-create"), web_app=WebAppInfo(url=self._app)
+                        text=self._t.t(locale, "shala-create"),
+                        # UI-06: straight on the form (the plain URL opened Home).
+                        web_app=WebAppInfo(url=app_url(self._app, "new-shala")),
                     )
                 ]
             )

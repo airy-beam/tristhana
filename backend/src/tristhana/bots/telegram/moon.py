@@ -98,7 +98,8 @@ def moon_status(
     today: date,
     place: City | None = None,
 ) -> str:
-    """The moon reminder line ("🔔 Reminders: 7 and 1 day before at 19:00 …")."""
+    """The moon reminder line ("🔔 Reminders: 7 and 1 day before at 19:00 …"). `zone` is the
+    reader's own zone, so the time carries its city and no offset (ADR-0044)."""
     if zone is None:
         return t.t(locale, "moon-zone-needed")
     if not settings.moon.on:
@@ -108,7 +109,7 @@ def moon_status(
         locale,
         "moon-reminders-on",
         offsets=t.t(locale, "moon-offsets", code=int(code)),  # numeric variant keys
-        time=TimeArg(today, settings.moon.at, zone, place),
+        time=TimeArg(today, settings.moon.at, zone, place, viewer=zone),
     )
 
 

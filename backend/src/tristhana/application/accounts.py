@@ -1,6 +1,8 @@
 """Account use cases (ID-01). The bot and the API both resolve the caller through
 `EnsureAccount`, so an account exists from the first contact on either side."""
 
+from dataclasses import dataclass
+
 from tristhana.application.policies import Principal
 from tristhana.application.ports.accounts import AccountRepository, IdentityTaken
 from tristhana.application.ports.storage import Clock
@@ -11,6 +13,7 @@ from tristhana.domain.accounts import (
     new_account,
     profile_refresh,
 )
+from tristhana.domain.journey import active
 
 
 class EnsureAccount:
@@ -58,3 +61,39 @@ class RecordDeviceTimezone:
         if zone is None or account.timezone is not None:
             return account
         return await self._accounts.set_timezone_if_unset(account.id, zone)
+
+
+@dataclass(frozen=True, slots=True)
+class Welcome:
+    first: bool  # this call recorded it: the person's first `/start` since UI-06
+    # Has a student, a teacher, a shala or (on the first call only: it comes with the write)
+    # a logged day.
+    active: bool
+
+    @property
+    def front_door(self) -> bool:
+        """Show the front door: once, and only to someone who has done nothing yet. An
+        active person's first call gets Today with the one-time Menu hint instead."""
+        return self.first and not self.active
+
+
+class MarkWelcomed:
+    """Record that the person has met the front door (UI-06 §3), so it is shown once.
+
+    Called only while `account.welcomed` is false: by `/start` without a payload, and by an
+    invite `/start` (so the front door never shows later). One statement; a call for an
+    account already marked writes nothing, and a second call racing the first is not `first`.
+    """
+
+    def __init__(self, accounts: AccountRepository, clock: Clock) -> None:
+        self._accounts = accounts
+        self._clock = clock
+
+    async def execute(self, principal: Principal) -> Welcome:
+        account = principal.account
+        if account.welcomed:
+            return Welcome(first=False, active=active(account, has_days=False))
+        has_days = await self._accounts.mark_welcomed(account.id, self._clock.now())
+        if has_days is None:  # another request got there first
+            return Welcome(first=False, active=active(account, has_days=False))
+        return Welcome(first=True, active=active(account, has_days))

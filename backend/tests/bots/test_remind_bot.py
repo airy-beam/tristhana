@@ -150,8 +150,9 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
     evening = _tap(client, "r1:t:2000", "ru")
     sunday_off = _tap(client, "r1:d:7", "ru")  # the day off decides the days (PR-09)
 
-    assert on["text"].startswith(
-        "🔔 Напоминание о практике: каждый день, кроме субботы в 10:00 Алматы (UTC+5)"  # noqa: RUF001
+    # ADR-0044: my own reminder time names the city and carries no offset.
+    assert on["text"].splitlines()[0] == (
+        "🔔 Напоминание о практике: каждый день, кроме субботы в 10:00 Алматы"  # noqa: RUF001
     )
     assert "✓ 20:00" in _texts(evening)
     assert sunday_off["text"].startswith(

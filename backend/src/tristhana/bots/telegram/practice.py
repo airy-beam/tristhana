@@ -256,7 +256,13 @@ class PracticeScreens:
             lines.insert(0, self._t.t(locale, "pause-kept", label=label, until=DateArg(kept.end)))
         if has_details(practice):
             lines.append(
-                self.summary_text(locale, day, practice, self._days.get.home_city(principal))
+                self.summary_text(
+                    locale,
+                    day,
+                    practice,
+                    self._days.get.home_city(principal),
+                    principal.account.timezone,
+                )
             )
         else:
             lines.append(self._t.t(locale, "practice-details-prompt"))
@@ -369,7 +375,13 @@ class PracticeScreens:
         lines[:0] = lead or []  # a 🎉 goes on top (GM-01 spec §5)
         if has_details(practice):
             lines.append(
-                self.summary_text(locale, day, practice, self._days.get.home_city(principal))
+                self.summary_text(
+                    locale,
+                    day,
+                    practice,
+                    self._days.get.home_city(principal),
+                    principal.account.timezone,
+                )
             )
         if extra:
             lines.append(extra)
@@ -543,9 +555,15 @@ class PracticeScreens:
 
     # Text helpers.
     def summary_text(
-        self, locale: Locale, day: date, p: Practice | None, place: City | None = None
+        self,
+        locale: Locale,
+        day: date,
+        p: Practice | None,
+        place: City | None = None,
+        viewer: str | None = None,
     ) -> str:
-        """E.g. "Mysore · Primary + intermediate → Pasasana · 90 min · 06:30 Almaty (UTC+5)"."""
+        """E.g. "Mysore · Primary + intermediate → Pasasana · 90 min · 06:30 Almaty"; the
+        offset follows only when the practice was in another zone than `viewer`'s (ADR-0044)."""
         if p is None:
             return ""
         parts: list[str] = []
@@ -559,7 +577,11 @@ class PracticeScreens:
             parts.append(self._t.t(locale, "duration-min", min=p.duration_min))
         if p.start_time is not None and p.timezone:
             parts.append(
-                self._t.t(locale, "time-label", time=TimeArg(day, p.start_time, p.timezone, place))
+                self._t.t(
+                    locale,
+                    "time-label",
+                    time=TimeArg(day, p.start_time, p.timezone, place, viewer),
+                )
             )
         return " · ".join(parts)
 

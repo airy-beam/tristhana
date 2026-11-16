@@ -92,13 +92,15 @@ def practice_status(
     today: date,
     place: City | None = None,
 ) -> str:
-    """The practice reminder line ("🔔 Practice reminder: every day except Saturday, …")."""
+    """The practice reminder line ("🔔 Practice reminder: every day except Saturday, …").
+    `zone` is the reader's own zone (their reminders run in it), so the time carries its city
+    and no offset (ADR-0044)."""
     p = settings.practice
     if not p.enabled:
         return t.t(locale, "remind-status-off")
     # Without a known zone there is no honest zone label: "10:00 your time".
     time_text = (
-        t.t(locale, "time-label", time=TimeArg(today, p.at, zone, place))
+        t.t(locale, "time-label", time=TimeArg(today, p.at, zone, place, viewer=zone))
         if zone
         else t.t(locale, "remind-local-time", time=f"{p.at:%H:%M}")
     )

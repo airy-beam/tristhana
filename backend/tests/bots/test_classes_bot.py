@@ -229,6 +229,28 @@ def test_the_week_in_russian(client: TestClient, storage: InMemoryStorage) -> No
     assert "06:00–09:30 Майсор · Anna" in lines
 
 
+def test_the_week_header_drops_the_offset_only_in_my_own_zone(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """ADR-0044: the shala's zone is named for everyone; the offset is for people elsewhere
+    (the two tests above: a viewer whose zone is unknown)."""
+    me = _me(client, storage)
+    shala, anna = _shala(storage, me, None)
+    storage.schedule.add_class(shala, teacher_id=anna.id)
+
+    storage.repo.accounts[me.id] = replace(me, timezone="Asia/Almaty")
+    mine = _lines(_tap(client, _week(shala)))
+    storage.repo.accounts[me.id] = replace(me, timezone="Asia/Tashkent")  # the same clock
+    neighbour = _lines(_tap(client, _week(shala)))
+    storage.repo.accounts[me.id] = replace(me, timezone="Europe/Berlin")
+    far = _lines(_tap(client, _week(shala)))
+
+    assert "Times: Almaty" in mine
+    assert not any("UTC" in line for line in mine)
+    assert "Times: Almaty (UTC+5)" in neighbour
+    assert "Times: Almaty (UTC+5)" in far
+
+
 def test_one_to_one_rows_only_for_staff(client: TestClient, storage: InMemoryStorage) -> None:
     me = _me(client, storage)
     shala, _ = _shala(storage, me, None)
@@ -261,6 +283,27 @@ def test_a_dst_week_repeats_the_label_on_the_changed_day(
     sunday = next(line for line in lines if line.startswith("Sun"))
     assert "Berlin (UTC+2)" in sunday
     assert sum("UTC+2" in line for line in lines) == 1
+
+
+def test_a_dst_week_in_my_own_zone_still_marks_the_changed_day(
+    client: TestClient, storage: InMemoryStorage, clock: Frozen
+) -> None:
+    """ADR-0044: the header has no offset in my own zone, but the day row that marks the
+    daylight-saving change keeps it: there the offset is the information."""
+    clock.instant = datetime(2026, 3, 23, 6, 0, tzinfo=UTC)
+    me = _me(client, storage)
+    storage.repo.accounts[me.id] = replace(me, timezone="Europe/Berlin")
+    shala, _ = _shala(storage, me, None, name="Berlin Shala", city="berlin", days_off=None)
+    storage.schedule.add_class(
+        shala, weekdays=frozenset(range(1, 8)), starts_on=date(2026, 1, 5), start=time(6, 30)
+    )
+
+    lines = _lines(_tap(client, _week(shala)))
+
+    assert "Times: Berlin" in lines
+    sunday = next(line for line in lines if line.startswith("Sun"))
+    assert "Berlin (UTC+2)" in sunday
+    assert sum("UTC" in line for line in lines) == 1  # only the changed day
 
 
 def test_forty_series_and_a_long_name_fit_one_message(

@@ -53,6 +53,12 @@ class AccountRepository(Protocol):
         """Idempotent: the first "Not now" is kept."""
         ...
 
+    async def mark_welcomed(self, account_id: UUID, at: datetime) -> bool | None:
+        """UI-06: record that the person has met the front door (or their first Today), only
+        while it is not recorded. One statement. Returns whether the account has any logged
+        day; None = already recorded (a second `/start` racing the first), nothing written."""
+        ...
+
     async def delete(self, account_id: UUID) -> bool:
         """One statement; every per-account row cascades (ST-09). False = already gone."""
         ...

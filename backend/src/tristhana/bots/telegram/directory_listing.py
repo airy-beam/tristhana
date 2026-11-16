@@ -11,7 +11,6 @@ hold a line break, so a name can't imitate it. Names, regions and notes are neve
 
 from collections.abc import Awaitable
 from datetime import date
-from urllib.parse import urlencode
 from uuid import UUID
 
 from aiogram import F, Router
@@ -31,7 +30,15 @@ from tristhana.application.ports.directory_listing import PAGE, RequestCard
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.bots.telegram import directory_listing_callbacks as cb
 from tristhana.bots.telegram import teacher_links_callbacks as links_cb
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, nothing, show
+from tristhana.bots.telegram.screens import (
+    Reply,
+    Screen,
+    answered,
+    app_url,
+    button,
+    nothing,
+    show,
+)
 from tristhana.domain.accounts import Account
 from tristhana.domain.directory_listing import (
     DIRECTORY_URL,
@@ -126,8 +133,7 @@ class ListingScreens:
                 lines.append(t.t(locale, "listing-listed-hint"))
         rows: list[list[InlineKeyboardButton]] = []
         if self._app and self._l.available:  # off: no form, but my row can still be removed
-            query = urlencode({"open": "listing"})
-            url = f"{self._app}{'&' if '?' in self._app else '?'}{query}"
+            url = app_url(self._app, "listing")
             rows.append(
                 [InlineKeyboardButton(text=t.t(locale, "listing-app"), web_app=WebAppInfo(url=url))]
             )

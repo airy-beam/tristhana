@@ -99,6 +99,10 @@ class InMemoryAccounts:
     # Simulates a concurrent first contact: the next create finds the identity taken.
     steal_next_create: bool = False
     deleted: list[UUID] = field(default_factory=list[UUID])
+    # UI-06: when each account was marked welcomed, and whether it has any logged day (the
+    # DB reads that in the same statement; `InMemoryStorage` wires it to its days).
+    welcomed_at: dict[UUID, datetime] = field(default_factory=dict[UUID, datetime])
+    has_days: Callable[[UUID], bool] = lambda _: False
 
     async def find_by_identity(self, key: IdentityKey) -> Account | None:
         self._check()
@@ -170,6 +174,14 @@ class InMemoryAccounts:
     async def dismiss_day_off_question(self, account_id: UUID) -> None:
         self._check()
         self._save(replace(self.accounts[account_id], day_off_dismissed=True))
+
+    async def mark_welcomed(self, account_id: UUID, at: datetime) -> bool | None:  # UI-06
+        self._check()
+        if account_id in self.welcomed_at or self.accounts[account_id].welcomed:
+            return None
+        self.welcomed_at[account_id] = at
+        self._save(replace(self.accounts[account_id], welcomed=True))
+        return self.has_days(account_id)
 
     async def delete(self, account_id: UUID) -> bool:  # ST-09
         self._check()
@@ -1120,6 +1132,8 @@ class InMemoryStorage:
 
         self.day_repo.practice_on = practice_on
         self.day_repo.periods.practice_on = practice_on
+        days = self.day_repo
+        self.repo.has_days = lambda account_id: any(a == account_id for a, _ in days.rows)
 
     started: bool = False
 

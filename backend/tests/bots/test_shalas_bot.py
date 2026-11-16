@@ -244,6 +244,26 @@ def test_the_preview_shows_no_person(client: TestClient, storage: InMemoryStorag
     assert all("Secret" not in t for t in _texts(body))
 
 
+def test_the_card_names_the_shala_time_without_the_offset_for_a_member_in_its_zone(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """ADR-0044: the offset is for people elsewhere (and for a viewer whose zone is unknown,
+    as in the join test below)."""
+    owner = _owner(storage)
+    shala = _shala(storage, owner)
+    me = _me(client, storage)
+    storage.shalas.add_student(shala, me.id)
+
+    storage.repo.accounts[me.id] = replace(me, timezone="Asia/Almaty")
+    mine = _tap(client, f"h1:c:{short_id(shala)}")["text"]
+    storage.repo.accounts[me.id] = replace(me, timezone="Europe/Berlin")
+    far = _tap(client, f"h1:c:{short_id(shala)}")["text"]
+
+    assert "📍 Almaty · shala time: Almaty\n" in mine
+    assert "shala time: Almaty (UTC" not in mine
+    assert "📍 Almaty · shala time: Almaty (UTC+5)" in far
+
+
 def test_join_edits_into_the_card(client: TestClient, storage: InMemoryStorage) -> None:
     owner = _owner(storage)
     shala = _shala(storage, owner)
@@ -666,7 +686,8 @@ def test_the_invite_screen_offers_create_a_shala_in_the_app(
     body = _tap(client, "t1:i")
 
     [create] = [b for b in _buttons(body) if b["text"] == "🏛 Create a shala"]
-    assert "web_app" in create
+    # UI-06: straight to the form (the plain app URL used to open Home).
+    assert create["web_app"]["url"] == "https://tristhana.web.app?open=new-shala"
 
 
 # Moon: 🏛 Follow my shala (m1:h)

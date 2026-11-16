@@ -70,6 +70,8 @@ account = Table(
     Column("export_claimed_at", DateTime(timezone=True)),
     # MD-04 (ADR-0029): NULL = never chosen, '-' = not listed / not now, else a city slug.
     Column("home_city", Text()),
+    # UI-06: when the person met the front door (or their first Today); NULL = not yet.
+    Column("welcomed_at", DateTime(timezone=True)),
     _timestamp("created_at"),
     _timestamp("updated_at"),
     _timestamp("last_seen_at"),

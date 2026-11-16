@@ -225,7 +225,10 @@ class ShalaScreens:
         locale = principal.account.locale
         today: date = caller_today(principal, self._clock)
         city = self._cities.find(card.city)
-        zone = zone_label(self._t, locale, city.location.tz, today, city) if city else card.city
+        mine = principal.account.timezone
+        zone = (
+            zone_label(self._t, locale, city.location.tz, today, city, mine) if city else card.city
+        )
         place = (
             self._t.t(locale, "shala-online")
             if card.online

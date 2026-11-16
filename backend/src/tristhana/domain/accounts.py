@@ -80,6 +80,7 @@ class Account:
     teaches: bool = False  # has at least one student (ID-04); loaded with the account
     main_teacher: TeacherMoon | None = None  # ID-04 `effective_primary` (MD-02)
     shala: ShalaMoon | None = None  # SC-01: the main shala; loaded with the account
+    welcomed: bool = False  # UI-06: has met the front door or the first Today (shown once)
 
     @property
     def home_city_chosen(self) -> bool:

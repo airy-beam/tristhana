@@ -2,7 +2,8 @@
 
 import itertools
 from collections.abc import Iterator
-from datetime import UTC, date, datetime, timedelta
+from dataclasses import replace
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -276,6 +277,31 @@ def test_done_shows_a_summary_with_a_details_button(client: TestClient) -> None:
     # Today, reminder never chosen: the one-time offer (PR-10).
     assert body["text"].endswith("🔔 Want me to ask once a day, so logging takes one tap?")
     assert _texts(body)[-2:] == ["🔔 Yes, remind me", "No, thanks"]
+
+
+def test_the_start_time_carries_the_offset_only_outside_my_zone(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """ADR-0044: a start time (recorded in the app) names its city; the offset follows only
+    when the practice was somewhere else than my own zone."""
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p")
+    _tap(client, f"p1:c:{d}:m")
+    [account] = storage.repo.accounts.values()
+    storage.repo.accounts[account.id] = replace(account, timezone="Asia/Almaty")
+    [key] = storage.day_repo.practice_rows
+    at_home = replace(_practice(storage), start_time=time(6, 30), timezone="Asia/Almaty")
+    storage.day_repo.practice_rows[key] = at_home
+
+    mine = _tap(client, f"p1:v:{d}")
+    storage.day_repo.practice_rows[key] = replace(at_home, timezone="Asia/Tashkent")
+    elsewhere = _tap(client, f"p1:v:{d}")
+    storage.repo.accounts[account.id] = replace(account, timezone=None)
+    unknown = _tap(client, f"p1:v:{d}")
+
+    assert "\n\nMysore · 06:30 Almaty\n\n" in mine["text"]
+    assert "Mysore · 06:30 Tashkent (UTC+5)" in elsewhere["text"]  # the same clock, not mine
+    assert "Mysore · 06:30 Tashkent (UTC+5)" in unknown["text"]
 
 
 def test_remove_details(client: TestClient, storage: InMemoryStorage) -> None:

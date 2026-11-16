@@ -81,3 +81,9 @@ def offer_mood_row(day: date, today: date, existing: CheckIn | None, enabled: bo
     if not enabled or (existing is not None and not existing.is_empty()):
         return False
     return today - timedelta(days=OFFER_DAYS - 1) <= day <= today
+
+
+def entry_shown(existing: CheckIn | None, enabled: bool) -> bool:
+    """Whether the practice screens show the "How do you feel?" button (UI-06, Q313): the
+    setting is on, or there is a check-in already, which always stays editable."""
+    return enabled or (existing is not None and not existing.is_empty())

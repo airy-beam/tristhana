@@ -5,6 +5,7 @@ import logging
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from datetime import date, time, timedelta
+from urllib.parse import urlencode
 
 from aiogram.methods import EditMessageText, SendMessage
 from aiogram.types import (
@@ -40,6 +41,18 @@ def button(
     return InlineKeyboardButton(text=f"✓ {text}" if mark else text, callback_data=data)
 
 
+def app_url(base: str, open: str | None = None, **params: str | None) -> str:
+    """The Mini App's URL, opening straight on a screen: `…?open=new-shala`. The one place
+    these URLs are built (UI-06). The `open` values are a contract with the Mini App
+    (`App.tsx`), and old messages keep their URLs: never rename one. Unknown values open
+    Home. A parameter that is None is left out."""
+    query = {"open": open} | params
+    given = urlencode({k: v for k, v in query.items() if v is not None})
+    if not given:
+        return base
+    return f"{base}{'&' if '?' in base else '?'}{given}"
+
+
 def app_button(t: Translator, locale: Locale, url: str) -> InlineKeyboardButton:
     """Opens the Mini App (which also records the device time zone, ID-01)."""
     return InlineKeyboardButton(text=t.t(locale, "start-open-app"), web_app=WebAppInfo(url=url))
@@ -50,9 +63,19 @@ def day_label(t: Translator, locale: Locale, day: date, today: date) -> str:
     return t.t(locale, "day-label", rel=rel, date=DateArg(day, with_year=day.year != today.year))
 
 
-def zone_label(t: Translator, locale: Locale, zone: str, today: date, city: City | None) -> str:
-    """The zone with its offset today: "Astana (UTC+5)" (the time label minus the time)."""
-    label = t.t(locale, "time-label", time=TimeArg(today, time(12), zone, city))
+def zone_label(
+    t: Translator,
+    locale: Locale,
+    zone: str,
+    today: date,
+    city: City | None,
+    viewer: str | None = None,
+) -> str:
+    """The zone as a time label minus the time: "Astana" for a viewer in that zone,
+    "Astana (UTC+5)" (the offset today) for anyone else (ADR-0044). Without `viewer` the
+    offset always shows: that is for text saying what a zone is (the Settings city row, the
+    travel prompt, a daylight-saving day row), where the offset is the information."""
+    label = t.t(locale, "time-label", time=TimeArg(today, time(12), zone, city, viewer))
     return label.split(" ", 1)[1] if " " in label else label
 
 

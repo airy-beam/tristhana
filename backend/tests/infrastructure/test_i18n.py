@@ -91,6 +91,62 @@ def test_time_labels_name_the_home_city_in_its_zone(zone: str, locale: str, labe
     assert FluentTranslator().t(locale, "time-label", time=arg) == label  # type: ignore[arg-type]
 
 
+# ADR-0044: the offset shows only outside the viewer's own zone; the city always stays.
+
+
+@pytest.mark.parametrize(
+    ("zone", "viewer", "locale", "label"),
+    [
+        ("Asia/Almaty", "Asia/Almaty", "en", "06:30 Almaty"),  # my own zone
+        ("Asia/Almaty", "Asia/Almaty", "ru", "06:30 Алматы"),
+        ("Europe/Berlin", "Asia/Almaty", "en", "06:30 Berlin (UTC+1)"),  # somewhere else
+        ("Asia/Tashkent", "Asia/Almaty", "en", "06:30 Tashkent (UTC+5)"),  # the same clock
+        ("Asia/Almaty", None, "en", "06:30 Almaty (UTC+5)"),  # the viewer's zone is unknown
+        ("Asia/Kolkata", "Asia/Kolkata", "en", "06:30 Kolkata"),
+        ("Asia/Kolkata", "Asia/Almaty", "en", "06:30 Kolkata (UTC+5:30)"),
+        ("UTC", "UTC", "en", "06:30 UTC"),
+        ("UTC", "Asia/Almaty", "en", "06:30 UTC"),
+        ("Asia/Almaty", "UTC", "en", "06:30 Almaty (UTC+5)"),
+    ],
+)
+def test_time_labels_drop_the_offset_only_in_the_viewers_own_zone(
+    zone: str, viewer: str | None, locale: str, label: str
+) -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+
+    arg = TimeArg(date(2026, 11, 16), time(6, 30), zone, viewer=viewer)
+
+    assert FluentTranslator().t(locale, "time-label", time=arg) == label  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("day", "label"), [("2026-03-28", "06:30 Berlin"), ("2026-03-29", "06:30 Berlin")]
+)
+def test_the_own_zone_label_is_the_same_across_a_daylight_saving_date(day: str, label: str) -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+
+    arg = TimeArg(date.fromisoformat(day), time(6, 30), "Europe/Berlin", viewer="Europe/Berlin")
+
+    assert FluentTranslator().t("en", "time-label", time=arg) == label
+
+
+def test_the_own_zone_label_still_names_the_home_city() -> None:
+    from datetime import date, time
+
+    from tristhana.application.ports.i18n import TimeArg
+    from tristhana.domain.moon import City, MoonLocation
+
+    astana = City("astana", "Astana", "Астана", MoonLocation(51.17, 71.45, "Asia/Almaty"))
+    arg = TimeArg(date(2026, 11, 16), time(6, 30), "Asia/Almaty", astana, viewer="Asia/Almaty")
+
+    assert FluentTranslator().t("en", "time-label", time=arg) == "06:30 Astana"
+    assert FluentTranslator().t("ru", "time-label", time=arg) == "06:30 Астана"
+
+
 # WH-01 part 2 (spec §7): new keys exist in both locales and format as written.
 
 WH01_KEYS = [
