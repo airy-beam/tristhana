@@ -1,6 +1,6 @@
 # UI-06 stage 4, part A: shala setup and classes (two-field create, setup list, short class form, class editing, form controls)
 
-- Status: **proposed** (the five points in §1 are approved by the owner, 2026-11-16; open points are Q336–Q339 in §13) · Size **L**, one pull request (part A of stage 4)
+- Status: **accepted** (owner, 2026-11-16: the five points in §1, and Q336–Q339 in §13 all as recommended) · Size **L**, one pull request (part A of stage 4)
 - Parent: `docs/specs/UI-06-simple-journey.md` (§1, §10). Sits in the shell of `UI-06-stage-2-app-shell.md` (ADR-0047) but does not need it (§11). Requirements: **UI-06**; changes SC-01 (create), SC-02 (class form, editing: closes its §11 "deferred"), touches SC-05 (marks follow a split), NT-03 (Q338), ID-03 (Q337).
 - Related: ADR-0033, 0034, 0039, 0044, 0047. New, proposed: **ADR-0048** (a class edit applies from a date; the past is not rewritten).
 

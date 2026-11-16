@@ -1,5 +1,5 @@
 # ADR-0048: A class edit applies from a date: the series is split, attendance follows the successor, and the app never rewrites the past
-- Status: proposed (with `docs/specs/UI-06-stage-4-shala-setup.md`; the owner decides Q336 there)
+- Status: accepted (owner, 2026-11-16, with `docs/specs/UI-06-stage-4-shala-setup.md`; Q336 as recommended: no "all dates" choice)
 - Builds on ADR-0034 (weekly rule, read-time expansion, split "from a date") and ADR-0039 (attendance keyed by class and rule date, with a snapshot). Amends both.
 - Date: 2026-11-16
 ## Context
