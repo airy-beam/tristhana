@@ -375,6 +375,7 @@ class InMemoryDays:
             self.practice_rows.pop((account_id, when), None)
             self.check_in_rows.pop((account_id, when), None)  # PR-06: same statement
         became = day.status is DayStatus.PRACTICED and not again
+        kept = day.status is DayStatus.PRACTICED and again  # as the SQL: details stay
         return Upserted(
             day,
             prev=prev[0].status if prev else None,
@@ -382,6 +383,7 @@ class InMemoryDays:
             practice_on=self.practice_on(account_id),
             cut=cut,
             reached=self._ledger(account_id, thresholds) if became else None,
+            practice=self.practice_rows.get((account_id, when)) if kept else None,
         )
 
     async def insert_if_absent(

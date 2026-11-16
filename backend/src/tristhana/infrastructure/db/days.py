@@ -20,7 +20,7 @@ from tristhana.infrastructure.crypto import UnreadableSeal
 from tristhana.infrastructure.db.check_in import to_check_in
 from tristhana.infrastructure.db.diary import note_arrays, open_notes
 from tristhana.infrastructure.db.engine import connection
-from tristhana.infrastructure.db.practice import to_practice
+from tristhana.infrastructure.db.practice import stored_practice, to_practice
 from tristhana.infrastructure.db.rest_periods import (
     cut_ctes,
     open_periods,
@@ -170,8 +170,18 @@ class SqlDayLogRepository:
             if day.status is DayStatus.PRACTICED and thresholds
             else []
         )
+        # UI-06 P0: the details a day that was 🧘 already keeps, so the screen after 🧘
+        # needs no read. Gated like the cut: details this statement removes never show.
+        stored: tuple[Label[Any], ...] = (
+            stored_practice(account_id, day.local_date, was_practiced)
+            if day.status is DayStatus.PRACTICED
+            else ()
+        )
         stmt = stmt.returning(
-            *_snapshot(account_id, day.local_date), was_practiced.label("was_practiced"), *reached
+            *_snapshot(account_id, day.local_date),
+            was_practiced.label("was_practiced"),
+            *reached,
+            *stored,
         )
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
@@ -190,6 +200,7 @@ class SqlDayLogRepository:
             practice_on=bool(row.practice_on),
             cut=None if row.was_practiced else _cut(periods, day),
             reached=row.reached if reached else None,
+            practice=to_practice(row) if stored and row.practice_slot is not None else None,
         )
 
     async def insert_if_absent(

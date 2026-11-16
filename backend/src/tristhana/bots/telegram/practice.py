@@ -1,7 +1,10 @@
-"""Practice-details screens (PR-02 context, PR-03 length, PR-05 duration) after 🧘 Practiced.
+"""What follows 🧘 Practiced (UI-06): the three buttons after the save (P0), the details
+screen behind "Add details" (P1: PR-02 context, PR-03 length, PR-05 duration) and the done
+screen (V).
 
-The common path is 2 taps (🧘 → 🔁 same as last time). Every tap saves at once and edits
-the message in place; picker screens need no DB access (the catalog is in memory).
+The common path is 2 taps (🧘 → 🔁 same as last time, which lands on V). Every tap saves at
+once and edits the message in place; picker screens need no DB access (the catalog is in
+memory).
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from tristhana.application.practice_patch import PracticePatch
 from tristhana.bots.telegram import callbacks as dcb
 from tristhana.bots.telegram import check_in as ck
 from tristhana.bots.telegram import rest_callbacks as acb
+from tristhana.bots.telegram.diary import note_button
 from tristhana.bots.telegram.practice_callbacks import (
     PREFIX,
     PracticeCallback,
@@ -31,9 +35,9 @@ from tristhana.bots.telegram.practice_callbacks import (
 )
 from tristhana.bots.telegram.remind import offer_row
 from tristhana.bots.telegram.runtime import DayUseCases, PracticeUseCases, RemindUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, button, menu_row, show
 from tristhana.domain.accounts import Account
-from tristhana.domain.check_in import CheckIn, offer_mood_row
+from tristhana.domain.check_in import CheckIn, entry_shown
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
@@ -136,9 +140,9 @@ class PracticeScreens:
                     )
                 case "length":
                     return await self._set_length(principal, cb)
-                case "same":
+                case "same":  # the second tap of the common path: straight to V (UI-06)
                     copied = await self._p.copy_last.execute(principal, day)
-                    return await self.details(
+                    return await self.summary(
                         principal, day, practice=copied.practice, check_ins=_found(copied)
                     )
                 case "clear":
@@ -185,7 +189,8 @@ class PracticeScreens:
             raise DayNotPracticed(day.isoformat())
         return view.days[0]
 
-    async def _current(self, principal: Principal, day: date) -> Practice | None:
+    async def current(self, principal: Principal, day: date) -> Practice | None:
+        """The day's stored practice; raises `DayNotPracticed`. One statement."""
         practices = (await self._current_day(principal, day)).practices
         return practices[0] if practices else None
 
@@ -193,58 +198,56 @@ class PracticeScreens:
         check_ins = (await self._current_day(principal, day)).check_ins
         return check_ins[0] if check_ins else None
 
-    async def _check_in_part(
-        self,
-        principal: Principal,
-        day: date,
-        check_ins: tuple[CheckIn, ...] | None,
-        mood_row: bool = True,
+    def _check_in_part(
+        self, principal: Principal, day: date, check_ins: tuple[CheckIn, ...]
     ) -> tuple[list[str], list[list[InlineKeyboardButton]]]:
-        """PR-06: the one-tap mood row (today or yesterday, setting on, no check-in yet),
-        otherwise [✨ Check-in] plus the summary of one. `check_ins` None = not read (every
-        caller passes it; the read is a fallback). `mood_row` False: never ask here (another
-        question is on the screen, or the check-in was just removed)."""
+        """PR-06: the summary of the day's check-in, and the "How do you feel?" button
+        while the setting shows it; a check-in that exists always stays editable (Q313)."""
         account = principal.account
         locale = account.locale
-        if check_ins is None:
-            check_ins = (await self._current_day(principal, day)).check_ins
         existing = check_ins[0] if check_ins else None
-        today, _ = self._days.get.today(principal)
-        if mood_row and offer_mood_row(day, today, existing, account.offer_check_in):
-            return [self._t.t(locale, "checkin-prompt")], [ck.mood_row(self._t, locale, day)]
-        lines = [ck.summary_text(self._t, locale, existing)] if existing else []
-        return lines, [[self._button(locale, "checkin-edit", ck.data("open", day))]]
+        summary = ck.summary_text(self._t, locale, existing)
+        if not entry_shown(existing, account.offer_check_in):
+            return [], []
+        return ([summary] if summary else []), [
+            [self._button(locale, "checkin-edit", ck.data("open", day))]
+        ]
 
-    # Screen P: what was saved + one-tap details.
-    async def details(
+    async def _last_time(self, principal: Principal, day: date) -> str | None:
+        """ "Last time: Mysore · Full Primary", what "same as last time" would copy; None
+        without a previous practice. One statement."""
+        locale = principal.account.locale
+        presets = await self._p.presets.execute(principal, day)
+        last, on = presets.last, presets.last_day
+        if last is None or not has_details(last):
+            return None
+        # Without the start time: the tap doesn't copy it.
+        summary = self.summary_text(locale, day, replace(last, start_time=None))
+        if on is not None and day - on > COPIED_DATE_AFTER:  # old: say which day (Q296)
+            when = DateArg(on, with_year=on.year != day.year)
+            return self._t.t(locale, "practice-last-time-dated", date=when, summary=summary)
+        return self._t.t(locale, "practice-last-time", summary=summary)
+
+    # Screen P0 (UI-06): what follows any 🧘 save, in two or three buttons.
+    async def after_practiced(
         self,
         principal: Principal,
         day: date,
-        practice: Practice | None = None,
-        note: str | None = None,
+        stored: Practice | None = None,
+        *,
         cut: RestPeriod | None = None,
         kept: RestPeriod | None = None,
-        known: bool = False,
-        check_ins: tuple[CheckIn, ...] | None = None,
-        hint: Position | None = None,
         lead: list[str] | None = None,
+        previous: bool = True,
     ) -> Screen:
-        """`cut`: a rest period this 🧘 just cut (WH-01): a gentle line and "Keep the
-        pause"; `kept`: it was just restored. `known`: `practice` is the stored value even
-        when None, on a day just logged (no read, no check-in yet). `check_ins` None = not
-        read yet. `hint`: ask "New asana? 🎉" about this stop (PR-08, only on the reply to a
-        length tap); `lead`: lines on top (a celebration after "Yes, new", or a practice
-        count reached by this 🧘, GM-01)."""
-        if known:
-            check_ins = check_ins or ()
-        elif practice is None:
-            logged = await self._current_day(principal, day)
-            practice = logged.practices[0] if logged.practices else None
-            check_ins = logged.check_ins
+        """`stored`: the details the day already holds, as the write returned them (no
+        read). Without any, "same as last time" is offered when there is a previous
+        practice: one read, skipped with `previous` False (the caller knows there is none).
+        `cut`: a rest period this 🧘 just cut (WH-01): a gentle line and "Keep the pause";
+        `kept`: it was just restored. `lead`: lines on top (a practice count reached by
+        this 🧘, GM-01)."""
         locale = principal.account.locale
         lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
-        if note:
-            lines.insert(0, self._t.t(locale, note))
         rows: list[list[InlineKeyboardButton]] = []
         keep = self.keep_row(principal, day, cut)
         if keep:
@@ -254,37 +257,62 @@ class PracticeScreens:
         if kept is not None:
             label = self._t.t(locale, f"status-{kept.kind.value}")
             lines.insert(0, self._t.t(locale, "pause-kept", label=label, until=DateArg(kept.end)))
+        detailed = has_details(stored)
+        if detailed:
+            lines.append(self._summary_line(principal, day, stored))
+        elif previous:
+            last = await self._last_time(principal, day)
+            if last is not None:
+                lines.append(last)
+                rows.append([self._button(locale, "practice-same-as-last", _data("same", day))])
+        # With details stored the button opens them: "Add" would read wrong.
+        open_key = "practice-details" if detailed else "practice-add-details"
+        rows.append([self._button(locale, open_key, _data("open", day))])
+        rows.append([self._button(locale, "practice-done", _data("done", day))])
+        return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _summary_line(self, principal: Principal, day: date, practice: Practice | None) -> str:
+        return self.summary_text(
+            principal.account.locale,
+            day,
+            practice,
+            self._days.get.home_city(principal),
+            principal.account.timezone,
+        )
+
+    # Screen P1 (UI-06): the details, one tap each.
+    async def details(
+        self,
+        principal: Principal,
+        day: date,
+        practice: Practice | None = None,
+        note: str | None = None,
+        check_ins: tuple[CheckIn, ...] | None = None,
+        hint: Position | None = None,
+        lead: list[str] | None = None,
+    ) -> Screen:
+        """`practice` and `check_ins` as a save just returned them; without a practice the
+        day is read (one statement). `hint`: ask "New asana? 🎉" about this stop (PR-08,
+        only on the reply to a length tap); `lead`: lines on top (a celebration after
+        "Yes, new")."""
+        if practice is None:
+            logged = await self._current_day(principal, day)
+            practice = logged.practices[0] if logged.practices else None
+            check_ins = logged.check_ins
+        locale = principal.account.locale
+        lines = self._day_screens.saved_lines(principal, day, DayStatus.PRACTICED)
+        if note:
+            lines.insert(0, self._t.t(locale, note))
+        lines[:0] = lead or []  # a 🎉 goes on top (GM-01 spec §5)
+        rows: list[list[InlineKeyboardButton]] = []
         if has_details(practice):
-            lines.append(
-                self.summary_text(
-                    locale,
-                    day,
-                    practice,
-                    self._days.get.home_city(principal),
-                    principal.account.timezone,
-                )
-            )
+            lines.append(self._summary_line(principal, day, practice))
         else:
             lines.append(self._t.t(locale, "practice-details-prompt"))
-        asking = False
         if hint is not None and self.progression is not None:
-            asking = True
             question, answers = self.progression.ask_new(locale, day, hint)
             lines.append(question)
             rows.append(answers)
-        if not has_details(practice):  # only then is "same as last time" offered
-            presets = await self._p.presets.execute(principal, day)
-            last, on = presets.last, presets.last_day
-            if last is not None and has_details(last):
-                # Without the start time: the tap doesn't copy it.
-                summary = self.summary_text(locale, day, replace(last, start_time=None))
-                if on is not None and day - on > COPIED_DATE_AFTER:  # old: say which day (Q296)
-                    when = DateArg(on, with_year=on.year != day.year)
-                    line = self._t.t(locale, "practice-last-time-dated", date=when, summary=summary)
-                else:
-                    line = self._t.t(locale, "practice-last-time", summary=summary)
-                lines.append(line)
-                rows.append([self._button(locale, "practice-same-as-last", _data("same", day))])
         current = practice.context if practice else None
         for pair in _CONTEXT_ROWS:
             rows.append(
@@ -309,17 +337,15 @@ class PracticeScreens:
         extras.append(self._button(locale, "practice-duration", _data("durations", day)))
         rows.append(extras)
         rows.append([self._button(locale, "practice-length", _data("lengths", day))])
-        # One question at a time: with "New asana?", the check-in is just ✨.
-        check_in_lines, check_in_rows = await self._check_in_part(
-            principal, day, check_ins, not asking
-        )
+        check_in_lines, check_in_rows = self._check_in_part(principal, day, check_ins or ())
         lines += check_in_lines
         rows += check_in_rows
+        if self._day_screens.notes:
+            rows.append([note_button(self._t, locale, day, "p")])
         last_row = [self._button(locale, "practice-done", _data("done", day))]
         if has_details(practice):
             last_row.append(self._button(locale, "practice-clear", _data("clear", day)))
         rows.append(last_row)
-        rows += self._day_screens.app_rows(principal)
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def keep_row(
@@ -340,7 +366,6 @@ class PracticeScreens:
         label = self._t.t(locale, f"status-{cut.kind.value}")
         return self._t.t(locale, "pause-cut", label=label, until=DateArg(cut.end), rel=rel)
 
-    # Screen V: done, a compact summary (+ the one-time practice-reminder offer, PR-10).
     def count_lead(self, locale: Locale, celebrations: tuple[Celebration, ...]) -> list[str]:
         """The 🎉 line for a practice count a day write reached (GM-01 part 2)."""
         return [
@@ -349,6 +374,7 @@ class PracticeScreens:
             if c.kind is CelebrationKind.PRACTICE_COUNT and c.count is not None
         ]
 
+    # Screen V: done, a compact summary (+ the one-time practice-reminder offer, PR-10).
     async def summary(
         self,
         principal: Principal,
@@ -358,11 +384,11 @@ class PracticeScreens:
         offer: bool = True,
         cut: RestPeriod | None = None,
         check_ins: tuple[CheckIn, ...] | None = None,
-        mood_row: bool = True,
         lead: list[str] | None = None,
     ) -> Screen:
-        """`check_ins` None = not read yet. `mood_row` False: [✨ Check-in] only. `lead`:
-        lines on top (a practice count reached, GM-01)."""
+        """`practice` and `check_ins` as a write just returned them; without a practice the
+        day is read (one statement). `offer` False: no reminder offer, so no settings read.
+        `lead`: lines on top (a practice count reached, GM-01)."""
         if practice is None:
             logged = await self._current_day(principal, day)
             practice = logged.practices[0] if logged.practices else None
@@ -374,40 +400,28 @@ class PracticeScreens:
             lines.insert(0, self.cut_line(principal, day, cut))  # type: ignore[arg-type]
         lines[:0] = lead or []  # a 🎉 goes on top (GM-01 spec §5)
         if has_details(practice):
-            lines.append(
-                self.summary_text(
-                    locale,
-                    day,
-                    practice,
-                    self._days.get.home_city(principal),
-                    principal.account.timezone,
-                )
-            )
+            lines.append(self._summary_line(principal, day, practice))
         if extra:
             lines.append(extra)
         today, _ = self._days.get.today(principal)
-        rows = [
+        rows: list[list[InlineKeyboardButton]] = [keep] if keep else []
+        check_in_lines, check_in_rows = self._check_in_part(principal, day, check_ins or ())
+        lines += check_in_lines
+        rows += check_in_rows
+        rows.append(
             [
                 self._button(locale, "practice-details", _data("open", day)),
                 self._button(locale, "log-change", dcb.encode(dcb.DayCallback("open", day))),
                 self._button(locale, "log-another-day", dcb.encode(dcb.DayCallback("week", today))),
             ]
-        ]
-        if keep:
-            rows.insert(0, keep)
-        reminder_offer = False
-        if offer and day == today and self._remind is not None:
-            settings = await self._remind.settings.get(principal)
-            reminder_offer = settings.practice.on is None  # never chosen: offered once
-        # One question at a time: with the reminder offer, the check-in is just ✨.
-        check_in_lines, check_in_rows = await self._check_in_part(
-            principal, day, check_ins, mood_row and not reminder_offer
         )
-        lines += check_in_lines
-        rows += check_in_rows
-        if reminder_offer:
-            lines.append(self._t.t(locale, "remind-offer"))
-            rows.append(offer_row(self._t, locale, day))
+        if offer and day == today and self._remind is not None:
+            # Never chosen: offered once. Only the settings row knows, hence the read.
+            settings = await self._remind.settings.get(principal)
+            if settings.practice.on is None:
+                lines.append(self._t.t(locale, "remind-offer"))
+                rows.append(offer_row(self._t, locale, day))
+        rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     # Screen L: presets, recent lengths, "Other…".
@@ -530,7 +544,7 @@ class PracticeScreens:
 
     # Screen D: duration chips.
     async def durations(self, principal: Principal, day: date) -> Screen:
-        practice = await self._current(principal, day)
+        practice = await self.current(principal, day)
         locale = principal.account.locale
         current = practice.duration_min if practice else None
         rows = [

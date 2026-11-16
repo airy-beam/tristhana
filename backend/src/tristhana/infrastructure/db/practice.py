@@ -9,6 +9,7 @@ from sqlalchemy import Row, and_, case, delete, exists, func, literal, or_, sele
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.sql.elements import Label
 
 from tristhana.application.ports.practice import CopiedPractice, SavedPractice
 from tristhana.application.practice_patch import PracticePatch
@@ -58,6 +59,26 @@ def has_details(table: Any) -> Any:
         table.c.series.is_not(None),
         table.c.duration_min.is_not(None),
         table.c.start_time.is_not(None),
+    )
+
+
+def stored_practice(account_id: UUID, local_date: date, only_if: Any) -> tuple[Label[Any], ...]:
+    """RETURNING columns for a write to that day's `day_log` row: the day's practice as it
+    was before the statement (`practice_slot` NULL = none), read once through a CTE. For
+    `to_practice`. `only_if` gates it (a day that was Practiced before)."""
+    stored = (
+        select(practice.c.slot, *_COLUMNS)
+        .where(
+            practice.c.account_id == account_id,
+            practice.c.local_date == local_date,
+            practice.c.slot == SLOT,
+            only_if,
+        )
+        .cte("stored_practice")
+    )
+    return (
+        select(stored.c.slot).scalar_subquery().label("practice_slot"),
+        *(select(stored.c[c.name]).scalar_subquery().label(c.name) for c in _COLUMNS),
     )
 
 

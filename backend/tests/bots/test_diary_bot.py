@@ -603,6 +603,27 @@ def test_back_from_n_opened_on_k_returns_to_k(
     assert EXPLAIN in back["text"]
 
 
+def test_back_from_n_opened_on_the_details_returns_to_them(
+    client: TestClient, storage: InMemoryStorage, outbound: list[Any]
+) -> None:
+    """UI-06 P1 carries the note button; a day that stopped being 🧘 falls back to its editor."""
+    me = _me(client, storage)
+    _logged(storage, me, TODAY, DayStatus.PRACTICED)
+    d = _ymd(TODAY)
+
+    details = _one(_tap(client, f"p1:o:{d}"), outbound)
+    opened = _one(_tap(client, f"n1:o:{d}:p"), outbound)
+    back = _one(_tap(client, f"n1:b:{d}:p"), outbound)
+    _logged(storage, me, TODAY, DayStatus.REST)
+    changed = _one(_tap(client, f"n1:b:{d}:p"), outbound)
+
+    assert _data_of(details, "📓 Note") == f"n1:o:{d}:p"
+    assert _data_of(opened, BACK) == f"n1:b:{d}:p"
+    assert _data_of(opened, "✏️ Write") == f"n1:w:{d}:p"
+    assert "Add details? Optional" in back["text"]
+    assert "✓ 😌 Rest day" in _texts(changed)  # the day editor
+
+
 # Removing: confirm first
 
 
@@ -1031,7 +1052,8 @@ def test_malformed_note_taps_are_only_answered(
 
 
 def _all_note_callbacks(day: date) -> list[str]:
-    return [f"n1:{a}:{_ymd(day)}:{origin}" for a in "owryxb" for origin in "dk"]
+    # Origins: d = day editor, k = check-in K, p = practice details (UI-06 P1).
+    return [f"n1:{a}:{_ymd(day)}:{origin}" for a in "owryxb" for origin in "dkp"]
 
 
 @pytest.mark.parametrize("day", [date(2000, 1, 1), TODAY, date(2099, 12, 31)])
@@ -1043,7 +1065,7 @@ def test_every_note_callback_round_trips_and_fits(day: date) -> None:
         assert cb is not None, data
         assert diary_callbacks.encode(cb) == data
         assert len(data.encode()) <= 17  # spec §5; Telegram's limit is 64
-    assert len(set(_all_note_callbacks(day))) == 12
+    assert len(set(_all_note_callbacks(day))) == 18
 
 
 @pytest.mark.parametrize(

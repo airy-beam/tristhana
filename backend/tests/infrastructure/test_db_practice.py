@@ -90,6 +90,61 @@ async def test_status_change_deletes_details_in_the_same_statement(engine: Async
     assert left == 0
 
 
+async def test_practiced_again_returns_the_stored_details_in_the_same_statement(
+    engine: AsyncEngine,
+) -> None:
+    """UI-06 P0: the screen after 🧘 shows what the day already holds without a read."""
+    me, days = await _setup(engine, MON)
+    repo = SqlPracticeRepository(engine)
+    first = await days.upsert(me, DayLog(FRI, DayStatus.PRACTICED), "Asia/Almaty")
+    await repo.save(
+        me,
+        MON,
+        PracticePatch.of(
+            context=PracticeContext.LED,
+            online=True,
+            length=HALF_PLUS,
+            duration_min=90,
+            start_time=time(6, 30),
+            timezone="Asia/Almaty",
+        ),
+    )
+
+    again = await days.upsert(me, DayLog(MON, DayStatus.PRACTICED), "Asia/Almaty")
+    bare = await days.upsert(me, DayLog(FRI, DayStatus.PRACTICED), "Asia/Almaty")
+
+    assert first.practice is None  # a day logged just now holds nothing yet
+    assert again.practice == Practice(
+        PracticeContext.LED, True, HALF_PLUS, 90, time(6, 30), "Asia/Almaty"
+    )
+    assert bare.practice is None  # practiced before, never detailed
+    assert again.day == DayLog(MON, DayStatus.PRACTICED)  # the day itself stays as passed
+
+
+async def test_details_a_status_change_removes_are_not_returned(engine: AsyncEngine) -> None:
+    me, days = await _setup(engine, MON)
+    repo = SqlPracticeRepository(engine)
+    await repo.save(me, MON, PracticePatch.of(duration_min=60))
+
+    rest = await days.upsert(me, DayLog(MON, DayStatus.MOON), None)
+    back = await days.upsert(me, DayLog(MON, DayStatus.PRACTICED), None)
+
+    assert (rest.practice, back.practice) == (None, None)
+
+
+async def test_details_left_on_a_rest_day_are_not_returned_on_re_practice(
+    engine: AsyncEngine,
+) -> None:
+    me, days = await _setup(engine, FRI)
+    await SqlPracticeRepository(engine).save(me, FRI, PracticePatch.of(duration_min=60))
+    async with engine.connect() as conn:  # a race / old revision, as below
+        await conn.execute(text("UPDATE tristhana.day_log SET status = 'skipped'"))
+
+    back = await days.upsert(me, DayLog(FRI, DayStatus.PRACTICED), None)
+
+    assert back.practice is None  # removed by this statement, so never shown as stored
+
+
 async def test_list_range_carries_practices_of_practiced_days(engine: AsyncEngine) -> None:
     me, days = await _setup(engine, FRI, MON)
     repo = SqlPracticeRepository(engine)

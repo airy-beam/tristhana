@@ -312,19 +312,25 @@ def test_no_time_zone_tip_and_no_app_button_on_a_saved_day(
         assert "Open the app" not in _texts(saved)
 
 
-def test_details_screen_offers_the_app_until_the_zone_is_known(
+def test_no_app_button_after_practiced_whether_the_zone_is_known_or_not(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
+    # UI-06: the app is under Menu → My practice; the screens after 🧘 stay short. The
+    # missing zone is named once, in the reply to the reminder offer (Q314).
     _command(client, "/start")
     d = f"{_today():%Y%m%d}"
 
-    details = _tap(client, f"d1:s:{d}:p")
+    saved = _tap(client, f"d1:s:{d}:p")
+    details = _tap(client, f"p1:o:{d}")
+    done = _tap(client, f"p1:v:{d}")
     [account] = storage.repo.accounts.values()
     storage.repo.accounts[account.id] = replace(account, timezone="UTC")
     again = _tap(client, f"p1:o:{d}")
 
-    assert ["Open the app"] in _rows(details)
-    assert ["Open the app"] not in _rows(again)
+    for body in (saved, details, done, again):
+        assert "Open the app" not in _texts(body)
+        assert "time zone" not in body["text"]
+    assert _rows(saved) == [["📝 Add details"], ["✓ Done"]]
 
 
 # The language button under greetings sent before UI-06 (`o1:l:*`)

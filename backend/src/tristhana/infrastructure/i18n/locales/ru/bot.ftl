@@ -139,6 +139,7 @@ practice-last-time = В прошлый раз: { $summary }
 # Практика старше дня отметки больше чем на 14 дней (Q296).
 practice-last-time-dated = В прошлый раз ({ $date }): { $summary }
 practice-same-as-last = 🔁 Как в прошлый раз
+practice-add-details = 📝 Добавить детали
 context-mysore = Майсор
 context-led = Лед-класс
 context-private = Индивидуально
@@ -326,6 +327,9 @@ remind-copied-from = Скопировано из практики { $date }
 remind-offer = 🔔 Спрашивать раз в день, чтобы отмечать одним нажатием?
 remind-offer-yes = 🔔 Да, напоминай
 remind-offer-no = Нет, спасибо
+# После «да» на предложение (UI-06). $time: «10:00 Алматы» или «10:00 по твоему времени», пока пояс неизвестен.
+remind-offer-set = 🔔 Буду спрашивать раз в день в { $time }.
+remind-change-time = ⏰ Изменить время
 remind-explain = Раз в день спрошу, как прошёл день: ответить можно одним нажатием. Не пишу в лунные дни, в уже отмеченные дни и пока стоит пауза.
 remind-status-on = 🔔 Напоминание о практике: { $days } в { $time }
 remind-status-off = 🔕 Напоминание о практике выключено
@@ -507,7 +511,6 @@ settings-ladies-show = 🌸 Показать кнопку
 
 ## После практики: самочувствие (PR-06). Всегда по желанию, без упрёков.
 # Настроение хранится как 1–5; эмодзи только для показа. Метки: ключи домена.
-checkin-prompt = Как ты после практики? По желанию.
 checkin-explain = ⚡ Энергия: 1 мало → 5 много · 🔥 Усилие: 1 легко → 5 тяжело. Отметь, что подходит, всё по желанию.
 checkin-mood-chip = { $n ->
         [1] 😔
@@ -520,7 +523,7 @@ checkin-energy-chip = ⚡{ $n }
 checkin-effort-chip = 🔥{ $n }
 checkin-summary-energy = ⚡ энергия { $n }/5
 checkin-summary-effort = 🔥 усилие { $n }/5
-checkin-edit = ✨ Самочувствие
+checkin-edit = ✨ Как самочувствие?
 checkin-tags-open = 🏷 Тело и ум…
 checkin-tags-pick = Как тело и ум? Отметь, что подходит.
 checkin-clear = Убрать самочувствие

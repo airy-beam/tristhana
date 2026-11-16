@@ -75,7 +75,7 @@ class Account:
     day_off: DayOff = NEVER_CHOSEN  # PR-09
     day_off_dismissed: bool = False  # "Not now" on the one-time day-off question
     hide_ladies: bool = False  # WH-01: leave the 🌸 button out of the status grids
-    offer_check_in: bool = True  # PR-06: the one-tap mood row after logging a practice
+    offer_check_in: bool = True  # PR-06, UI-06 Q313: show the "How do you feel?" button
     home_city: str | None = None  # ADR-0029: None, NOT_LISTED or a city slug
     teaches: bool = False  # has at least one student (ID-04); loaded with the account
     main_teacher: TeacherMoon | None = None  # ID-04 `effective_primary` (MD-02)

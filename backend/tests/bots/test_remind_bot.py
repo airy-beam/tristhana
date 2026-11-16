@@ -13,6 +13,7 @@ from aiogram.methods import SendMessage
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.bots.statements import Statements
 from tests.fakes import (
     FixedClock,
     InMemoryAccounts,
@@ -194,31 +195,106 @@ def test_offer_under_practice_saved_yes_and_no(
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")
     summary = _tap(client, f"p1:v:{d}")
-    assert _texts(summary)[-2:] == ["🔔 Yes, remind me", "No, thanks"]
+    assert _rows(summary)[-2:] == [["🔔 Yes, remind me", "No, thanks"], ["☰ Menu"]]
 
     no = _tap(client, f"r1:n:{d}")
 
     assert "Want me to ask" not in no["text"]
     assert "No, thanks" not in _texts(no)
+    assert _rows(no)[-2:] == [["📝 Details", "✏️ Change", "📅 Another day"], ["☰ Menu"]]  # V
     again = _tap(client, f"p1:v:{d}")
     assert "Want me to ask" not in again["text"]  # offered once
     [settings] = storage.notifications.stored.values()
     assert settings.practice.on is False
 
 
-def test_offer_yes_turns_it_on_and_shows_the_settings(
+def test_offer_yes_turns_it_on_and_says_when(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """UI-06 R0: the reply names the time and stays out of the settings screen."""
+    _me(client, storage)
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p")
+    statements = Statements(monkeypatch, storage)
+
+    yes = _tap(client, f"r1:y:{d}")
+
+    [settings] = storage.notifications.stored.values()
+    assert settings.practice.on is True
+    assert settings.practice.at in (time(10), time(20))
+    saved, set_line = yes["text"].split("\n\n")
+    assert saved.startswith("✓ Today, ")
+    assert "Practice done 🙏" in saved
+    # ADR-0044: my own zone names its city and carries no offset.
+    assert set_line == f"🔔 I'll ask once a day at {settings.practice.at:%H:%M} Almaty."
+    assert _rows(yes) == [["⏰ Change the time"], ["☰ Menu"]]
+    data = [b["callback_data"] for row in yes["reply_markup"]["inline_keyboard"] for b in row]
+    assert data == ["r1:v", "w1:m"]
+    assert len(statements.names) == 2  # as before UI-06: the settings read and the write
+
+
+def test_offer_yes_without_a_zone_asks_for_the_city(client: TestClient) -> None:
+    d = datetime.now(UTC).strftime("%Y%m%d")  # no zone yet: en counts days in UTC
+    _tap(client, f"d1:s:{d}:p")
+
+    yes = _tap(client, f"r1:y:{d}")
+
+    assert "🔔 I'll ask once a day at " in yes["text"]
+    assert " your time." in yes["text"]
+    assert yes["text"].endswith(
+        "To remind you at the right hour I need your time zone: "
+        "pick your city or open the app once."
+    )
+    assert _rows(yes) == [["⏰ Change the time"], ["🏙 My city"], ["☰ Menu"]]
+    data = [b["callback_data"] for row in yes["reply_markup"]["inline_keyboard"] for b in row]
+    assert data == ["r1:v", "s1:cp:0", "w1:m"]
+
+
+def test_offer_yes_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
+    _me(client, storage, "ru")
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p", "ru")
+
+    yes = _tap(client, f"r1:y:{d}", "ru")
+
+    [settings] = storage.notifications.stored.values()
+    assert f"🔔 Буду спрашивать раз в день в {settings.practice.at:%H:%M} Алматы." in yes["text"]
+    assert _rows(yes) == [["⏰ Изменить время"], ["☰ Меню"]]
+
+
+def test_an_old_offer_never_claims_a_reminder_that_was_turned_off(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _me(client, storage)
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")
+    _tap(client, f"r1:n:{d}")  # answered since, in another message
 
-    yes = _tap(client, f"r1:y:{d}")
+    yes = _tap(client, f"r1:y:{d}")  # the old offer still on screen
 
-    assert yes["text"].startswith("🔔 Practice reminder: every day except Saturday at ")
+    assert "I'll ask once a day at" not in yes["text"]
+    assert yes["text"].startswith("🔕 Practice reminder is off")  # as it is, with the switch
     [settings] = storage.notifications.stored.values()
-    assert settings.practice.on is True
-    assert settings.practice.at in (time(10), time(20))
+    assert settings.practice.on is False
+
+
+def test_a_reminders_practiced_tap_shows_the_three_buttons(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    me = _me(client, storage)
+    today, before = _today(), _today() - timedelta(days=1)
+    storage.day_repo.rows[(me.id, before)] = (DayLog(before, DayStatus.PRACTICED), ZONE)
+    storage.day_repo.practice_rows[(me.id, before)] = Practice(PracticeContext.MYSORE)
+    statements = Statements(monkeypatch, storage)
+
+    body = _tap(client, f"r1:p:{_ymd(today)}")
+
+    assert body["text"].endswith("Last time: Mysore")
+    assert _rows(body) == [["🔁 Same as last time"], ["📝 Add details"], ["✓ Done"]]
+    assert statements.names == [
+        "InMemoryDays.insert_if_absent",
+        "InMemoryPractices.recent_with_progression",
+    ]
 
 
 def test_no_offer_for_another_day(client: TestClient, storage: InMemoryStorage) -> None:
@@ -247,19 +323,26 @@ def test_same_as_last_time_logs_and_shows_what_was_copied(
     assert body["text"].startswith("✓ Today")
     assert "Mysore · Primary → Navasana" in body["text"]
     assert "Copied from" in body["text"]  # more than two weeks ago
-    assert _texts(body)[:2] == ["📝 Details", "✏️ Change"]
+    assert _rows(body) == [
+        ["✨ How do you feel?"],
+        ["📝 Details", "✏️ Change", "📅 Another day"],
+        ["☰ Menu"],
+    ]
     assert storage.day_repo.rows[(me.id, today)][0].status is DayStatus.PRACTICED
 
 
-def test_same_as_last_time_without_history_opens_the_details(
-    client: TestClient, storage: InMemoryStorage
+def test_same_as_last_time_without_history_offers_details_or_done(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     me = _me(client, storage)
+    statements = Statements(monkeypatch, storage)
 
     body = _tap(client, f"r1:s:{_ymd(_today())}")
 
-    assert "Add details?" in body["text"]
+    assert _rows(body) == [["📝 Add details"], ["✓ Done"]]
     assert storage.day_repo.rows[(me.id, _today())][0].status is DayStatus.PRACTICED
+    # The copy found nothing, so nothing is read to offer it again.
+    assert statements.names == ["InMemoryDays.insert_if_absent", "InMemoryPractices.copy_usual"]
 
 
 def test_same_as_last_time_never_overwrites_a_logged_day(

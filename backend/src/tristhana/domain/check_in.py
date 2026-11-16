@@ -5,12 +5,10 @@ Check-ins describe, never advise: nothing here infers anything from them (spec Â
 """
 
 from dataclasses import dataclass
-from datetime import date, timedelta
 from enum import StrEnum
 from typing import Literal
 
 SCALE = range(1, 6)
-OFFER_DAYS = 2  # the one-tap mood row: today and yesterday only
 
 
 class CheckInTag(StrEnum):
@@ -73,14 +71,6 @@ def check_check_in(check_in: CheckIn) -> CheckIn:
     if any(not isinstance(t, CheckInTag) for t in check_in.tags):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise InvalidCheckIn("unknown tag")
     return check_in
-
-
-def offer_mood_row(day: date, today: date, existing: CheckIn | None, enabled: bool) -> bool:
-    """Whether the practice screens offer the one-tap mood row: the setting is on, the day
-    is today or yesterday, and there is no check-in yet. Otherwise only âœ¨ Check-in."""
-    if not enabled or (existing is not None and not existing.is_empty()):
-        return False
-    return today - timedelta(days=OFFER_DAYS - 1) <= day <= today
 
 
 def entry_shown(existing: CheckIn | None, enabled: bool) -> bool:

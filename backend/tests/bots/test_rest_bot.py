@@ -393,23 +393,23 @@ def test_practiced_inside_a_pause_offers_to_keep_it(
     _log(storage, me, -1, K)
     _period(storage, me, -1, 2, K)
 
-    details = _tap(client, f"d1:s:{_ymd(0)}:p")
+    saved = _tap(client, f"d1:s:{_ymd(0)}:p")
 
     assert (
         f"⏸ Practice logged for today, so the following days, through {_until(2)}, "
         "no longer show as 🤒 Sick / injury. Keep them as they were?"
-    ) in details["text"]
-    assert "Add details?" in details["text"]  # still PR-02's details screen
-    keep = f"a1:k:{_ymd(-1)}:{_ymd(2)}:k:{_ymd(0)}"  # + the 🧘 day whose details return
-    assert "⏸ Keep the pause" in _texts(details)
-    assert keep in _data(details)
+    ) in saved["text"]
+    keep = f"a1:k:{_ymd(-1)}:{_ymd(2)}:k:{_ymd(0)}"  # + the 🧘 day whose screen returns
+    # UI-06 P0: the conditional row stays, on top of the buttons that follow 🧘.
+    assert _texts(saved) == ["⏸ Keep the pause", "📝 Add details", "✓ Done"]
+    assert keep in _data(saved)
     assert _periods(storage, me) == []  # cut: only its start day was left
 
     kept = _tap(client, keep)
 
     assert _periods(storage, me) == [RestPeriod(_d(-1), _d(2), K)]
     assert f"⏸ Pause kept: 🤒 Sick / injury through {_until(2)}." in kept["text"]
-    assert "⏸ Keep the pause" not in _texts(kept)
+    assert _texts(kept) == ["📝 Add details", "✓ Done"]  # the same screen, without the undo
     assert storage.day_repo.rows[(me.id, _d(0))][0].status is DayStatus.PRACTICED
 
 
@@ -671,7 +671,7 @@ def test_remind_without_a_pause_has_no_resume(client: TestClient, storage: InMem
 # The reminder's 🧘 / 😌 (Q26): insert-if-absent
 
 
-def test_reminder_practiced_logs_an_empty_day_and_opens_the_details(
+def test_reminder_practiced_logs_an_empty_day_and_offers_details_or_done(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
@@ -679,7 +679,7 @@ def test_reminder_practiced_logs_an_empty_day_and_opens_the_details(
     body = _tap(client, f"r1:p:{_ymd(0)}")
 
     assert storage.day_repo.rows[(me.id, _d(0))][0].status is DayStatus.PRACTICED
-    assert "Add details?" in body["text"]
+    assert _texts(body) == ["📝 Add details", "✓ Done"]  # UI-06 P0
 
 
 def test_reminder_rest_logs_an_empty_day(client: TestClient, storage: InMemoryStorage) -> None:
@@ -902,7 +902,7 @@ def test_the_pause_stays_on_remind_after_a_tap(
 # Second review (2026-10-27)
 
 
-def test_practiced_inside_an_unreadable_pause_shows_the_details_without_keep(
+def test_practiced_inside_an_unreadable_pause_shows_the_buttons_without_keep(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     """A period whose seal can't be read is plain rest: 🧘 inside still works, no Keep."""
@@ -911,8 +911,7 @@ def test_practiced_inside_an_unreadable_pause_shows_the_details_without_keep(
 
     body = _tap(client, f"d1:s:{_ymd(0)}:p")
 
-    assert "Add details?" in body["text"]
-    assert "⏸ Keep the pause" not in _texts(body)
+    assert _texts(body) == ["📝 Add details", "✓ Done"]
     assert storage.day_repo.rows[(me.id, _d(0))][0].status is DayStatus.PRACTICED
 
 

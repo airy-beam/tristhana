@@ -205,7 +205,7 @@ class Presets:
 def usual(recent: list[Practice]) -> Practice | None:
     """What "same as last time" copies (Q27), `recent` newest first: the newest practice that
     was not a led class (a Friday led class is rarely what someone does on Monday; no context
-    counts as not led), else the newest. The details screen previews it and the repository's
+    counts as not led), else the newest. The screen after 🧘 previews it and the repository's
     `copy_latest` copies the same one, from the same `RECENT_LIMIT` window."""
     i = _usual_index(recent)
     return None if i is None else recent[i]

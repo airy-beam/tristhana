@@ -107,10 +107,11 @@ class RestScreens:
             return None  # over already, or no cut happened: nothing to keep
         practice = self._days.practice
         assert practice is not None  # noqa: S101 - wired by days.register
-        # The day that cut it (carried in the callback) gets its details screen back,
-        # without the undo.
+        # The day that cut it (carried in the callback) gets its screen back, without the
+        # undo.
         try:
-            return await practice.details(principal, cb.practiced, kept=kept)
+            stored = await practice.current(principal, cb.practiced)
+            return await practice.after_practiced(principal, cb.practiced, stored, kept=kept)
         except DayNotPracticed:  # changed since: today's picker with the line
             return await self._days.ended(principal, self._kept_line(principal, kept))
 

@@ -1,4 +1,5 @@
-"""Practice-details screens through the real webhook (PR-02, PR-03, PR-05)."""
+"""What follows 🧘 Practiced, through the real webhook (PR-02, PR-03, PR-05; UI-06 P0, P1, V):
+three buttons after the save, the details screen behind "Add details", the done screen."""
 
 import itertools
 from collections.abc import Iterator
@@ -12,6 +13,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.bots.statements import Statements
 from tests.fakes import InMemoryStorage
 from tristhana.bots.telegram.practice_callbacks import PracticeCallback, Range, decode, encode
 from tristhana.domain.days import DayStatus
@@ -86,18 +88,12 @@ def _texts(body: Any) -> list[str]:
     return [b["text"] for b in _buttons(body)]
 
 
-_CHECK_IN_PROMPTS = (
-    "How do you feel after practice? Optional.",
-    "Как ты после практики? По желанию.",
-)
+def _rows(body: Any) -> list[list[str]]:
+    return [[b["text"] for b in row] for row in body["reply_markup"]["inline_keyboard"]]
 
 
 def _main(body: Any) -> str:
-    """The screen text without the trailing PR-06 check-in prompt (tested in its own file)."""
-    text: str = body["text"]
-    for prompt in _CHECK_IN_PROMPTS:
-        text = text.removesuffix(f"\n\n{prompt}")
-    return text
+    return body["text"]
 
 
 def _data(body: Any, text: str) -> str:
@@ -109,15 +105,138 @@ def _practice(storage: InMemoryStorage) -> Any:
     return practice
 
 
-def test_practiced_opens_the_details_screen(client: TestClient) -> None:
-    body = _tap(client, f"d1:s:{_ymd(_today())}:p")
+# After "Practiced" (P0)
+
+
+def test_practiced_shows_two_buttons_without_a_previous_practice(client: TestClient) -> None:
+    d = _ymd(_today())
+
+    body = _tap(client, f"d1:s:{d}:p")
+
+    assert body["text"].startswith("✓ Today, ")
+    assert "Practice done 🙏" in body["text"]
+    assert "Add details? Optional" not in body["text"]  # the buttons say it
+    assert _rows(body) == [["📝 Add details"], ["✓ Done"]]  # nothing to copy yet
+    assert [b["callback_data"] for b in _buttons(body)] == [f"p1:o:{d}", f"p1:v:{d}"]
+
+
+def test_practiced_shows_three_buttons_with_a_previous_practice(client: TestClient) -> None:
+    yesterday, d = _ymd(_today() - timedelta(days=1)), _ymd(_today())
+    _tap(client, f"d1:s:{yesterday}:p")
+    _tap(client, f"p1:t:{yesterday}:60")
+
+    body = _tap(client, f"d1:s:{d}:p")
+
+    assert body["text"].endswith("Last time: 60 min")
+    assert _rows(body) == [["🔁 Same as last time"], ["📝 Add details"], ["✓ Done"]]
+    assert _data(body, "🔁 Same as last time") == f"p1:s:{d}"
+
+
+def test_practiced_in_russian(client: TestClient) -> None:
+    d = _ymd(_today("ru"))
+
+    body = _tap(client, f"d1:s:{d}:p", lang="ru")
+
+    assert _rows(body) == [["📝 Добавить детали"], ["✓ Готово"]]
+
+
+def test_practiced_costs_one_write_and_one_read(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _tap(client, "w1:n")  # the account exists
+    statements = Statements(monkeypatch, storage)
+
+    _tap(client, f"d1:s:{_ymd(_today())}:p")
+
+    assert statements.names == [
+        "InMemoryDays.upsert",
+        "InMemoryPractices.recent_with_progression",
+    ]
+
+
+def test_practiced_again_shows_the_stored_details_from_the_write_alone(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    yesterday, d = _ymd(_today() - timedelta(days=1)), _ymd(_today())
+    _tap(client, f"d1:s:{yesterday}:p")
+    _tap(client, f"p1:c:{yesterday}:l")
+    _tap(client, f"d1:s:{d}:p")
+    _tap(client, f"p1:c:{d}:m")
+    statements = Statements(monkeypatch, storage)
+
+    body = _tap(client, f"d1:s:{d}:p")  # ✓ 🧘 in the day editor, or an old grid
+
+    assert body["text"].endswith("\n\nMysore")
+    assert "Last time" not in body["text"]
+    assert _rows(body) == [["📝 Details"], ["✓ Done"]]  # nothing to copy over what is there
+    assert _data(body, "📝 Details") == f"p1:o:{d}"
+    assert statements.names == ["InMemoryDays.upsert"]
+
+
+# Details (P1)
+
+
+def test_add_details_opens_the_details_screen(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    yesterday, d = _ymd(_today() - timedelta(days=1)), _ymd(_today())
+    _tap(client, f"d1:s:{yesterday}:p")
+    _tap(client, f"p1:t:{yesterday}:60")
+    saved = _tap(client, f"d1:s:{d}:p")
+    statements = Statements(monkeypatch, storage)
+
+    body = _tap(client, _data(saved, "📝 Add details"))
 
     assert "Practice done 🙏" in body["text"]
-    assert "Add details? Optional" in body["text"]
-    texts = _texts(body)
-    assert texts[:4] == ["Mysore", "Led", "1:1", "Self-practice"]
-    assert "🔁 Same as last time" not in texts  # nothing to copy yet
-    assert {"⏱ Duration", "📏 Length", "✓ Done"} <= set(texts)
+    assert body["text"].endswith("Add details? Optional, one tap is enough.")
+    assert "Last time" not in body["text"]
+    assert _rows(body) == [
+        ["Mysore", "Led"],
+        ["1:1", "Self-practice"],
+        ["⏱ Duration"],
+        ["📏 Length"],
+        ["✨ How do you feel?"],
+        ["📓 Note"],
+        ["✓ Done"],
+    ]  # no "same as last time", no mood row, no "Open the app"
+    assert _data(body, "✨ How do you feel?") == f"k1:o:{d}"
+    assert _data(body, "📓 Note") == f"n1:o:{d}:p"
+    assert statements.names == ["InMemoryDays.range_with_moon"]
+
+
+def test_a_detail_tap_is_one_write_and_keeps_the_layout(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p")
+    statements = Statements(monkeypatch, storage)
+
+    body = _tap(client, f"p1:c:{d}:m")
+
+    assert _rows(body) == [
+        ["✓ Mysore", "Led"],
+        ["1:1", "Self-practice"],
+        ["🌐 Online", "⏱ Duration"],
+        ["📏 Length"],
+        ["✨ How do you feel?"],
+        ["📓 Note"],
+        ["✓ Done", "Remove details"],
+    ]
+    assert statements.names == ["InMemoryPractices.save"]
+
+
+def test_the_note_opened_from_the_details_goes_back_to_them(client: TestClient) -> None:
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p")
+    _tap(client, f"p1:c:{d}:m")
+
+    note = _tap(client, f"n1:o:{d}:p")
+    back_data = _data(note, "Back")
+    back = _tap(client, back_data)
+
+    assert back_data == f"n1:b:{d}:p"
+    assert "✓ Mysore" in _texts(back)
+    assert back["text"].endswith("\n\nMysore")
 
 
 def test_context_online_and_duration_taps(client: TestClient, storage: InMemoryStorage) -> None:
@@ -224,12 +343,31 @@ def test_same_as_last_time_copies_the_previous_day(
     _tap(client, f"p1:c:{_ymd(yesterday)}:l")
     _tap(client, f"p1:l:{_ymd(yesterday)}:11:")
 
-    details = _tap(client, f"d1:s:{_ymd(today)}:p")
-    assert "Last time: Led · Full Primary" in details["text"]
-    body = _tap(client, _data(details, "🔁 Same as last time"))
+    saved = _tap(client, f"d1:s:{_ymd(today)}:p")
+    assert "Last time: Led · Full Primary" in saved["text"]
+    body = _tap(client, _data(saved, "🔁 Same as last time"))
 
-    assert _main(body).endswith("Led · Full Primary")
+    # UI-06: the second tap lands on the done screen, not on the details.
+    assert "\n\nLed · Full Primary\n\n" in body["text"]
+    assert "Mysore" not in _texts(body)
+    assert _texts(body)[-1] == "☰ Menu"
     assert len(storage.day_repo.practice_rows) == 2
+
+
+def test_same_as_last_time_is_one_write_and_the_read_for_the_offer(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    yesterday, d = _ymd(_today() - timedelta(days=1)), _ymd(_today())
+    _tap(client, f"d1:s:{yesterday}:p")
+    _tap(client, f"p1:c:{yesterday}:m")
+    _tap(client, f"d1:s:{d}:p")
+    statements = Statements(monkeypatch, storage)
+
+    body = _tap(client, f"p1:s:{d}")
+
+    # Today: whether the one-time reminder offer is still open is in the settings row.
+    assert "Want me to ask" in body["text"]
+    assert statements.names == ["InMemoryPractices.copy_latest", "InMemoryNotifications.settings"]
 
 
 def test_same_as_last_time_skips_a_led_class(client: TestClient, storage: InMemoryStorage) -> None:
@@ -241,12 +379,12 @@ def test_same_as_last_time_skips_a_led_class(client: TestClient, storage: InMemo
     _tap(client, f"p1:c:{_ymd(yesterday)}:l")
     _tap(client, f"p1:l:{_ymd(yesterday)}:11:")
 
-    details = _tap(client, f"d1:s:{_ymd(today)}:p")
-    assert "Last time: Mysore" in details["text"]
-    assert "Led" not in details["text"]
-    body = _tap(client, _data(details, "🔁 Same as last time"))
+    saved = _tap(client, f"d1:s:{_ymd(today)}:p")
+    assert "Last time: Mysore" in saved["text"]
+    assert "Led" not in saved["text"]
+    body = _tap(client, _data(saved, "🔁 Same as last time"))
 
-    assert _main(body).endswith("Mysore")
+    assert "\n\nMysore\n\n" in body["text"]
     [copied] = [p for (_, day), p in storage.day_repo.practice_rows.items() if day == today]
     assert copied.context is PracticeContext.MYSORE
 
@@ -265,18 +403,49 @@ def test_last_time_names_the_day_only_when_the_practice_is_old(client: TestClien
     assert "Last time: Mysore" in recent["text"]
 
 
-def test_done_shows_a_summary_with_a_details_button(client: TestClient) -> None:
+# Done (V)
+
+
+def test_done_shows_the_summary_the_ways_on_and_the_menu(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
     d = _ymd(_today())
     _tap(client, f"d1:s:{d}:p")
     _tap(client, f"p1:c:{d}:i")
+    statements = Statements(monkeypatch, storage)
 
     body = _tap(client, f"p1:v:{d}")
 
     assert "\n\n1:1\n\n" in body["text"]
-    assert _texts(body)[0] == "📝 Details"
-    # Today, reminder never chosen: the one-time offer (PR-10).
+    # Today, reminder never chosen: the one-time offer (PR-10), its answers above the Menu.
     assert body["text"].endswith("🔔 Want me to ask once a day, so logging takes one tap?")
-    assert _texts(body)[-2:] == ["🔔 Yes, remind me", "No, thanks"]
+    assert _rows(body) == [
+        ["✨ How do you feel?"],
+        ["📝 Details", "✏️ Change", "📅 Another day"],
+        ["🔔 Yes, remind me", "No, thanks"],
+        ["☰ Menu"],
+    ]
+    data = [b["callback_data"] for b in _buttons(body)]
+    assert data[:3] == [f"k1:o:{d}", f"p1:o:{d}", f"d1:o:{d}"]
+    assert data[-1] == "w1:m"
+    assert statements.names == ["InMemoryDays.range_with_moon", "InMemoryNotifications.settings"]
+
+
+def test_done_for_another_day_is_one_read_and_has_no_offer(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    d = _ymd(_today() - timedelta(days=2))
+    _tap(client, f"d1:s:{d}:p")
+    statements = Statements(monkeypatch, storage)
+
+    body = _tap(client, f"p1:v:{d}")
+
+    assert _rows(body) == [
+        ["✨ How do you feel?"],
+        ["📝 Details", "✏️ Change", "📅 Another day"],
+        ["☰ Menu"],
+    ]
+    assert statements.names == ["InMemoryDays.range_with_moon"]
 
 
 def test_the_start_time_carries_the_offset_only_outside_my_zone(
@@ -312,6 +481,8 @@ def test_remove_details(client: TestClient, storage: InMemoryStorage) -> None:
     body = _tap(client, _data(body, "Remove details"))
 
     assert "Add details?" in body["text"]
+    assert "Remove details" not in _texts(body)
+    assert "🔁 Same as last time" not in _texts(body)
     assert not any(v.context for v in storage.day_repo.practice_rows.values())
 
 
@@ -400,12 +571,29 @@ def test_clear_on_a_day_now_resting_does_not_claim_practiced(client: TestClient)
 
 
 def test_same_as_last_time_is_offered_only_before_details(client: TestClient) -> None:
+    # UI-06: on the screen after 🧘 only, with a previous practice and nothing stored yet.
     yesterday, d = _ymd(_today() - timedelta(days=1)), _ymd(_today())
     _tap(client, f"d1:s:{yesterday}:p")
     _tap(client, f"p1:t:{yesterday}:60")
     first = _tap(client, f"d1:s:{d}:p")
+    details = _tap(client, f"p1:o:{d}")
 
     after = _tap(client, f"p1:c:{d}:m")
+    again = _tap(client, f"d1:s:{d}:p")
 
     assert "🔁 Same as last time" in _texts(first)
+    assert "🔁 Same as last time" not in _texts(details)
     assert "🔁 Same as last time" not in _texts(after)
+    assert "🔁 Same as last time" not in _texts(again)
+
+
+def test_an_old_same_as_last_button_without_a_previous_practice_says_so(
+    client: TestClient,
+) -> None:
+    d = _ymd(_today())
+    _tap(client, f"d1:s:{d}:p")
+
+    body = _tap(client, f"p1:s:{d}")
+
+    assert body["text"].startswith("Nothing to copy yet")
+    assert _texts(body)[:2] == ["Mysore", "Led"]

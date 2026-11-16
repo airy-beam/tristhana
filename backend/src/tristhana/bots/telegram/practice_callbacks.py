@@ -1,8 +1,8 @@
 """Callback data for the practice-details screens (PR-02), versioned `p1:`; dates absolute.
 
-    p1:o:20261018              details screen P          p1:v:20261018   done → summary V
+    p1:o:20261018              details screen P1         p1:v:20261018   done → summary V
     p1:c:20261018:m            context (m l i s)         p1:n:20261018:1 online on (0 off)
-    p1:s:20261018              same as last time         p1:x:20261018   remove details
+    p1:s:20261018              same as last time → V     p1:x:20261018   remove details
     p1:m:20261018              length screen L           p1:a:20261018   series screen O
     p1:d:20261018              duration screen D         p1:t:20261018:90 duration (0 none)
     p1:r:20261018:2            range screen S, last series 2

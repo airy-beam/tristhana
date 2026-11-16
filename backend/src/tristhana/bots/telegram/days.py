@@ -4,7 +4,7 @@ was met), the per-day editor, "Other reason", the week picker.
 Today and the editor are one builder: three choices (🧘, 😌, "Other reason"), with ✓ on the
 logged one. Every tap edits the same message (the webhook reply, ADR-0012) and answers the
 callback in parallel. One DB statement per tap besides the account lookup; "Other reason" is
-a pure render. Saving 🧘 Practiced opens the practice-details screen (PR-02, `practice.py`).
+a pure render. Saving 🧘 Practiced shows the three buttons that follow it (`practice.py`).
 """
 
 from __future__ import annotations
@@ -282,7 +282,9 @@ class DayScreens:
             return await self.week(principal, today, note="log-date-too-early")
         if status is DayStatus.PRACTICED and self.practice is not None:
             lead = self.practice.count_lead(principal.account.locale, saved.celebrations)
-            return await self.practice.details(principal, day, cut=saved.cut, lead=lead)
+            return await self.practice.after_practiced(
+                principal, day, saved.practice, cut=saved.cut, lead=lead
+            )
         if saved.offer is not None:  # "for how many days?" (WH-01)
             return self.question(principal, day, status, saved.offer.reminders_on)
         if saved.period is not None:

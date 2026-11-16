@@ -308,7 +308,6 @@ def test_period_line_paused_line_and_settings_line() -> None:
 # has a label, and the copy avoids judging words.
 
 PR06_KEYS = [
-    "checkin-prompt",
     "checkin-explain",
     "checkin-mood-chip",
     "checkin-energy-chip",
@@ -360,13 +359,37 @@ AVOID = [
 @pytest.mark.parametrize("locale", ["en", "ru"])
 def test_pr06_keys_exist(locale: str) -> None:
     assert set(PR06_KEYS) - message_ids(locale) == set()  # type: ignore[arg-type]
+    assert "checkin-prompt" not in message_ids(locale)  # type: ignore[arg-type]  # UI-06: retired
+
+
+# UI-06, what follows "Practiced" (P0, R0): three buttons, and the reply to the reminder offer.
 
 
 @pytest.mark.parametrize(
     ("locale", "key", "text"),
     [
-        ("en", "checkin-prompt", "How do you feel after practice? Optional."),
-        ("ru", "checkin-prompt", "Как ты после практики? По желанию."),
+        ("en", "practice-add-details", "📝 Add details"),
+        ("ru", "practice-add-details", "📝 Добавить детали"),
+        ("en", "remind-change-time", "⏰ Change the time"),
+        ("ru", "remind-change-time", "⏰ Изменить время"),
+    ],
+)
+def test_ui06_after_practiced_labels(locale: str, key: str, text: str) -> None:
+    assert _flat(locale, key) == text
+
+
+def test_the_reminder_offer_reply_names_the_time() -> None:
+    assert _flat("en", "remind-offer-set", time="10:00 Almaty") == (
+        "🔔 I'll ask once a day at 10:00 Almaty."
+    )
+    assert _flat("ru", "remind-offer-set", time="10:00 по твоему времени") == (
+        "🔔 Буду спрашивать раз в день в 10:00 по твоему времени."
+    )
+
+
+@pytest.mark.parametrize(
+    ("locale", "key", "text"),
+    [
         (
             "en",
             "checkin-explain",
@@ -378,8 +401,8 @@ def test_pr06_keys_exist(locale: str) -> None:
             "⚡ Энергия: 1 мало → 5 много · 🔥 Усилие: 1 легко → 5 тяжело. "
             "Отметь, что подходит, всё по желанию.",
         ),
-        ("en", "checkin-edit", "✨ Check-in"),
-        ("ru", "checkin-edit", "✨ Самочувствие"),
+        ("en", "checkin-edit", "✨ How do you feel?"),  # UI-06: the entry reads as a question
+        ("ru", "checkin-edit", "✨ Как самочувствие?"),
         ("en", "checkin-tags-open", "🏷 Body and mind…"),
         ("ru", "checkin-tags-open", "🏷 Тело и ум…"),
         ("en", "checkin-tags-pick", "How did body and mind feel? Pick any."),

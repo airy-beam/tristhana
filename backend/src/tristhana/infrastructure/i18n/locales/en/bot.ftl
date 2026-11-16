@@ -139,6 +139,7 @@ practice-last-time = Last time: { $summary }
 # The practice is more than 14 days older than the day being logged (Q296).
 practice-last-time-dated = Last time ({ $date }): { $summary }
 practice-same-as-last = 🔁 Same as last time
+practice-add-details = 📝 Add details
 context-mysore = Mysore
 context-led = Led
 context-private = 1:1
@@ -324,6 +325,9 @@ remind-copied-from = Copied from { $date }.
 remind-offer = 🔔 Want me to ask once a day, so logging takes one tap?
 remind-offer-yes = 🔔 Yes, remind me
 remind-offer-no = No, thanks
+# After "yes" on the offer (UI-06). $time: "10:00 Almaty", or "10:00 your time" without a zone.
+remind-offer-set = 🔔 I'll ask once a day at { $time }.
+remind-change-time = ⏰ Change the time
 remind-explain = Once a day I'll ask how it went, with one-tap buttons. Not on moon days, days you've already logged, or while a pause is on.
 remind-status-on = 🔔 Practice reminder: { $days } at { $time }
 remind-status-off = 🔕 Practice reminder is off
@@ -497,7 +501,6 @@ settings-ladies-show = 🌸 Show the button
 
 ## After-practice check-in (PR-06). Always optional: never "you haven't checked in".
 # Mood is stored as 1–5; the emoji are presentation only. Tags are domain keys.
-checkin-prompt = How do you feel after practice? Optional.
 checkin-explain = ⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional.
 checkin-mood-chip = { $n ->
         [1] 😔
@@ -510,7 +513,7 @@ checkin-energy-chip = ⚡{ $n }
 checkin-effort-chip = 🔥{ $n }
 checkin-summary-energy = ⚡ energy { $n }/5
 checkin-summary-effort = 🔥 effort { $n }/5
-checkin-edit = ✨ Check-in
+checkin-edit = ✨ How do you feel?
 checkin-tags-open = 🏷 Body and mind…
 checkin-tags-pick = How did body and mind feel? Pick any.
 checkin-clear = Remove check-in

@@ -1,6 +1,7 @@
-"""After-practice check-in through the real webhook (PR-06, spec §5): the one-tap mood row on
-P and V (today or yesterday, setting on, no check-in yet), the check-in screen K, the tags
-screen T, the `/settings` switch, failures, round trips, and the `k1:` / `s1:k` codecs.
+"""After-practice check-in through the real webhook (PR-06, spec §5; UI-06 Q313): the "How do
+you feel?" button on the details and done screens (shown by the setting, or by a check-in
+that exists), the mood chips of older messages, the check-in screen K, the tags screen T,
+the `/settings` switch, failures, round trips, and the `k1:` / `s1:k` codecs.
 
 The clock is fixed (Mon Oct 19, 11:00 in Almaty) by replacing the app's `SystemClock`.
 `check_in_callbacks` and the domain types are imported inside the tests (test-first)."""
@@ -30,10 +31,9 @@ ZONE = "Asia/Almaty"
 NOW = datetime(2026, 10, 19, 6, 0, tzinfo=UTC)  # Mon Oct 19, 11:00 in Almaty
 TODAY = date(2026, 10, 19)
 MOODS = ["😔", "😕", "😐", "🙂", "😊"]
-PROMPT = "How do you feel after practice? Optional."
 EXPLAIN = "⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional."
 PICK = "How did body and mind feel? Pick any."
-EDIT = "✨ Check-in"
+EDIT = "✨ How do you feel?"
 TAG_ROWS = [
     ["Stiff", "Open"],
     ["Strong", "Light"],
@@ -197,66 +197,67 @@ def _mood_row(body: Any) -> list[str] | None:
     return None
 
 
-def _offered(body: Any, day: date) -> bool:
-    row = _mood_row(body)
-    if row is None:
+def _entry(body: Any, day: date) -> bool:
+    """The "How do you feel?" button, on a row of its own, and no mood row (UI-06)."""
+    assert _mood_row(body) is None
+    if [EDIT] not in _rows(body):
         return False
-    assert row == [f"k1:m:{_ymd(day)}:{n}" for n in range(1, 6)]
-    assert PROMPT in body["text"]
-    assert EDIT not in _texts(body)  # the row replaces ✨, never both
+    assert _data_of(body, EDIT) == f"k1:o:{_ymd(day)}"
     return True
 
 
-def _only_edit(body: Any, day: date) -> bool:
-    return (
-        _mood_row(body) is None
-        and PROMPT not in body["text"]
-        and _data_of(body, EDIT) == f"k1:o:{_ymd(day)}"
-    )
+def _no_entry(body: Any) -> bool:
+    return _mood_row(body) is None and EDIT not in _texts(body)
 
 
-# Offering on P (after 🧘) and V (after ✓ Done)
+# The "How do you feel?" button on P1 (details) and V (done)
 
 
-@pytest.mark.parametrize("back", [0, 1])
-def test_details_and_done_offer_the_mood_row_for_today_and_yesterday(
+@pytest.mark.parametrize("back", [0, 1, 2, 30])
+def test_details_and_done_show_the_button_on_any_day_and_never_the_mood_row(
     client: TestClient, storage: InMemoryStorage, back: int
 ) -> None:
     _me(client, storage)
     day = TODAY - timedelta(days=back)
 
-    details = _tap(client, f"d1:s:{_ymd(day)}:p")
+    saved = _tap(client, f"d1:s:{_ymd(day)}:p")
+    details = _tap(client, f"p1:o:{_ymd(day)}")
     done = _tap(client, f"p1:v:{_ymd(day)}")
 
-    assert "Practice done 🙏" in details["text"]
-    assert _offered(details, day)
-    assert _offered(done, day)
+    assert "Practice done 🙏" in saved["text"]
+    assert _no_entry(saved)  # the three buttons after 🧘 ask nothing else
+    assert _entry(details, day)
+    assert _entry(done, day)
 
 
-@pytest.mark.parametrize("back", [2, 3, 30])
-def test_older_days_get_only_the_check_in_button(
-    client: TestClient, storage: InMemoryStorage, back: int
-) -> None:
-    _me(client, storage)
-    day = TODAY - timedelta(days=back)
-
-    details = _tap(client, f"d1:s:{_ymd(day)}:p")
-    done = _tap(client, f"p1:v:{_ymd(day)}")
-
-    assert _only_edit(details, day)
-    assert _only_edit(done, day)
-
-
-def test_with_the_setting_off_only_the_check_in_button(
+def test_with_the_setting_off_the_button_is_hidden(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _me(client, storage, offer=False)
+    _tap(client, f"d1:s:{_ymd(TODAY)}:p")
 
-    details = _tap(client, f"d1:s:{_ymd(TODAY)}:p")
+    details = _tap(client, f"p1:o:{_ymd(TODAY)}")
+    context = _tap(client, f"p1:c:{_ymd(TODAY)}:m")
     done = _tap(client, f"p1:v:{_ymd(TODAY)}")
 
-    assert _only_edit(details, TODAY)
-    assert _only_edit(done, TODAY)
+    assert _no_entry(details)
+    assert _no_entry(context)
+    assert _no_entry(done)
+
+
+def test_with_the_setting_off_an_existing_check_in_stays_editable(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage, offer=False)
+    _given(storage, me, TODAY, mood=4, tags=["calm"])
+
+    details = _tap(client, f"p1:o:{_ymd(TODAY)}")
+    context = _tap(client, f"p1:c:{_ymd(TODAY)}:m")
+    done = _tap(client, f"p1:v:{_ymd(TODAY)}")
+
+    for body in (details, context, done):
+        assert "🙂 · Calm" in body["text"]
+        assert _entry(body, TODAY)
 
 
 def test_with_a_check_in_the_summary_and_the_button(
@@ -270,20 +271,24 @@ def test_with_a_check_in_the_summary_and_the_button(
 
     for body in (details, done):
         assert "🙂 · ⚡ energy 4/5 · 🔥 effort 3/5 · Light, Calm" in body["text"]
-        assert _only_edit(body, TODAY)
+        assert _entry(body, TODAY)
 
 
-def test_an_empty_check_in_is_offered_like_none(
-    client: TestClient, storage: InMemoryStorage
+@pytest.mark.parametrize("offer", [True, False])
+def test_an_empty_check_in_reads_as_none(
+    client: TestClient, storage: InMemoryStorage, offer: bool
 ) -> None:
-    me = _me(client, storage)
+    me = _me(client, storage, offer=offer)
     _given(storage, me, TODAY)
     storage.day_repo.check_in_rows[(me.id, TODAY)] = _c()
 
-    assert _offered(_tap(client, f"p1:o:{_ymd(TODAY)}"), TODAY)
+    body = _tap(client, f"p1:o:{_ymd(TODAY)}")
+
+    assert _entry(body, TODAY) is offer  # nothing to keep editable
+    assert body["text"].endswith("Add details? Optional, one tap is enough.")  # no summary
 
 
-def test_the_row_stays_after_a_preset_and_a_detail_tap(
+def test_the_button_stays_after_a_preset_and_a_detail_tap(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _me(client, storage)
@@ -293,11 +298,11 @@ def test_the_row_stays_after_a_preset_and_a_detail_tap(
     preset = _tap(client, f"p1:l:{d}:11:")  # Full Primary
     context = _tap(client, f"p1:c:{d}:m")
 
-    assert _offered(preset, TODAY)
-    assert _offered(context, TODAY)
+    assert _entry(preset, TODAY)
+    assert _entry(context, TODAY)
 
 
-def test_the_row_stays_after_same_as_last_time(
+def test_same_as_last_time_lands_on_the_done_screen_with_the_button(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
@@ -309,10 +314,11 @@ def test_the_row_stays_after_same_as_last_time(
     body = _tap(client, f"p1:s:{_ymd(TODAY)}")
 
     assert "Led" in body["text"]
-    assert _offered(body, TODAY)
+    assert "📝 Details" in _texts(body)  # V
+    assert _entry(body, TODAY)
 
 
-def test_with_the_reminder_offer_v_asks_one_question_only(
+def test_with_the_reminder_offer_v_keeps_the_button(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _me(client, storage, reminder_chosen=False)
@@ -320,8 +326,9 @@ def test_with_the_reminder_offer_v_asks_one_question_only(
 
     done = _tap(client, f"p1:v:{_ymd(TODAY)}")
 
-    assert "🔔 Want me to ask once a day, so logging takes one tap?" in done["text"]
-    assert _only_edit(done, TODAY)  # the check-in waits behind ✨
+    # The offer is the one question in the text; the button is a way on, not a question.
+    assert done["text"].endswith("🔔 Want me to ask once a day, so logging takes one tap?")
+    assert _entry(done, TODAY)
 
 
 def test_a_detail_tap_keeps_the_summary_on_an_older_day(
@@ -334,10 +341,10 @@ def test_a_detail_tap_keeps_the_summary_on_an_older_day(
     body = _tap(client, f"p1:c:{_ymd(old)}:m")
 
     assert "🙂 · Calm" in body["text"]
-    assert _only_edit(body, old)
+    assert _entry(body, old)
 
 
-def test_a_detail_tap_with_a_check_in_today_shows_it_instead_of_the_row(
+def test_a_detail_tap_with_a_check_in_shows_it_without_a_read(
     client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     me = _me(client, storage)
@@ -347,11 +354,11 @@ def test_a_detail_tap_with_a_check_in_today_shows_it_instead_of_the_row(
     body = _tap(client, f"p1:t:{_ymd(TODAY)}:90")
 
     assert "🔥 effort 2/5" in body["text"]
-    assert _only_edit(body, TODAY)
+    assert _entry(body, TODAY)
     assert counter.reads == []  # the save's statement brings the check-in along
 
 
-# The caller's own "today" (zone or provisional guess)
+# The day no longer decides (UI-06: the mood row for "today or yesterday" is gone)
 
 
 # One instant, two dates: Kiritimati (UTC+14) is on Tue Oct 20, Honolulu (UTC-10) on Mon
@@ -360,42 +367,41 @@ EDGE = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
 SUN = date(2026, 10, 18)
 
 
-@pytest.mark.parametrize(
-    ("zone", "offered"), [("Pacific/Honolulu", True), ("Pacific/Kiritimati", False)]
-)
-def test_kiritimati_and_honolulu_differ_on_the_same_instant(
-    client: TestClient, storage: InMemoryStorage, clock: FixedClock, zone: str, offered: bool
+@pytest.mark.parametrize("zone", ["Pacific/Honolulu", "Pacific/Kiritimati"])
+def test_kiritimati_and_honolulu_get_the_same_button_on_the_same_instant(
+    client: TestClient, storage: InMemoryStorage, clock: FixedClock, zone: str
 ) -> None:
     _me(client, storage, zone=zone)
     clock.instant = EDGE
+    _tap(client, f"d1:s:{_ymd(SUN)}:p")
 
-    body = _tap(client, f"d1:s:{_ymd(SUN)}:p")
+    body = _tap(client, f"p1:o:{_ymd(SUN)}")
 
-    assert _offered(body, SUN) is offered
-    if not offered:
-        assert _only_edit(body, SUN)
+    assert _entry(body, SUN)
 
 
-def test_a_provisional_zone_decides_too(
+def test_a_provisional_zone_changes_nothing_either(
     client: TestClient, storage: InMemoryStorage, clock: FixedClock
 ) -> None:
     # No device zone: ru → Moscow. 22:30 UTC on Sun is Mon 01:30 in Moscow.
     _me(client, storage, zone=None, lang="ru")
     clock.instant = datetime(2026, 10, 18, 22, 30, tzinfo=UTC)
+    _tap(client, f"d1:s:{_ymd(SUN)}:p", lang="ru")
+    _tap(client, f"d1:s:{_ymd(date(2026, 10, 17))}:p", lang="ru")
 
-    yesterday = _tap(client, f"d1:s:{_ymd(SUN)}:p", lang="ru")
-    before = _tap(client, f"d1:s:{_ymd(date(2026, 10, 17))}:p", lang="ru")
+    yesterday = _tap(client, f"p1:o:{_ymd(SUN)}", lang="ru")
+    before = _tap(client, f"p1:v:{_ymd(date(2026, 10, 17))}", lang="ru")
 
-    assert _mood_row(yesterday) is not None
-    assert "Как ты после практики? По желанию." in yesterday["text"]
-    assert _mood_row(before) is None
-    assert "✨ Самочувствие" in _texts(before)
+    for body in (yesterday, before):
+        assert _mood_row(body) is None
+        assert ["✨ Как самочувствие?"] in _rows(body)
+        assert "Как ты после практики? По желанию." not in body["text"]
 
 
 # Taps: K and T
 
 
-def test_a_mood_tap_saves_and_opens_the_check_in_screen(
+def test_an_old_mood_chip_saves_and_opens_the_check_in_screen(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
@@ -499,7 +505,7 @@ def test_done_shows_the_summary_on_the_done_screen(
 
     assert "😊 · 🔥 effort 2/5 · Steady breath" in body["text"]
     assert "📝 Details" in _texts(body)
-    assert _only_edit(body, TODAY)
+    assert _entry(body, TODAY)
 
 
 def test_remove_deletes_and_returns_to_the_done_screen(
@@ -513,7 +519,7 @@ def test_remove_deletes_and_returns_to_the_done_screen(
     assert _stored(storage, me, TODAY) is None
     assert "📝 Details" in _texts(body)
     assert "Sore muscles" not in body["text"]
-    assert _only_edit(body, TODAY)  # just removed: not asked again right away
+    assert _entry(body, TODAY)  # the setting is on: the way back in stays
     assert storage.day_repo.rows[(me.id, TODAY)][0].status is DayStatus.PRACTICED
 
 
@@ -571,7 +577,7 @@ class _Reads:
         self.writes.clear()
 
 
-def test_after_the_reminders_quick_log_v_offers_the_row_with_no_read(
+def test_after_the_reminders_quick_log_v_shows_the_button_with_no_read(
     client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     me = _me(client, storage)
@@ -583,19 +589,22 @@ def test_after_the_reminders_quick_log_v_offers_the_row_with_no_read(
     body = _tap(client, f"r1:s:{_ymd(TODAY)}")
 
     assert body["text"].startswith("✓ Today")
-    assert _offered(body, TODAY)
+    assert _entry(body, TODAY)
     assert counter.reads == []
 
 
-def test_p_and_v_need_no_extra_read_and_taps_one_statement(
+def test_the_practice_screens_need_no_extra_read_and_taps_one_statement(
     client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _me(client, storage)
     d = _ymd(TODAY)
     counter = _Reads(monkeypatch, storage.day_repo)
 
-    details = _tap(client, f"d1:s:{d}:p")
-    p_reads = list(counter.reads)
+    saved = _tap(client, f"d1:s:{d}:p")
+    p0_reads = list(counter.reads)
+    counter.clear()
+    details = _tap(client, f"p1:o:{d}")
+    p1_reads = list(counter.reads)
     counter.clear()
     done = _tap(client, f"p1:v:{d}")
     v_reads = list(counter.reads)
@@ -609,9 +618,11 @@ def test_p_and_v_need_no_extra_read_and_taps_one_statement(
     _tap(client, f"k1:o:{d}")
     opened = (list(counter.reads), list(counter.writes))
 
-    assert _offered(details, TODAY)
-    assert _offered(done, TODAY)
-    assert p_reads == ["range_with_moon"]  # unchanged from PR-02 (the status read)
+    assert _no_entry(saved)
+    assert _entry(details, TODAY)
+    assert _entry(done, TODAY)
+    assert p0_reads == []  # UI-06: the write itself says what the day holds
+    assert p1_reads == ["range_with_moon"]  # the day, with its check-in
     assert v_reads == ["range_with_moon"]
     assert mood == ([], ["save"])  # the upsert's RETURNING renders K
     assert tag == ([], ["set_tag"])
@@ -647,10 +658,12 @@ def test_a_status_change_drops_the_check_in(client: TestClient, storage: InMemor
     _tap(client, f"k1:m:{d}:4")
 
     _tap(client, f"d1:s:{d}:r")
-    again = _tap(client, f"d1:s:{d}:p")
+    _tap(client, f"d1:s:{d}:p")
+    again = _tap(client, f"p1:v:{d}")
 
     assert _stored(storage, me, TODAY) is None
-    assert _offered(again, TODAY)  # back to "no check-in yet"
+    assert "🙂" not in again["text"]  # back to "no check-in yet"
+    assert _entry(again, TODAY)
 
 
 def test_remove_details_keeps_the_check_in(client: TestClient, storage: InMemoryStorage) -> None:
@@ -664,7 +677,7 @@ def test_remove_details_keeps_the_check_in(client: TestClient, storage: InMemory
 
     assert _stored(storage, me, TODAY) == _c(mood=5)
     assert "😊" in body["text"]
-    assert _only_edit(body, TODAY)
+    assert _entry(body, TODAY)
 
 
 def test_a_database_outage_answers_gently(client: TestClient, storage: InMemoryStorage) -> None:
@@ -715,10 +728,13 @@ def test_the_setting_off_still_allows_a_check_in(
     me = _me(client, storage, offer=False)
     _given(storage, me, TODAY)
 
-    body = _tap(client, f"k1:m:{_ymd(TODAY)}:2")
+    body = _tap(client, f"k1:m:{_ymd(TODAY)}:2")  # a mood chip under a message from before
+    done = _tap(client, _data_of(body, "✓ Done"))
 
     assert _stored(storage, me, TODAY) == _c(mood=2)
     assert EXPLAIN in body["text"]
+    assert "😕" in done["text"]  # V: what was saved, and the way back to it
+    assert _entry(done, TODAY)
 
 
 # Codecs: every k1: / s1:k callback round-trips and fits
