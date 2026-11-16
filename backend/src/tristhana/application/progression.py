@@ -7,10 +7,18 @@ from datetime import date
 from typing import Literal
 
 from tristhana.application.policies import Principal
+from tristhana.application.ports.days import DayLogRepository
 from tristhana.application.ports.practice import PracticeRepository
 from tristhana.application.ports.progression import ProgressionRepository, ProgressionView
 from tristhana.application.ports.storage import Clock
-from tristhana.domain.days import check_loggable, local_today, provisional_zone
+from tristhana.application.practice import DayNotPracticed
+from tristhana.domain.days import (
+    DayLog,
+    DayStatus,
+    check_loggable,
+    local_today,
+    provisional_zone,
+)
 from tristhana.domain.practice import RECENT_LIMIT
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
@@ -169,6 +177,32 @@ class MarkNewAsana(_Write):
         view = await self._progression.get(principal.account.id)
         change = given_change(self._track, view.progression, target, day)
         return await self._apply(principal, view, change, expected)
+
+
+@dataclass(frozen=True, slots=True)
+class GivenOnPractice:
+    result: ChangeResult
+    day: DayLog  # as read before the write, with its details and check-in (no second read)
+
+
+class ConfirmNewAsana:
+    """ "Yes, new" to the question under a practice's details ("… goes beyond your last
+    asana. New asana?"). The question stays in the chat, so the answer can come after that
+    day became rest or was cleared: the asana is given only while the day is still
+    Practiced. (`MarkNewAsana` on its own, from My asanas, is tied to no practice.)"""
+
+    def __init__(self, days: DayLogRepository, give: MarkNewAsana) -> None:
+        self._days = days
+        self._give = give
+
+    async def execute(self, principal: Principal, target: Position, day: date) -> GivenOnPractice:
+        """Raises `DayNotPracticed` (nothing read or written in the progression), and what
+        `MarkNewAsana` raises. One statement more than it: the day."""
+        logged = await self._days.list_range(principal.account.id, day, day)
+        if not logged or logged[0].status is not DayStatus.PRACTICED:
+            raise DayNotPracticed(day.isoformat())
+        result = await self._give.execute(principal, target, on=day)
+        return GivenOnPractice(result, logged[0])
 
 
 class MarkItem(_Write):

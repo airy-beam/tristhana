@@ -19,6 +19,7 @@ from tristhana.application.directory_listing import ListingUseCases
 from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
+    FollowMoonSource,
     GetMoonView,
     KeepMoonCity,
     NotificationSettingsUseCase,
@@ -35,6 +36,7 @@ from tristhana.application.practice import (
     SavePractice,
 )
 from tristhana.application.progression import (
+    ConfirmNewAsana,
     DismissNewAsanaHint,
     GetProgression,
     GetTimeline,
@@ -108,6 +110,7 @@ class ProgressionUseCases:
     get: GetProgression
     set: SetPractice
     give: MarkNewAsana
+    confirm: ConfirmNewAsana  # "Yes, new" under a practice
     item: MarkItem
     undo: UndoProgression
     dismiss: DismissNewAsanaHint
@@ -129,6 +132,7 @@ class MoonUseCases:
     cities: Cities
     view: GetMoonView
     set_location: SetMoonLocation
+    follow: FollowMoonSource  # the follow buttons (they can outlive what they follow)
     keep: KeepMoonCity
     use_city_zone: UseCityTimezone
     reminders: UpdateMoonReminders

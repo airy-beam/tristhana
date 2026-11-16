@@ -295,6 +295,12 @@ moon-teacher-own = 🌙 Now that you have students, your moon days follow your o
 moon-keep-city = Keep 📍 { $city }
 moon-kept = 🌙 Done: your moon days stay with 📍 { $city }. You can change this in /moon.
 moon-keep-already = 🌙 Your moon city is already chosen: 📍 { $city }. You can change it in /moon.
+# An old "Follow my teacher" / "Follow my shala" button, tapped when there is none any more.
+# $source = teacher | shala
+moon-nothing-to-follow = { $source ->
+        [shala] 🏛 You're not in a shala right now, so there's nothing to follow.
+       *[teacher] 👥 No teacher on your list right now, so there's no one to follow.
+    } Your moon city stays as it is.
 # Toggle buttons, 3 per row; the screen text above already says "… before".
 moon-offset =
     { $n ->
@@ -508,6 +514,8 @@ pause-cut = ⏸ Practice logged for { $rel ->
     }, so the following days, through { $until }, no longer show as { $label }. Keep them as they were?
 pause-keep = ⏸ Keep the pause
 pause-kept = ⏸ Pause kept: { $label } through { $until }.
+# A day count from the "for how many days?" question, tapped more than a day later.
+pause-too-late = That question was about an earlier day, so nothing changed. Here is that day as it is now.
 remind-paused-until = ⏸ Paused through { $until }
 remind-resume = ▶️ Resume now
 # Switches under Settings → More: each label says what a tap does, and names the button it

@@ -8,7 +8,8 @@ one is seeded with the ids, codes and dates inside the strings: me (a platform a
 teacher and a student of the other person, on the staff of the shala), the shala with one
 class and one student, a rest period, a directory request. The bare one has only me: nothing
 logged, nobody linked, no shala, none of the codes. That is the person whose teacher, shala
-or day is gone by the time they tap. The clock is fixed on the list's own day.
+or day is gone by the time they tap. The clock is fixed on the list's own day. A stale tap
+also writes nothing: no asana given, no moon city reset, no pause started days late.
 
 Also here: every screen the Menu and Help open has a way back (UI-06 §2).
 """
@@ -35,6 +36,7 @@ from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.directory_listing import Step, clean
 from tristhana.domain.moon import MoonDay, MoonDayKind
 from tristhana.domain.practice import Practice, PracticeContext
+from tristhana.domain.progression import Position
 from tristhana.domain.rest_periods import RestPeriod
 from tristhana.domain.shalas import ShalaRole
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
@@ -66,6 +68,11 @@ class World:
     storage: InMemoryStorage
     out: list[Any]  # Bot API calls made directly (not as the webhook reply), as method objects
     me: UUID
+    clock: FixedClock  # the app's own clock
+
+    def later(self, days: int) -> None:
+        """The same chat, `days` days on."""
+        self.clock.instant = self.storage.repo.clock.instant = NOW + timedelta(days=days)
 
     @property
     def sent(self) -> list[str]:
@@ -122,7 +129,8 @@ def _world(monkeypatch: pytest.MonkeyPatch, bare: bool) -> Iterator[World]:
         return True
 
     monkeypatch.setattr(AiohttpSession, "make_request", record)
-    monkeypatch.setattr("tristhana.main.SystemClock", lambda: FixedClock(NOW))
+    clock = FixedClock(NOW)
+    monkeypatch.setattr("tristhana.main.SystemClock", lambda: clock)
     settings = Settings(
         app_env="test",
         telegram_bot_token=SecretStr(TOKEN),
@@ -133,7 +141,7 @@ def _world(monkeypatch: pytest.MonkeyPatch, bare: bool) -> Iterator[World]:
         public_api_url="https://tristhana-api-test.a.run.app",  # pyright: ignore[reportCallIssue]  # SC-06
     )
     with TestClient(create_app(settings, storage)) as client:
-        yield World(client, storage, out, me.id)
+        yield World(client, storage, out, me.id, clock)
 
 
 @pytest.fixture
@@ -171,8 +179,18 @@ async def _seed_for(w: World, data: str) -> None:
     prefix, letter = data.split(":")[:2]
     practiced = (frozen.DAY, DayLog(frozen.DAY, DayStatus.PRACTICED))
     under_practice = (("r1", "y"), ("r1", "n"), ("g1", "n"))
-    if prefix in ("p1", "k1") or (prefix, letter) in under_practice or data.endswith(":k"):
+    asked_on_day = data.startswith("g1:g:") and data.endswith(f":{D}")  # "Yes, new" on P
+    if (
+        prefix in ("p1", "k1")
+        or (prefix, letter) in under_practice
+        or data.endswith(":k")
+        or asked_on_day
+    ):
         w.storage.day_repo.rows[(w.me, practiced[0])] = (practiced[1], None)
+    if (prefix, letter) == ("g1", "g"):
+        # "New asana: Kapotasana B" is offered to someone whose last asana is the stop before.
+        _tap(w, "g1:s:2:laghu-vajrasana")
+        w.out.clear()
     if (prefix, letter) == ("p1", "s"):  # "Same as last time" is offered with a last time
         before = frozen.DAY - timedelta(days=1)
         w.storage.day_repo.rows[(w.me, before)] = (DayLog(before, DayStatus.PRACTICED), None)
@@ -212,6 +230,8 @@ SCHEDULE = "c1:p:"  # a shala's schedule, as its staff see it
 # With nobody linked: "Teacher and shala" with its quiet invite row, and the empty list.
 NO_TEACHER = ("t1:i:o", "w1:m")
 NO_STUDENTS = ("t1:i", "w1:m")
+FOLLOWS = {"m1:f": "teacher", "m1:h": "shala"}  # "Follow my teacher" / "Follow my shala"
+KAPOTASANA_B = Position("intermediate", "kapotasana-b")
 
 # What identifies the right screen, by the entry itself, else its prefix and letter, else
 # its prefix. A marker is the start of some button's callback data, or one of the words
@@ -251,6 +271,8 @@ FULL: dict[str, str | tuple[str, ...]] = {
     "g1:s": ("g1:u:", "w1:m"),  # set: My asanas with Undo
     "g1:a": ("g1:p:", "g1:o"),  # the series picker
     "g1:p:s:2:1": "g1:s:2:",  # the stop grid of Intermediate
+    "g1:g": ("g1:u:", "w1:m"),  # given: My asanas with Undo
+    f"g1:g:2:kapotasana-b:{D}": DETAILS,  # "Yes, new" under a practice: its details again
     "g1:n": DETAILS,
     "r1": REMINDER,
     "r1:y": ("r1:v", "w1:m"),  # "I'll ask once a day at …"
@@ -380,6 +402,8 @@ BARE: dict[str, str | tuple[str, ...]] = {
     "k1:g": EDITOR,
     "k1:t": EDITOR,
     f"n1:b:{D}:k": EDITOR,
+    "g1:g": ("g1:a:s", "w1:m"),  # no position to move: My asanas, nothing set yet
+    f"g1:g:2:kapotasana-b:{D}": EDITOR,
     "g1:n": EDITOR,
     "r1:n": EDITOR,
     "a1:k": EDITOR,
@@ -460,7 +484,11 @@ def _assert_screen(w: World, data: str, table: dict[str, str | tuple[str, ...]])
 async def test_every_button_shipped_before_ui06_still_gets_a_screen(w: World, data: str) -> None:
     await _seed_for(w, data)
 
-    _assert_screen(w, data, FULL)
+    text = _assert_screen(w, data, FULL)
+
+    if data.startswith("g1:g:"):  # a position was set, so the asana is really given
+        assert T.t("en", "celebrate-new-asana", asana="Kapotasana B") in text
+        assert w.storage.day_repo.progression_rows[w.me].position == KAPOTASANA_B
 
 
 @pytest.mark.parametrize("data", frozen.PRE_UI06_CALLBACKS)
@@ -478,6 +506,29 @@ def test_every_old_button_gets_a_screen_when_what_it_was_about_is_gone(
 
     if _markers(BARE, data) == (EDITOR,) and data.split(":")[0] in ("p1", "k1", "g1", "r1"):
         assert text.startswith(T.t("en", "practice-day-not-practiced"))
+    if data in FOLLOWS:  # nobody to follow: the chosen city stays, and the screen says so
+        assert text.startswith(T.t("en", "moon-nothing-to-follow", source=FOLLOWS[data]))
+        assert bare.storage.repo.accounts[bare.me].moon_location == "almaty"
+    if data.startswith("g1:g:"):  # "New asana" with no position, or under no practice
+        assert bare.storage.day_repo.progression_rows == {}
+
+
+@pytest.mark.parametrize("world", ["w", "bare"])
+@pytest.mark.parametrize("data", [d for d in frozen.PRE_UI06_CALLBACKS if d.startswith("a1:p:")])
+def test_a_pause_length_tapped_days_later_opens_its_day(
+    world: str, data: str, request: pytest.FixtureRequest
+) -> None:
+    """The frozen entries act on the list's own day, where the chip still starts a pause.
+    The same button three days on (the clock moves, never the entry) used to be only
+    answered: it opens the day it was about, saying why nothing changed."""
+    w: World = request.getfixturevalue(world)
+    w.later(days=3)
+    periods = dict(w.storage.day_repo.periods.rows)
+
+    text = _assert_screen(w, data, {"a1": EDITOR})
+
+    assert text.startswith(T.t("en", "pause-too-late"))
+    assert w.storage.day_repo.periods.rows == periods
 
 
 def test_the_tables_name_no_entry_that_is_not_in_the_list() -> None:

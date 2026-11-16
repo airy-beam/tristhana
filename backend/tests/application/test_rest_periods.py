@@ -33,7 +33,12 @@ from tristhana.domain.days import DateInFuture, DayLog, DayStatus
 from tristhana.domain.milestones import NO_COUNTS
 from tristhana.domain.moon import MoonDay, MoonDayKind, calendar_years
 from tristhana.domain.notifications import DEFAULTS, send_instant
-from tristhana.domain.rest_periods import InvalidRestPeriod, PauseOffer, RestPeriod
+from tristhana.domain.rest_periods import (
+    InvalidRestPeriod,
+    PauseOffer,
+    RestPeriod,
+    StartTooLate,
+)
 from tristhana.infrastructure.seed.cities_yaml import load_cities
 
 L, K, T = DayStatus.LADIES, DayStatus.SICK, DayStatus.TRAVEL
@@ -300,6 +305,18 @@ async def test_start_validates_per_kind(
 
     with pytest.raises(InvalidRestPeriod):
         await StartRestPeriod(storage.rest_periods, clock).execute(me, start, days, kind)
+    assert _periods(storage, me) == []
+
+
+async def test_a_day_count_chosen_days_later_is_refused_as_too_late(
+    storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    """Its own error: a real question answered late is not forged data, and the bot shows
+    that day instead of staying silent."""
+    me = await _me(storage)
+
+    with pytest.raises(StartTooLate):
+        await StartRestPeriod(storage.rest_periods, clock).execute(me, _d(-2), 3, K)
     assert _periods(storage, me) == []
 
 

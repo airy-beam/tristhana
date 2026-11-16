@@ -36,6 +36,12 @@ class InvalidRestPeriod(ValueError):
     pass
 
 
+class StartTooLate(InvalidRestPeriod):
+    """A kind and a day count the question does offer, for a start before yesterday: the
+    answer came days late (the question stays in the chat). Never a backfill, but not forged
+    data either, so a caller can tell the two apart."""
+
+
 @dataclass(frozen=True, slots=True)
 class RestPeriod:
     start: date
@@ -105,7 +111,8 @@ def check_period(
     start: date, days: int, kind: DayStatus, now: datetime, zone: str | None
 ) -> RestPeriod:
     """A new period of `days` days from `start` (today or yesterday), inclusive. Raises
-    `InvalidRestPeriod` (kind, day count, a backfilled start) and `DateInFuture`."""
+    `InvalidRestPeriod` (kind, day count; `StartTooLate` for a backfilled start) and
+    `DateInFuture`."""
     if kind not in PAUSABLE:
         raise InvalidRestPeriod(f"kind {kind}")
     if days not in allowed_days(kind):
@@ -113,8 +120,10 @@ def check_period(
     earliest, latest = _today_bounds(now, zone)
     if start > latest:
         raise DateInFuture(start.isoformat())
-    if start < earliest - _DAY or start < MIN_LOG_DATE:
+    if start < MIN_LOG_DATE:
         raise InvalidRestPeriod(f"start {start.isoformat()}")
+    if start < earliest - _DAY:
+        raise StartTooLate(f"start {start.isoformat()}")
     return RestPeriod(start, start + timedelta(days=days - 1), kind)
 
 

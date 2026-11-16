@@ -77,6 +77,7 @@ from tristhana.application.directory_listing import (
 from tristhana.application.export import DeleteMyAccount, SendMyExport
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
+    FollowMoonSource,
     GetMoonView,
     KeepMoonCity,
     NotificationSettingsUseCase,
@@ -93,6 +94,7 @@ from tristhana.application.practice import (
     SavePractice,
 )
 from tristhana.application.progression import (
+    ConfirmNewAsana,
     DismissNewAsanaHint,
     GetProgression,
     GetTimeline,
@@ -341,10 +343,12 @@ class _Services:
         )
         app.state.diary = diary
         repo = self._storage.progression
+        give = MarkNewAsana(repo, track, clock)
         progression = ProgressionUseCases(
             get=GetProgression(repo, self._storage.practices, track, clock),
             set=SetPractice(repo, track, clock),
-            give=MarkNewAsana(repo, track, clock),
+            give=give,
+            confirm=ConfirmNewAsana(self._storage.days, give),
             item=MarkItem(repo, track, clock),
             undo=UndoProgression(repo),
             dismiss=DismissNewAsanaHint(repo),
@@ -368,10 +372,12 @@ class _Services:
         )
         app.state.account_data = account_data
         app.state.practice_catalog, app.state.catalog_version = loaded.catalog, loaded.version
+        set_location = SetMoonLocation(cities, self._storage.accounts)
         moon = MoonUseCases(
             cities=cities,
             view=GetMoonView(cities, self._storage.moon, self._storage.notifications, clock),
-            set_location=SetMoonLocation(cities, self._storage.accounts),
+            set_location=set_location,
+            follow=FollowMoonSource(set_location),
             keep=KeepMoonCity(cities, self._storage.accounts),
             use_city_zone=UseCityTimezone(cities, self._storage.accounts),
             reminders=UpdateMoonReminders(self._storage.notifications),

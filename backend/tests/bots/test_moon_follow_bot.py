@@ -22,6 +22,7 @@ from tests.moon_follow_fakes import following_storage, person
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import FOLLOW_TEACHER, MoonDay, MoonDayKind
+from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -323,6 +324,39 @@ def test_tapping_follow_stores_it_and_shows_the_teachers_calendar(
     assert body["text"].startswith("🌙 Moon days · 📍 Almaty")
     assert SOURCE_EN in body["text"]
     assert _stored(storage, me) == FOLLOW_TEACHER
+
+
+@pytest.mark.parametrize(
+    ("own", "title"),
+    [("moscow", "🌙 Moon days · 📍 Moscow"), (None, "🌙 Moon days · 📍 Mysuru")],
+)
+def test_an_old_follow_button_after_the_teacher_is_gone_keeps_the_city(
+    client: TestClient, storage: InMemoryStorage, own: str | None, title: str
+) -> None:
+    """`m1:f` sits under an old picker. Tapped once there is no teacher, it used to store
+    "Follow my teacher", which moved a chosen city back to Mysuru without a word."""
+    me = _me(client, storage, own)
+
+    body = _tap(client, "m1:f")
+
+    assert body["method"] == "editMessageText"
+    note, screen = body["text"].split("\n\n", 1)
+    assert note == FluentTranslator().t("en", "moon-nothing-to-follow", source="teacher")
+    assert screen.startswith(title)
+    assert _stored(storage, me) == own
+
+
+def test_the_nothing_to_follow_line_in_russian(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage, "moscow", "ru")
+
+    body = _tap(client, "m1:f", "ru")
+
+    line = FluentTranslator().t("ru", "moon-nothing-to-follow", source="teacher")
+    assert body["text"].startswith(line + "\n\n")
+    assert "Москва" in body["text"]
+    assert _stored(storage, me) == "moscow"
 
 
 def test_follow_data_is_short(client: TestClient, storage: InMemoryStorage) -> None:

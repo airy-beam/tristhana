@@ -3,8 +3,8 @@ offsets to set, not "toggle"), so stale keyboards stay harmless.
 
     m1:v                 /moon screen            m1:r            reminder settings
     m1:c:2               city picker, page 2     m1:s:<slug>     follow a city
-    m1:f                 follow my teacher (MD-02)
-    m1:h                 follow my shala (SC-01)
+    m1:f                 follow my teacher (MD-02); with none left, nothing is written
+    m1:h                 follow my shala (SC-01); the same
     m1:k:<slug>          keep that city as my own (the first-student note, MD-02)
     m1:z:<slug>          use that city's zone for reminders (only while none is set)
     m1:o:71              set offsets to {7, 1}   (m1:o:0 = off)

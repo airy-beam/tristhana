@@ -8,7 +8,7 @@ from aiogram.filters import Command
 from aiogram.methods import SendMessage
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from tristhana.application.moon import MoonView, UnknownLocation
+from tristhana.application.moon import MoonView, NothingToFollow, UnknownLocation
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, TimeArg, Translator
 from tristhana.application.ports.notifications import MoonPatch, MoonReminder
@@ -157,11 +157,9 @@ class MoonScreens:
                 case "city":
                     account = await self._m.set_location.execute(principal, cb.slug)
                     return await self.view(Principal(account))
-                case "follow":
-                    account = await self._m.set_location.execute(principal, None)
-                    return await self.view(Principal(account))
-                case "follow_shala":
-                    account = await self._m.set_location.execute(principal, None, follow="shala")
+                case "follow" | "follow_shala":
+                    source = "teacher" if cb.action == "follow" else "shala"
+                    account = await self._m.follow.execute(principal, source)
                     return await self.view(Principal(account))
                 case "keep":
                     return await self._keep(principal, cb.slug or "", note, locale)
@@ -176,6 +174,11 @@ class MoonScreens:
                     return await self.reminders(principal)
                 case "quick":
                     return await self._quick(principal, cb, locale)
+        except NothingToFollow as gone:
+            # An old button, and the teacher or the shala is gone since: nothing was
+            # written. The screen as it is, with a line saying so.
+            line = self._t.t(locale, "moon-nothing-to-follow", source=gone.source)
+            return await self.view(principal, lead=line)
         except (UnknownLocation, InvalidSettings):
             return await self.view(principal)  # stale or forged: just reshow
 
@@ -208,11 +211,13 @@ class MoonScreens:
         )
         return reminder_screen(self._t, locale, reminder, status)
 
-    async def view(self, principal: Principal) -> Screen:
+    async def view(self, principal: Principal, lead: str | None = None) -> Screen:
+        """`lead`: a line on top (why an old button changed nothing)."""
         v = await self._m.view.execute(principal)
         locale = principal.account.locale
         city = v.city.name(locale)
-        lines = [self._t.t(locale, "moon-title", city=city)]
+        lines = [lead] if lead else []
+        lines.append(self._t.t(locale, "moon-title", city=city))
         source = self._source(locale, v.follow)
         if source:
             lines.append(source)

@@ -1335,6 +1335,7 @@ def practice_use_cases(repo: InMemoryDays | None = None) -> PracticeUseCases:
 def moon_use_cases(storage: "InMemoryStorage | None" = None) -> MoonUseCases:
 
     from tristhana.application.moon import (
+        FollowMoonSource,
         GetMoonView,
         KeepMoonCity,
         SetMoonLocation,
@@ -1344,10 +1345,12 @@ def moon_use_cases(storage: "InMemoryStorage | None" = None) -> MoonUseCases:
 
     storage = storage or InMemoryStorage()
     known = cities()
+    set_location = SetMoonLocation(known, storage.accounts)
     return MoonUseCases(
         cities=known,
         view=GetMoonView(known, storage.moon, storage.notifications, FixedClock()),
-        set_location=SetMoonLocation(known, storage.accounts),
+        set_location=set_location,
+        follow=FollowMoonSource(set_location),
         keep=KeepMoonCity(known, storage.accounts),
         use_city_zone=UseCityTimezone(known, storage.accounts),
         reminders=UpdateMoonReminders(storage.notifications),
