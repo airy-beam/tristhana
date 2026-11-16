@@ -331,7 +331,7 @@ def test_a_forged_or_ended_source_goes_back_to_teachers(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _start(client, storage)
-    title = T.t("en", "links-title")
+    title = T.t("en", "menu-teacher")  # UI-06: the "My teacher" screen
     feed = _tap(client, cb.feed(Source(SourceKind.TEACHER, uuid4())))
     assert title in feed["text"]
     mute = _tap(client, cb.mute(Source(SourceKind.SHALA, uuid4()), True, "n"))

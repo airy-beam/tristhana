@@ -28,6 +28,8 @@ welcome-shala-text = A shala here is a page with your class schedule, announceme
 welcome-shala-student = Looking for your shala's classes? Ask the shala for its link. Once you open it, the schedule shows up here.
 invite-simple = Send this link to your students. Each one confirms for themselves.
 invite-send = ✉️ Send the link
+# Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
+invite-more = More…
 
 # Today: the third choice, and the screen behind it. $day as in start-prompt.
 today-other = Other reason…
@@ -358,18 +360,23 @@ remind-practice-link = 🧘 Practice reminder
 
 ## Settings (ID-06).
 command-settings = Language, city, reminders
+# UI-06: the first screen is five buttons, and each label carries its value.
 settings-title = ⚙️ Settings
+settings-language-pick = 🗣 Which language shall I use?
+settings-reminders-button = 🔔 Reminders
+settings-reminders-title = 🔔 Reminders
+settings-more-button = More…
+settings-more-title = ⚙️ More settings
 language-auto = As in Telegram
 language-en = English
 language-ru = Русский
 settings-language-line = 🗣 Language: { $language }
-# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)".
+# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)". Button labels:
+# the no-zone one is the one place in Settings that says the zone is missing (Q314).
 settings-city-line = 🏙 My city: { $zone }
 settings-city-unset-line = 🏙 My city: not chosen yet · 🕐 { $zone }
 settings-city-unlisted-line = 🏙 My city: not chosen · 🕐 { $zone }
-settings-city-no-zone-line = 🏙 My city: not chosen yet. Reminders start once it's set.
-settings-city-nudge = Pick your city if you like: times will then show its name.
-settings-city-not-now = Not now
+settings-city-no-zone-line = 🏙 My city: not chosen · no time zone yet
 settings-moon-line = 🌙 Moon days: 📍 { $city }
 settings-moon-line-teacher = 🌙 Moon days: 📍 { $city } (as { $name })
 settings-quiet-line = 🔕 Quiet hours { $start }–{ $end } · { $n ->
@@ -492,12 +499,9 @@ pause-keep = ⏸ Keep the pause
 pause-kept = ⏸ Pause kept: { $label } through { $until }.
 remind-paused-until = ⏸ Paused through { $until }
 remind-resume = ▶️ Resume now
-settings-ladies-line = 🌸 Ladies' holiday button: { $shown ->
-        [yes] shown
-       *[no] hidden
-    }
-settings-ladies-hide = 🌸 Hide the button
-settings-ladies-show = 🌸 Show the button
+# Switches under Settings → More: each label says what a tap does.
+settings-ladies-hide = 🌸 Hide the ladies' holiday button
+settings-ladies-show = 🌸 Show the ladies' holiday button
 
 ## After-practice check-in (PR-06). Always optional: never "you haven't checked in".
 # Mood is stored as 1–5; the emoji are presentation only. Tags are domain keys.
@@ -529,12 +533,9 @@ checkin-tag = { $tag ->
         [scattered] Scattered
        *[steady_breath] Steady breath
     }
-settings-checkin-line = ✨ Check-in after practice: { $offered ->
-        [yes] offered
-       *[no] not offered
-    }
-settings-checkin-off = ✨ Don't offer
-settings-checkin-on = ✨ Offer
+# UI-06 (Q313): the setting shows or hides the "How do you feel?" button after practice.
+settings-checkin-off = ✨ Hide “How do you feel?”
+settings-checkin-on = ✨ Show “How do you feel?”
 
 ## Diary note (PR-07). Private, per day, any status. Never asked for; never echoed back.
 # $rel = today | yesterday | other, $date = a formatted date (as in day-label).
@@ -713,6 +714,15 @@ invite-consent =
     • Check-ins, diary notes and the reason for a rest stay private.
     • { $name } can send announcements to all their students through the bot. You can mute them.
     • You can remove { $name } from your list any time in /teachers. No one gets a message.
+# The short consent screen (ADR-0045). The full text above is the consent record and stays
+# as it is; ✅ on the short screen agrees to all of it. The first line must name every item
+# the full text says { $name } sees; nothing here may promise more than the full text does.
+invite-consent-short =
+    • { $name } sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, { $name } sees a short note saying just that.
+    • Check-ins, diary notes and the reason for a rest stay private.
+    • You can remove { $name } from your list any time in /teachers. No one gets a message.
+consent-details = 📄 Details
+consent-short-back = ‹ In short
 invite-know-them = Anyone can choose any name here, so confirm only if you know this person.
 invite-not-told = If you tap Not now, { $name } isn't told.
 invite-accept = ✅ Confirm
@@ -724,7 +734,6 @@ invite-invalid = This invite link no longer works. The person who shared it can 
 invite-full = This link can't add a teacher right now.
 link-student-joined = 👥 { $name } is on your list of students now.
 link-students-open = 👥 My students
-invite-hint = Share this link or QR code. Each student confirms for themselves.
 invite-moon-hint = Students who haven't chosen a moon city will follow the city you choose in /moon.
 invite-share-text = My link to add me as your teacher in Tristhana. The bot shows what I'd see before you confirm.
 invite-new-ask = Get a new link? The old link and QR stop working. People already on your list stay.
@@ -732,12 +741,11 @@ invite-qr-caption = Scan to add me as your teacher in Tristhana.
 link-unlink-ask = Remove { $name } from your teachers? They won't get a message, but you'll no longer be on their list.
 link-next-main = { $name } becomes your main teacher.
 link-remove-ask = Remove { $name } from your students? They won't get a message.
-links-empty = No teachers on your list. Your log works the same either way.
+links-empty = No teacher here yet. To add one, open the link your teacher sends you. Your log works the same either way.
 links-no-students = No students on your list.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
-links-title = 👥 Teachers and students
 link-no-name = (no name)
 export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
 export-readme-shalas = shalas in data.json: the shalas you're in. side: "staff" or "student"; owner: the shala is yours; roles: your roles there ("admin" = manager, "office" = front desk). No one else's names.
@@ -791,6 +799,11 @@ shala-join-consent =
     • Your moon days follow the shala's calendar, unless you've chosen a city, or your teacher has. If your teacher teaches here, the shala's calendar comes first.
     • The shala's staff can mark that you came to a class, and so can you. You see these marks and can remove them any time.
     • You can leave any time in /teachers. No one gets a message.
+# The short consent screen (ADR-0045): see invite-consent-short.
+shala-join-consent-short =
+    • The shala's teachers and staff see your name{ $me }. Nothing from your log.
+    • The shala's staff can mark that you came to a class, and so can you. You see these marks and can remove them any time.
+    • You can leave any time in /teachers. No one gets a message.
 shala-know-them = Join only a shala you know: anyone can create one with any name.
 shala-join-yes = ✅ Join
 shala-staff-ask = 🏛 { $name } invites you to { $shala } as { $role }.
@@ -800,6 +813,11 @@ shala-staff-consent =
     • You'll see the names of its students and staff, not their logs.
     • The shala's announcements come to you through the bot too. You can mute them.
     • You can mark who came to its classes.
+    • You can leave any time in /teachers.
+# The short consent screen (ADR-0045): see invite-consent-short.
+shala-staff-consent-short =
+    • Everyone in the shala, students included, sees your name{ $me } and role.
+    • You'll see the names of its students and staff, not their logs.
     • You can leave any time in /teachers.
 shala-staff-yes = ✅ Confirm
 shala-staff-joined = 🏛 { $name } joined { $shala } as { $role }.

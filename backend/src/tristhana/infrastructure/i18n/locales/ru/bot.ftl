@@ -28,6 +28,8 @@ welcome-shala-text = Шала здесь — это страница с расп
 welcome-shala-student = Ищешь занятия своей шалы? Попроси у шалы ссылку. Открой её, и расписание появится здесь.
 invite-simple = Отправь эту ссылку ученикам. Каждый подтверждает сам.
 invite-send = ✉️ Отправить ссылку
+# Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
+invite-more = Ещё…
 
 # Today: the third choice, and the screen behind it. $day as in start-prompt.
 today-other = Другая причина…
@@ -360,7 +362,13 @@ remind-practice-link = 🧘 Напоминание о практике
 
 ## Настройки (ID-06).
 command-settings = Язык, город, напоминания
+# UI-06: the first screen is five buttons, and each label carries its value.
 settings-title = ⚙️ Настройки
+settings-language-pick = 🗣 На каком языке мне говорить?
+settings-reminders-button = 🔔 Напоминания
+settings-reminders-title = 🔔 Напоминания
+settings-more-button = Ещё…
+settings-more-title = ⚙️ Ещё настройки
 language-auto = Как в Telegram
 language-en = English
 language-ru = Русский
@@ -369,9 +377,8 @@ settings-language-line = 🗣 Язык: { $language }
 settings-city-line = 🏙 Мой город: { $zone }
 settings-city-unset-line = 🏙 Мой город: пока не выбран · 🕐 { $zone }
 settings-city-unlisted-line = 🏙 Мой город: не выбран · 🕐 { $zone }
-settings-city-no-zone-line = 🏙 Мой город: пока не выбран. Напоминания начнутся, когда ты его выберешь.
-settings-city-nudge = Если хочешь, выбери свой город: рядом со временем будет его название.
-settings-city-not-now = Не сейчас
+# Подписи кнопок. Только строка без пояса говорит в настройках, что пояса нет (Q314).
+settings-city-no-zone-line = 🏙 Мой город: не выбран · пояса пока нет
 settings-moon-line = 🌙 Лунные дни: 📍 { $city }
 settings-moon-line-teacher = 🌙 Лунные дни: 📍 { $city } (как у учителя: { $name })
 settings-quiet-line = 🔕 Тихие часы { $start }–{ $end } · { $n ->
@@ -502,12 +509,9 @@ pause-keep = ⏸ Оставить паузу
 pause-kept = ⏸ Пауза сохранена: „{ $label }“ по { $until } включительно.
 remind-paused-until = ⏸ На паузе по { $until } включительно
 remind-resume = ▶️ Возобновить сейчас
-settings-ladies-line = 🌸 Кнопка „Женские дни“: { $shown ->
-        [yes] показана
-       *[no] скрыта
-    }
-settings-ladies-hide = 🌸 Скрыть кнопку
-settings-ladies-show = 🌸 Показать кнопку
+# Switches under Settings → More: each label says what a tap does.
+settings-ladies-hide = 🌸 Скрыть кнопку «Женские дни»
+settings-ladies-show = 🌸 Показать кнопку «Женские дни»
 
 ## После практики: самочувствие (PR-06). Всегда по желанию, без упрёков.
 # Настроение хранится как 1–5; эмодзи только для показа. Метки: ключи домена.
@@ -539,12 +543,9 @@ checkin-tag = { $tag ->
         [scattered] Рассеянность
        *[steady_breath] Ровное дыхание
     }
-settings-checkin-line = ✨ Самочувствие после практики: { $offered ->
-        [yes] предлагаю
-       *[no] не предлагаю
-    }
-settings-checkin-off = ✨ Не предлагать
-settings-checkin-on = ✨ Предлагать
+# UI-06 (Q313): the setting shows or hides the "How do you feel?" button after practice.
+settings-checkin-off = ✨ Скрыть «Как самочувствие?»
+settings-checkin-on = ✨ Показать «Как самочувствие?»
 
 ## Дневник (PR-07). Личная заметка на день, при любом статусе. Не просим и не повторяем текст.
 # $rel = today | yesterday | other, $date = дата (как в day-label).
@@ -723,6 +724,15 @@ invite-consent =
     • Самочувствие, заметки и причина отдыха остаются личными.
     • { $name } может отправлять объявления всем своим ученикам через бота. Их можно отключить.
     • Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит.
+# The short consent screen (ADR-0045). The full text above is the consent record and stays
+# as it is; ✅ on the short screen agrees to all of it. The first line must name every item
+# the full text says { $name } sees; nothing here may promise more than the full text does.
+invite-consent-short =
+    • { $name } увидит твоё имя{ $me } и то, что ты отмечаешь с сегодняшнего дня: практика или отдых, объём практики и последняя асана. Если какое-то время показать нечего, { $name } увидит об этом короткую пометку.
+    • Самочувствие, заметки и причина отдыха остаются личными.
+    • Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит.
+consent-details = 📄 Подробнее
+consent-short-back = ‹ Коротко
 invite-know-them = Имя здесь может выбрать любой, поэтому подтверждай, только если знаешь этого человека.
 invite-not-told = Если нажать «Не сейчас», { $name } об этом не узнает.
 invite-accept = ✅ Подтвердить
@@ -734,7 +744,6 @@ invite-invalid = Эта ссылка больше не работает. Нов�
 invite-full = Сейчас по этой ссылке не получится добавить учителя.
 link-student-joined = 👥 { $name } теперь в списке твоих учеников.
 link-students-open = 👥 Мои ученики
-invite-hint = Поделись ссылкой или QR-кодом. Каждый ученик подтверждает сам.
 invite-moon-hint = У учеников, которые не выбрали город, лунные дни будут считаться по городу, который ты выберешь в /moon.
 invite-share-text = Моя ссылка, чтобы добавить меня как учителя в Tristhana. Перед подтверждением бот покажет, что мне будет видно.
 invite-new-ask = Сделать новую ссылку? Старая ссылка и QR перестанут работать. Те, кто уже в списке, останутся.
@@ -742,12 +751,11 @@ invite-qr-caption = Отсканируй, чтобы добавить меня �
 link-unlink-ask = Убрать из списка учителей: { $name }? Сообщений никто не получит, просто в списке учеников тебя больше не будет.
 link-next-main = Основным учителем станет: { $name }.
 link-remove-ask = Убрать из списка учеников: { $name }? Сообщений никто не получит.
-links-empty = Учителей в списке нет. Журнал практики работает и так.
+links-empty = Учителя здесь пока нет. Чтобы добавить, открой ссылку, которую пришлёт учитель. Журнал практики работает и так.
 links-no-students = Учеников в списке нет.
 links-primary-hint = ⭐ — твой основной учитель. Поменять можно в любой момент.
 links-main-chosen = ⭐ Основной учитель: { $name }
 links-main-auto = ⭐ Основной учитель: { $name } (в начале списка)
-links-title = 👥 Учителя и ученики
 link-no-name = (без имени)
 export-readme-links = teacher_links в data.json: твои учителя и ученики без имён, поэтому чужих данных в этом списке нет.
 export-readme-shalas = shalas в data.json: шалы, в которых ты состоишь. side: «staff» — в команде, «student» — ученик; owner — это твоя шала; roles — твои роли там («admin» — управляющий, «teacher» — преподаватель, «assistant» — ассистент, «office» — администратор). Чужих имён здесь нет.
@@ -800,6 +808,11 @@ shala-join-consent =
     • Лунные дни будут считаться по календарю шалы, если город не выбран ни тобой, ни твоим учителем. Если учитель преподаёт в этой шале, календарь шалы важнее.
     • Посещение занятий может отмечать команда шалы, и ты тоже. Эти отметки видны тебе, и их можно снять в любой момент.
     • Выйти можно в любой момент в /teachers. Сообщений никто не получит.
+# The short consent screen (ADR-0045): see invite-consent-short.
+shala-join-consent-short =
+    • Преподаватели и команда шалы увидят твоё имя{ $me }. Ничего из журнала.
+    • Посещение занятий может отмечать команда шалы, и ты тоже. Эти отметки видны тебе, и их можно снять в любой момент.
+    • Выйти можно в любой момент в /teachers. Сообщений никто не получит.
 shala-know-them = Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно.
 shala-join-yes = ✅ Присоединиться
 shala-staff-ask = 🏛 { $name } приглашает тебя в шалу { $shala }. Роль: { $role }.
@@ -809,6 +822,11 @@ shala-staff-consent =
     • Тебе будут видны имена учеников и людей из команды, но не их журналы.
     • Объявления шалы тоже будут приходить тебе через бота. Их можно отключить.
     • Можно отмечать посещение занятий.
+    • Выйти можно в любой момент в /teachers.
+# The short consent screen (ADR-0045): see invite-consent-short.
+shala-staff-consent-short =
+    • Все в шале, включая учеников, увидят твоё имя{ $me } и роль.
+    • Тебе будут видны имена учеников и людей из команды, но не их журналы.
     • Выйти можно в любой момент в /teachers.
 shala-staff-yes = ✅ Подтвердить
 shala-staff-joined = 🏛 { $name } теперь в шале { $shala }. Роль: { $role }.

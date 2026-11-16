@@ -381,7 +381,7 @@ def test_the_settings_line_names_the_teacher(
     me = _me(client, storage, lang=lang)
     storage.teacher_links.add(me.id, _teacher(storage).id)
 
-    body = _command(client, "/settings", lang)
+    body = _tap(client, "s1:m", lang)  # UI-06: the moon city is under Settings → More
 
     assert line in body["text"].splitlines()
 
@@ -392,7 +392,7 @@ def test_the_settings_line_is_plain_for_a_chosen_city(
     me = _me(client, storage, "moscow")
     storage.teacher_links.add(me.id, _teacher(storage).id)
 
-    body = _command(client, "/settings")
+    body = _tap(client, "s1:m")
 
     assert "🌙 Moon days: 📍 Moscow" in body["text"].splitlines()
 
@@ -530,9 +530,10 @@ def test_the_invite_screen_says_students_will_follow(
 ) -> None:
     _me(client, storage)
 
-    body = _tap(client, "t1:i")
+    first = _tap(client, "t1:i")
+    body = _tap(client, "t1:im")  # UI-06: the hint is on the invite's "More" screen
 
-    assert "Share this link or QR code. Each student confirms for themselves." in body["text"]
+    assert first["text"] == "Send this link to your students. Each one confirms for themselves."
     assert (
         "Students who haven't chosen a moon city will follow the city you choose in /moon."
         in body["text"]

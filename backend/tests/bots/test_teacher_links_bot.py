@@ -1,8 +1,9 @@
 # ruff: noqa: RUF001
-"""Teacher links through the real webhook (ID-04, spec §2, §5, §10): the consent screen on
-`/start t_<code>` for a brand-new person, every invite state, the code kept out of every log,
-`/teachers` for both sides, main-teacher rules, removal, the invite screen, the QR, the silent
-note and the `t1:` callback data. Real use cases over the in-memory port."""
+"""Teacher links through the real webhook (ID-04, spec §2, §5, §10; UI-06 §2 C0, C1, I0, I1):
+the short consent on `/start t_<code>` for a brand-new person with the full text behind
+"Details", every invite state, the code kept out of every log, `/teachers` = "My teacher",
+main-teacher rules, removal, the invite screens, the QR, the silent note and the `t1:` callback
+data. Real use cases over the in-memory port."""
 
 import base64
 import importlib.util
@@ -21,6 +22,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.bots.statements import Statements
 from tests.fakes import InMemoryStorage
 from tests.teacher_link_fakes import add_person
 from tristhana.domain.accounts import DISPLAY_NAME_MAX, Account
@@ -69,6 +71,27 @@ RU_CONSENT = (
     "Если нажать «Не сейчас», Лена об этом не узнает."
 )
 
+# ADR-0045: the short screen. Its first bullet names every item the full text says the teacher
+# sees; the know-this-person line stays as the fourth line (ADR-0030).
+EN_SHORT = (
+    "🤝 Лена sent you an invite. Add them to your teachers? "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest, your "
+    "practice length and your last asana. If nothing shows for a while, Лена sees a short note "
+    "saying just that. "
+    "• Check-ins, diary notes and the reason for a rest stay private. "
+    "• You can remove Лена from your list any time in /teachers. No one gets a message. "
+    "Anyone can choose any name here, so confirm only if you know this person."
+)
+RU_SHORT = (
+    "🤝 Лена отправляет тебе приглашение. Добавить в список твоих учителей? "
+    "• Лена увидит твоё имя (Ash) и то, что ты отмечаешь с сегодняшнего дня: практика или отдых, "
+    "объём практики и последняя асана. Если какое-то время показать нечего, Лена увидит об этом "
+    "короткую пометку. "
+    "• Самочувствие, заметки и причина отдыха остаются личными. "
+    "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит. "
+    "Имя здесь может выбрать любой, поэтому подтверждай, только если знаешь этого человека."
+)
+
 
 @dataclass
 class Sent:
@@ -115,6 +138,11 @@ def _settings(**overrides: Any) -> Settings:
 def client(storage: InMemoryStorage, outbound: list[Sent]) -> Iterator[TestClient]:
     with TestClient(create_app(_settings(), storage)) as c:
         yield c
+
+
+@pytest.fixture
+def statements(monkeypatch: pytest.MonkeyPatch, storage: InMemoryStorage) -> Statements:
+    return Statements(monkeypatch, storage)
 
 
 def _post(client: TestClient, update: dict[str, Any]) -> Any:
@@ -224,18 +252,19 @@ def _note(outbound: list[Sent], chat_id: int) -> Sent:
 
 
 @pytest.mark.parametrize(
-    ("lang", "consent", "confirm", "other_language", "switch"),
+    ("lang", "short", "confirm", "details", "other_language", "switch"),
     [
-        ("en", EN_CONSENT, "✅ Confirm", "🗣 Русский", "ru"),
-        ("ru", RU_CONSENT, "✅ Подтвердить", "🗣 English", "en"),
+        ("en", EN_SHORT, "✅ Confirm", "📄 Details", "🗣 Русский", "ru"),
+        ("ru", RU_SHORT, "✅ Подтвердить", "📄 Подробнее", "🗣 English", "en"),
     ],
 )
-def test_a_brand_new_person_gets_the_consent_screen_in_their_language(
+def test_a_brand_new_person_gets_the_short_consent_in_their_language(
     client: TestClient,
     storage: InMemoryStorage,
     lang: str,
-    consent: str,
+    short: str,
     confirm: str,
+    details: str,
     other_language: str,
     switch: str,
 ) -> None:
@@ -244,15 +273,100 @@ def test_a_brand_new_person_gets_the_consent_screen_in_their_language(
     body = _command(client, f"/start t_{CODE}", lang)
 
     assert body["method"] == "sendMessage"
-    assert _flat(body["text"]) == consent
+    assert _flat(body["text"]) == short
+    assert len(body["text"].split("\n\n")) == 3  # the ask, the three lines, know-this-person
+    assert len([line for line in body["text"].splitlines() if line.startswith("•")]) == 3
     decline = "Not now" if lang == "en" else "Не сейчас"
-    assert _rows(body) == [[confirm, decline], [other_language]]
+    assert _rows(body) == [[confirm, decline], [details], [other_language]]
     assert _data(body, confirm) == f"t1:a:{CODE}"
     assert _data(body, decline) == "t1:n"
+    assert _data(body, details) == f"t1:d:{CODE}"
     assert _data(body, other_language) == f"t1:l:{switch}:{CODE}"
     new = [a for a in storage.repo.accounts.values() if a.id != teacher.id]
     assert [a.display_name for a in new] == ["Ash"]  # the account exists, nothing else yet
     assert storage.teacher_links.rows == {}
+
+
+@pytest.mark.parametrize(
+    ("lang", "full", "confirm", "back"),
+    [
+        ("en", EN_CONSENT, "✅ Confirm", "‹ In short"),
+        ("ru", RU_CONSENT, "✅ Подтвердить", "‹ Коротко"),
+    ],
+)
+def test_details_shows_the_full_text_unchanged_and_leads_back(
+    client: TestClient, storage: InMemoryStorage, lang: str, full: str, confirm: str, back: str
+) -> None:
+    """ADR-0045: the full text is the consent record, exactly as before UI-06."""
+    _teacher(storage)
+    short = _command(client, f"/start t_{CODE}", lang)
+
+    details = _tap(client, f"t1:d:{CODE}", lang)
+    again = _tap(client, _data(details, back), lang)
+
+    assert details["method"] == "editMessageText"
+    assert _flat(details["text"]) == full
+    decline = "Not now" if lang == "en" else "Не сейчас"
+    assert _rows(details) == [[confirm, decline], [back]]
+    assert _data(details, confirm) == f"t1:a:{CODE}"  # the same confirm as the short screen
+    assert _data(details, decline) == "t1:n"
+    assert _data(details, back) == f"t1:y:{CODE}"
+    assert (again["text"], _rows(again)) == (short["text"], _rows(short))
+    assert storage.teacher_links.rows == {}
+
+
+@pytest.mark.parametrize("screen", ["short", "details"])
+def test_confirm_from_either_screen_creates_the_same_link(
+    client: TestClient, storage: InMemoryStorage, screen: str
+) -> None:
+    """Q312: ✅ on the short screen agrees to the full text, the quiet note included."""
+    teacher = _teacher(storage)
+    consent = _command(client, f"/start t_{CODE}")
+    if screen == "details":
+        consent = _tap(client, _data(consent, "📄 Details"))
+
+    body = _tap(client, _data(consent, "✅"))
+
+    assert body["text"].startswith("✅ Лена is on your list of teachers now.")
+    me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
+    [row] = storage.teacher_links.rows.values()
+    assert (row.student_id, row.teacher_id) == (me.id, teacher.id)
+    assert (row.is_primary, row.quiet_note_agreed) == (False, True)
+    assert row.linked_on == _today()
+
+
+def test_details_of_a_rotated_code_says_it_no_longer_works(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    teacher = _teacher(storage)
+    _command(client, f"/start t_{CODE}")
+    storage.teacher_links.codes[teacher.id] = OTHER_CODE
+
+    for data in (f"t1:d:{CODE}", f"t1:y:{CODE}"):
+        body = _tap(client, data)
+        assert body["text"].startswith("This invite link no longer works.")
+        assert "✅ Confirm" not in _texts(body)
+
+
+def test_the_consent_costs_one_read_and_one_write_until_welcomed(
+    client: TestClient, storage: InMemoryStorage, statements: Statements
+) -> None:
+    """UI-06 §2 C0 and C1: one read; the first one also records the welcome."""
+    _teacher(storage)
+
+    statements.clear()
+    _command(client, f"/start t_{CODE}")
+    first = list(statements.names)
+    statements.clear()
+    _command(client, f"/start t_{CODE}")
+    later = statements.count
+    statements.clear()
+    _tap(client, f"t1:d:{CODE}")
+    details = statements.count
+
+    assert len(first) == 2
+    assert [n for n in first if n.endswith(".mark_welcomed")]
+    assert (later, details) == (1, 1)
 
 
 @pytest.mark.parametrize(
@@ -290,7 +404,8 @@ def test_the_language_button_keeps_the_invite(client: TestClient, storage: InMem
     ru = _tap(client, _data(first, "🗣"))
 
     assert ru["method"] == "editMessageText"
-    assert _flat(ru["text"]) == RU_CONSENT
+    assert _flat(ru["text"]) == RU_SHORT
+    assert _data(ru, "📄 Подробнее") == f"t1:d:{CODE}"
     assert _data(ru, "✅") == f"t1:a:{CODE}"
     assert _data(ru, "🗣") == f"t1:l:en:{CODE}"
     me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
@@ -545,11 +660,13 @@ def test_the_consent_fits_one_message_with_the_longest_names(
     longest = "😀" * DISPLAY_NAME_MAX  # two UTF-16 units each, which is what Telegram counts
     _teacher(storage, name=longest)
 
-    body = _command(client, f"/start t_{CODE}", lang, first_name=longest)
+    short = _command(client, f"/start t_{CODE}", lang, first_name=longest)
+    details = _tap(client, f"t1:d:{CODE}", lang, first_name=longest)
 
-    assert longest in body["text"].split("\n")[0]
-    assert f"({longest})" in body["text"]
-    assert len(body["text"].encode("utf-16-le")) // 2 <= 4096
+    for body in (short, details):  # ADR-0045: the short "sees" line names the teacher twice
+        assert longest in body["text"].split("\n")[0]
+        assert f"({longest})" in body["text"]
+        assert len(body["text"].encode("utf-16-le")) // 2 <= 4096
 
 
 # Main teacher
@@ -679,7 +796,7 @@ def test_removing_a_teacher_takes_one_confirm_and_tells_no_one(
 
     assert done["method"] == "editMessageText"
     assert storage.teacher_links.teachers_of(me.id) == []
-    assert "No teachers on your list. Your log works the same either way." in done["text"]
+    assert "No teacher here yet." in done["text"]
     assert {s.name for s in outbound} == {"answerCallbackQuery"}
 
 
@@ -726,36 +843,58 @@ def test_a_stale_page_shows_the_first_one(client: TestClient, storage: InMemoryS
     assert "◀" not in _texts(body)
 
 
-def test_a_teacher_sees_the_count_and_the_plain_invite_button(
+def test_my_teacher_shows_no_students_to_a_teacher(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
+    """UI-06: `/teachers` is "My teacher": teachers and shalas. Students have a Menu row."""
     _students(client, storage, 12)
 
     body = _command(client, "/teachers")
 
-    assert "👥 My students (12)" in _texts(body)
-    assert "➕ Invite students" in _texts(body)
-    assert "I teach: invite students" not in _texts(body)
-    assert "Open the app" in _texts(body)
+    assert body["text"].startswith("🙏 My teacher")
+    assert not [t for t in _texts(body) if "students" in t.lower()]
+    assert _rows(body) == [["Open the app"], ["☰ Menu"]]
+    assert _data(body, "☰ Menu") == "w1:m"
 
 
-def test_with_no_students_the_i_teach_label_goes_last(
+def test_my_students_holds_the_invite_and_the_menu(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """UI-06: "Invite again" is under Menu → My students."""
+    _students(client, storage, 2)
+
+    body = _tap(client, "t1:s:0")
+
+    assert _rows(body)[-2:] == [["➕ Invite students"], ["☰ Menu"]]
+    assert _data(body, "➕ Invite students") == "t1:i"
+    assert "‹ Back" not in _texts(body)
+
+
+def test_with_no_students_the_i_teach_label_stays_quiet(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     body = _command(client, "/teachers")
 
-    assert _rows(body)[-1] == ["I teach: invite students"]
+    assert _rows(body)[-2:] == [["I teach: invite students"], ["☰ Menu"]]
     assert _data(body, "I teach") == "t1:i"
     assert not any("My students" in t for t in _texts(body))
     assert "➕ Invite students" not in _texts(body)
-    assert "No teachers on your list. Your log works the same either way." in body["text"]
+    assert body["text"] == (
+        "🙏 My teacher\n\n"
+        "No teacher here yet. To add one, open the link your teacher sends you. "
+        "Your log works the same either way."
+    )
 
 
 def test_with_no_students_in_russian_too(client: TestClient) -> None:
     body = _command(client, "/teachers", "ru")
 
-    assert _rows(body)[-1] == ["Я преподаю: пригласить учеников"]
-    assert "Учителей в списке нет. Журнал практики работает и так." in body["text"]
+    assert _rows(body)[-2:] == [["Я преподаю: пригласить учеников"], ["☰ Меню"]]
+    assert body["text"] == (
+        "🙏 Мой учитель\n\n"
+        "Учителя здесь пока нет. Чтобы добавить, открой ссылку, которую пришлёт учитель. "
+        "Журнал практики работает и так."
+    )
 
 
 def test_a_teacher_sees_nothing_of_being_main(client: TestClient, storage: InMemoryStorage) -> None:
@@ -786,24 +925,30 @@ def test_a_student_without_a_name_is_shown_as_no_name(
 # The invite
 
 
-def test_the_invite_screen_shows_the_link_and_a_share_button(
+def _share_query(body: Any, label: str) -> dict[str, list[str]]:
+    link: str = next(b["url"] for b in _buttons(body) if b["text"] == label)
+    parts = urlsplit(link)
+    assert (parts.netloc, parts.path) == ("t.me", "/share/url")
+    return parse_qs(parts.query)
+
+
+def test_the_invite_screen_is_one_sentence_send_qr_and_more(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
+    """UI-06 §2 I0: the link itself is one tap further, under "More"."""
     me = _me(client, storage)
     storage.teacher_links.codes[me.id] = CODE
     url = f"https://t.me/{BOT}?start=t_{CODE}"
 
     body = _tap(client, "t1:i")
 
-    assert url in body["text"]
-    assert "Share this link or QR code. Each student confirms for themselves." in body["text"]
+    assert body["text"] == "Send this link to your students. Each one confirms for themselves."
     assert body.get("parse_mode") is None
+    assert _rows(body) == [["✉️ Send the link"], ["🔳 QR code"], ["More…"], ["‹ Back"]]
     assert _data(body, "🔳 QR code") == "t1:q"
-    assert _data(body, "🔄 New link…") == "t1:w"
-    link: str = next(b["url"] for b in _buttons(body) if b["text"] == "📤 Share")
-    parts = urlsplit(link)
-    query = parse_qs(parts.query)
-    assert (parts.netloc, parts.path) == ("t.me", "/share/url")
+    assert _data(body, "More…") == "t1:im"
+    assert _data(body, "‹ Back") == "w1:o"  # no students yet: "For teachers and shalas"
+    query = _share_query(body, "✉️ Send the link")
     assert query["url"] == [url]
     assert query["text"] == [
         "My link to add me as your teacher in Tristhana. The bot shows what I'd see before you "
@@ -811,14 +956,77 @@ def test_the_invite_screen_shows_the_link_and_a_share_button(
     ]
 
 
+def test_the_invite_goes_back_to_my_students_for_a_teacher(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me, _ = _students(client, storage, 1)
+    # In production the account is loaded with `teaches`; the plain fake stores it.
+    storage.repo.accounts[me.id] = replace(storage.repo.accounts[me.id], teaches=True)
+
+    body = _tap(client, "t1:i")
+
+    assert _data(body, "‹ Back") == "t1:s:0"
+
+
+def test_the_first_run_invite_is_the_same_screen_with_its_own_last_row(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """F1 and I0 share everything but what follows the QR row."""
+    _me(client, storage)
+
+    first_run, menu_path = _tap(client, "w1:t"), _tap(client, "t1:i")
+
+    assert first_run["text"] == menu_path["text"]
+    assert _buttons(first_run)[:2] == _buttons(menu_path)[:2]
+    assert _rows(first_run)[2:] == [["Continue ›"]]
+
+
+def test_more_holds_the_link_as_text_and_the_rare_things(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """UI-06 §2 I1."""
+    me = _me(client, storage)
+    storage.teacher_links.codes[me.id] = CODE
+
+    body = _tap(client, "t1:im")
+
+    assert body["text"] == (
+        f"https://t.me/{BOT}?start=t_{CODE}\n\n"
+        "Students who haven't chosen a moon city will follow the city you choose in /moon."
+    )
+    assert body.get("parse_mode") is None
+    assert _rows(body) == [["🔄 New link…"], ["🏛 Create a shala"], ["‹ Back"]]
+    assert _data(body, "🔄 New link…") == "t1:w"
+    assert _data(body, "‹ Back") == "t1:i"
+    create = next(b for b in _buttons(body) if b["text"] == "🏛 Create a shala")
+    assert create["web_app"] == {"url": "https://tristhana.web.app?open=new-shala"}
+
+
+def test_the_invite_screens_cost_one_statement_each(
+    client: TestClient, storage: InMemoryStorage, statements: Statements
+) -> None:
+    _me(client, storage)
+    _tap(client, "t1:i")  # the first visit creates the code
+    cost: dict[str, int] = {}
+
+    for data in ("t1:i", "t1:im"):
+        statements.clear()
+        _tap(client, data)
+        cost[data] = statements.count
+
+    assert cost == {"t1:i": 1, "t1:im": 1}
+
+
 def test_opening_the_invite_twice_keeps_the_link(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
-    first = _tap(client, "t1:i")
-    second = _tap(client, "t1:i")
+    first = _tap(client, "t1:im")
+    second = _tap(client, "t1:im")
+    sent = _share_query(_tap(client, "t1:i"), "✉️ Send the link")
 
     assert first["text"] == second["text"]
     assert "?start=t_" in first["text"]
+    assert sent["url"] == [first["text"].split("\n")[0]]  # the link sent is the link shown
 
 
 def test_a_new_link_takes_one_confirm_and_keeps_the_list(
@@ -829,6 +1037,7 @@ def test_a_new_link_takes_one_confirm_and_keeps_the_list(
 
     ask = _tap(client, "t1:w")
     assert storage.teacher_links.codes[me.id] == CODE  # asking changes nothing
+    assert _data(ask, "‹ Back") == "t1:im"
     assert ask["text"] == (
         "Get a new link? The old link and QR stop working. People already on your list stay."
     )
@@ -935,9 +1144,10 @@ def test_every_screen_keeps_its_data_short_and_versioned(
     outsider = _teacher(storage, "Clara", "1003", code="Qq1Ww2Ee3Rr4Tt5Y")
     assert outsider.id != teachers_first.id
     consent = _command(client, "/start t_Qq1Ww2Ee3Rr4Tt5Y", "ru")
-    safe = ("t1:o", "t1:s", "t1:c", "t1:u", "t1:v", "t1:r", "t1:i", "t1:w")
+    safe = ("t1:o", "t1:s", "t1:c", "t1:u", "t1:v", "t1:r", "t1:i", "t1:w", "t1:d", "t1:y")
     seen: set[str] = set()
-    todo = [_command(client, "/teachers"), consent]
+    # UI-06: students have their own Menu row, so the walk starts there too.
+    todo = [_command(client, "/teachers"), _tap(client, "t1:s:0"), consent]
 
     while todo:
         screen = todo.pop()
@@ -949,8 +1159,11 @@ def test_every_screen_keeps_its_data_short_and_versioned(
                 todo.append(_tap(client, data))
 
     assert {d[:4] for d in seen} >= {"t1:a", "t1:n", "t1:l", "t1:o", "t1:s", "t1:c", "t1:u"}
-    assert not [d for d in seen if d.startswith("t1:y")]  # ST-06: no screen offers it any more
+    # ADR-0045: Details and the way back to the short screen (`t1:y` never links, ST-06).
+    assert {d[:4] for d in seen} >= {"t1:d", "t1:y"}
+    assert {d[:5] for d in seen} >= {"t1:im"}
     assert {d[:4] for d in seen} >= {"t1:v", "t1:r", "t1:z", "t1:i", "t1:q", "t1:w"}
+    assert max(len(d.encode()) for d in seen if d[:4] in ("t1:d", "t1:i")) <= 22  # UI-06 §2
     assert max(len(d.encode()) for d in seen) <= 46  # ST-06 spec §5; Telegram allows 64
 
 
@@ -981,6 +1194,10 @@ def test_a_forged_uuid_changes_nothing_and_shows_a_list(
         "t1:a",
         "t1:a:short",
         f"t1:a:{CODE}x",
+        "t1:d",
+        "t1:d:short",
+        f"t1:d:{CODE}x",
+        "t1:im:1",
         "t1:l:de:" + CODE,
         "t1:l:ru:short",
         "t1:s:x",

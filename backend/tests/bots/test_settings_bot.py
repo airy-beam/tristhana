@@ -1,4 +1,6 @@
-"""`/settings` through the real webhook (ID-06)."""
+"""`/settings` through the real webhook (ID-06, UI-06 §2 G0-G3): five rows, each label
+carrying its value, rendered from the loaded account; the language picker, Reminders and More
+behind them; and the old screen's buttons, which still write and land on a living screen."""
 
 import itertools
 from collections.abc import Iterator
@@ -11,11 +13,14 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from tests.bots.statements import Statements
 from tests.fakes import InMemoryStorage
 from tristhana.bots.telegram.settings_callbacks import SettingsCallback, decode, encode
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
+MENU = ["☰ Menu"]
+BACK = ["‹ Back"]  # noqa: RUF001
 SECRET = "test-secret_123"
 TOKEN = "123456:TEST-token-for-unit-tests-only_xxxxxxxxxxx"
 ZONE = "Asia/Almaty"
@@ -44,6 +49,11 @@ def client(storage: InMemoryStorage) -> Iterator[TestClient]:
     )
     with TestClient(create_app(settings, storage)) as c:
         yield c
+
+
+@pytest.fixture
+def statements(monkeypatch: pytest.MonkeyPatch, storage: InMemoryStorage) -> Statements:
+    return Statements(monkeypatch, storage)
 
 
 def _post(client: TestClient, update: dict[str, Any]) -> Any:
@@ -90,28 +100,90 @@ def _rows(body: Any) -> list[list[str]]:
     return [[b["text"] for b in row] for row in body["reply_markup"]["inline_keyboard"]]
 
 
+def _where(body: Any) -> dict[str, str]:
+    """Label → where the button leads: callback data or a Mini App URL."""
+    return {
+        b["text"]: b.get("callback_data") or b["web_app"]["url"]
+        for row in body["reply_markup"]["inline_keyboard"]
+        for b in row
+    }
+
+
 def _me(client: TestClient, storage: InMemoryStorage, lang: str = "en") -> Any:
     _command(client, "/settings", lang)
     [account] = storage.repo.accounts.values()
     return account
 
 
-def test_settings_screen_without_a_zone(client: TestClient, storage: InMemoryStorage) -> None:
+def test_settings_is_five_rows_each_with_its_value(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
     _me(client, storage)
 
     body = _command(client, "/settings")
 
-    assert body["text"].startswith("⚙️ Settings\n🗣 Language: As in Telegram")
-    assert "🏙 My city: not chosen yet. Reminders start once it's set." in body["text"]
-    assert "Pick your city if you like: times will then show its name." in body["text"]  # nudge
-    assert "🌙 Moon days: 📍 Mysuru" in body["text"]
-    assert "🔕 Quiet hours 22:00–07:00 · at most 3 messages a day" in body["text"]  # noqa: RUF001
-    assert _rows(body)[:3] == [
-        ["✓ As in Telegram", "English", "Русский"],
-        ["🏙 My city", "😌 Day off"],
-        ["Not now"],
+    assert body["text"] == "⚙️ Settings"
+    assert _rows(body) == [
+        ["🗣 Language: As in Telegram"],
+        ["🏙 My city: not chosen · no time zone yet"],  # Q314: the row says the zone is missing
+        ["😌 Day off: not chosen"],
+        ["🔔 Reminders"],
+        ["More…"],
+        MENU,
     ]
-    assert "😌 Day off: not chosen" in body["text"]
+    assert list(_where(body).values()) == ["s1:lp", "s1:cp:0", "s1:o", "s1:r", "s1:m", "w1:m"]
+    assert _tap(client, "s1:v")["text"] == body["text"]
+
+
+def test_settings_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage, "ru")
+    storage.repo.accounts[me.id] = replace(me, home_city="astana", timezone=ZONE)
+
+    body = _command(client, "/settings", "ru")
+
+    assert body["text"] == "⚙️ Настройки"
+    assert _rows(body) == [
+        ["🗣 Язык: Как в Telegram"],
+        ["🏙 Мой город: Астана (UTC+5)"],
+        ["😌 Выходной: не выбран"],
+        ["🔔 Напоминания"],
+        ["Ещё…"],
+        ["☰ Меню"],
+    ]
+
+
+def test_settings_and_more_read_nothing_and_reminders_reads_once(
+    client: TestClient, storage: InMemoryStorage, statements: Statements
+) -> None:
+    """UI-06 §2, the "After" column: G0 0 (it cost one), G1 0, G2 1, G3 0."""
+    _me(client, storage)
+    cost: dict[str, int] = {}
+
+    for name, send in {
+        "/settings": lambda: _command(client, "/settings"),
+        "s1:v": lambda: _tap(client, "s1:v"),
+        "s1:lp": lambda: _tap(client, "s1:lp"),
+        "s1:r": lambda: _tap(client, "s1:r"),
+        "s1:m": lambda: _tap(client, "s1:m"),
+    }.items():
+        statements.clear()
+        send()
+        cost[name] = statements.count
+
+    assert cost == {"/settings": 0, "s1:v": 0, "s1:lp": 0, "s1:r": 1, "s1:m": 0}
+
+
+def test_the_language_picker_marks_the_choice(client: TestClient, storage: InMemoryStorage) -> None:
+    _me(client, storage)
+
+    auto = _tap(client, "s1:lp")
+    _tap(client, "s1:l:ru")
+    chosen = _tap(client, "s1:lp")
+
+    assert auto["text"] == "🗣 Which language shall I use?"
+    assert _rows(auto) == [["✓ As in Telegram"], ["English"], ["Русский"], BACK]
+    assert list(_where(auto).values()) == ["s1:l:a", "s1:l:en", "s1:l:ru", "s1:v"]
+    assert _rows(chosen)[:3] == [["Как в Telegram"], ["English"], ["✓ Русский"]]
 
 
 def test_language_tap_switches_at_once_and_sticks(
@@ -123,10 +195,81 @@ def test_language_tap_switches_at_once_and_sticks(
     again = _command(client, "/settings", "en")  # Telegram still says English
     auto = _tap(client, "s1:l:a")
 
-    assert ru["text"].startswith("⚙️ Настройки\n🗣 Язык: Русский")
-    assert again["text"].startswith("⚙️ Настройки")  # the choice sticks
-    assert auto["text"].startswith("⚙️ Settings\n🗣 Language: As in Telegram")
+    assert ru["text"] == "⚙️ Настройки"  # the five rows again, in the new language
+    assert _rows(ru)[0] == ["🗣 Язык: Русский"]
+    assert again["text"] == "⚙️ Настройки"  # the choice sticks
+    assert auto["text"] == "⚙️ Settings"
+    assert _rows(auto)[0] == ["🗣 Language: As in Telegram"]
     assert storage.repo.accounts[me.id].locale_custom is False
+
+
+def test_reminders_shows_both_and_the_quiet_hours(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+    storage.repo.accounts[me.id] = replace(me, home_city="astana", timezone=ZONE)
+
+    body = _tap(client, "s1:r")
+
+    lines = body["text"].split("\n")
+    assert lines[0] == "🔔 Reminders"
+    assert len(lines) == 4  # the title, the practice reminder, moon reminders, quiet hours
+    assert lines[3] == "🔕 Quiet hours 22:00–07:00 · at most 3 messages a day"  # noqa: RUF001
+    assert _rows(body) == [["🧘 Practice reminder"], ["🌙 Moon reminders"], BACK]
+    assert list(_where(body).values()) == ["r1:v", "m1:r", "s1:v"]
+
+
+def test_more_holds_what_is_set_once(client: TestClient, storage: InMemoryStorage) -> None:
+    _me(client, storage)
+
+    body = _tap(client, "s1:m")
+
+    assert body["text"] == "⚙️ More settings\n🌙 Moon days: 📍 Mysuru"
+    assert _where(body) == {
+        "🌙 Moon days": "m1:v",
+        "🌸 Hide the ladies' holiday button": "s1:h:1",
+        "✨ Hide “How do you feel?”": "s1:k:0",
+        "📦 My data": "x1:o",
+        "‹ Back": "s1:v",  # noqa: RUF001
+    }
+
+
+def test_more_links_to_the_app_when_there_is_one(storage: InMemoryStorage) -> None:
+    settings = Settings(
+        app_env="test",
+        telegram_bot_token=SecretStr(TOKEN),
+        telegram_webhook_secret=SecretStr(SECRET),
+        miniapp_url="https://tristhana.web.app",
+    )
+    with TestClient(create_app(settings, storage)) as client:
+        body = _tap(client, "s1:m")
+        first = _command(client, "/settings")
+
+    assert _where(body)["⚙️ More in the app"] == "https://tristhana.web.app"
+    assert _rows(body)[-1] == BACK
+    assert "⚙️ More in the app" not in _texts(first)  # it left the first screen
+
+
+@pytest.mark.parametrize(
+    ("data", "field", "value", "label"),
+    [
+        ("s1:h:1", "hide_ladies", True, "🌸 Show the ladies' holiday button"),
+        ("s1:h:0", "hide_ladies", False, "🌸 Hide the ladies' holiday button"),
+        ("s1:k:0", "offer_check_in", False, "✨ Show “How do you feel?”"),
+        ("s1:k:1", "offer_check_in", True, "✨ Hide “How do you feel?”"),
+    ],
+)
+def test_an_old_switch_button_writes_and_shows_more(
+    client: TestClient, storage: InMemoryStorage, data: str, field: str, value: bool, label: str
+) -> None:
+    """UI-06 §5: these rows sat on the old /settings screen; they now live under More."""
+    me = _me(client, storage)
+
+    body = _tap(client, data)
+
+    assert getattr(storage.repo.accounts[me.id], field) is value
+    assert body["text"].startswith("⚙️ More settings")
+    assert label in _texts(body)
 
 
 def _all_picker_texts(client: TestClient) -> list[str]:
@@ -171,9 +314,8 @@ def test_the_picked_city_is_the_marked_one(
         slug,
         zone,
     )
-    assert f"🏙 My city: {name} (UTC+" in chosen["text"]
-    assert "Pick your city" not in chosen["text"]  # the nudge is answered
-    assert ["Not now"] not in _rows(chosen)
+    assert chosen["text"] == "⚙️ Settings"
+    assert _rows(chosen)[1][0].startswith(f"🏙 My city: {name} (UTC+")
 
 
 def test_old_zone_buttons_still_work(client: TestClient, storage: InMemoryStorage) -> None:
@@ -184,12 +326,24 @@ def test_old_zone_buttons_still_work(client: TestClient, storage: InMemoryStorag
 
     assert "Which city do you live in?" in page["text"]
     assert storage.repo.accounts[me.id].home_city == "moscow"
-    assert "🏙 My city: Moscow (UTC+3)" in chosen["text"]
+    assert ["🏙 My city: Moscow (UTC+3)"] in _rows(chosen)
 
 
-def test_not_now_ends_the_nudge_and_keeps_the_zone(
+def test_the_city_nudge_is_gone(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage)
+    storage.repo.accounts[me.id] = replace(me, timezone=ZONE)
+
+    body = _command(client, "/settings")
+
+    assert "Not now" not in _texts(body)
+    assert ["🏙 My city: not chosen yet · 🕐 Almaty (UTC+5)"] in _rows(body)
+    assert not [data for data in _where(body).values() if data == "s1:n"]
+
+
+def test_an_old_not_now_button_writes_and_shows_settings(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
+    """UI-06 §5: the nudge's button, still under an old message."""
     me = _me(client, storage)
     storage.repo.accounts[me.id] = replace(me, timezone=ZONE)
 
@@ -197,8 +351,8 @@ def test_not_now_ends_the_nudge_and_keeps_the_zone(
 
     assert storage.repo.accounts[me.id].home_city == "-"
     assert storage.repo.accounts[me.id].timezone == ZONE
-    assert "🏙 My city: not chosen · 🕐 Almaty (UTC+5)" in body["text"]
-    assert "Pick your city" not in body["text"]
+    assert body["text"] == "⚙️ Settings"
+    assert ["🏙 My city: not chosen · 🕐 Almaty (UTC+5)"] in _rows(body)
 
 
 def test_a_stale_not_now_keeps_a_city_chosen_since(
@@ -210,7 +364,7 @@ def test_a_stale_not_now_keeps_a_city_chosen_since(
     body = _tap(client, "s1:n")  # the old message's button
 
     assert storage.repo.accounts[me.id].home_city == "astana"
-    assert "🏙 My city: Astana (UTC+5)" in body["text"]
+    assert ["🏙 My city: Astana (UTC+5)"] in _rows(body)
 
 
 def test_the_picker_marks_no_city_outside_its_zone(
@@ -236,7 +390,7 @@ def test_utc_clears_the_city(client: TestClient, storage: InMemoryStorage) -> No
         "-",
         "UTC",
     )
-    assert "🕐 UTC" in body["text"]
+    assert ["🏙 My city: not chosen · 🕐 UTC"] in _rows(body)
     assert marked == ["✓ 🌐 UTC"]
 
 
@@ -346,25 +500,30 @@ def test_the_time_labels_name_the_home_city(client: TestClient, storage: InMemor
     _me(client, storage)
     _tap(client, "s1:c:astana")
 
-    body = _command(client, "/settings")
+    first = _command(client, "/settings")
+    reminders = _tap(client, "s1:r")
 
-    assert "Almaty (UTC+5)" not in body["text"]
-    assert "Astana (UTC+5)" in body["text"]
+    assert ["🏙 My city: Astana (UTC+5)"] in _rows(first)
+    assert "19:00 Astana" in reminders["text"]  # the reader's own zone: no offset (ADR-0044)
+    assert "Almaty" not in f"{_texts(first)} {reminders['text']}"
 
 
 def test_links_both_ways(client: TestClient, storage: InMemoryStorage) -> None:
     _me(client, storage)
 
-    settings = _command(client, "/settings")
+    reminders = _tap(client, "s1:r")
 
-    assert ["🧘 Practice reminder"] in _rows(settings)
+    assert ["🧘 Practice reminder"] in _rows(reminders)
     assert "⚙️ Settings" in _texts(_tap(client, "m1:r"))
     assert "⚙️ Settings" in _texts(_tap(client, "r1:v"))
 
 
 @pytest.mark.parametrize(
     "data",
-    ["s1", "s1:x", "s1:l:de", "s1:zp:x", "s1:cp:99", "s1:z:Bad", "s1:c:Bad", "s1:u:1", "s0:v"],
+    [
+        *("s1", "s1:x", "s1:l:de", "s1:zp:x", "s1:cp:99", "s1:z:Bad", "s1:c:Bad", "s1:u:1"),
+        *("s0:v", "s1:lp:1", "s1:r:1", "s1:m:x", "s1:l"),
+    ],
 )
 def test_malformed_settings_callbacks(data: str) -> None:
     assert decode(data) is None
@@ -376,6 +535,9 @@ def test_every_settings_callback_fits_64_bytes() -> None:
     cities = load_cities(Path(__file__).resolve().parents[3] / "data" / "seed" / "cities.yaml")
     for cb in [
         SettingsCallback("view"),
+        SettingsCallback("language_pick"),
+        SettingsCallback("reminders"),
+        SettingsCallback("more"),
         SettingsCallback("language"),
         SettingsCallback("language", locale="ru"),
         SettingsCallback("cities", page=2),
@@ -387,6 +549,8 @@ def test_every_settings_callback_fits_64_bytes() -> None:
         data = encode(cb)
         assert len(data.encode()) <= 64
         assert decode(data) == cb
+    for new in ("language_pick", "reminders", "more"):  # UI-06 §2: at most 22 bytes
+        assert len(encode(SettingsCallback(new)).encode()) <= 22  # type: ignore[arg-type]
 
 
 def test_no_quiet_hours_reads_as_such(client: TestClient, storage: InMemoryStorage) -> None:
@@ -397,6 +561,6 @@ def test_no_quiet_hours_reads_as_such(client: TestClient, storage: InMemoryStora
     me = _me(client, storage)
     storage.notifications.stored[me.id] = replace(DEFAULTS, quiet=QuietHours(time(0), time(0)))
 
-    body = _command(client, "/settings")
+    body = _tap(client, "s1:r")
 
     assert "🔕 No quiet hours · at most 3 messages a day" in body["text"]

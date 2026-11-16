@@ -624,26 +624,30 @@ def test_old_ladies_keyboards_still_work_while_hidden(
 def test_settings_hide_and_show_the_button(client: TestClient, storage: InMemoryStorage) -> None:
     me = _me(client, storage)
 
-    shown = _command(client, "/settings")
+    first = _command(client, "/settings")
+    shown = _tap(client, "s1:m")  # UI-06: the switch is under Settings → More
     hidden = _tap(client, "s1:h:1")
+    stored_hidden = storage.repo.accounts[me.id].hide_ladies
     back = _tap(client, "s1:h:0")
 
-    assert "🌸 Ladies' holiday button: shown" in shown["text"]
-    assert "🌸 Hide the button" in _texts(shown)
+    assert "🌸" not in f"{first['text']} {_texts(first)}"
+    assert "🌸 Hide the ladies' holiday button" in _texts(shown)
     assert "s1:h:1" in _data(shown)
-    assert "🌸 Ladies' holiday button: hidden" in hidden["text"]
-    assert "🌸 Show the button" in _texts(hidden)
-    assert "🌸 Ladies' holiday button: shown" in back["text"]
+    assert "🌸 Show the ladies' holiday button" in _texts(hidden)  # the label is the state
+    assert "s1:h:0" in _data(hidden)
+    assert stored_hidden is True
+    assert "🌸 Hide the ladies' holiday button" in _texts(back)
     assert storage.repo.accounts[me.id].hide_ladies is False
 
 
 def test_settings_in_russian_quote_the_label(client: TestClient, storage: InMemoryStorage) -> None:
     _me(client, storage, lang="ru")
 
-    body = _command(client, "/settings", "ru")
+    body = _tap(client, "s1:m", lang="ru")
+    hidden = _tap(client, "s1:h:1", lang="ru")
 
-    assert "🌸 Кнопка „Женские дни“: показана" in body["text"]
-    assert "🌸 Скрыть кнопку" in _texts(body)
+    assert "🌸 Скрыть кнопку «Женские дни»" in _texts(body)
+    assert "🌸 Показать кнопку «Женские дни»" in _texts(hidden)
 
 
 # /remind during a pause

@@ -163,7 +163,6 @@ WH01_KEYS = [
     "pause-kept",
     "remind-paused-until",
     "remind-resume",
-    "settings-ladies-line",
     "settings-ladies-hide",
     "settings-ladies-show",
 ]
@@ -289,18 +288,21 @@ def test_pause_cut_and_kept_name_the_period_gently() -> None:
         assert "пропущ" not in text
 
 
-def test_period_line_paused_line_and_settings_line() -> None:
+def test_period_line_paused_line_and_the_settings_switch() -> None:
     travel = _label("en", "travel")
     assert _flat("en", "log-auto-period", label=travel, until=_until()) == (
         "✈️ Travel through Thu, Oct 29. If the day went differently, log it below."
     )
     assert _t("ru", "remind-paused-until", until=_until()) == RU_PAUSED
     assert _t("en", "remind-resume") == "▶️ Resume now"
-    assert _t("ru", "settings-ladies-line", shown="yes") == "🌸 Кнопка „Женские дни“: показана"
-    assert _t("en", "settings-ladies-line", shown="no") == "🌸 Ladies' holiday button: hidden"
+    # UI-06: the status line is gone; under Settings → More each switch says what a tap does.
     assert (_t("en", "settings-ladies-hide"), _t("en", "settings-ladies-show")) == (
-        "🌸 Hide the button",
-        "🌸 Show the button",
+        "🌸 Hide the ladies' holiday button",
+        "🌸 Show the ladies' holiday button",
+    )
+    assert (_t("ru", "settings-ladies-hide"), _t("ru", "settings-ladies-show")) == (
+        "🌸 Скрыть кнопку «Женские дни»",
+        "🌸 Показать кнопку «Женские дни»",
     )
 
 
@@ -319,7 +321,6 @@ PR06_KEYS = [
     "checkin-tags-pick",
     "checkin-clear",
     "checkin-tag",
-    "settings-checkin-line",
     "settings-checkin-off",
     "settings-checkin-on",
 ]
@@ -409,10 +410,11 @@ def test_the_reminder_offer_reply_names_the_time() -> None:
         ("ru", "checkin-tags-pick", "Как тело и ум? Отметь, что подходит."),
         ("en", "checkin-clear", "Remove check-in"),
         ("ru", "checkin-clear", "Убрать самочувствие"),
-        ("en", "settings-checkin-off", "✨ Don't offer"),
-        ("ru", "settings-checkin-off", "✨ Не предлагать"),  # noqa: RUF001
-        ("en", "settings-checkin-on", "✨ Offer"),
-        ("ru", "settings-checkin-on", "✨ Предлагать"),
+        # UI-06 (Q313): the setting shows or hides the "How do you feel?" button.
+        ("en", "settings-checkin-off", "✨ Hide “How do you feel?”"),
+        ("ru", "settings-checkin-off", "✨ Скрыть «Как самочувствие?»"),
+        ("en", "settings-checkin-on", "✨ Show “How do you feel?”"),
+        ("ru", "settings-checkin-on", "✨ Показать «Как самочувствие?»"),
     ],
 )
 def test_pr06_copy_reads_as_written(locale: str, key: str, text: str) -> None:
@@ -439,17 +441,12 @@ def test_summary_parts_are_plural_free() -> None:
     assert _t("ru", "checkin-summary-effort", n=5) == "🔥 усилие 5/5"
 
 
-def test_settings_line_says_offered_or_not() -> None:
-    assert _t("en", "settings-checkin-line", offered="yes") == "✨ Check-in after practice: offered"
-    assert _t("en", "settings-checkin-line", offered="no") == (
-        "✨ Check-in after practice: not offered"
-    )
-    assert _t("ru", "settings-checkin-line", offered="yes") == (
-        "✨ Самочувствие после практики: предлагаю"
-    )
-    assert _t("ru", "settings-checkin-line", offered="no") == (
-        "✨ Самочувствие после практики: не предлагаю"
-    )
+def test_the_settings_switch_quotes_the_button_it_shows_or_hides() -> None:
+    """Q313: the switch names the button by its own label, so the two cannot drift apart."""
+    for locale in ("en", "ru"):
+        label = _t(locale, "checkin-edit").removeprefix("✨ ")
+        for key in ("settings-checkin-off", "settings-checkin-on"):
+            assert label in _t(locale, key)
 
 
 def test_every_tag_has_a_label_in_both_locales() -> None:
@@ -794,12 +791,18 @@ UI06_KEYS = (
     "today-reasons-title", "today-logged", "today-menu-hint", "today-back", "menu-open",
     "menu-title", "menu-text-lead", "menu-teach", "teach-title", "help-title",
     "help-earlier-day", "help-reminder", "help-asanas", "help-join", "help-guide",
+    # Settings, the consent layers and the invite's "More".
+    "settings-reminders-button", "settings-more-button", "settings-language-pick",
+    "settings-reminders-title", "settings-more-title", "consent-details", "consent-short-back",
+    "invite-consent-short", "shala-join-consent-short", "shala-staff-consent-short",
+    "invite-more",
 )  # fmt: skip
 UI06_RETIRED = (
     "tour-open", "tour-progress", "tour-next", "tour-back", "tour-done", "tour-log",
     "tour-rest", "tour-remind", "tour-asanas", "tour-links", "tour-app", "help-text",
     "fallback-text", "command-log", "command-asanas", "command-remind", "command-teachers",
-    "command-classes", "log-prompt", "log-zone-hint",
+    "command-classes", "log-prompt", "log-zone-hint", "settings-ladies-line",
+    "settings-checkin-line", "settings-city-nudge", "settings-city-not-now", "invite-hint",
 )  # fmt: skip
 
 

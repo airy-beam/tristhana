@@ -131,7 +131,9 @@ def test_settings_line_for_each_state(
 ) -> None:
     _me(client, storage)
     _set_off(storage, days)
-    assert line in _command(client, "/settings")["text"]
+    body = _command(client, "/settings")
+    assert _rows(body)[2] == [line]  # UI-06: the value is the button's label
+    assert body["reply_markup"]["inline_keyboard"][2][0]["callback_data"] == "s1:o"
 
 
 def test_russian_weekday_is_lowercase_mid_line(
@@ -139,7 +141,7 @@ def test_russian_weekday_is_lowercase_mid_line(
 ) -> None:
     _me(client, storage, "ru")
     _set_off(storage, frozenset({6}))
-    assert "😌 Выходной: суббота" in _command(client, "/settings", "ru")["text"]
+    assert ["😌 Выходной: суббота"] in _rows(_command(client, "/settings", "ru"))
 
 
 def test_settings_picker_sets_the_day_off_and_returns(
@@ -168,7 +170,7 @@ def test_settings_picker_sets_the_day_off_and_returns(
     [account] = storage.repo.accounts.values()
     assert account.day_off.days == frozenset({6, 7})
     assert account.day_off.before is None  # corrections the same day: still all history
-    assert "😌 Days off: Saturday, Sunday" in _tap(client, "s1:v")["text"]
+    assert ["😌 Days off: Saturday, Sunday"] in _rows(_tap(client, "s1:v"))
 
 
 def test_question_yes_sets_the_day_off_and_hides_it(

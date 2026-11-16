@@ -39,6 +39,7 @@ ME_TG = 42
 NOW = datetime(2026, 11, 15, 0, 30, tzinfo=UTC)  # Sun Nov 15, 05:30 in Almaty: `frozen.DAY`
 EVERY_DAY = frozenset({1, 2, 3, 4, 5, 6, 7})
 SCREENS = {"editMessageText", "sendMessage", "sendPhoto", "sendDocument"}
+STAFF_CODE = "St4ffC0deSt4ffC0"
 _ids = itertools.count(270_000)
 
 
@@ -154,6 +155,22 @@ def test_a_w1_button_also_gets_a_screen(w: World) -> None:
     for data in ("w1:m", "w1:n", "w1:h", "w1:o", "w1:f", "w1:p", "w1:t", "w1:c", "w1:s:f"):
         body = _tap(w, data)
         assert body["method"] == "editMessageText", data
+
+
+def test_the_buttons_ui06_added_to_old_prefixes_also_get_a_screen(w: World) -> None:
+    """Settings' inner screens, the consent layers and the invite's "More" (UI-06 §2)."""
+    w.storage.shalas.add_invite(frozen.SHALA, STAFF_CODE, ShalaRole.ASSISTANT)
+    new = [
+        *("s1:lp", "s1:r", "s1:m", "t1:im"),
+        *(f"t1:{letter}:{frozen.TEACHER_CODE}" for letter in ("d", "y")),
+        *(f"h1:{letter}:{frozen.SHALA_CODE}" for letter in ("d", "r")),
+        *(f"h1:{letter}:{STAFF_CODE}" for letter in ("ds", "rs")),
+    ]
+
+    for data in new:
+        body = _tap(w, data)
+        assert body["method"] == "editMessageText", data
+        assert len(data.encode()) <= 22, data
 
 
 def test_the_world_is_on_the_lists_own_day(w: World) -> None:

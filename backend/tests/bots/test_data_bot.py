@@ -114,7 +114,8 @@ def _account_id(storage: InMemoryStorage) -> Any:
 
 
 def test_settings_has_the_my_data_row(client: TestClient) -> None:
-    body = _command(client, "/settings")
+    first = _command(client, "/settings")
+    body = _tap(client, _data(first, "More…"))  # UI-06: under Settings → More
 
     assert _data(body, "📦 My data") == "x1:o"
 

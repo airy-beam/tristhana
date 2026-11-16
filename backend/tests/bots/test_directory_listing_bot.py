@@ -416,14 +416,22 @@ async def test_my_status_not_found_never_claims_the_name_is_absent(w: World) -> 
     assert "couldn't confirm" in body["text"]
 
 
-def test_the_invite_screen_has_the_quiet_row(w: World) -> None:
-    labels = {b["text"]: b.get("callback_data") for b in _buttons(_tap(w, "t1:i", tg=ANNA_TG))}
+def test_the_invites_more_screen_has_the_quiet_row(w: World) -> None:
+    """UI-06: the directory line is under the invite's "More" (My students → Invite → More)."""
+    first = [b["text"] for b in _buttons(_tap(w, "t1:i", tg=ANNA_TG))]
+    more = _tap(w, "t1:im", tg=ANNA_TG)
+    labels = {b["text"]: b.get("callback_data") for b in _buttons(more)}
+    assert T.t("en", "listing-open") not in first
     assert labels[T.t("en", "listing-open")] == cb.mine("o")
+    # ... and its own Back returns there.
+    status = _tap(w, cb.mine("o"), tg=ANNA_TG)
+    assert [b.get("callback_data") for b in _buttons(status)][-1] == "t1:im"
 
 
 def test_no_entry_row_with_no_admin_configured(off: World) -> None:
-    body = _tap(off, "t1:i", tg=ANNA_TG)
-    assert T.t("en", "listing-open") not in [b["text"] for b in _buttons(body)]
+    for data in ("t1:i", "t1:im"):
+        body = _tap(off, data, tg=ANNA_TG)
+        assert T.t("en", "listing-open") not in [b["text"] for b in _buttons(body)]
 
 
 async def test_my_line_can_still_be_removed_with_no_admin_configured(off: World) -> None:
@@ -461,12 +469,15 @@ async def test_the_consent_screen_shows_the_line_on_its_own_and_never_the_level(
     await _listed(w)
     _invite(w)
     body = _text(w, f"/start t_{CODE}", tg=STUDENT_TG, lang=lang)
-    paragraphs = body["text"].split("\n\n")
-    assert paragraphs[1] == line  # its own paragraph, right under the ask
-    assert "Certified" not in body["text"]
-    assert T.t(lang, "invite-know-them") in body["text"]  # stays for everyone
-    assert all("✔" not in b["text"] for b in _buttons(body))  # never on a button
-    assert len(body["text"]) <= 4096
+    details = _tap(w, f"t1:d:{CODE}", tg=STUDENT_TG, lang=lang)
+    for screen in (body, details):  # the short consent and the full text behind "Details"
+        paragraphs = screen["text"].split("\n\n")
+        assert paragraphs[1] == line  # its own paragraph, right under the ask
+        assert "Certified" not in screen["text"]
+        assert T.t(lang, "invite-know-them") in screen["text"]  # stays for everyone
+        assert all("✔" not in b["text"] for b in _buttons(screen))  # never on a button
+        assert len(screen["text"]) <= 4096
+    assert T.t(lang, "invite-know-them") == body["text"].split("\n\n")[-1]  # the fourth line
 
 
 @pytest.mark.parametrize("status", ["none", "pending", "not_found"])

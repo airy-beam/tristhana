@@ -104,7 +104,7 @@ class ListingScreens:
         return self._l.checks(principal)
 
     def entry_button(self, locale: Locale) -> InlineKeyboardButton:
-        """The quiet row on the invite screen."""
+        """The quiet row on the invite's "More" screen."""
         return button(self._t, locale, "listing-open", cb.mine("o"))
 
     def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
@@ -139,7 +139,7 @@ class ListingScreens:
             )
         if removable:
             rows.append([self._button(locale, "listing-remove", cb.mine("w"))])
-        rows.append([self._button(locale, "log-back", links_cb.plain("i"))])
+        rows.append([self._button(locale, "log-back", links_cb.plain("im"))])
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def ask_remove(self, principal: Principal) -> Screen:

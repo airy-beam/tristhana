@@ -6,7 +6,7 @@ of the answer. Real use cases over the in-memory port, with a frozen clock."""
 
 import itertools
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -246,15 +246,21 @@ def test_the_list_header_in_russian(client: TestClient, storage: InMemoryStorage
     ]
 
 
-def test_the_list_opens_from_teachers_as_before(
+def test_the_list_opens_from_the_menu_not_from_teachers(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
     _student(storage, me)
 
-    screen = _command(client, "/teachers")
+    # In production the account is loaded with `teaches`; the plain fake stores it.
+    storage.repo.accounts[me.id] = replace(storage.repo.accounts[me.id], teaches=True)
 
-    assert _data(screen, "👥 My students (1)") == "t1:s:0"
+    teachers = _command(client, "/teachers")
+    menu = _command(client, "/menu")
+
+    # UI-06: students left `/teachers` ("My teacher") for their own Menu row.
+    assert not [t for t in _texts(teachers) if "My students" in t]
+    assert _data(menu, "👥 My students") == "t1:s:0"
 
 
 @pytest.mark.parametrize(
@@ -834,13 +840,32 @@ def test_a_blank_looking_name_uses_the_fallback_on_both_screens(
 def test_the_new_consent_screens_confirm_creates_the_link_with_the_flag(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
+    """UI-06, Q312: the short screen names the quiet note, and its ✅ sets the flag."""
     teacher = _teacher(storage)
     consent = _command(client, f"/start t_{CODE}")
     assert _data(consent, "✅") == f"t1:a:{CODE}"
+    assert (
+        "If nothing shows for a while, Лена sees a short note saying just that."
+        in (consent["text"])
+    )
 
     body = _tap(client, _data(consent, "✅"))
 
     assert body["text"].startswith("✅ Лена is on your list of teachers now.")
+    me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
+    assert storage.teacher_links.rows[(me.id, teacher.id)].quiet_note_agreed is True
+
+
+def test_a_confirm_from_details_sets_the_same_flag(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """ADR-0045: one consent, two layers; `t1:a` is the only confirm."""
+    teacher = _teacher(storage)
+    details = _tap(client, f"t1:d:{CODE}")
+    assert _data(details, "✅") == f"t1:a:{CODE}"
+
+    _tap(client, _data(details, "✅"))
+
     me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
     assert storage.teacher_links.rows[(me.id, teacher.id)].quiet_note_agreed is True
 

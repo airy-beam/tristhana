@@ -696,30 +696,28 @@ def test_a_database_outage_answers_gently(client: TestClient, storage: InMemoryS
 def test_settings_offer_and_stop_offering(client: TestClient, storage: InMemoryStorage) -> None:
     me = _me(client, storage)
 
-    shown = _command(client, "/settings")
+    first = _command(client, "/settings")
+    shown = _tap(client, "s1:m")  # UI-06 (Q313): the switch is under Settings → More
     off = _tap(client, "s1:k:0")
     stored_off = storage.repo.accounts[me.id].offer_check_in
     on = _tap(client, "s1:k:1")
 
-    assert "✨ Check-in after practice: offered" in shown["text"]
-    assert _data_of(shown, "✨ Don't offer") == "s1:k:0"
-    assert "✨ Check-in after practice: not offered" in off["text"]
-    assert _data_of(off, "✨ Offer") == "s1:k:1"
+    assert "✨" not in f"{first['text']} {_texts(first)}"
+    assert _data_of(shown, "✨ Hide “How do you feel?”") == "s1:k:0"
+    assert _data_of(off, "✨ Show “How do you feel?”") == "s1:k:1"  # the label is the state
     assert stored_off is False
-    assert "✨ Check-in after practice: offered" in on["text"]
+    assert _data_of(on, "✨ Hide “How do you feel?”") == "s1:k:0"
     assert storage.repo.accounts[me.id].offer_check_in is True
 
 
 def test_settings_line_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
     _me(client, storage, lang="ru")
 
-    shown = _command(client, "/settings", "ru")
+    shown = _tap(client, "s1:m", lang="ru")
     off = _tap(client, "s1:k:0", lang="ru")
 
-    assert "✨ Самочувствие после практики: предлагаю" in shown["text"]
-    assert "✨ Не предлагать" in _texts(shown)  # noqa: RUF001
-    assert "✨ Самочувствие после практики: не предлагаю" in off["text"]
-    assert "✨ Предлагать" in _texts(off)
+    assert "✨ Скрыть «Как самочувствие?»" in _texts(shown)
+    assert "✨ Показать «Как самочувствие?»" in _texts(off)
 
 
 def test_the_setting_off_still_allows_a_check_in(

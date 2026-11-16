@@ -1,7 +1,9 @@
-"""Teacher links in the bot (ID-04, ADR-0030): the consent screen on `/start t_<code>`, and
-`/teachers`, one screen for both sides. The student always taps last, and the code rides in
-the callback, so a new person loses nothing and no pending row exists. The code is never
-logged, and no exception carries it. A teacher never learns whether they are someone's main.
+"""Teacher links in the bot (ID-04, ADR-0030): the consent on `/start t_<code>` (a short
+screen with the full text one tap away, ADR-0045), `/teachers` = "My teacher" (teachers and
+shalas), "My students", and the invite screens. The student always taps last, and the code
+rides in the callback, so a new person loses nothing and no pending row exists. The code is
+never logged, and no exception carries it. A teacher never learns whether they are someone's
+main.
 """
 
 import asyncio
@@ -30,7 +32,7 @@ from tristhana.application.ports.notifications import KeepOffer
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
 from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
-from tristhana.bots.telegram import moon_callbacks, shalas_callbacks
+from tristhana.bots.telegram import home_callbacks, moon_callbacks, shalas_callbacks
 from tristhana.bots.telegram import teacher_links_callbacks as cb
 from tristhana.bots.telegram.directory_listing import ListingScreens, card_lines, mark_line
 from tristhana.bots.telegram.runtime import SettingsUseCases
@@ -42,6 +44,7 @@ from tristhana.bots.telegram.screens import (
     app_url,
     button,
     day_label,
+    menu_row,
     nothing,
     show,
 )
@@ -111,6 +114,25 @@ def joined_screen(
     return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
 
+def invite_screen(
+    t: Translator, locale: Locale, url: str, last_rows: list[list[InlineKeyboardButton]]
+) -> Screen:
+    """One sentence, "Send the link" (Telegram's share sheet) and the QR code: the invite on
+    the Menu path (I0) and on the first run (F1, `home.py`), which differ only in their last
+    rows. The link itself is under "More"."""
+    query = urlencode({"url": url, "text": t.t(locale, "invite-share-text")}, quote_via=quote)
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t.t(locale, "invite-send"), url=f"https://t.me/share/url?{query}"
+            )
+        ],
+        [button(t, locale, "invite-qr", cb.plain("q"))],
+        *last_rows,
+    ]
+    return Screen(t.t(locale, "invite-simple"), InlineKeyboardMarkup(inline_keyboard=rows))
+
+
 def _find(people: tuple[Linked, ...], id: UUID) -> Linked | None:
     return next((p for p in people if p.id == id), None)
 
@@ -155,42 +177,48 @@ class LinkScreens:
         code: str,
         teacher: str | None,
         listing: ListingMark | None = None,
+        details: bool = False,
     ) -> Screen:
+        """The short screen, or the full text behind "Details" (ADR-0045). The full text is
+        the consent record, and ✅ on either screen agrees to it: both carry the same
+        `t1:a:<code>`."""
         account = principal.account
         locale = account.locale
         name = _name(self._t, locale, teacher)
         own = shown_name(account.display_name)
         me = f" ({own})" if own else ""
-        closing = (
-            f"{self._t.t(locale, 'invite-know-them')} "
-            f"{self._t.t(locale, 'invite-not-told', name=name)}"
-        )
+        know = self._t.t(locale, "invite-know-them")  # on both screens, for everyone (ADR-0030)
+        if details:
+            consent = self._t.t(locale, "invite-consent", name=name, me=me)
+            closing = f"{know} {self._t.t(locale, 'invite-not-told', name=name)}"
+        else:
+            consent = self._t.t(locale, "invite-consent-short", name=name, me=me)
+            closing = know
         # ID-05: the checked fact on its own line, never the self-declared level here; with
-        # no listing there is no line and no gap. `invite-know-them` stays for everyone.
+        # no listing there is no line and no gap.
         fact = [mark_line(self._t, locale, listing)] if listing is not None else []
-        text = "\n\n".join(
-            [
-                self._t.t(locale, "invite-ask", name=name),
-                *fact,
-                self._t.t(locale, "invite-consent", name=name, me=me),
-                closing,
-            ]
-        )
-        other: Locale = next(c for c in LOCALES if c != locale)  # type: ignore[assignment]  # two languages today
-        switch = self._t.t(
-            locale, "start-switch-language", language=self._t.t(other, f"language-{other}")
-        )
+        text = "\n\n".join([self._t.t(locale, "invite-ask", name=name), *fact, consent, closing])
         rows = [
             [
                 self._button(locale, "invite-accept", cb.confirm(code)),
                 self._button(locale, "invite-decline", cb.plain("n")),
-            ],
-            [InlineKeyboardButton(text=switch, callback_data=cb.language(other, code))],
+            ]
         ]
+        if details:
+            rows.append([self._button(locale, "consent-short-back", cb.reopen(code))])
+        else:
+            other: Locale = next(c for c in LOCALES if c != locale)  # type: ignore[assignment]  # two languages today
+            switch = self._t.t(
+                locale, "start-switch-language", language=self._t.t(other, f"language-{other}")
+            )
+            rows.append([self._button(locale, "consent-details", cb.details(code))])
+            rows.append([InlineKeyboardButton(text=switch, callback_data=cb.language(other, code))])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
-    async def invited(self, principal: Principal, code: str) -> Screen:
-        """`/start t_<code>`: the consent screen, or the grid with one line on top."""
+    async def invited(self, principal: Principal, code: str, details: bool = False) -> Screen:
+        """`/start t_<code>`: the short consent (`details`: the full text), or Today with one
+        line on top. Every render re-reads the invite, so a rotated code says so on either
+        screen."""
         locale = principal.account.locale
         found = await self._links.preview.execute(principal, code)
         if found is None:
@@ -198,7 +226,7 @@ class LinkScreens:
         name = _name(self._t, locale, found.name)
         match found.state:
             case InviteState.OPEN:
-                return self._consent(principal, code, found.name, found.listing)
+                return self._consent(principal, code, found.name, found.listing, details)
             case InviteState.OWN:
                 lead = self._t.t(locale, "invite-own")
             case InviteState.ALREADY:
@@ -251,6 +279,8 @@ class LinkScreens:
         return self._t.t(locale, "moon-follow-ended", city=city)
 
     async def overview(self, principal: Principal, lead: str | None = None) -> Screen:
+        """ "My teacher" (`/teachers`, `t1:o`): my teachers and my shalas. Students have their
+        own Menu row (UI-06); someone without students keeps one quiet row to invite them."""
         locale = principal.account.locale
         # SC-01: the shala rows load alongside the lists, not after them.
         found, shala_rows = await asyncio.gather(
@@ -259,7 +289,7 @@ class LinkScreens:
         several = len(found.teachers) >= 2
         main = effective_primary(found.teachers)
         lines = [lead] if lead else []
-        lines.append(self._t.t(locale, "links-title"))
+        lines.append(self._t.t(locale, "menu-teacher"))
         if not found.teachers:
             lines.append(self._t.t(locale, "links-empty"))
         rows: list[list[InlineKeyboardButton]] = []
@@ -274,15 +304,11 @@ class LinkScreens:
                 lines.append(self._t.t(locale, key, name=_name(self._t, locale, teacher.name)))
                 lines.append(self._t.t(locale, "links-primary-hint"))
         rows += shala_rows
-        if found.students:
-            count = self._t.t(locale, "links-students", count=len(found.students))
-            rows.append([InlineKeyboardButton(text=count, callback_data=cb.students(0))])
-            if self._username:
-                rows.append([self._button(locale, "links-invite", cb.plain("i"))])
         if self._app:
             rows.append([app_button(self._t, locale, self._app)])
-        if not found.students and self._username:  # a label, not a toggle; last on purpose
+        if not found.students and self._username:  # a label, not a toggle; quiet on purpose
             rows.append([self._button(locale, "links-invite-first", cb.plain("i"))])
+        rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def _shala_rows(self, principal: Principal) -> list[list[InlineKeyboardButton]]:
@@ -326,7 +352,9 @@ class LinkScreens:
         announce = self.announce_button(locale) if found else None
         if announce is not None:
             rows.append([announce])
-        rows.append([self._button(locale, "log-back", cb.plain("o"))])
+        if self._username:  # UI-06: the invite lives here (Menu → My students)
+            rows.append([self._button(locale, "links-invite", cb.plain("i"))])
+        rows.append(menu_row(self._t, locale))
         if found:
             text = "\n".join(
                 [
@@ -577,47 +605,50 @@ class LinkScreens:
         await self._links.remove_student.execute(principal, id)
         return await self.students(principal, 0)
 
-    async def invite(self, principal: Principal, rotate: bool = False) -> Screen:
-        locale = principal.account.locale
+    async def invite(self, principal: Principal) -> Screen:
+        """I0: one sentence, send, QR, More. Back is My students for someone who has them,
+        else "For teachers and shalas"."""
+        account = principal.account
+        locale = account.locale
         if not self._username:  # dev without a bot name: there's no link to show
+            return await self.overview(principal)
+        url = invite_url(self._username, await self._links.invite.execute(principal))
+        back = cb.students(0) if account.teaches else home_callbacks.TEACH
+        last_rows = [
+            [self._button(locale, "invite-more", cb.plain("im"))],
+            [self._button(locale, "log-back", back)],
+        ]
+        return invite_screen(self._t, locale, url, last_rows)
+
+    async def invite_more(self, principal: Principal, rotate: bool = False) -> Screen:
+        """I1: the link as text, and what a teacher needs rarely: a new link, the directory
+        line (ID-05), a shala of their own (SC-01: the form is in the app)."""
+        locale = principal.account.locale
+        if not self._username:
             return await self.overview(principal)
         get = self._links.rotate if rotate else self._links.invite
         url = invite_url(self._username, await get.execute(principal))
-        query = urlencode(
-            {"url": url, "text": self._t.t(locale, "invite-share-text")}, quote_via=quote
-        )
-        rows = [
-            [
-                InlineKeyboardButton(
-                    text=self._t.t(locale, "invite-share"),
-                    url=f"https://t.me/share/url?{query}",
-                )
-            ],
-            [self._button(locale, "invite-qr", cb.plain("q"))],
-            [self._button(locale, "invite-new", cb.plain("w"))],
-        ]
-        if self._app and self._links.shalas is not None:  # SC-01: the form is in the app
+        rows = [[self._button(locale, "invite-new", cb.plain("w"))]]
+        if self.listings is not None and self.listings.available:
+            rows.append([self.listings.entry_button(locale)])
+        if self._app and self._links.shalas is not None:
             rows.append(
                 [
                     InlineKeyboardButton(
                         text=self._t.t(locale, "shala-create"),
-                        # UI-06: straight on the form (the plain URL opened Home).
                         web_app=WebAppInfo(url=app_url(self._app, "new-shala")),
                     )
                 ]
             )
-        if self.listings is not None and self.listings.available:  # ID-05: one quiet row
-            rows.append([self.listings.entry_button(locale)])
-        rows.append([self._button(locale, "log-back", cb.plain("o"))])
-        hints = (self._t.t(locale, "invite-hint"), self._t.t(locale, "invite-moon-hint"))
-        text = "\n\n".join((url, *hints))
+        rows.append([self._button(locale, "log-back", cb.plain("i"))])
+        text = f"{url}\n\n{self._t.t(locale, 'invite-moon-hint')}"
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def ask_new_link(self, principal: Principal) -> Screen:
         locale = principal.account.locale
         rows = [
             [self._button(locale, "invite-new-yes", cb.plain("wy"))],
-            [self._button(locale, "log-back", cb.plain("i"))],
+            [self._button(locale, "log-back", cb.plain("im"))],
         ]
         return Screen(
             self._t.t(locale, "invite-new-ask"), InlineKeyboardMarkup(inline_keyboard=rows)
@@ -639,6 +670,8 @@ class LinkScreens:
                 return self.accept(principal, code)
             case cb.Reopen(code):
                 return self.invited(principal, code)
+            case cb.Details(code):
+                return self.invited(principal, code, details=True)
             case cb.Card(id, page):
                 return self.student(principal, id, page)
             case cb.Give(id, page):
@@ -670,10 +703,12 @@ class LinkScreens:
                 return self._start.start(principal)  # stores nothing, tells no one
             case cb.Tap("i"):
                 return self.invite(principal)
+            case cb.Tap("im"):
+                return self.invite_more(principal)
             case cb.Tap("w"):
                 return self.ask_new_link(principal)
-            case cb.Tap("wy"):
-                return self.invite(principal, rotate=True)
+            case cb.Tap("wy"):  # the new link shows where the link is text: on More
+                return self.invite_more(principal, rotate=True)
             case _:
                 return self.overview(principal)
 

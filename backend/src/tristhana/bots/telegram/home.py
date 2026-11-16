@@ -11,7 +11,6 @@ through `HomeScreens.typed_reply`.
 """
 
 from collections.abc import Awaitable
-from urllib.parse import quote, urlencode
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -50,6 +49,7 @@ from tristhana.bots.telegram.screens import (
     show,
 )
 from tristhana.bots.telegram.settings import client_profile
+from tristhana.bots.telegram.teacher_links import invite_screen
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.journey import MenuItem, menu_for
 from tristhana.domain.locale import LOCALES, Locale
@@ -122,20 +122,9 @@ class HomeScreens:
         if self._links is None or not self._username:  # dev without a bot name: no link
             return self.closing(locale)
         url = invite_url(self._username, await self._links.invite.execute(principal))
-        query = urlencode(
-            {"url": url, "text": self._t.t(locale, "invite-share-text")}, quote_via=quote
-        )
-        rows = [
-            [
-                InlineKeyboardButton(
-                    text=self._t.t(locale, "invite-send"), url=f"https://t.me/share/url?{query}"
-                )
-            ],
-            [self._button(locale, "invite-qr", tcb.plain("q"))],
-            [self._button(locale, "welcome-later", cb.CLOSING)],
-        ]
-        return Screen(
-            self._t.t(locale, "invite-simple"), InlineKeyboardMarkup(inline_keyboard=rows)
+        # The same screen as the Menu path's invite (I0), with its own last row.
+        return invite_screen(
+            self._t, locale, url, [[self._button(locale, "welcome-later", cb.CLOSING)]]
         )
 
     def closing(self, locale: Locale) -> Screen:
