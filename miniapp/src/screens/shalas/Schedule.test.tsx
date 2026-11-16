@@ -523,9 +523,7 @@ describe("the occurrence sheet", () => {
 
     fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
     const picker = await screen.findByLabelText("Преподаватель на эту дату");
-    expect(plain(within(picker).getAllByRole("option")[0]?.textContent)).toBe(
-      "Обычный преподаватель (Anna)",
-    );
+    expect(plain(within(picker).getAllByRole("option")[0]?.textContent)).toBe("Как обычно (Anna)");
   });
 
   it("offers no substitute on a cancelled date", async () => {
@@ -1302,7 +1300,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
     stubApi({ card: shalaOut(MANAGER) });
     renderWith(card(), "ru");
     fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
-    fireEvent.click(await screen.findByRole("button", { name: "❌ Отменить" }));
+    fireEvent.click(await screen.findByRole("button", { name: "❌ Отменить на эту дату" }));
     fireEvent.click(await screen.findByRole("button", { name: "📣 Сообщить ученикам…" }));
 
     const text = await screen.findByRole<HTMLTextAreaElement>("textbox");
@@ -1502,7 +1500,7 @@ describe("End this class from this date", () => {
     starts_at: "2099-06-01T01:00:00Z",
   });
   const schedule = { ...SCHEDULE, days: [day("2099-06-01")], occurrences: [ahead] };
-  const row = { name: "⏹ End this class from this date…" };
+  const row = { name: "⏹️ End this class from this date…" };
   const open = async () => {
     fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
     await screen.findByRole("heading", { name: "The whole class" });
