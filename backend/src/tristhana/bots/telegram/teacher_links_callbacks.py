@@ -11,6 +11,8 @@ t1:c:<id>  t1:p:<id>  t1:u:<id>  t1:x:<id>  teacher card, make main, remove ask,
 t1:v:<id>[:<page>]  t1:r:<id>  t1:z:<id>    student card (Back keeps the page), remove ask, remove
 t1:i  t1:q  t1:w  t1:wy                     invite screen, send QR, new link ask, new link
 t1:im                                       invite: More (the link as text, new link, ...)
+t1:i:o  t1:im:o  t1:w:o  t1:wy:o            the same four screens opened from "Teacher and
+                                            shala" (`t1:o`): Back from the invite returns there
 t1:g:<id>:<page>                            mark a new asana: the picker (PR-08 Phase 3)
 t1:gp:<id>:<n>:<i>:<k>:<page>               picked → the confirm screen
 t1:gy:<id>:<n>:<i>:<k>:<page>               confirm and mark
@@ -31,7 +33,9 @@ from tristhana.domain.teacher_links import parse_invite
 PREFIX = "t1"
 type Plain = Literal["n", "o", "i", "im", "q", "w", "wy"]
 type Person = Literal["c", "p", "u", "x", "v", "r", "z"]
+type Origin = Literal["o"]  # where the invite was opened from: "Teacher and shala" (`t1:o`)
 _PLAIN = ("n", "o", "i", "im", "q", "w", "wy")
+_WITH_ORIGIN = ("i", "im", "w", "wy")  # the invite and what is behind it
 _PERSON = ("c", "p", "u", "x", "v", "r", "z")
 
 
@@ -82,6 +86,7 @@ class OnPerson:
 @dataclass(frozen=True, slots=True)
 class Tap:
     action: Plain
+    origin: Origin | None = None  # only on the invite screens
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,8 +114,8 @@ type LinkTap = (
 )
 
 
-def plain(action: Plain) -> str:
-    return f"{PREFIX}:{action}"
+def plain(action: Plain, origin: Origin | None = None) -> str:
+    return f"{PREFIX}:{action}:{origin}" if origin else f"{PREFIX}:{action}"
 
 
 def person(action: Person, id: UUID) -> str:
@@ -185,6 +190,8 @@ def decode(data: str | None) -> LinkTap | None:
     match (data or "").split(":"):
         case [p, action] if p == PREFIX and action in _PLAIN:
             return Tap(action)  # type: ignore[arg-type]
+        case [p, action, "o"] if p == PREFIX and action in _WITH_ORIGIN:
+            return Tap(action, "o")  # type: ignore[arg-type]
         case [p, "a", value] if p == PREFIX and (code := _code(value)):
             return Confirm(code)
         case [p, "y", value] if p == PREFIX and (code := _code(value)):

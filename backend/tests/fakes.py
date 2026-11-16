@@ -62,7 +62,13 @@ from tristhana.domain.notifications import (
     defaults_for,
     effective,
 )
-from tristhana.domain.practice import RECENT_LIMIT, Practice, PracticeContext, usual
+from tristhana.domain.practice import (
+    RECENT_LIMIT,
+    Practice,
+    PracticeContext,
+    copy_would_overwrite,
+    usual,
+)
 from tristhana.domain.progression import (
     HISTORY_LIMIT,
     TIMELINE_LIMIT,
@@ -506,8 +512,16 @@ class InMemoryPractices:
         previous = usual(await self.recent(account_id, local_date, RECENT_LIMIT))
         if previous is None:
             return None
-        copied = replace(previous, start_time=None, timezone=timezone)
         before = self.days.practice_rows.get((account_id, local_date))
+        if copy_would_overwrite(before):  # as the SQL: details the day has are kept
+            assert before is not None
+            return self._saved(account_id, local_date, before, before)
+        # As the SQL: the day's own start time (and its zone) stays.
+        copied = replace(
+            previous,
+            start_time=before.start_time if before else None,
+            timezone=before.timezone if before else timezone,
+        )
         self.days.practice_rows[(account_id, local_date)] = copied
         return self._saved(account_id, local_date, copied, before)
 

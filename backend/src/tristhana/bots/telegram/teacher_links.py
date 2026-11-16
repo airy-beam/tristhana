@@ -307,7 +307,8 @@ class LinkScreens:
         if self._app:
             rows.append([app_button(self._t, locale, self._app)])
         if not found.students and self._username:  # a label, not a toggle; quiet on purpose
-            rows.append([self._button(locale, "links-invite-first", cb.plain("i"))])
+            # With the origin, so Back from the invite returns here.
+            rows.append([self._button(locale, "links-invite-first", cb.plain("i", "o"))])
         rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
@@ -605,30 +606,38 @@ class LinkScreens:
         await self._links.remove_student.execute(principal, id)
         return await self.students(principal, 0)
 
-    async def invite(self, principal: Principal) -> Screen:
-        """I0: one sentence, send, QR, More. Back is My students for someone who has them,
-        else "For teachers and shalas"."""
+    async def invite(self, principal: Principal, origin: cb.Origin | None = None) -> Screen:
+        """I0: one sentence, send, QR, More. Back is where the screen was opened from:
+        "Teacher and shala" when the data says so (`origin`), else My students for someone
+        who has them, else "For teachers and shalas"."""
         account = principal.account
         locale = account.locale
         if not self._username:  # dev without a bot name: there's no link to show
             return await self.overview(principal)
         url = invite_url(self._username, await self._links.invite.execute(principal))
-        back = cb.students(0) if account.teaches else home_callbacks.TEACH
+        if origin == "o":
+            back = cb.plain("o")
+        else:
+            back = cb.students(0) if account.teaches else home_callbacks.TEACH
         last_rows = [
-            [self._button(locale, "invite-more", cb.plain("im"))],
+            [self._button(locale, "invite-more", cb.plain("im", origin))],
             [self._button(locale, "log-back", back)],
         ]
         return invite_screen(self._t, locale, url, last_rows)
 
-    async def invite_more(self, principal: Principal, rotate: bool = False) -> Screen:
+    async def invite_more(
+        self, principal: Principal, rotate: bool = False, origin: cb.Origin | None = None
+    ) -> Screen:
         """I1: the link as text, and what a teacher needs rarely: a new link, the directory
-        line (ID-05), a shala of their own (SC-01: the form is in the app)."""
+        line (ID-05), a shala of their own (SC-01: the form is in the app). `origin` is
+        carried on, so Back from the invite still knows where it was opened from; the
+        directory line's own Back comes here without it."""
         locale = principal.account.locale
         if not self._username:
             return await self.overview(principal)
         get = self._links.rotate if rotate else self._links.invite
         url = invite_url(self._username, await get.execute(principal))
-        rows = [[self._button(locale, "invite-new", cb.plain("w"))]]
+        rows = [[self._button(locale, "invite-new", cb.plain("w", origin))]]
         if self.listings is not None and self.listings.available:
             rows.append([self.listings.entry_button(locale)])
         if self._app and self._links.shalas is not None:
@@ -640,15 +649,15 @@ class LinkScreens:
                     )
                 ]
             )
-        rows.append([self._button(locale, "log-back", cb.plain("i"))])
+        rows.append([self._button(locale, "log-back", cb.plain("i", origin))])
         text = f"{url}\n\n{self._t.t(locale, 'invite-moon-hint')}"
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
-    async def ask_new_link(self, principal: Principal) -> Screen:
+    async def ask_new_link(self, principal: Principal, origin: cb.Origin | None = None) -> Screen:
         locale = principal.account.locale
         rows = [
-            [self._button(locale, "invite-new-yes", cb.plain("wy"))],
-            [self._button(locale, "log-back", cb.plain("im"))],
+            [self._button(locale, "invite-new-yes", cb.plain("wy", origin))],
+            [self._button(locale, "log-back", cb.plain("im", origin))],
         ]
         return Screen(
             self._t.t(locale, "invite-new-ask"), InlineKeyboardMarkup(inline_keyboard=rows)
@@ -701,14 +710,14 @@ class LinkScreens:
                 return self.remove_student(principal, id)
             case cb.Tap("n"):
                 return self._start.start(principal)  # stores nothing, tells no one
-            case cb.Tap("i"):
-                return self.invite(principal)
-            case cb.Tap("im"):
-                return self.invite_more(principal)
-            case cb.Tap("w"):
-                return self.ask_new_link(principal)
-            case cb.Tap("wy"):  # the new link shows where the link is text: on More
-                return self.invite_more(principal, rotate=True)
+            case cb.Tap("i", origin):
+                return self.invite(principal, origin)
+            case cb.Tap("im", origin):
+                return self.invite_more(principal, origin=origin)
+            case cb.Tap("w", origin):
+                return self.ask_new_link(principal, origin)
+            case cb.Tap("wy", origin):  # the new link shows where the link is text: on More
+                return self.invite_more(principal, rotate=True, origin=origin)
             case _:
                 return self.overview(principal)
 

@@ -65,8 +65,8 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     (
         "my-schedule-none",
         {},
-        "Your schedule shows the classes of the shalas you join. Ask your shala for its link.",
-        "Здесь будут занятия шал, в которые ты вступишь. Попроси у шалы ссылку.",
+        "Your shala's classes appear here once you join. Ask your shala for its link.",
+        "Здесь появятся занятия твоей шалы, когда ты к ней присоединишься. Попроси ссылку в шале.",
     ),
     (
         "my-schedule-zone-unknown",

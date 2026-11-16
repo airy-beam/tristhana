@@ -125,7 +125,7 @@ def test_settings_is_five_rows_each_with_its_value(
     assert body["text"] == "⚙️ Settings"
     assert _rows(body) == [
         ["🗣 Language: As in Telegram"],
-        ["🏙 My city: not chosen · no time zone yet"],  # Q314: the row says the zone is missing
+        ["🏙 My city? 🕐 not known yet"],  # Q314: the row says the zone is missing
         ["😌 Day off: not chosen"],
         ["🔔 Reminders"],
         ["More…"],
@@ -144,7 +144,7 @@ def test_settings_in_russian(client: TestClient, storage: InMemoryStorage) -> No
     assert body["text"] == "⚙️ Настройки"
     assert _rows(body) == [
         ["🗣 Язык: Как в Telegram"],
-        ["🏙 Мой город: Астана (UTC+5)"],
+        ["🏙 Мой город: Астана"],  # ADR-0044: my own city carries no offset
         ["😌 Выходной: не выбран"],
         ["🔔 Напоминания"],
         ["Ещё…"],
@@ -227,7 +227,7 @@ def test_more_holds_what_is_set_once(client: TestClient, storage: InMemoryStorag
     assert body["text"] == "⚙️ More settings\n🌙 Moon days: 📍 Mysuru"
     assert _where(body) == {
         "🌙 Moon days": "m1:v",
-        "🌸 Hide the ladies' holiday button": "s1:h:1",
+        "🌸 Hide “Ladies' holiday”": "s1:h:1",
         "✨ Hide “How do you feel?”": "s1:k:0",
         "📦 My data": "x1:o",
         "‹ Back": "s1:v",  # noqa: RUF001
@@ -253,8 +253,8 @@ def test_more_links_to_the_app_when_there_is_one(storage: InMemoryStorage) -> No
 @pytest.mark.parametrize(
     ("data", "field", "value", "label"),
     [
-        ("s1:h:1", "hide_ladies", True, "🌸 Show the ladies' holiday button"),
-        ("s1:h:0", "hide_ladies", False, "🌸 Hide the ladies' holiday button"),
+        ("s1:h:1", "hide_ladies", True, "🌸 Show “Ladies' holiday”"),
+        ("s1:h:0", "hide_ladies", False, "🌸 Hide “Ladies' holiday”"),
         ("s1:k:0", "offer_check_in", False, "✨ Show “How do you feel?”"),
         ("s1:k:1", "offer_check_in", True, "✨ Hide “How do you feel?”"),
     ],
@@ -315,7 +315,7 @@ def test_the_picked_city_is_the_marked_one(
         zone,
     )
     assert chosen["text"] == "⚙️ Settings"
-    assert _rows(chosen)[1][0].startswith(f"🏙 My city: {name} (UTC+")
+    assert _rows(chosen)[1] == [f"🏙 My city: {name}"]  # ADR-0044: my own city, no offset
 
 
 def test_old_zone_buttons_still_work(client: TestClient, storage: InMemoryStorage) -> None:
@@ -326,7 +326,7 @@ def test_old_zone_buttons_still_work(client: TestClient, storage: InMemoryStorag
 
     assert "Which city do you live in?" in page["text"]
     assert storage.repo.accounts[me.id].home_city == "moscow"
-    assert ["🏙 My city: Moscow (UTC+3)"] in _rows(chosen)
+    assert ["🏙 My city: Moscow"] in _rows(chosen)
 
 
 def test_the_city_nudge_is_gone(client: TestClient, storage: InMemoryStorage) -> None:
@@ -336,7 +336,7 @@ def test_the_city_nudge_is_gone(client: TestClient, storage: InMemoryStorage) ->
     body = _command(client, "/settings")
 
     assert "Not now" not in _texts(body)
-    assert ["🏙 My city: not chosen yet · 🕐 Almaty (UTC+5)"] in _rows(body)
+    assert ["🏙 My city? 🕐 Almaty (UTC+5)"] in _rows(body)
     assert not [data for data in _where(body).values() if data == "s1:n"]
 
 
@@ -352,7 +352,7 @@ def test_an_old_not_now_button_writes_and_shows_settings(
     assert storage.repo.accounts[me.id].home_city == "-"
     assert storage.repo.accounts[me.id].timezone == ZONE
     assert body["text"] == "⚙️ Settings"
-    assert ["🏙 My city: not chosen · 🕐 Almaty (UTC+5)"] in _rows(body)
+    assert ["🕐 My time: Almaty (UTC+5)"] in _rows(body)
 
 
 def test_a_stale_not_now_keeps_a_city_chosen_since(
@@ -364,7 +364,7 @@ def test_a_stale_not_now_keeps_a_city_chosen_since(
     body = _tap(client, "s1:n")  # the old message's button
 
     assert storage.repo.accounts[me.id].home_city == "astana"
-    assert ["🏙 My city: Astana (UTC+5)"] in _rows(body)
+    assert ["🏙 My city: Astana"] in _rows(body)
 
 
 def test_the_picker_marks_no_city_outside_its_zone(
@@ -390,7 +390,7 @@ def test_utc_clears_the_city(client: TestClient, storage: InMemoryStorage) -> No
         "-",
         "UTC",
     )
-    assert ["🏙 My city: not chosen · 🕐 UTC"] in _rows(body)
+    assert ["🕐 My time: UTC"] in _rows(body)
     assert marked == ["✓ 🌐 UTC"]
 
 
@@ -503,7 +503,7 @@ def test_the_time_labels_name_the_home_city(client: TestClient, storage: InMemor
     first = _command(client, "/settings")
     reminders = _tap(client, "s1:r")
 
-    assert ["🏙 My city: Astana (UTC+5)"] in _rows(first)
+    assert ["🏙 My city: Astana"] in _rows(first)
     assert "19:00 Astana" in reminders["text"]  # the reader's own zone: no offset (ADR-0044)
     assert "Almaty" not in f"{_texts(first)} {reminders['text']}"
 

@@ -533,7 +533,10 @@ def test_the_invite_screen_says_students_will_follow(
     first = _tap(client, "t1:i")
     body = _tap(client, "t1:im")  # UI-06: the hint is on the invite's "More" screen
 
-    assert first["text"] == "Send this link to your students. Each one confirms for themselves."
+    assert first["text"] == (
+        "Send your link to your students. Each one confirms for themselves, "
+        "and then you see what they share."
+    )
     assert (
         "Students who haven't chosen a moon city will follow the city you choose in /moon."
         in body["text"]

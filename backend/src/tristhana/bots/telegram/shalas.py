@@ -483,6 +483,10 @@ class ShalaScreens:
             self._t.t(locale, "invite-new-ask"), InlineKeyboardMarkup(inline_keyboard=rows)
         )
 
+    async def gone(self, principal: Principal) -> Screen:
+        """Where a tap about a shala the caller is not in (any more) lands: their list."""
+        return await self._links.overview(principal)
+
     async def qr(self, principal: Principal, shala: UUID) -> tuple[bytes, str] | None:
         if not self._username:
             return None
@@ -590,7 +594,9 @@ def register_shalas(router: Router, screens: ShalaScreens) -> None:
         principal = Principal(account)
         if isinstance(tap, cb.Shala) and tap.action == "q":
             qr = await answered(callback, screens.qr(principal, tap.id))
-            if qr is not None and callback.bot is not None:
+            if qr is None:  # not my shala (any more), or no bot name: the list, not silence
+                return show(callback, await screens.gone(principal))
+            if callback.bot is not None:
                 png, caption = qr  # a file can't be a webhook reply (ADR-0012)
                 await callback.bot.send_photo(
                     chat_id=callback.from_user.id,

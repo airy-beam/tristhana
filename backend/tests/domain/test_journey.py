@@ -91,9 +91,10 @@ def test_a_teacher_gets_my_students_and_no_quiet_row() -> None:
     )  # fmt: skip
 
 
-def test_staff_get_classes_and_no_quiet_row() -> None:
+def test_staff_without_students_get_classes_and_keep_the_quiet_row() -> None:
+    # A teacher on a shala's staff with no students yet still needs the way to the first invite.
     assert menu_for(replace(NOBODY, shala=STAFF_AT)) == (
-        M.TODAY, M.PRACTICE, M.MOON, M.CLASSES, M.TEACHER, M.SETTINGS, M.HELP,
+        M.TODAY, M.PRACTICE, M.MOON, M.CLASSES, M.TEACHER, M.SETTINGS, M.HELP, M.TEACH,
     )  # fmt: skip
 
 
@@ -124,7 +125,8 @@ def test_at_most_eight_rows_plus_the_quiet_one_in_the_fixed_order(
     assert len(set(menu)) == len(menu)
     assert len([m for m in menu if m is not M.TEACH]) <= 8
     assert set(BASE) <= set(menu)
-    assert (M.TEACH in menu) == (not teaches and shala is not STAFF_AT)
+    assert (M.TEACH in menu) == (not teaches)
+    assert (M.TEACH in menu) != (M.STUDENTS in menu)
     if M.TEACH in menu:
         assert menu[-1] is M.TEACH
 

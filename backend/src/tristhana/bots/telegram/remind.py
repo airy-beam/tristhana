@@ -20,6 +20,7 @@ from tristhana.application.ports.notifications import (
     PracticeReminder,
     ReminderPatch,
 )
+from tristhana.application.practice import DayNotPracticed
 from tristhana.bots.telegram import callbacks as dcb
 from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import rest_callbacks as acb
@@ -191,12 +192,12 @@ class RemindScreens:
                     saved = await self._r.offer.execute(principal, cb.action == "yes")
                     assert cb.day is not None  # noqa: S101 - decoded with a date
                     if cb.action == "no":
-                        return await self._practice_summary(principal, cb.day)
+                        return await self._after_no(principal, cb.day)
                     if not saved.practice.enabled:
                         # An old offer, answered or switched off since: the choice stands,
                         # so show it as it is (with its switch) and never claim otherwise.
                         return self.settings_screen(principal, saved)
-                    return self.offer_set(principal, cb.day, saved)
+                    return self.offer_set(principal, saved)
                 case "same":
                     assert cb.day is not None  # noqa: S101
                     return await self._same(principal, cb.day)
@@ -226,9 +227,10 @@ class RemindScreens:
         except (InvalidSettings, InvalidDayOff):
             return await self.settings(principal)  # stale or forged: just reshow
 
-    def offer_set(self, principal: Principal, day: date, settings: NotificationSettings) -> Screen:
+    def offer_set(self, principal: Principal, settings: NotificationSettings) -> Screen:
         """R0 (UI-06): "yes" on the one-time offer under a saved practice. The time, where
-        to change it, and the city only while the zone is unknown; no read."""
+        to change it, and the city only while the zone is unknown; no read. So it says
+        nothing about the day: the offer may be old, and the day changed since."""
         account = principal.account
         locale = account.locale
         today, _ = self._days.today(principal)
@@ -240,8 +242,7 @@ class RemindScreens:
             today,
             self._days.home_city(principal),
         )
-        lines = self._days.saved_lines(principal, day, DayStatus.PRACTICED)
-        lines.append(self._t.t(locale, "remind-offer-set", time=at))
+        lines = [self._t.t(locale, "remind-offer-set", time=at)]
         rows = [[button(self._t, locale, "remind-change-time", _data(action="view"))]]
         if account.timezone is None:  # sending waits for a real zone: say so here (Q314)
             lines.append(self._t.t(locale, "moon-zone-needed"))
@@ -261,10 +262,15 @@ class RemindScreens:
             button(self._t, locale, "remind-practice-link", _data(action="view")),
         )
 
-    async def _practice_summary(self, principal: Principal, day: date) -> Screen:
+    async def _after_no(self, principal: Principal, day: date) -> Screen:
+        """ "No, thanks": the done screen again, without the offer. On a day that is no
+        longer Practiced (changed in another message), that day's editor, saying so."""
         practice = self._days.practice
         assert practice is not None  # noqa: S101 - wired by days.register
-        return await practice.summary(principal, day, offer=False)
+        try:
+            return await practice.summary(principal, day, offer=False)
+        except DayNotPracticed:
+            return await self._days.status(principal, day, note="practice-day-not-practiced")
 
     async def _log(self, principal: Principal, day: date, status: DayStatus) -> Screen | None:
         """🧘 / 😌 from a reminder (Q26): logs the day only if it is still empty; a day
@@ -393,6 +399,7 @@ class RemindScreens:
                 )
             ],
             [button(self._t, locale, "settings-link", scb.encode(scb.SettingsCallback("view")))],
+            menu_row(self._t, locale),  # UI-06: opened from Help and `/remind`
         ]
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 

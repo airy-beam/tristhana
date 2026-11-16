@@ -587,6 +587,31 @@ def test_same_as_last_time_is_offered_only_before_details(client: TestClient) ->
     assert "🔁 Same as last time" not in _texts(again)
 
 
+def test_an_old_same_as_last_button_never_overwrites_details_added_since(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """The three buttons after 🧘 stay in chat history: details added since (here, or in the
+    app) are kept, and the tap lands on the done screen showing them."""
+    yesterday, d = _ymd(_today() - timedelta(days=1)), _ymd(_today())
+    _tap(client, f"d1:s:{yesterday}:p")
+    _tap(client, f"p1:c:{yesterday}:l")
+    _tap(client, f"p1:l:{yesterday}:11:")
+    first = _tap(client, f"d1:s:{d}:p")
+    stale = _data(first, "🔁 Same as last time")
+    _tap(client, f"p1:c:{d}:m")  # details added since
+    _tap(client, f"p1:t:{d}:60")
+    [key] = [k for k in storage.day_repo.practice_rows if k[1] == _today()]
+    stored = storage.day_repo.practice_rows[key]
+
+    body = _tap(client, stale)
+
+    assert "\n\nMysore · 60 min" in body["text"]
+    assert "Led" not in body["text"]
+    assert "Full Primary" not in body["text"]
+    assert _texts(body)[-1] == "☰ Menu"  # the done screen
+    assert storage.day_repo.practice_rows[key] == stored
+
+
 def test_an_old_same_as_last_button_without_a_previous_practice_says_so(
     client: TestClient,
 ) -> None:

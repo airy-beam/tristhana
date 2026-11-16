@@ -426,6 +426,7 @@ class ScheduleScreens:
             rows.append([self._button(locale, "settings-city-button", city)])
         if self._feed is not None and self._feed.available:  # SC-06
             rows.append([entry_button(self._t, locale)])
+        rows.append(menu_row(self._t, locale))  # UI-06: opened from the Menu
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _button(self, locale: Locale, key: str, data: str, **args: str) -> InlineKeyboardButton:

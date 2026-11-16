@@ -117,8 +117,8 @@ def test_moon_screen_lists_days_names_the_calendar_and_asks_for_a_zone(client: T
     assert "🌕 Full moon (Purnima)" in body["text"]
     assert "in 3 days" in body["text"]
     assert "follow your teacher" in body["text"]
-    assert "I need your time zone" in body["text"]  # no zone yet: no reminders
-    assert _texts(body) == ["📍 Change city", "🔔 Reminders"]
+    assert "I need to know your city" in body["text"]  # no zone yet: no reminders
+    assert _texts(body) == ["📍 Change city", "🔔 Reminders", "☰ Menu"]  # UI-06: a way back
 
 
 def test_moon_screen_shows_reminders_with_a_time_label(

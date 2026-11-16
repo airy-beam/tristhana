@@ -50,12 +50,12 @@ def front_door(account: Account, has_days: bool) -> bool:
 
 
 def menu_for(account: Account) -> tuple[MenuItem, ...]:
-    """At most eight rows, plus the quiet one for everyone who has no students and is on no
-    shala's staff (Q310; the main shala is a staff one whenever the person is staff anywhere)."""
-    on_staff = account.shala is not None and account.shala.staff
+    """At most eight rows, plus the quiet one for everyone without students: a person has either
+    "My students" or the way to their first invite, never neither (Q310 as refined: a teacher on
+    a shala's staff with no students yet would otherwise have no invite path in the Menu)."""
     hidden = {
         *(() if account.shala is not None else (MenuItem.CLASSES,)),
         *(() if account.teaches else (MenuItem.STUDENTS,)),
-        *((MenuItem.TEACH,) if account.teaches or on_staff else ()),
+        *((MenuItem.TEACH,) if account.teaches else ()),
     }
     return tuple(item for item in MenuItem if item not in hidden)

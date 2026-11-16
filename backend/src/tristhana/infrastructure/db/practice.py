@@ -166,9 +166,21 @@ class SqlPracticeRepository:
             ["account_id", "local_date", "slot", *copied, "timezone"], source
         )
         # The start time (and its zone) is not copied; an existing one on this day is kept.
+        # So is everything else once the day holds a class type, a length or a duration
+        # (`domain.practice.copy_would_overwrite`): an old "Same as last time" button never
+        # overwrites details added since. Each column is then set to itself, on the locked
+        # row, so RETURNING still gives the stored practice.
+        keep = or_(
+            practice.c.context.is_not(None),
+            practice.c.series.is_not(None),
+            practice.c.duration_min.is_not(None),
+        )
         stmt = stmt.on_conflict_do_update(
             index_elements=[practice.c.account_id, practice.c.local_date, practice.c.slot],
-            set_={**{c: stmt.excluded[c] for c in copied}, "updated_at": func.now()},
+            set_={
+                **{c: case((keep, practice.c[c]), else_=stmt.excluded[c]) for c in copied},
+                "updated_at": case((keep, practice.c.updated_at), else_=func.now()),
+            },
         ).returning(*_COLUMNS)
         return await self._with_check_in(stmt, account_id, local_date)
 

@@ -18,6 +18,7 @@ from tristhana.domain.practice import (
     TimezoneUnknown,
     check_length,
     check_practice,
+    copy_would_overwrite,
     derive_presets,
 )
 from tristhana.infrastructure.seed.catalog_yaml import load_catalog
@@ -192,3 +193,20 @@ def test_recent_lengths_are_ranked_by_use_then_recency() -> None:
 
     assert presets.last == history[0]
     assert presets.presets[3:] == (("recent", usual), ("recent", split), ("recent", rare))
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [
+        (None, False),
+        (Practice(), False),
+        (Practice(start_time=time(7), timezone="Asia/Almaty"), False),  # the copy keeps it
+        (Practice(PracticeContext.MYSORE), True),
+        (Practice(length=SHORT), True),
+        (Practice(duration_min=60), True),
+    ],
+)
+def test_same_as_last_time_never_writes_over_details(
+    stored: Practice | None, expected: bool
+) -> None:
+    assert copy_would_overwrite(stored) is expected

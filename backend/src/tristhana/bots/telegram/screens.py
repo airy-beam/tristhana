@@ -79,8 +79,9 @@ def zone_label(
 ) -> str:
     """The zone as a time label minus the time: "Astana" for a viewer in that zone,
     "Astana (UTC+5)" (the offset today) for anyone else (ADR-0044). Without `viewer` the
-    offset always shows: that is for text saying what a zone is (the Settings city row, the
-    travel prompt, a daylight-saving day row), where the offset is the information."""
+    offset always shows: that is for text saying what a zone is (the Settings city row while
+    no city is chosen, the travel prompt, a daylight-saving day row), where the offset is the
+    information."""
     label = t.t(locale, "time-label", time=TimeArg(today, time(12), zone, city, viewer))
     return label.split(" ", 1)[1] if " " in label else label
 

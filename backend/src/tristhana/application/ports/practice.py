@@ -40,7 +40,9 @@ class PracticeRepository(Protocol):
         """Copy context, online, length and duration (not the start time) of the usual
         practice before `local_date`: the newest non-Led one among the last `RECENT_LIMIT`,
         else the newest (`domain.practice.usual`, Q27). None when the day isn't Practiced or
-        there is none."""
+        there is none. A day that already holds any of those fields
+        (`domain.practice.copy_would_overwrite`) is not written: its practice comes back as
+        stored, decided on the row inside the same statement."""
         ...
 
     async def copy_usual(

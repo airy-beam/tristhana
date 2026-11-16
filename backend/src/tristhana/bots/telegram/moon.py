@@ -17,7 +17,7 @@ from tristhana.bots.telegram import settings_callbacks as scb
 from tristhana.bots.telegram.calendar_feed import entry_button
 from tristhana.bots.telegram.moon_callbacks import PREFIX, MoonCallback, decode, encode
 from tristhana.bots.telegram.runtime import MoonUseCases
-from tristhana.bots.telegram.screens import Reply, Screen, answered, button, show
+from tristhana.bots.telegram.screens import Reply, Screen, answered, button, menu_row, show
 from tristhana.domain.accounts import Account, home_city_of, moon_follow_of
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City, MoonDay, MoonDayKind, MoonFollow, MoonPhase, MoonSource
@@ -247,6 +247,7 @@ class MoonScreens:
             )
         if self._calendar:
             rows.append([entry_button(self._t, locale)])
+        rows.append(menu_row(self._t, locale))  # UI-06: opened from the Menu
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _source(self, locale: Locale, follow: MoonFollow) -> str | None:

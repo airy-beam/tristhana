@@ -13,7 +13,7 @@ start-switch-language = 🗣 { $language }
 start-open-app = Открыть приложение
 
 ## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
-## Working copy; the three front-door labels are fixed.
+## `welcome-ask` and the three front-door labels are fixed by the owner.
 
 welcome-ask = С чего начнём?
 welcome-path-practice = Моя практика
@@ -22,20 +22,23 @@ welcome-path-shala = Шала и занятия
 # Under the invite on the first run. A URL button tells the bot nothing, so this must read
 # right both before and after the link was sent.
 welcome-later = Дальше ›
-welcome-teacher-next = Твоя ссылка всегда в Меню → Мои ученики. Каждый ученик подтверждает сам, и после этого тебе видна его практика.
+# Shown before the first student joins: the Menu has no "My students" row yet, so the link
+# is named where it is now ("For teachers and shalas"), and "My students" as what comes next.
+welcome-teacher-next = Твоя ссылка — в ☰ Меню → Учителям и шалам. Ученики, которые подтвердят, появятся в ☰ Меню → Мои ученики.
 welcome-own-practice = 🧘 Отметить свою практику
-welcome-shala-text = Шала здесь — это страница с расписанием занятий, объявлениями и одной ссылкой для учеников. Создать её можно за минуту в приложении.
-welcome-shala-student = Ищешь занятия своей шалы? Попроси у шалы ссылку. Открой её, и расписание появится здесь.
-invite-simple = Отправь эту ссылку ученикам. Каждый подтверждает сам.
+welcome-shala-text = Шала здесь — это страница для учеников: расписание занятий, объявления и одна ссылка, чтобы присоединиться. Нажми «🏛 Создать шалу»: это займёт минуту.
+welcome-shala-student = Ищешь занятия своей шалы? Попроси ссылку в шале. Когда присоединишься, расписание будет в ☰ Меню → Занятия.
+invite-simple = Отправь свою ссылку ученикам. Каждый подтверждает сам, и после этого тебе видно то, чем с тобой делятся.
 invite-send = ✉️ Отправить ссылку
 # Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
 invite-more = Ещё…
 
-# Today: the third choice, and the screen behind it. $day as in start-prompt.
-today-other = Другая причина…
+# Today: the third choice, and the screen behind it. $day as in start-prompt. Never
+# «причина»: a moon day or a rest day of the method needs no excuse.
+today-other = Другое…
 today-reasons-title =
     { $day }
-    Выбери, что подходит. В журнал идёт всё.
+    Выбери, что подходит. В журнале есть место любому дню.
 # $label = a status-* label: the person's own screen, so it says what they logged.
 today-logged = ✓ В журнале: { $label }
 # Once, on the first /start after UI-06 for someone who already uses the bot.
@@ -46,12 +49,13 @@ today-back = ‹ Сегодня
 menu-open = ☰ Меню
 menu-title = ☰ Меню
 # On top of the Menu when the person typed something instead of tapping.
-menu-text-lead = Я пока не умею отвечать на сообщения. Вот всё, что я умею 🙏
+menu-text-lead = Я пока не умею отвечать на сообщения. Зато вот что я умею 🙏
 menu-today = 📝 Сегодня
 menu-practice = 📊 Моя практика
 menu-moon = 🌙 Лунные дни
 menu-classes = 🗓 Занятия
-menu-teacher = 🙏 Мой учитель
+# Everyone sees this row, with or without a teacher, and the screen lists shalas too.
+menu-teacher = 🙏 Учитель и шала
 menu-students = 👥 Мои ученики
 menu-settings = ⚙️ Настройки
 menu-help = ❓ Помощь
@@ -64,7 +68,9 @@ teach-title =
 help-title =
     ❓ Помощь
     Что хочешь сделать?
-help-earlier-day = 📅 Отметить прошедший день
+# Each row uses the words of the place it opens: «📅 Другой день», the practice reminder,
+# «Мои асаны», «🙏 Учитель и шала».
+help-earlier-day = 📅 Отметить другой день
 help-reminder = 🔔 Напоминание о практике
 help-asanas = 🧘 Мои асаны
 help-join = 🙏 Добавить учителя или шалу
@@ -222,7 +228,7 @@ page-next = ▶
 
 ## Лунные дни и напоминания (MD-03). Названия городов берутся из data/seed/cities.yaml.
 
-command-moon = Лунные дни и напоминания
+command-moon = Лунные дни
 moon-title = 🌙 Лунные дни · 📍 { $city }
 moon-phase =
     { $phase ->
@@ -262,7 +268,7 @@ moon-offsets =
     }
 moon-reminders-on = 🔔 Напоминания: { $offsets } в { $time }
 moon-reminders-off = 🔕 Напоминания выключены
-moon-zone-needed = Чтобы напоминать в нужный час, мне нужен твой часовой пояс: выбери свой город или открой приложение один раз.
+moon-zone-needed = Чтобы напоминать в нужный час, мне нужно знать твой город: выбери его в /settings.
 moon-change-city = 📍 Сменить город
 moon-reminders = 🔔 Напоминания
 moon-pick-city = По какому городу считать лунные дни?
@@ -373,12 +379,17 @@ language-auto = Как в Telegram
 language-en = English
 language-ru = Русский
 settings-language-line = 🗣 Язык: { $language }
-# MD-04 (ADR-0029): город задаёт часовой пояс. $zone = «Астана (UTC+5)».
+# MD-04 (ADR-0029): город задаёт часовой пояс. $zone = «Астана (UTC+5)». Подписи кнопок,
+# одна строка на 320 px, поэтому слов вокруг { $zone } совсем мало:
+#   город выбран                      «Мой город: Астана»           (свой город: без смещения, ADR-0044)
+#   города нет, время известно        «Мой город? 🕐 Алматы (UTC+5)»   (вопрос: нажми и выбери)
+#   «Моего города нет в списке»       «🕐 Моё время: Алматы (UTC+5)»   (время есть, города нет)
+#   нет ни города, ни времени         только эта строка говорит в настройках, что пояса нет
+#                                     (Q314), простыми словами: без «часового пояса».
 settings-city-line = 🏙 Мой город: { $zone }
-settings-city-unset-line = 🏙 Мой город: пока не выбран · 🕐 { $zone }
-settings-city-unlisted-line = 🏙 Мой город: не выбран · 🕐 { $zone }
-# Подписи кнопок. Только строка без пояса говорит в настройках, что пояса нет (Q314).
-settings-city-no-zone-line = 🏙 Мой город: не выбран · пояса пока нет
+settings-city-unset-line = 🏙 Мой город? 🕐 { $zone }
+settings-city-unlisted-line = 🕐 Моё время: { $zone }
+settings-city-no-zone-line = 🏙 Мой город? 🕐 пока неизвестно
 settings-moon-line = 🌙 Лунные дни: 📍 { $city }
 settings-moon-line-teacher = 🌙 Лунные дни: 📍 { $city } (как у учителя: { $name })
 settings-quiet-line = 🔕 Тихие часы { $start }–{ $end } · { $n ->
@@ -509,9 +520,10 @@ pause-keep = ⏸ Оставить паузу
 pause-kept = ⏸ Пауза сохранена: „{ $label }“ по { $until } включительно.
 remind-paused-until = ⏸ На паузе по { $until } включительно
 remind-resume = ▶️ Возобновить сейчас
-# Switches under Settings → More: each label says what a tap does.
-settings-ladies-hide = 🌸 Скрыть кнопку «Женские дни»
-settings-ladies-show = 🌸 Показать кнопку «Женские дни»
+# Switches under Settings → More: each label says what a tap does, and names the button it
+# hides or shows by that button's own label, in quotes (as `settings-checkin-off` / `-on`).
+settings-ladies-hide = 🌸 Скрыть «Женские дни»
+settings-ladies-show = 🌸 Показать «Женские дни»
 
 ## После практики: самочувствие (PR-06). Всегда по желанию, без упрёков.
 # Настроение хранится как 1–5; эмодзи только для показа. Метки: ключи домена.
@@ -751,7 +763,7 @@ invite-qr-caption = Отсканируй, чтобы добавить меня �
 link-unlink-ask = Убрать из списка учителей: { $name }? Сообщений никто не получит, просто в списке учеников тебя больше не будет.
 link-next-main = Основным учителем станет: { $name }.
 link-remove-ask = Убрать из списка учеников: { $name }? Сообщений никто не получит.
-links-empty = Учителя здесь пока нет. Чтобы добавить, открой ссылку, которую пришлёт учитель. Журнал практики работает и так.
+links-empty = Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют. Журнал практики работает и так.
 links-no-students = Учеников в списке нет.
 links-primary-hint = ⭐ — твой основной учитель. Поменять можно в любой момент.
 links-main-chosen = ⭐ Основной учитель: { $name }
@@ -968,7 +980,7 @@ my-schedule-empty = { $f ->
         [mine] На этой неделе ты не ведёшь занятий.
        *[all] На этой неделе занятий нет.
     }
-my-schedule-none = Здесь будут занятия шал, в которые ты вступишь. Попроси у шалы ссылку.
+my-schedule-none = Здесь появятся занятия твоей шалы, когда ты к ней присоединишься. Попроси ссылку в шале.
 my-schedule-zone-unknown = Время указано по { $zone }. Укажи свой город, чтобы видеть своё время.
 my-schedule-more = Вся неделя целиком — в приложении.
 

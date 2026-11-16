@@ -174,7 +174,7 @@ def test_without_a_zone_the_time_is_local_and_the_zone_is_asked_for(client: Test
     body = _command(client, "/remind")
     on = _tap(client, "r1:o:1")
 
-    assert "To remind you at the right hour I need your time zone" in body["text"]
+    assert "To remind you at the right hour I need to know your city" in body["text"]
     assert "at 10:00 your time" in on["text"]
 
 
@@ -222,11 +222,9 @@ def test_offer_yes_turns_it_on_and_says_when(
     [settings] = storage.notifications.stored.values()
     assert settings.practice.on is True
     assert settings.practice.at in (time(10), time(20))
-    saved, set_line = yes["text"].split("\n\n")
-    assert saved.startswith("✓ Today, ")
-    assert "Practice done 🙏" in saved
-    # ADR-0044: my own zone names its city and carries no offset.
-    assert set_line == f"🔔 I'll ask once a day at {settings.practice.at:%H:%M} Almaty."
+    # No "✓ … Practiced" line: the reply is built from the button's date without a read, so
+    # it says only what this tap did. ADR-0044: my own zone names its city, with no offset.
+    assert yes["text"] == f"🔔 I'll ask once a day at {settings.practice.at:%H:%M} Almaty."
     assert _rows(yes) == [["⏰ Change the time"], ["☰ Menu"]]
     data = [b["callback_data"] for row in yes["reply_markup"]["inline_keyboard"] for b in row]
     assert data == ["r1:v", "w1:m"]
@@ -242,8 +240,7 @@ def test_offer_yes_without_a_zone_asks_for_the_city(client: TestClient) -> None:
     assert "🔔 I'll ask once a day at " in yes["text"]
     assert " your time." in yes["text"]
     assert yes["text"].endswith(
-        "To remind you at the right hour I need your time zone: "
-        "pick your city or open the app once."
+        "To remind you at the right hour I need to know your city: choose it in /settings."
     )
     assert _rows(yes) == [["⏰ Change the time"], ["🏙 My city"], ["☰ Menu"]]
     data = [b["callback_data"] for row in yes["reply_markup"]["inline_keyboard"] for b in row]
@@ -260,6 +257,52 @@ def test_offer_yes_in_russian(client: TestClient, storage: InMemoryStorage) -> N
     [settings] = storage.notifications.stored.values()
     assert f"🔔 Буду спрашивать раз в день в {settings.practice.at:%H:%M} Алматы." in yes["text"]
     assert _rows(yes) == [["⏰ Изменить время"], ["☰ Меню"]]
+
+
+def _offer_then_rest(client: TestClient, d: str) -> None:
+    """The done screen with the offer on it, then the day changed to rest in another message."""
+    _tap(client, f"d1:s:{d}:p")
+    summary = _tap(client, f"p1:v:{d}")
+    assert _rows(summary)[-2] == ["🔔 Yes, remind me", "No, thanks"]
+    _tap(client, f"d1:s:{d}:r")
+
+
+def test_offer_no_on_a_day_no_longer_practiced_shows_that_days_editor(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    _me(client, storage)
+    d = _ymd(_today())
+    _offer_then_rest(client, d)
+
+    no = _tap(client, f"r1:n:{d}")
+
+    assert no["method"] == "editMessageText"  # never a bare answer
+    assert no["text"].startswith("This day isn't marked as practice anymore.")
+    assert "✓ In your log: 😌 Rest day" in no["text"]
+    assert _rows(no)[:3] == [["🧘 Practiced"], ["✓ 😌 Rest day"], ["Other…"]]
+    data = [b["callback_data"] for row in no["reply_markup"]["inline_keyboard"] for b in row]
+    assert data[0] == f"d1:s:{d}:p"  # the editor of the offer's own date
+    [settings] = storage.notifications.stored.values()
+    assert settings.practice.on is False  # the answer itself stands
+
+
+def test_offer_yes_on_a_day_no_longer_practiced_never_says_practiced(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _me(client, storage)
+    d = _ymd(_today())
+    _offer_then_rest(client, d)
+    statements = Statements(monkeypatch, storage)
+
+    yes = _tap(client, f"r1:y:{d}")
+
+    [settings] = storage.notifications.stored.values()
+    assert settings.practice.on is True
+    assert yes["text"] == f"🔔 I'll ask once a day at {settings.practice.at:%H:%M} Almaty."
+    assert "Practice" not in yes["text"]
+    assert "✓" not in yes["text"]
+    assert _rows(yes) == [["⏰ Change the time"], ["☰ Menu"]]
+    assert len(statements.names) == 2  # the settings read and the write, no day read
 
 
 def test_an_old_offer_never_claims_a_reminder_that_was_turned_off(

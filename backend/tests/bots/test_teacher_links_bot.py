@@ -25,6 +25,7 @@ from pydantic import SecretStr
 from tests.bots.statements import Statements
 from tests.fakes import InMemoryStorage
 from tests.teacher_link_fakes import add_person
+from tristhana.bots.telegram import teacher_links_callbacks as links_cb
 from tristhana.domain.accounts import DISPLAY_NAME_MAX, Account
 from tristhana.domain.locale import Locale
 from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS
@@ -452,7 +453,7 @@ def test_not_now_stores_nothing_and_messages_no_one(
 # the front door)
 
 PROMPT = "Practice or rest? Both go in your log."
-TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], ["☰ Menu"]]
+TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
 
 
 def _grid_with(body: Any, lead: str) -> None:
@@ -796,7 +797,7 @@ def test_removing_a_teacher_takes_one_confirm_and_tells_no_one(
 
     assert done["method"] == "editMessageText"
     assert storage.teacher_links.teachers_of(me.id) == []
-    assert "No teacher here yet." in done["text"]
+    assert "No teacher on your list." in done["text"]
     assert {s.name for s in outbound} == {"answerCallbackQuery"}
 
 
@@ -851,7 +852,7 @@ def test_my_teacher_shows_no_students_to_a_teacher(
 
     body = _command(client, "/teachers")
 
-    assert body["text"].startswith("🙏 My teacher")
+    assert body["text"].startswith("🙏 Teacher and shala")
     assert not [t for t in _texts(body) if "students" in t.lower()]
     assert _rows(body) == [["Open the app"], ["☰ Menu"]]
     assert _data(body, "☰ Menu") == "w1:m"
@@ -876,13 +877,13 @@ def test_with_no_students_the_i_teach_label_stays_quiet(
     body = _command(client, "/teachers")
 
     assert _rows(body)[-2:] == [["I teach: invite students"], ["☰ Menu"]]
-    assert _data(body, "I teach") == "t1:i"
+    assert _data(body, "I teach") == "t1:i:o"  # the invite, with the way back here
     assert not any("My students" in t for t in _texts(body))
     assert "➕ Invite students" not in _texts(body)
     assert body["text"] == (
-        "🙏 My teacher\n\n"
-        "No teacher here yet. To add one, open the link your teacher sends you. "
-        "Your log works the same either way."
+        "🙏 Teacher and shala\n\n"
+        "No teacher on your list. To add a teacher or join a shala, open the link they send "
+        "you. Your log works the same either way."
     )
 
 
@@ -891,9 +892,9 @@ def test_with_no_students_in_russian_too(client: TestClient) -> None:
 
     assert _rows(body)[-2:] == [["Я преподаю: пригласить учеников"], ["☰ Меню"]]
     assert body["text"] == (
-        "🙏 Мой учитель\n\n"
-        "Учителя здесь пока нет. Чтобы добавить, открой ссылку, которую пришлёт учитель. "
-        "Журнал практики работает и так."
+        "🙏 Учитель и шала\n\n"
+        "Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой "
+        "ссылку, которую они пришлют. Журнал практики работает и так."
     )
 
 
@@ -942,7 +943,10 @@ def test_the_invite_screen_is_one_sentence_send_qr_and_more(
 
     body = _tap(client, "t1:i")
 
-    assert body["text"] == "Send this link to your students. Each one confirms for themselves."
+    assert body["text"] == (
+        "Send your link to your students. Each one confirms for themselves, "
+        "and then you see what they share."
+    )
     assert body.get("parse_mode") is None
     assert _rows(body) == [["✉️ Send the link"], ["🔳 QR code"], ["More…"], ["‹ Back"]]
     assert _data(body, "🔳 QR code") == "t1:q"
@@ -966,6 +970,46 @@ def test_the_invite_goes_back_to_my_students_for_a_teacher(
     body = _tap(client, "t1:i")
 
     assert _data(body, "‹ Back") == "t1:s:0"
+
+
+def test_the_invite_opened_from_teacher_and_shala_goes_back_there(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """The origin travels in the callback data, through "More" and the new-link question."""
+    me = _me(client, storage)
+    storage.teacher_links.codes[me.id] = CODE
+    overview = _command(client, "/teachers")
+
+    invite = _tap(client, _data(overview, "I teach"))
+    more = _tap(client, _data(invite, "More…"))
+    ask = _tap(client, _data(more, "🔄 New link…"))
+    renewed = _tap(client, _data(ask, "Yes"))
+
+    assert _data(invite, "‹ Back") == "t1:o"  # not "For teachers and shalas"
+    assert _data(invite, "More…") == "t1:im:o"
+    assert (_data(more, "🔄 New link…"), _data(more, "‹ Back")) == ("t1:w:o", "t1:i:o")
+    assert (_data(ask, "Yes"), _data(ask, "‹ Back")) == ("t1:wy:o", "t1:im:o")
+    assert _data(renewed, "‹ Back") == "t1:i:o"
+    assert renewed["text"].startswith(f"https://t.me/{BOT}?start=t_")
+    assert CODE not in renewed["text"]  # the old link is gone
+    assert _tap(client, "t1:o")["text"].startswith("🙏 Teacher and shala")
+    # The same screen as the plain invite, but for where "More" and Back lead.
+    assert _buttons(_tap(client, "t1:i:o"))[:2] == _buttons(_tap(client, "t1:i"))[:2]
+
+
+@pytest.mark.parametrize("action", ["i", "im", "w", "wy"])
+def test_the_invite_origin_codec(action: str) -> None:
+    assert links_cb.plain(action) == f"t1:{action}"  # type: ignore[arg-type]
+    assert links_cb.plain(action, "o") == f"t1:{action}:o"  # type: ignore[arg-type]
+    assert links_cb.decode(f"t1:{action}:o") == links_cb.Tap(action, "o")  # type: ignore[arg-type]
+    assert links_cb.decode(f"t1:{action}") == links_cb.Tap(action)  # type: ignore[arg-type]
+    assert links_cb.decode(f"t1:{action}:x") is None
+    assert len(f"t1:{action}:o".encode()) <= 22  # UI-06 §2
+
+
+@pytest.mark.parametrize("data", ["t1:q:o", "t1:o:o", "t1:n:o", "t1:i:o:o", "t1:i:"])
+def test_only_the_invite_screens_take_an_origin(data: str) -> None:
+    assert links_cb.decode(data) is None
 
 
 def test_the_first_run_invite_is_the_same_screen_with_its_own_last_row(

@@ -195,12 +195,7 @@ class DayScreens:
             lines.append(self._t.t(locale, note, day=label))
         if hint:
             lines.append(self._t.t(locale, "today-menu-hint"))
-        auto = self.auto_line(locale, view, day)
-        if auto:
-            lines.append(auto)
-        lines.append(self._t.t(locale, "start-prompt", day=label))
-        if current is not None:  # the person's own screen: the status as they logged it
-            lines.append(self._t.t(locale, "today-logged", label=self.label(locale, current)))
+        lines.append(self._day_block(locale, view, day, label, current))
         shown = preview(self._t, locale, view.notes.get(day)) if editor and self.notes else None
         if shown:  # under the day itself; the editor only (never Today or the week picker)
             lines.append(shown)
@@ -220,6 +215,23 @@ class DayScreens:
         else:
             rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _day_block(
+        self, locale: Locale, view: DaysView, day: date, label: str, current: DayStatus | None
+    ) -> str:
+        """The date first, always: it opens the message and a chat-list preview, which must
+        never begin with "🌸 Ladies' holiday through …". Under it, what already answers
+        "Practice or rest?": the auto-rest or pause line, and the status as the person logged
+        it (their own screen). Only a day with neither gets the question."""
+        answers: list[str] = []
+        auto = self.auto_line(locale, view, day)
+        if auto:
+            answers.append(auto)
+        if current is not None:
+            answers.append(self._t.t(locale, "today-logged", label=self.label(locale, current)))
+        if not answers:
+            return self._t.t(locale, "start-prompt", day=label)
+        return "\n".join([label, *answers])
 
     def choice_rows(
         self, locale: Locale, day: date, current: DayStatus | None, origin: Origin
@@ -455,7 +467,10 @@ class DayScreens:
         if end < today:
             later = min(end + timedelta(days=WEEK), today)
             paging.append(self._button(locale, "log-later", encode(DayCallback("week", later))))
-        return InlineKeyboardMarkup(inline_keyboard=[*rows, paging] if paging else rows)
+        if paging:
+            rows.append(paging)
+        rows.append(menu_row(self._t, locale))  # UI-06: opened from Help
+        return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _status_button(
         self, locale: Locale, day: date, status: DayStatus, current: DayStatus | None

@@ -175,6 +175,44 @@ async def test_copy_last_skips_a_led_class(days: InMemoryDays) -> None:
     assert (copied.context, copied.length) == (PracticeContext.MYSORE, HALF_PRIMARY)
 
 
+async def test_copy_last_never_overwrites_details_the_day_already_has(
+    days: InMemoryDays,
+) -> None:
+    # A stale "Same as last time" button: the day got its own details since.
+    me = _me()
+    await _practiced(days, me, FRI, MON)
+    practices = InMemoryPractices(days)
+    save = SavePractice(practices, catalog())
+    await save.execute(
+        me, FRI, PracticePatch.full(Practice(PracticeContext.LED, length=FULL_PRIMARY))
+    )
+    own = Practice(PracticeContext.MYSORE, duration_min=60)
+    await save.execute(me, MON, PracticePatch.full(own))
+    stored = days.practice_rows[(me.account.id, MON)]
+
+    result = await CopyLastPractice(practices).execute(me, MON)
+
+    assert result.practice == stored  # returned as stored, for the done screen
+    assert (result.practice.context, result.practice.duration_min) == (PracticeContext.MYSORE, 60)
+    assert result.practice.length is None
+    assert result.length_changed is False
+    assert days.practice_rows[(me.account.id, MON)] == stored
+
+
+async def test_copy_last_fills_a_day_that_has_only_a_start_time(days: InMemoryDays) -> None:
+    # A start time is not copied, so nothing is lost: it stays and the rest is filled in.
+    me = _me()
+    await _practiced(days, me, FRI, MON)
+    practices = InMemoryPractices(days)
+    save = SavePractice(practices, catalog())
+    await save.execute(me, FRI, PracticePatch.full(Practice(PracticeContext.MYSORE)))
+    days.practice_rows[(me.account.id, MON)] = Practice(start_time=time(7), timezone="Asia/Almaty")
+
+    copied = (await CopyLastPractice(practices).execute(me, MON)).practice
+
+    assert (copied.context, copied.start_time) == (PracticeContext.MYSORE, time(7))
+
+
 async def test_copy_last_errors(days: InMemoryDays) -> None:
     me = _me()
     await _practiced(days, me, MON)

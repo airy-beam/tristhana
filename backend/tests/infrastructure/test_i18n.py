@@ -288,6 +288,20 @@ def test_pause_cut_and_kept_name_the_period_gently() -> None:
         assert "пропущ" not in text
 
 
+def test_the_missing_zone_line_asks_for_the_city_and_names_no_button() -> None:
+    # It shows on five screens (the reminder reply, /remind, /moon, the moon reminders,
+    # Settings → Reminders) and only the first has a "🏙 My city" button, so it points at
+    # the command. Plain words: never "time zone" (Q314).
+    assert _t("en", "moon-zone-needed") == (
+        "To remind you at the right hour I need to know your city: choose it in /settings."
+    )
+    assert _t("ru", "moon-zone-needed") == (
+        "Чтобы напоминать в нужный час, мне нужно знать твой город: выбери его в /settings."  # noqa: RUF001
+    )
+    for locale in ("en", "ru"):
+        assert "🏙" not in _t(locale, "moon-zone-needed")
+
+
 def test_period_line_paused_line_and_the_settings_switch() -> None:
     travel = _label("en", "travel")
     assert _flat("en", "log-auto-period", label=travel, until=_until()) == (
@@ -297,12 +311,12 @@ def test_period_line_paused_line_and_the_settings_switch() -> None:
     assert _t("en", "remind-resume") == "▶️ Resume now"
     # UI-06: the status line is gone; under Settings → More each switch says what a tap does.
     assert (_t("en", "settings-ladies-hide"), _t("en", "settings-ladies-show")) == (
-        "🌸 Hide the ladies' holiday button",
-        "🌸 Show the ladies' holiday button",
+        "🌸 Hide “Ladies' holiday”",
+        "🌸 Show “Ladies' holiday”",
     )
     assert (_t("ru", "settings-ladies-hide"), _t("ru", "settings-ladies-show")) == (
-        "🌸 Скрыть кнопку «Женские дни»",
-        "🌸 Показать кнопку «Женские дни»",
+        "🌸 Скрыть «Женские дни»",
+        "🌸 Показать «Женские дни»",
     )
 
 

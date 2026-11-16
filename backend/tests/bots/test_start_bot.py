@@ -30,7 +30,7 @@ APP = "https://tristhana.web.app"
 OTHER = UUID("33333333-3333-4333-8333-333333333333")  # a teacher's or a shala's id
 FRONT = ["My practice", "Invite students", "Shala and classes", "🗣 Русский"]
 FRONT_RU = ["Моя практика", "Пригласить учеников", "Шала и занятия", "🗣 English"]
-TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], ["☰ Menu"]]
+TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
 HINT = "Everything else is now under ☰ Menu."
 _ids = itertools.count(98_000)
 
@@ -214,7 +214,7 @@ def test_someone_with_a_logged_day_gets_today_with_the_menu_hint_once(
 
     assert HINT in first["text"]
     assert "Namaste" not in first["text"]
-    assert _rows(first) == [["🧘 Practiced"], ["✓ 😌 Rest day"], ["Other reason…"], ["☰ Menu"]]
+    assert _rows(first) == [["🧘 Practiced"], ["✓ 😌 Rest day"], ["Other…"], ["☰ Menu"]]
     assert HINT not in second["text"]
     assert _rows(second) == _rows(first)
 
@@ -344,7 +344,7 @@ def test_an_old_language_button_switches_and_shows_today(
     ru = _tap(client, "o1:l:ru")
 
     assert ru["method"] == "editMessageText"
-    assert _rows(ru) == [["🧘 Практика"], ["😌 День отдыха"], ["Другая причина…"], ["☰ Меню"]]
+    assert _rows(ru) == [["🧘 Практика"], ["😌 День отдыха"], ["Другое…"], ["☰ Меню"]]
     [account] = storage.repo.accounts.values()
     assert (account.locale, account.locale_custom) == ("ru", True)
 

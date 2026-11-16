@@ -18,6 +18,7 @@ from tests.bots.statements import Statements
 from tests.fakes import InMemoryStorage
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.moon import MoonDay, MoonDayKind
+from tristhana.domain.rest_periods import RestPeriod
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -127,7 +128,7 @@ def test_log_shows_today_with_exactly_four_buttons(client: TestClient) -> None:
     assert body["method"] == "sendMessage"
     assert body["text"].startswith("Today, ")
     assert body["text"].endswith("Practice or rest? Both go in your log.")
-    assert _rows(body) == [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], ["☰ Menu"]]
+    assert _rows(body) == [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
     assert [b["callback_data"] for b in _buttons(body)] == [
         f"d1:s:{d}:p",
         f"d1:s:{d}:r",
@@ -140,7 +141,7 @@ def test_log_shows_today_with_exactly_four_buttons(client: TestClient) -> None:
 def test_today_in_russian(client: TestClient) -> None:
     body = _command(client, "/log", "ru")
 
-    assert _rows(body) == [["🧘 Практика"], ["😌 День отдыха"], ["Другая причина…"], ["☰ Меню"]]
+    assert _rows(body) == [["🧘 Практика"], ["😌 День отдыха"], ["Другое…"], ["☰ Меню"]]
     assert "Практика или отдых?" in body["text"]
 
 
@@ -149,9 +150,9 @@ def test_today_in_russian(client: TestClient) -> None:
     [
         (DayStatus.PRACTICED, "✓ 🧘 Practiced", "✓ In your log: 🧘 Practiced"),
         (DayStatus.REST, "✓ 😌 Rest day", "✓ In your log: 😌 Rest day"),
-        (DayStatus.SICK, "✓ Other reason…", "✓ In your log: 🤒 Sick / injury"),
-        (DayStatus.MOON, "✓ Other reason…", "✓ In your log: 🌙 Moon day"),
-        (DayStatus.SKIPPED, "✓ Other reason…", "✓ In your log: 🌱 No practice"),
+        (DayStatus.SICK, "✓ Other…", "✓ In your log: 🤒 Sick / injury"),
+        (DayStatus.MOON, "✓ Other…", "✓ In your log: 🌙 Moon day"),
+        (DayStatus.SKIPPED, "✓ Other…", "✓ In your log: 🌱 No practice"),
     ],
 )
 def test_today_marks_the_logged_choice_and_says_what_it_is(
@@ -164,7 +165,11 @@ def test_today_marks_the_logged_choice_and_says_what_it_is(
     texts = [b["text"] for b in _buttons(body)]
     assert [t for t in texts if t.startswith("✓")] == [marked]
     assert len(texts) == 4
-    assert body["text"].endswith(line)
+    # The date, then what is logged: the question is answered, so it isn't asked again.
+    date_line, logged = body["text"].split("\n")
+    assert date_line.startswith("Today, ")
+    assert logged == line
+    assert "Practice or rest?" not in body["text"]
 
 
 def test_today_shows_the_auto_rest_line_on_a_moon_day(
@@ -174,10 +179,48 @@ def test_today_shows_the_auto_rest_line_on_a_moon_day(
 
     body = _command(client, "/log")
 
-    assert "🌙 Moon day (📍 Mysuru), a traditional rest day" in body["text"]
+    # The date opens the message (and a chat-list preview); the line that already says why
+    # the day is rest follows, and "Practice or rest?" is not asked after it.
+    date_line, auto = body["text"].split("\n")
+    assert date_line.startswith("Today, ")
+    assert (
+        auto == "🌙 Moon day (📍 Mysuru), a traditional rest day. If you practiced, log it below."
+    )
     assert "In your log" not in body["text"]  # shown as rest, not logged
     assert not [b for b in _buttons(body) if b["text"].startswith("✓")]
     assert len(_buttons(body)) == 4
+
+
+def test_today_during_a_pause_opens_with_the_date_not_the_pause(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    _command(client, "/moon")  # a first contact
+    [account] = storage.repo.accounts.values()
+    start, end = _today() - timedelta(days=1), _today() + timedelta(days=2)
+    storage.day_repo.periods.rows[(account.id, start)] = RestPeriod(start, end, DayStatus.LADIES)
+
+    body = _command(client, "/log")
+
+    date_line, pause = body["text"].split("\n")
+    assert date_line.startswith("Today, ")  # never 🌸 first: a chat-list preview shows this
+    assert pause.startswith("🌸 Ladies' holiday through ")
+    assert "Practice or rest?" not in body["text"]
+    assert [row[0] for row in _rows(body)[:3]] == ["🧘 Practiced", "😌 Rest day", "Other…"]
+    assert _rows(body)[-1] == ["☰ Menu"]
+
+
+def test_the_menu_hint_and_a_lead_stay_above_the_date(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    storage.moon_repo.days_by_location["mysuru"] = [MoonDay(_today(), MoonDayKind.PURNIMA)]
+    _log(client, storage, _today() - timedelta(days=1), DayStatus.REST)  # active: no front door
+
+    body = _command(client, "/start")
+
+    hint, day = body["text"].split("\n\n")
+    assert hint == "Everything else is now under ☰ Menu."
+    assert day.startswith("Today, ")
+    assert day.split("\n")[1].startswith("🌙 Moon day")
 
 
 def test_today_is_one_read(
@@ -268,7 +311,7 @@ def test_the_day_editor_has_the_same_three_choices_then_its_own_rows(
     assert _rows(body) == [
         ["🧘 Practiced"],
         ["😌 Rest day"],
-        ["Other reason…"],
+        ["Other…"],
         ["📓 Note"],  # PR-07
         ["📅 Another day"],
         ["‹ Today"],  # noqa: RUF001
@@ -313,10 +356,11 @@ def test_reopening_a_day_marks_the_current_status_and_offers_clear(client: TestC
 
     body = _tap(client, f"d1:o:{_ymd(day)}")
 
-    assert body["text"].startswith("Yesterday, ")
-    assert body["text"].endswith("✓ In your log: 🌙 Moon day")
+    date_line, logged = body["text"].split("\n")
+    assert date_line.startswith("Yesterday, ")
+    assert logged == "✓ In your log: 🌙 Moon day"
     assert _rows(body)[2:] == [
-        ["✓ Other reason…"],
+        ["✓ Other…"],
         ["📓 Note"],
         ["Clear", "📅 Another day"],
         ["‹ Today"],  # noqa: RUF001
@@ -361,7 +405,7 @@ def test_week_never_pages_before_2000(client: TestClient) -> None:
     data = [b["callback_data"] for b in _buttons(body)]
     days = [b for b in _buttons(body) if b["callback_data"].startswith("d1:o:")]
     assert [b["callback_data"] for b in days] == ["d1:o:20000103", "d1:o:20000102", "d1:o:20000101"]
-    assert data[3:] == ["d1:w:20000110"]  # "Later" only, no "Earlier"
+    assert data[3:] == ["d1:w:20000110", "w1:m"]  # "Later" only, no "Earlier"; then the Menu
     assert all(" 2000" in b["text"] for b in days)  # another year: shown with the year
 
 

@@ -137,10 +137,10 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "links-empty",
         {},
         # UI-06: the empty "My teacher" screen says how a teacher gets there.
-        "No teacher here yet. To add one, open the link your teacher sends you. "
-        "Your log works the same either way.",
-        "Учителя здесь пока нет. Чтобы добавить, открой ссылку, которую пришлёт учитель. "
-        "Журнал практики работает и так.",
+        "No teacher on your list. To add a teacher or join a shala, open the link they send "
+        "you. Your log works the same either way.",
+        "Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой "
+        "ссылку, которую они пришлют. Журнал практики работает и так.",
     ),
     ("links-no-students", {}, "No students on your list.", "Учеников в списке нет."),
     (

@@ -384,9 +384,12 @@ class SettingsScreens:
         locale, zone = account.locale, account.timezone
         if zone is None:
             return self._t.t(locale, "settings-city-no-zone-line")
-        label = self._zone_label(locale, zone, today, home)
         if home is not None:
+            # The person's own city: its name, no offset (ADR-0044): "🏙 My city: Almaty".
+            label = self._zone_label(locale, zone, today, home, viewer=zone)
             return self._t.t(locale, "settings-city-line", zone=label)
+        # No city: the row says what the clock is, so the offset is the information.
+        label = self._zone_label(locale, zone, today, home)
         key = (
             "settings-city-unlisted-line"
             if account.home_city_chosen
@@ -394,8 +397,10 @@ class SettingsScreens:
         )
         return self._t.t(locale, key, zone=label)
 
-    def _zone_label(self, locale: Locale, zone: str, today: date, home: City | None) -> str:
-        return zone_label(self._t, locale, zone, today, home)
+    def _zone_label(
+        self, locale: Locale, zone: str, today: date, home: City | None, viewer: str | None = None
+    ) -> str:
+        return zone_label(self._t, locale, zone, today, home, viewer)
 
     def cities(self, principal: Principal, page: int) -> Screen:
         account = principal.account

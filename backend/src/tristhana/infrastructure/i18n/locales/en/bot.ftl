@@ -13,7 +13,7 @@ start-switch-language = 🗣 { $language }
 start-open-app = Open the app
 
 ## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
-## Working copy; the three front-door labels are fixed.
+## `welcome-ask` and the three front-door labels are fixed by the owner.
 
 welcome-ask = Where shall we start?
 welcome-path-practice = My practice
@@ -22,20 +22,23 @@ welcome-path-shala = Shala and classes
 # Under the invite on the first run. A URL button tells the bot nothing, so this must read
 # right both before and after the link was sent.
 welcome-later = Continue ›
-welcome-teacher-next = Your link is always under Menu → My students. Each student confirms for themselves, and then you see their practice.
+# Shown before the first student joins: the Menu has no "My students" row yet, so the link
+# is named where it is now ("For teachers and shalas"), and "My students" as what comes next.
+welcome-teacher-next = Your link is under ☰ Menu → For teachers and shalas. Students who confirm appear under ☰ Menu → My students.
 welcome-own-practice = 🧘 Log my own practice
-welcome-shala-text = A shala here is a page with your class schedule, announcements and one link for students to join. Creating it takes a minute in the app.
-welcome-shala-student = Looking for your shala's classes? Ask the shala for its link. Once you open it, the schedule shows up here.
-invite-simple = Send this link to your students. Each one confirms for themselves.
+welcome-shala-text = A shala here is a page for your students: the class schedule, announcements and one link to join. Tap 🏛 Create a shala: it takes a minute.
+welcome-shala-student = Looking for your shala's classes? Ask your shala for its link. Once you join, the schedule is under ☰ Menu → Classes.
+invite-simple = Send your link to your students. Each one confirms for themselves, and then you see what they share.
 invite-send = ✉️ Send the link
 # Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
 invite-more = More…
 
-# Today: the third choice, and the screen behind it. $day as in start-prompt.
-today-other = Other reason…
+# Today: the third choice, and the screen behind it. $day as in start-prompt. Never
+# "reason": a moon day or a rest day of the method needs no excuse.
+today-other = Other…
 today-reasons-title =
     { $day }
-    Pick what fits. It all goes in your log.
+    Pick what fits. Any day belongs in your log.
 # $label = a status-* label: the person's own screen, so it says what they logged.
 today-logged = ✓ In your log: { $label }
 # Once, on the first /start after UI-06 for someone who already uses the bot.
@@ -51,7 +54,8 @@ menu-today = 📝 Today
 menu-practice = 📊 My practice
 menu-moon = 🌙 Moon days
 menu-classes = 🗓 Classes
-menu-teacher = 🙏 My teacher
+# Everyone sees this row, with or without a teacher, and the screen lists shalas too.
+menu-teacher = 🙏 Teacher and shala
 menu-students = 👥 My students
 menu-settings = ⚙️ Settings
 menu-help = ❓ Help
@@ -59,15 +63,17 @@ menu-help = ❓ Help
 menu-teach = For teachers and shalas
 teach-title =
     For teachers and shalas
-    Invite your students with one link, or set up a shala with its class schedule.
+    Invite your students with one link, or create a shala with its class schedule.
 
 help-title =
     ❓ Help
     What would you like to do?
-help-earlier-day = 📅 Log an earlier day
-help-reminder = 🔔 Set a practice reminder
+# Each row uses the words of the place it opens: "📅 Another day", the practice reminder,
+# "My asanas", "🙏 Teacher and shala".
+help-earlier-day = 📅 Log another day
+help-reminder = 🔔 Practice reminder
 help-asanas = 🧘 My asanas
-help-join = 🙏 Join a teacher or a shala
+help-join = 🙏 Add my teacher or shala
 # UI-05: a link under /help to the public guide site, in the person's language.
 help-guide = 📖 Guide
 
@@ -222,7 +228,7 @@ page-next = ▶
 
 ## Moon days and reminders (MD-03). City names come from data/seed/cities.yaml.
 
-command-moon = Moon days and reminders
+command-moon = Moon days
 moon-title = 🌙 Moon days · 📍 { $city }
 moon-phase =
     { $phase ->
@@ -261,7 +267,7 @@ moon-offsets =
     }
 moon-reminders-on = 🔔 Reminders: { $offsets } before at { $time }
 moon-reminders-off = 🔕 Reminders are off
-moon-zone-needed = To remind you at the right hour I need your time zone: pick your city or open the app once.
+moon-zone-needed = To remind you at the right hour I need to know your city: choose it in /settings.
 moon-change-city = 📍 Change city
 moon-reminders = 🔔 Reminders
 moon-pick-city = Which city's moon days do you follow?
@@ -371,12 +377,17 @@ language-auto = As in Telegram
 language-en = English
 language-ru = Русский
 settings-language-line = 🗣 Language: { $language }
-# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)". Button labels:
-# the no-zone one is the one place in Settings that says the zone is missing (Q314).
+# MD-04 (ADR-0029): the city sets the time zone. $zone = "Astana (UTC+5)". Button labels,
+# one row at 320 px, so the words around { $zone } stay very short:
+#   city chosen                       "My city: Astana"             (their own city: no offset, ADR-0044)
+#   no city yet, the clock is known   "My city? 🕐 Almaty (UTC+5)"   (a question: tap to choose)
+#   "My city isn't listed"            "🕐 My time: Almaty (UTC+5)"   (there is a clock, no city)
+#   no city and no clock              the one place in Settings that says the zone is missing
+#                                     (Q314), in plain words: never "time zone" here.
 settings-city-line = 🏙 My city: { $zone }
-settings-city-unset-line = 🏙 My city: not chosen yet · 🕐 { $zone }
-settings-city-unlisted-line = 🏙 My city: not chosen · 🕐 { $zone }
-settings-city-no-zone-line = 🏙 My city: not chosen · no time zone yet
+settings-city-unset-line = 🏙 My city? 🕐 { $zone }
+settings-city-unlisted-line = 🕐 My time: { $zone }
+settings-city-no-zone-line = 🏙 My city? 🕐 not known yet
 settings-moon-line = 🌙 Moon days: 📍 { $city }
 settings-moon-line-teacher = 🌙 Moon days: 📍 { $city } (as { $name })
 settings-quiet-line = 🔕 Quiet hours { $start }–{ $end } · { $n ->
@@ -499,9 +510,10 @@ pause-keep = ⏸ Keep the pause
 pause-kept = ⏸ Pause kept: { $label } through { $until }.
 remind-paused-until = ⏸ Paused through { $until }
 remind-resume = ▶️ Resume now
-# Switches under Settings → More: each label says what a tap does.
-settings-ladies-hide = 🌸 Hide the ladies' holiday button
-settings-ladies-show = 🌸 Show the ladies' holiday button
+# Switches under Settings → More: each label says what a tap does, and names the button it
+# hides or shows by that button's own label, in quotes (as `settings-checkin-off` / `-on`).
+settings-ladies-hide = 🌸 Hide “Ladies' holiday”
+settings-ladies-show = 🌸 Show “Ladies' holiday”
 
 ## After-practice check-in (PR-06). Always optional: never "you haven't checked in".
 # Mood is stored as 1–5; the emoji are presentation only. Tags are domain keys.
@@ -741,7 +753,7 @@ invite-qr-caption = Scan to add me as your teacher in Tristhana.
 link-unlink-ask = Remove { $name } from your teachers? They won't get a message, but you'll no longer be on their list.
 link-next-main = { $name } becomes your main teacher.
 link-remove-ask = Remove { $name } from your students? They won't get a message.
-links-empty = No teacher here yet. To add one, open the link your teacher sends you. Your log works the same either way.
+links-empty = No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.
 links-no-students = No students on your list.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
@@ -950,7 +962,7 @@ my-schedule-empty = { $f ->
         [mine] You teach no classes this week.
        *[all] No classes this week.
     }
-my-schedule-none = Your schedule shows the classes of the shalas you join. Ask your shala for its link.
+my-schedule-none = Your shala's classes appear here once you join. Ask your shala for its link.
 my-schedule-zone-unknown = Times are in { $zone }. Set your city to see your own time.
 my-schedule-more = The full week is in the app.
 

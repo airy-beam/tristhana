@@ -430,7 +430,10 @@ def test_a_stale_keep_is_a_quiet_no_op(client: TestClient, storage: InMemoryStor
     body = _tap(client, f"a1:k:{_ymd(-6)}:{_ymd(-2)}:k:{_ymd(-3)}")
 
     assert _periods(storage, me) == []
-    assert body is None or "Pause kept" not in body.get("text", "")
+    # UI-06 §5: never only an answer. The day the button sat under, as it is now.
+    assert body["method"] == "editMessageText"
+    assert "Pause kept" not in body["text"]
+    assert f"d1:s:{_ymd(-3)}:p" in _data(body)
 
 
 @pytest.mark.parametrize(
@@ -600,7 +603,7 @@ def test_a_ladies_day_still_shows_on_the_persons_own_today_while_hidden(
     body = _command(client, "/log")
 
     assert "✓ In your log: 🌸 Ladies' holiday" in body["text"]
-    assert "✓ Other reason…" in _texts(body)
+    assert "✓ Other…" in _texts(body)
 
 
 def test_start_honours_hide(client: TestClient, storage: InMemoryStorage) -> None:
@@ -631,12 +634,12 @@ def test_settings_hide_and_show_the_button(client: TestClient, storage: InMemory
     back = _tap(client, "s1:h:0")
 
     assert "🌸" not in f"{first['text']} {_texts(first)}"
-    assert "🌸 Hide the ladies' holiday button" in _texts(shown)
+    assert "🌸 Hide “Ladies' holiday”" in _texts(shown)
     assert "s1:h:1" in _data(shown)
-    assert "🌸 Show the ladies' holiday button" in _texts(hidden)  # the label is the state
+    assert "🌸 Show “Ladies' holiday”" in _texts(hidden)  # the label is the state
     assert "s1:h:0" in _data(hidden)
     assert stored_hidden is True
-    assert "🌸 Hide the ladies' holiday button" in _texts(back)
+    assert "🌸 Hide “Ladies' holiday”" in _texts(back)
     assert storage.repo.accounts[me.id].hide_ladies is False
 
 
@@ -646,8 +649,8 @@ def test_settings_in_russian_quote_the_label(client: TestClient, storage: InMemo
     body = _tap(client, "s1:m", lang="ru")
     hidden = _tap(client, "s1:h:1", lang="ru")
 
-    assert "🌸 Скрыть кнопку «Женские дни»" in _texts(body)
-    assert "🌸 Показать кнопку «Женские дни»" in _texts(hidden)
+    assert "🌸 Скрыть «Женские дни»" in _texts(body)
+    assert "🌸 Показать «Женские дни»" in _texts(hidden)
 
 
 # /remind during a pause

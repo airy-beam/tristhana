@@ -147,7 +147,7 @@ NOBODY_MENU = {
     "📝 Today": "w1:n",
     "📊 My practice": f"{APP}?open=practice",
     "🌙 Moon days": "m1:v",
-    "🙏 My teacher": "t1:o",
+    "🙏 Teacher and shala": "t1:o",
     "⚙️ Settings": "s1:v",
     "❓ Help": "w1:h",
     "For teachers and shalas": "w1:o",
@@ -171,7 +171,7 @@ def test_the_menu_for_someone_with_no_role(client: TestClient, outbound: list[An
     [
         ({"shala": STUDENT_AT}, {"🗓 Classes": "c1:m:0:a"}, True),
         ({"teaches": True}, {"👥 My students": "t1:s:0"}, False),
-        ({"shala": STAFF_AT}, {"🗓 Classes": "c1:m:0:a"}, False),
+        ({"shala": STAFF_AT}, {"🗓 Classes": "c1:m:0:a"}, True),  # no students yet: quiet row
         (
             {"teaches": True, "shala": STAFF_AT},
             {"🗓 Classes": "c1:m:0:a", "👥 My students": "t1:s:0"},
@@ -206,7 +206,7 @@ def test_the_menu_keeps_its_fixed_order(client: TestClient, storage: InMemorySto
         ["📊 My practice"],
         ["🌙 Moon days"],
         ["🗓 Classes"],
-        ["🙏 My teacher"],
+        ["🙏 Teacher and shala"],
         ["👥 My students"],
         ["⚙️ Settings"],
         ["❓ Help"],
@@ -288,7 +288,10 @@ def test_invite_on_the_first_run_offers_the_link_and_the_qr_code(
     body = _tap(client, "w1:t")
 
     assert body["method"] == "editMessageText"
-    assert body["text"] == "Send this link to your students. Each one confirms for themselves."
+    assert body["text"] == (
+        "Send your link to your students. Each one confirms for themselves, "
+        "and then you see what they share."
+    )
     where = _where(body)
     assert list(where) == ["✉️ Send the link", "🔳 QR code", "Continue ›"]  # noqa: RUF001
     assert (where["🔳 QR code"], where["Continue ›"]) == ("t1:q", "w1:c")  # noqa: RUF001
@@ -312,13 +315,14 @@ def test_invite_then_the_teachers_closing_then_today(client: TestClient) -> None
     closing = _tap(client, "w1:c")
     today = _tap(client, _where(closing)["🧘 Log my own practice"])
 
-    assert "Menu → My students" in closing["text"]
+    assert "☰ Menu → For teachers and shalas" in closing["text"]  # where the link is now
+    assert "☰ Menu → My students" in closing["text"]  # where students will appear
     assert _where(closing) == {
         "🧘 Log my own practice": "w1:n",
         "Shala and classes": "w1:s:c",
         "☰ Menu": "w1:m",
     }
-    assert _rows(today) == [["🧘 Practiced"], ["😌 Rest day"], ["Other reason…"], MENU]
+    assert _rows(today) == [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], MENU]
 
 
 def test_invite_without_a_bot_name_goes_to_the_closing_screen(storage: InMemoryStorage) -> None:
@@ -335,7 +339,7 @@ def test_shala_and_classes_opens_the_form_and_goes_back_where_it_came_from(
     body = _tap(client, f"w1:s:{letter}")
 
     assert body["method"] == "editMessageText"
-    assert "Ask the shala for its link" in body["text"]
+    assert "Ask your shala for its link" in body["text"]
     assert _where(body) == {"🏛 Create a shala": f"{APP}?open=new-shala", BACK: back}
     assert "web_app" in _buttons(body)[0]
 
@@ -374,10 +378,10 @@ def test_help_is_a_list_of_things_to_do(client: TestClient) -> None:
     assert body["method"] == "sendMessage"
     assert body["text"] == "❓ Help\nWhat would you like to do?"
     assert _where(body) == {
-        "📅 Log an earlier day": f"d1:w:{_today():%Y%m%d}",
-        "🔔 Set a practice reminder": "r1:v",
+        "📅 Log another day": f"d1:w:{_today():%Y%m%d}",
+        "🔔 Practice reminder": "r1:v",
         "🧘 My asanas": "g1:o",
-        "🙏 Join a teacher or a shala": "t1:o",
+        "🙏 Add my teacher or shala": "t1:o",
         "For teachers and shalas": "w1:o",
         "☰ Menu": "w1:m",
     }
@@ -449,7 +453,7 @@ def test_the_hidden_commands_are_the_ones_the_tool_does_not_list() -> None:
 def test_schedule_without_a_shala_keeps_its_line_and_gains_the_menu(client: TestClient) -> None:
     body = _text(client, "/schedule")
 
-    assert body["text"].startswith("Your schedule shows the classes of the shalas you join.")
+    assert body["text"].startswith("Your shala's classes appear here once you join.")
     assert _rows(body) == [MENU]
 
 

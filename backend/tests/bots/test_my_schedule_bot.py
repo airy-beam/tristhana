@@ -285,7 +285,7 @@ def test_no_shala_says_how_to_join(client: TestClient, storage: InMemoryStorage)
     body = _command(client, "/schedule")
 
     assert " ".join(body["text"].split()) == (
-        "Your schedule shows the classes of the shalas you join. Ask your shala for its link."
+        "Your shala's classes appear here once you join. Ask your shala for its link."
     )
 
 
