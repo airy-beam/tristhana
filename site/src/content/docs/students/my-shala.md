@@ -17,7 +17,7 @@ The shala's teachers and staff see your name, and nothing from your log. The sta
 ## Your schedule
 
 - **In the bot:** :ftl[menu-open] → :ftl[menu-classes] (or :cmd[schedule]) shows this week's classes at all your shalas.
-- **In the app:** tap :ftl[my-schedule-open]{from=app} for the whole week, and the weeks after it.
+- **In the app:** on the :ftl[tab-shala] tab, tap :ftl[my-schedule-open]{from=app} for the whole week, and the weeks after it. Today's class is also a line on the :ftl[tab-today] tab.
 
 ![This week's classes in the bot](../../../assets/shots/en/bot-schedule.webp)
 

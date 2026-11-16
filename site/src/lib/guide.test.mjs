@@ -69,7 +69,26 @@ describe("label", () => {
   });
 });
 
+describe("ariaLabel", () => {
+  it("gives the accessible name of an icon-only control, or null without one", () => {
+    write("app/en/icons.ftl", "gear = ⚙️\n    .aria-label = Settings\n");
+    write("app/ru/icons.ftl", "gear = ⚙️\n    .aria-label = Настройки\n");
+    expect(labels().label("en", "gear")).toBe("⚙️");
+    expect(labels().ariaLabel("en", "gear")).toBe("Settings");
+    expect(labels().ariaLabel("ru", "gear", "app")).toBe("Настройки");
+    expect(labels().ariaLabel("en", "open")).toBeNull();
+    expect(labels().ariaLabel("en", "gear", "bot")).toBeNull();
+    expect(() => labels().ariaLabel("de", "gear")).toThrow(/unknown locale/);
+  });
+});
+
 describe("the real product files", () => {
+  it("name the Mini App's gear, which has no visible words (UI-06)", () => {
+    const real = createLabels();
+    expect(real.ariaLabel("en", "settings-open", "app")).toBe("Settings");
+    expect(real.ariaLabel("ru", "settings-open", "app")).toBeTruthy();
+  });
+
   it("resolve a bot label in both languages", () => {
     const real = createLabels();
     expect(real.label("en", "start-open-app")).toBe("Open the app");

@@ -50,7 +50,7 @@ npm run shots -- --lang ru       # one language only
 
 Needs the local Postgres container (`tristhana-pg`), `uv` and Google Chrome. The script builds a private demo copy of the product and throws it away afterwards: its own database (`tristhana_demo`, dropped and re-created on every run), a backend on port 8010 that never reads `backend/.env` and has no real bot token, and a Mini App dev server on port 5183. Your own dev instance on port 8000 is not touched.
 
-- The list is `shots/manifest.yaml`; the comments at its top explain each field. A step is a Fluent key, `=student`, `=teacher` or `=shala` for a name from the demo cast, or `#2` for the second button of a bot message. `=invite` in a bot shot's `say` is the demo teacher's invite code.
+- The list is `shots/manifest.yaml`; the comments at its top explain each field. A step is a Fluent key, `=student`, `=teacher` or `=shala` for a name from the demo cast, or `#2` for the second button of a bot message. An app shot's steps start from the Today tab, so most begin with a tab (`tab-practice`, `tab-shala`); a control with no visible words, like the gear (`settings-open`), is found by its accessible name. `=invite` in a bot shot's `say` is the demo teacher's invite code.
 - The demo people and what they logged are in `shots/lib/cast.mjs` and `shots/lib/seed.mjs`. Everything is entered through the real REST API and the real bot webhook.
 - Mini App pictures are a phone-sized Chrome looking at the real app. Bot pictures are drawn from the bot's real reply (text and buttons) in the site's own style; they are drawings, and the guide says so.
 - Dates in the pictures follow the day you run it, so a full re-run changes every file. Use `--only` after a feature change.

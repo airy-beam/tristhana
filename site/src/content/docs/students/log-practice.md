@@ -16,7 +16,7 @@ Log today, yesterday or any earlier day, and add as much detail as you like: whe
 
 ### In the app
 
-Open the app and tap a status on the :ftl[today-title] card.
+On the :ftl[tab-today] tab, tap :ftl[status-practiced], :ftl[status-rest] or :ftl[today-other]. The day is saved at once.
 
 ![The bot after a practice is logged: the saved day and optional details](../../../assets/shots/en/bot-log-practice.webp)
 
@@ -31,14 +31,18 @@ The steps above are enough. If you'd like more, tap :ftl[practice-add-details] r
 
 :ftl[practice-same-as-last] copies the details of your previous practice in one tap. A led class doesn't count: after one, the button offers the practice before it. The line above the buttons shows what will be copied, and names the day if that practice was a while ago.
 
+In the app these are quiet lines under the three choices, and nothing opens until you tap it.
+
+![Today in the app after a practice: Same as last time, Add details, How do you feel? and a note under the three choices](../../../assets/shots/en/app-today.webp)
+
 ## Log an earlier day
 
 - **In the bot:** tap :ftl[log-another-day] under a saved day, or :ftl[menu-help] → :ftl[help-earlier-day]. Pick the day. :ftl[log-earlier] goes further back.
-- **In the app:** open :ftl[stats-open], tap a day in the month calendar and choose its status.
+- **In the app:** open the :ftl[tab-practice] tab, tap a day in the month calendar and choose how it went.
 
 ## Change or clear a day
 
-Under a saved day, tap :ftl[log-change]. Then pick another status, or tap :ftl[log-clear]{from=bot} to remove the entry. Changing a practice day to rest also removes its details.
+Under a saved day, tap :ftl[log-change]. Then pick another status, or tap :ftl[log-clear]{from=bot} to remove the entry. Changing a practice day to rest also removes its details. In the app, tap another choice on the day's card, or :ftl[today-clear].
 
 ## Good to know
 

@@ -1,7 +1,7 @@
 ---
 title: "The bot and the app"
 description: "The bot is for quick taps and reminders. The app is for the calendar, stats and everything with more detail."
-features: [UI-03, UI-02]
+features: [UI-03, UI-06]
 ---
 
 Tristhana has two parts that share one log. The bot is for quick taps and reminders. The app is for the calendar, stats and everything with more detail.
@@ -22,21 +22,22 @@ You don't need to type commands. :ftl[menu-open] is the last button under today'
 
 ## The app
 
-It opens inside Telegram: tap the button next to the message field, or :ftl[menu-open] → :ftl[menu-practice] in the bot. Use it to:
+It opens inside Telegram: tap the button next to the message field, or :ftl[menu-open] → :ftl[menu-practice] in the bot. It has three tabs at the bottom:
 
-- see your year at a glance and each month in detail;
-- fill in or change earlier days from a calendar;
-- look at your badges and your check-ins over time, and make a card to share;
-- change your name, city, day off, reminders and quiet hours.
+- :ftl[tab-today]: log the day in one tap, and see your class and the next moon day;
+- :ftl[tab-practice]: your year and each month, earlier days, badges, check-ins over time and your asanas;
+- :ftl[tab-shala]: your teachers, your students and your shalas, with the schedule and announcements.
 
-![The app's first screen with today's card](../../../assets/shots/en/app-home.webp)
+The gear :ftl[settings-open] in the top corner opens the settings: your name, city, day off, reminders and quiet hours.
+
+![The app's Today tab: three choices for today, today's class, the next moon day, and the three tabs at the bottom](../../../assets/shots/en/app-home.webp)
 
 ## Good to know
 
 - Everything you log in the bot shows up in the app, and the other way round.
 - You don't need the app to use the bot, or the bot to use the app. Reminders, though, always come from the bot.
 - The app follows your Telegram theme, light or dark.
-- Want a quick look around? In the bot, :ftl[menu-help] lists the things people ask most, one tap each. The app has a :ftl[tour-open] in :ftl[settings-open]: it points at what is on your screen, so a teacher or a shala member sees a step or two more.
+- Want a quick look around? In the bot, :ftl[menu-help] lists the things people ask most, one tap each. In the app, the gear leads to :ftl[guide-open], which opens this guide.
 
 ## Next
 

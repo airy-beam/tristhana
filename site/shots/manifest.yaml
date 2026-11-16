@@ -3,13 +3,16 @@
 #
 #   name      file name; a guide page shows it as ![…](…/shots/<lang>/<name>.webp)
 #   kind      app = the Mini App in a phone-sized browser · bot = a drawing of the bot's real reply
-#   as        who is looking: student, teacher or newcomer (shots/lib/cast.mjs)
+#   as        who is looking: student, teacher, newcomer, or assistant: on the shala's team,
+#             has logged nothing, and no bot shot acts as her (shots/lib/cast.mjs)
 #   features  requirement IDs; `npm run shots -- --only PR-01` re-shoots by ID
 #   say       bot: the message the person sends; `=invite` in it is the start code of the demo
 #             teacher's invite link (`/start =invite` is a student opening that link)
 #   tap       bot: then the buttons they tap, each by a bot Fluent key; `=student`, `=teacher`
 #             or `=shala` is that name in the demo cast, "#2" is the second button
-#   click     app: the things they tap after Home loads, each by a Mini App Fluent key or `=name`
+#   click     app: the things they tap after Today loads, each by a Mini App Fluent key or
+#             `=name`: a tab first (`tab-practice`, `tab-shala`), then the rows. A control with
+#             no visible words is found by its accessible name (`settings-open` is the gear)
 #   full      app: capture the whole page, not just the first screen
 #
 # UI-06: nobody has to type a command, so a shot reaches its screen by buttons where it can.
@@ -21,24 +24,28 @@ shots:
   - {name: bot-start, kind: bot, as: newcomer, say: /start, features: [UI-01, UI-06]}
   - {name: bot-today, kind: bot, as: newcomer, say: /menu, tap: [menu-today], features: [UI-06, UI-01, PR-01]}
   - {name: bot-menu, kind: bot, as: student, say: /start, tap: [menu-open], features: [UI-06]}
-  - {name: app-home, kind: app, as: student, features: [UI-03, PR-01]}
+  # Today before anything is logged: the assistant, whom no other shot touches.
+  - {name: app-home, kind: app, as: assistant, features: [UI-03, UI-06, PR-01]}
 
   # For students
   - {name: bot-log-practice, kind: bot, as: newcomer, say: /log, tap: [status-practiced], features: [PR-01, PR-02, PR-03, PR-05, PR-06]}
   - {name: bot-pause, kind: bot, as: newcomer, say: /log, tap: [today-other, status-sick], features: [WH-01]}
   - {name: bot-moon, kind: bot, as: student, say: /moon, features: [MD-03, MD-04, MD-02]}
   - {name: bot-remind, kind: bot, as: student, say: /help, tap: [help-reminder], features: [PR-10, NT-01]}
-  - {name: app-my-practice, kind: app, as: student, click: [stats-open], full: true, features: [ST-01, ST-02, ST-03]}
-  - {name: app-badges, kind: app, as: student, click: [stats-open, badges-open], features: [GM-02]}
-  - {name: app-trends, kind: app, as: student, click: [stats-open, trends-open], full: true, features: [ST-05]}
+  # Today as the demo student has it: a practice with details, and the one next step.
+  - {name: app-next-step, kind: app, as: student, full: true, features: [UI-06, PR-10]}
+  - {name: app-my-practice, kind: app, as: student, click: [tab-practice], full: true, features: [ST-01, ST-02, ST-03]}
+  - {name: app-badges, kind: app, as: student, click: [tab-practice, badges-open], features: [GM-02]}
+  - {name: app-trends, kind: app, as: student, click: [tab-practice, trends-open], full: true, features: [ST-05]}
   - {name: bot-asanas, kind: bot, as: student, say: /help, tap: [help-asanas], features: [PR-08]}
-  - {name: app-my-asanas, kind: app, as: student, click: [progression-open], features: [PR-08, ST-04]}
+  - {name: app-my-asanas, kind: app, as: student, click: [tab-practice, progression-open], features: [PR-08, ST-04]}
   # "#1" in the day picker is today (newest first); its editor has the note button.
   - {name: bot-note, kind: bot, as: student, say: /help, tap: [help-earlier-day, "#1", diary-button], features: [PR-07]}
   - {name: bot-consent, kind: bot, as: newcomer, say: /start =invite, features: [ID-04, UI-06]}
   - {name: bot-teachers, kind: bot, as: student, say: /menu, tap: [menu-teacher], features: [ID-04, SC-01]}
   - {name: bot-schedule, kind: bot, as: student, say: /schedule, features: [SC-03, SC-05, SC-06]}
-  - {name: app-schedule, kind: app, as: student, click: [my-schedule-open], features: [SC-03]}
+  - {name: app-shala-tab, kind: app, as: student, click: [tab-shala], features: [UI-06, ID-04, SC-01]}
+  - {name: app-schedule, kind: app, as: student, click: [tab-shala, my-schedule-open], features: [SC-03]}
   - {name: bot-settings, kind: bot, as: student, say: /settings, features: [ID-06]}
   - {name: bot-help, kind: bot, as: student, say: /help, features: [UI-06, UI-01]}
   - {name: app-settings, kind: app, as: student, click: [settings-open], features: [ID-06]}
@@ -48,16 +55,23 @@ shots:
   - {name: bot-invite, kind: bot, as: teacher, say: /menu, tap: [menu-students, links-invite], features: [ID-03, ID-04]}
   - {name: bot-students, kind: bot, as: teacher, say: /menu, tap: [menu-students], features: [ST-06]}
   - {name: bot-student-card, kind: bot, as: teacher, say: /menu, tap: [menu-students, =student], features: [ST-06, WH-02]}
-  - {name: app-student-card, kind: app, as: teacher, click: [settings-open, links-title, link-students-open, =student], features: [ST-06]}
+  - {name: app-student-card, kind: app, as: teacher, click: [tab-shala, link-students-open, =student], features: [ST-06]}
   - {name: bot-mark-asana, kind: bot, as: teacher, say: /menu, tap: [menu-students, =student, students-give], features: [PR-08]}
-  - {name: app-announce, kind: app, as: teacher, click: [settings-open, links-title, link-students-open, ann-announce], features: [NT-03]}
+  - {name: app-announce, kind: app, as: teacher, click: [tab-shala, link-students-open, ann-announce], features: [NT-03]}
   - {name: bot-teacher-moon, kind: bot, as: teacher, say: /moon, features: [MD-02]}
 
   # For shala staff
   - {name: bot-shala, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala], features: [SC-01]}
   - {name: bot-staff-invite, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala, shala-invite-staff], features: [SC-01]}
-  - {name: app-shala, kind: app, as: teacher, click: [settings-open, links-title, =shala], features: [SC-01, SC-02]}
-  - {name: app-class-form, kind: app, as: teacher, click: [settings-open, links-title, =shala, schedule-add-class], features: [SC-02]}
+  - {name: app-shala, kind: app, as: teacher, click: [tab-shala, =shala], features: [SC-01, SC-02]}
+  - {name: app-class-form, kind: app, as: teacher, click: [tab-shala, =shala, schedule-add-class], features: [SC-02]}
   - {name: bot-classes, kind: bot, as: teacher, say: /classes, features: [SC-02, SC-03]}
   - {name: bot-attendance, kind: bot, as: teacher, say: /classes, tap: [attend-staff-open, "#1"], features: [SC-05]}
-  - {name: app-shala-announce, kind: app, as: teacher, click: [settings-open, links-title, =shala, ann-announce], features: [NT-03]}
+  - {name: app-shala-announce, kind: app, as: teacher, click: [tab-shala, =shala, ann-announce], features: [NT-03]}
+
+  # Last on purpose: these two change what the person has, so nothing may follow them.
+  # `app-today` puts the next step off (kept in the browser), clears the student's today and
+  # logs it again with one tap: the small card, with "Same as last time" on offer.
+  # `app-shala-empty` is the newcomer's first look at the app, which gives her a time zone.
+  - {name: app-today, kind: app, as: student, click: [next-not-now, today-clear, status-practiced], features: [UI-06, PR-01, PR-02]}
+  - {name: app-shala-empty, kind: app, as: newcomer, click: [tab-shala], features: [UI-06, ID-03]}

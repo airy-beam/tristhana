@@ -8,7 +8,7 @@ features: [PR-08, ST-04]
 
 ## Укажи, где заканчивается практика
 
-1. В боте открой :ftl[menu-open] → :ftl[menu-help] и нажми :ftl[help-asanas] (или отправь :cmd[asanas]). В приложении нажми :ftl[progression-open].
+1. В боте открой :ftl[menu-open] → :ftl[menu-help] и нажми :ftl[help-asanas] (или отправь :cmd[asanas]). В приложении открой вкладку :ftl[tab-practice] и нажми :ftl[progression-open].
 2. В первый раз выбери серию и последнюю асану.
 
 ![«Мои асаны» в боте: текущая практика и кнопки для новой асаны](../../../../assets/shots/ru/bot-asanas.webp)

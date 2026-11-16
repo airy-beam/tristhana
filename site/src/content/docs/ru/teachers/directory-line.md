@@ -12,7 +12,7 @@ features: [ID-05]
 
 ## Как отправить запрос
 
-1. В приложении открой :ftl[settings-open] → :ftl[links-title] → :ftl[listing-open].
+1. В приложении открой вкладку :ftl[tab-shala] и нажми :ftl[listing-open].
 2. Заполни поля :ftl[listing-field-name] и :ftl[listing-field-region]. Уровень и примечание — по желанию.
 3. Нажми :ftl[listing-send].
 

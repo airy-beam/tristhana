@@ -316,6 +316,9 @@ describe("seedCast", () => {
     // The assistant joins by a one-time staff link and covers the first Mysore morning two
     // or more days ahead (Nov 13 is a Friday, Nov 14 the day off, so Sunday Nov 15).
     expect(done).toContain("Lila says /start hs_one");
+    // She has a city and logs nothing: `app-home` is her Today before the first tap.
+    expect(done).toContain("Lila PATCH /me");
+    expect(done.some((line) => line.startsWith("Lila PUT /me/days/"))).toBe(false);
     expect(done.filter((line) => line.includes("/occurrences/"))).toEqual([
       expect.stringMatching(/^Arjun PUT \/shalas\/s1\/classes\/c\d+\/occurrences\/2026-11-15$/),
     ]);

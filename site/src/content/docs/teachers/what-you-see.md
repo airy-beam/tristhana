@@ -8,7 +8,7 @@ Your students list and each student's card. Diary notes, check-ins and the reaso
 
 ## Your students
 
-In the bot, open :ftl[menu-open] → :ftl[menu-students]. In the app it is under :ftl[settings-open] → :ftl[links-title].
+In the bot, open :ftl[menu-open] → :ftl[menu-students]. In the app, open the :ftl[tab-shala] tab and tap :ftl[link-students-open].
 
 ![The list of students in the bot](../../../assets/shots/en/bot-students.webp)
 

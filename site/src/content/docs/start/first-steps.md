@@ -26,6 +26,12 @@ _Pictures of the bot are drawn from its real messages._
 - **Language.** The bot starts in your Telegram language. The button with the other language's name on the first screen switches it, and you can change it later in :ftl[menu-settings].
 - **Your time zone.** Open the app once: :ftl[menu-open] → :ftl[menu-practice]. The app tells the bot your phone's time zone, so your days land on the right date.
 
+## The app's three tabs
+
+- :ftl[tab-today]: log the day in one tap.
+- :ftl[tab-practice]: your calendar, your months and your asanas.
+- :ftl[tab-shala]: your teacher, your students and your shala.
+
 ## Next
 
 - [The bot and the app](../bot-and-app/): which one is for what.

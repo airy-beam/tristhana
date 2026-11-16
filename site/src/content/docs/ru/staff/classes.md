@@ -8,7 +8,7 @@ features: [SC-02]
 
 ## Добавить занятие
 
-1. В приложении открой шалу и нажми :ftl[schedule-add-class].
+1. В приложении открой вкладку :ftl[tab-shala], нажми на свою шалу, а потом :ftl[schedule-add-class].
 2. Выбери :ftl[class-form-type]: :ftl[context-mysore], :ftl[context-led], :ftl[context-private], :ftl[class-type]{type=conference}, :ftl[class-type]{type=pranayama}, :ftl[class-type]{type=chanting} или :ftl[class-type]{type=workshop}.
 3. Укажи преподавателя, начало и конец по времени шалы и дни недели. Занятие может повторяться каждую неделю или раз в 2–4 недели. Если не отмечен ни один день, оно пройдёт один раз, в первую дату.
 4. Нажми :ftl[class-form-save].

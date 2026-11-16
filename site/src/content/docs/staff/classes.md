@@ -8,7 +8,7 @@ Add Mysore, Led and other classes once, and everyone sees the week in their own 
 
 ## Add a class
 
-1. In the app, open the shala and tap :ftl[schedule-add-class].
+1. In the app, open the :ftl[tab-shala] tab, tap your shala and then :ftl[schedule-add-class].
 2. Choose the :ftl[class-form-type]: :ftl[context-mysore], :ftl[context-led], :ftl[context-private], :ftl[class-type]{type=conference}, :ftl[class-type]{type=pranayama}, :ftl[class-type]{type=chanting} or :ftl[class-type]{type=workshop}.
 3. Set the teacher, the start and end in the shala's time, and the days of the week. A class can repeat every week or every 2 to 4 weeks. With no days ticked it happens once, on the first date.
 4. Tap :ftl[class-form-save].
