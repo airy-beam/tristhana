@@ -40,6 +40,8 @@ request-withdraw = Withdraw: { $name }…
 # screen reader is `request-withdraw`, with the name. The app's own (the bot keeps the name on its
 # button, as a chat button stands alone).
 request-withdraw-short = Withdraw…
+# The heading of the Shala tab's card with my teachers and the ones I wait for. The app's own.
+request-teachers-title = 👤 My teachers
 request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You can ask them again in about a month.
 request-withdraw-yes = Withdraw
 request-withdrawn = Request withdrawn.

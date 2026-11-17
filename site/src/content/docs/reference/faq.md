@@ -40,6 +40,10 @@ Tristhana shows every time in your own time zone, and it needs your city for tha
 
 Your name, practice or rest from the day you added them, your practice length and your last asana. After about three weeks with nothing to show, they see one short line saying so. They can also mark a new asana for you, and you can undo it. They never see your check-ins, diary notes or the reason for a rest. See [My teacher](../../students/my-teacher/).
 
+## How do I pick my teacher at my shala?
+
+In the app, open the :ftl[tab-shala] tab: while you have no teacher, :ftl[request-open]{from=app} is the first row. In the bot, it is on the shala's card. See [My teacher](../../students/my-teacher/).
+
 ## I picked my teacher at the shala. What happens now?
 
 Your teacher gets one message with your name and confirms. Nothing from your log is shown before that. If there is no answer after 7 days, the bot tells you: ask them in class, or pick another teacher. See [My teacher](../../students/my-teacher/).

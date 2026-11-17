@@ -39,6 +39,7 @@ const STUDENT = [
   "request-waiting-line",
   "request-withdraw",
   "request-withdraw-short",
+  "request-teachers-title",
   "request-withdraw-ask",
   "request-withdraw-yes",
   "request-withdrawn",

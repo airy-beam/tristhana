@@ -1,7 +1,7 @@
 ---
 title: "Invite your students"
 description: "Two ways to connect with a student: share your own link, or say yes when they pick you at your shala."
-features: [ID-03, ID-04, ID-07]
+features: [ID-03, ID-04, ID-07, UI-06]
 ---
 
 Two ways to connect with a student: share your own link, or say yes when they pick you at your shala.
@@ -37,13 +37,13 @@ Do you have the :ftl[shala-role]{role=teacher} role at a shala? Then a student w
 
 ![The bot's message to a teacher about a student, with the buttons Yes, my student and Not my student](../../../assets/shots/en/bot-request-note.webp)
 
-Everyone still waiting is in one list: the row :ftl[request-waiting-open]{count=2} at the top of :ftl[menu-students] and on the shala's card. :ftl[request-all]{count=2} confirms everyone on the list you are looking at.
+Everyone still waiting is in one list. In the bot it is the row :ftl[request-waiting-open]{count=2} at the top of :ftl[menu-students] and on the shala's card. :ftl[request-all]{count=2} confirms everyone on the list you are looking at.
 
 ![The list of people waiting for a teacher's answer in the bot](../../../assets/shots/en/bot-requests.webp)
 
-In the app the list is at the top of :ftl[link-students-open], on the :ftl[tab-shala] tab.
+In the app the list is at the top of the :ftl[tab-shala] tab, with :ftl[request-yes-mine] and :ftl[request-not-mine] under each name.
 
-![The same list in the app, at the top of My students](../../../assets/shots/en/app-requests.webp)
+![The same list in the app, at the top of the Shala tab](../../../assets/shots/en/app-requests.webp)
 
 - Confirm only people you know.
 - A request waits for 7 days. After that, send the student your own link.

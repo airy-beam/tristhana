@@ -340,6 +340,9 @@ test("my teachers by name, with a fallback for no name; my students are one row,
   await openScreen();
 
   const row = await screen.findByRole("button", { name: "👥 My students" });
+  // The card says what the names are.
+  const heading = screen.getByRole("heading", { level: 2, name: "👤 My teachers" });
+  expect(heading.closest(".teachers")).not.toBeNull();
   expect(pageText()).toContain("Лена");
   expect(pageText()).toContain("(no name)");
   // QD: the names, their week and Remove are on My students.
@@ -740,6 +743,7 @@ describe("a teacher I asked", () => {
     const card = line.closest(".card");
     const text = plain(card?.textContent);
     const lines = [
+      "👤 My teachers",
       "⏳ Waiting for an answer: Anna",
       "Withdraw…",
       "⏳ Waiting for an answer: Boris",

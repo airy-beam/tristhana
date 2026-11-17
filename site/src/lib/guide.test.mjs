@@ -231,7 +231,7 @@ describe("words in step: the request and consent messages are the bot's (ADR-004
   /** The app's own messages in `requests.ftl`: the bot has no such line. `request-withdraw-short`
    * is the app's Withdraw beside a line that already names the teacher; the bot's button keeps
    * `request-withdraw`, with the name. */
-  const APP_ONLY = ["request-load-failed", "request-withdraw-short"];
+  const APP_ONLY = ["request-load-failed", "request-withdraw-short", "request-teachers-title"];
 
   /** Each message of a raw `.ftl` source, as written (its id line and indented lines). */
   const sources = (/** @type {string} */ text) => {

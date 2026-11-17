@@ -526,6 +526,9 @@ function Teachers({
 
   return (
     <section className="card teachers">
+      <Localized id="request-teachers-title">
+        <h2 />
+      </Localized>
       {several && main && (
         <>
           <p>
