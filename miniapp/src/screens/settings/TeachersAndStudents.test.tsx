@@ -66,9 +66,17 @@ interface Student {
   name: string | null;
   linked_at: string;
 }
+/** ID-07: a teacher I asked and wait for. The API sends nothing else about a request. */
+interface Asked {
+  teacher_id: string;
+  name: string | null;
+  shala: { id: string; name: string };
+}
 interface LinksBody {
   teachers: Teacher[];
   students: Student[];
+  asked?: Asked[];
+  waiting?: number;
 }
 
 const teacher = (id: string, name: string | null, over: Partial<Teacher> = {}): Teacher => ({
@@ -87,6 +95,13 @@ const student = (id: string, name: string | null): Student => ({
 const lena = (over: Partial<Teacher> = {}) => teacher(LENA, "Лена", { primary: true, ...over });
 const boris = (over: Partial<Teacher> = {}) => teacher(BORIS, "Boris", over);
 const TWO: LinksBody = { teachers: [lena(), boris()], students: [] };
+const ANNA = "00000000-0000-0000-0000-0000000000d1";
+const ROOM = { id: "00000000-0000-0000-0000-0000000000c1", name: "Mysore Room" };
+const asked = (teacher_id: string, name: string | null, shala = ROOM): Asked => ({
+  teacher_id,
+  name,
+  shala,
+});
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -578,4 +593,158 @@ test("two long names still fit Telegram's 256-character popup", async () => {
   });
   const [message = ""] = confirmDestructive.mock.calls[0] ?? [];
   expect(message.length).toBeLessThanOrEqual(256);
+});
+
+// ID-07 (spec §2, §4): a teacher I named in a shala and wait for. One line with the name and the
+// shala, and Withdraw. The line reads the same whatever the teacher did, so it carries no state,
+// no date and no count.
+describe("a teacher I asked", () => {
+  const WAITING: LinksBody = { teachers: [lena()], students: [], asked: [asked(ANNA, "Anna")] };
+  const reads = (text: string) => (found: string) => plain(found) === text;
+
+  test("has a waiting line with the name and the shala", async () => {
+    stubApi(() => WAITING);
+
+    await openScreen();
+
+    const line = await screen.findByText(reads("⏳ Waiting for an answer (Mysore Room)"));
+    expect(line.closest(".card")).toBe(screen.getByText("Лена").closest(".card"));
+    expect(screen.getByText("Anna")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Withdraw…" })).toBeInTheDocument();
+    // Not a teacher on the list: no ⭐, and the one Remove is Лена's.
+    expect(screen.getAllByRole("button", { name: "Remove…" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "⭐ Make main" })).toBeNull();
+  });
+
+  test("shows with no teacher on the list yet, and a missing name has the fallback", async () => {
+    stubApi(() => ({ teachers: [], students: [], asked: [asked(ANNA, null)] }));
+
+    await openScreen();
+
+    await screen.findByText(reads("⏳ Waiting for an answer (Mysore Room)"));
+    expect(pageText()).toContain("(no name)");
+    expect(pageText()).not.toContain("Nobody here yet");
+  });
+
+  test("an older payload without the field shows no line", async () => {
+    stubApi(() => ({ teachers: [lena()], students: [] }));
+
+    await openScreen();
+
+    await screen.findByText("Лена");
+    expect(pageText()).not.toContain("Waiting");
+    expect(screen.queryByRole("button", { name: "Withdraw…" })).toBeNull();
+  });
+
+  test("tells nothing but the name and the shala: no state, date or count", async () => {
+    stubApi(() => ({
+      teachers: [],
+      students: [],
+      asked: [asked(ANNA, "Anna"), asked(BORIS, "Boris")],
+    }));
+
+    await openScreen();
+
+    await screen.findByText("Boris");
+    const card = screen.getByText("Anna").closest(".card");
+    const text = plain(card?.textContent);
+    const lines = [
+      "No teacher on your list. To add a teacher or join a shala, open the link they send you. " +
+        "Your log works the same either way.",
+      "Anna",
+      "Withdraw…",
+      "⏳ Waiting for an answer (Mysore Room)",
+      "Boris",
+      "Withdraw…",
+      "⏳ Waiting for an answer (Mysore Room)",
+    ];
+    expect(text).toBe(lines.join(""));
+    expect(text).not.toMatch(/\d/);
+    expect(text).not.toMatch(/declin|reject|refus|not your|no answer|expire|ago|since|day/i);
+  });
+
+  test("Withdraw: Cancel sends nothing", async () => {
+    const seen = stubApi(() => WAITING);
+    await openScreen();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Withdraw…" }));
+
+    await waitFor(() => {
+      expect(confirmDestructive).toHaveBeenCalledOnce();
+    });
+    const [message, ok, cancel] = confirmDestructive.mock.calls[0] ?? [];
+    expect(plain(message)).toBe(
+      "Withdraw your request to Anna? No one gets a message. " +
+        "You won't be able to ask Anna again here for a while.",
+    );
+    expect(ok).toBe("Withdraw");
+    expect(cancel).toBe("Cancel");
+    expect(seen.filter((r) => r.method === "DELETE")).toHaveLength(0);
+    expect(pageText()).toContain("Anna");
+  });
+
+  test("Withdraw: confirming deletes the request, and the line goes", async () => {
+    confirmDestructive.mockResolvedValue(true);
+    let withdrawn = false;
+    const seen = stubApi(
+      () => (withdrawn ? { ...WAITING, asked: [] } : WAITING),
+      (request) => {
+        if (request.method !== "DELETE") return undefined;
+        withdrawn = true;
+        return new Response(null, { status: 204 });
+      },
+    );
+    await openScreen();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Withdraw…" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Anna")).not.toBeInTheDocument();
+    });
+    expect(calls(seen, "DELETE", `/api/v1/me/teacher-requests/${ANNA}`)).toHaveLength(1);
+    expect(seen.filter((r) => r.method === "DELETE")).toHaveLength(1);
+    expect(pageText()).not.toContain("Waiting");
+    expect(pageText()).toContain("Лена"); // the teacher on the list is untouched
+  });
+
+  test("a failed Withdraw says so and keeps the line", async () => {
+    confirmDestructive.mockResolvedValue(true);
+    stubApi(
+      () => WAITING,
+      (request) => (request.method === "DELETE" ? json({ code: "unavailable" }, 503) : undefined),
+    );
+    await openScreen();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Withdraw…" }));
+
+    const line = await screen.findByRole("alert");
+    expect(plain(line.textContent)).toBe("Couldn't save. Try again in a moment.");
+    expect(screen.getByRole("button", { name: "Withdraw…" })).toBeEnabled();
+  });
+
+  test("the screen offers no way to ask a teacher: that stays in the bot", async () => {
+    stubApi(() => WAITING);
+
+    await openScreen();
+
+    await screen.findByText("Anna");
+    expect(screen.queryByRole("button", { name: /Ask a teacher|Pick/ })).toBeNull();
+  });
+
+  test("Russian, and two long names still fit Telegram's popup", async () => {
+    const long = "Я".repeat(64);
+    stubApi(() => ({ teachers: [], students: [], asked: [asked(ANNA, long)] }));
+    await openScreen("ru");
+
+    await screen.findByText(reads("⏳ Ждём ответа (Mysore Room)"));
+    fireEvent.click(screen.getByRole("button", { name: "Отозвать…" }));
+
+    await waitFor(() => {
+      expect(confirmDestructive).toHaveBeenCalledOnce();
+    });
+    const [message = "", ok] = confirmDestructive.mock.calls[0] ?? [];
+    expect(plain(message)).toMatch(/^Отозвать запрос: Я+…\? Сообщений никто не получит\. /);
+    expect(message.length).toBeLessThanOrEqual(256);
+    expect(ok).toBe("Отозвать");
+  });
 });

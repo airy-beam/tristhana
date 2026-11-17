@@ -25,6 +25,7 @@ import {
 import { lengthText } from "../practiceText";
 import { get, isStanding, stopLabel } from "../progression/progressionText";
 import { lazyRetry } from "../../shell/lazyRetry";
+import { Waiting } from "./Waiting";
 
 interface Props {
   locale: Locale;
@@ -100,6 +101,7 @@ function List({
           <h1 />
         </Localized>
       )}
+      <Waiting />
       <Localized id="students-days-note">
         <p className="hint" />
       </Localized>

@@ -108,7 +108,7 @@ export function useMe() {
 }
 
 export type NextStep = components["schemas"]["NextStepOut"];
-const NEXT_STEPS_KEY = ["next-steps"] as const;
+export const NEXT_STEPS_KEY = ["next-steps"] as const;
 
 /** What the Today tab may offer next (UI-06), in offer order; the server derives it on every
  * read. An API older than this bundle answers 404: then there is no card, and no retry. */
@@ -1069,10 +1069,16 @@ export type Listing = components["schemas"]["ListingOut"];
 export type ListingBody = components["schemas"]["ListingIn"];
 export type ListingMark = components["schemas"]["ListingMarkOut"];
 export type ListingLevel = components["schemas"]["Level"];
+// ID-07: teacher requests. Types and keys only: the hooks live with the lazy screens
+// (screens/teachers/requests.ts), as the directory line's do.
+export type AskedTeacher = components["schemas"]["AskedTeacherOut"];
+export type StudentRequest = components["schemas"]["StudentRequestOut"];
+export type StudentRequests = components["schemas"]["StudentRequestsOut"];
+export type ApprovedAll = components["schemas"]["ApprovedAllOut"];
 
-const LINKS_KEY = ["links"];
+export const LINKS_KEY = ["links"];
 
-const STUDENTS_KEY = ["students"];
+export const STUDENTS_KEY = ["students"];
 export type StudentsPage = components["schemas"]["StudentsOut"];
 export type StudentCard = components["schemas"]["StudentCardOut"];
 export type NewAsanaBody = components["schemas"]["NewAsanaIn"];
