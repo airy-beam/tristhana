@@ -33,13 +33,10 @@ export function PauseOffer({
   saved,
   today,
   onDone,
-  showLadies = true,
 }: {
   saved: DaySaved;
   today: string;
   onDone: () => void;
-  /** The device switch: when off, 🌸 is named as rest here too (as PeriodLine). */
-  showLadies?: boolean;
 }) {
   const [more, setMore] = useState(false);
   // Answered, waiting for the server: hidden; shown again if it fails, so it can be retried.
@@ -51,7 +48,6 @@ export function PauseOffer({
   const dateLabel = useDateLabel();
   const offer = saved.pause_offer;
   const cut = saved.cut;
-  const named = (kind: string) => (kind === "ladies" && !showLadies ? "rest" : kind);
   const handlers = {
     onSuccess: () => {
       onDone();
@@ -64,7 +60,7 @@ export function PauseOffer({
   if (sending) return null;
 
   if (offer) {
-    const label = l10n.getString(`status-${named(offer.kind)}`);
+    const label = l10n.getString(`status-${offer.kind}`);
     const rel = offer.start === today ? "today" : "yesterday";
     return (
       <div className="pause">
@@ -115,7 +111,7 @@ export function PauseOffer({
     );
   }
   if (cut && isPausable(cut) && cut.end > saved.date && cut.end >= today) {
-    const label = l10n.getString(`status-${named(cut.kind)}`);
+    const label = l10n.getString(`status-${cut.kind}`);
     const rel =
       saved.date === today ? "today" : isYesterday(saved.date, today) ? "yesterday" : "other";
     return (
@@ -151,7 +147,6 @@ export function PeriodLine({
   today,
   logged,
   practiceOn,
-  showLadies = true,
 }: {
   period: RestPeriod;
   day: string;
@@ -159,19 +154,17 @@ export function PeriodLine({
   /** The day has its own status: then only the End link (the status says the rest). */
   logged: boolean;
   practiceOn: boolean;
-  showLadies?: boolean;
 }) {
   const end = useEndRestPeriod();
   const { l10n } = useLocalization();
   const dateLabel = useDateLabel();
-  const kind = period.kind === "ladies" && !showLadies ? "rest" : period.kind;
   const showLine = !logged || day === period.start;
   return (
     <>
       {showLine && (
         <Localized
           id="today-period"
-          vars={{ label: l10n.getString(`status-${kind}`), until: dateLabel(period.end) }}
+          vars={{ label: l10n.getString(`status-${period.kind}`), until: dateLabel(period.end) }}
         >
           <p className="hint" />
         </Localized>

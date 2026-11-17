@@ -168,7 +168,6 @@ const renderEditor = (date: string) =>
       label="A day"
       zone="Asia/Almaty"
       locale="en"
-      showLadies
       onClose={() => undefined}
     />,
   );

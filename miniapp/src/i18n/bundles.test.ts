@@ -3,11 +3,13 @@ import { FluentResource } from "@fluent/bundle";
 import enApp from "../locales/en/app.ftl?raw";
 import enClassRow from "../locales/en/class-row.ftl?raw";
 import enDetails from "../locales/en/details.ftl?raw";
+import enPractice from "../locales/en/practice.ftl?raw";
 import enRequests from "../locales/en/requests.ftl?raw";
 import enShala from "../locales/en/shala.ftl?raw";
 import ruApp from "../locales/ru/app.ftl?raw";
 import ruClassRow from "../locales/ru/class-row.ftl?raw";
 import ruDetails from "../locales/ru/details.ftl?raw";
+import ruPractice from "../locales/ru/practice.ftl?raw";
 import ruRequests from "../locales/ru/requests.ftl?raw";
 import ruShala from "../locales/ru/shala.ftl?raw";
 import { addMessages } from "./lazyMessages";
@@ -25,7 +27,10 @@ const REQUESTS = { en: enRequests, ru: ruRequests };
 addMessages(DETAILS);
 addMessages(CLASS_ROW);
 addMessages(SHALA);
+// UI-06 stage 3: the Practice tab's own copy (`practice.ftl`).
+const PRACTICE = { en: enPractice, ru: ruPractice };
 addMessages(REQUESTS);
+addMessages(PRACTICE);
 
 /** Each message of a raw `.ftl` source with the `$variables` it uses. */
 function shape(source: string): Record<string, string[]> {
@@ -47,6 +52,7 @@ describe.each([
   ["class-row.ftl", CLASS_ROW],
   ["shala.ftl", SHALA],
   ["requests.ftl", REQUESTS],
+  ["practice.ftl", PRACTICE],
 ])("%s (lazy copy)", (_file, sources) => {
   it("has the same messages and variables in en and ru", () => {
     expect(shape(sources.ru)).toEqual(shape(sources.en));
@@ -451,5 +457,78 @@ describe("the copy as it ships", () => {
       expect(messageIds(locale).size).toBe(definedIdCount(locale));
       expect(messageIds(locale).size).toBeGreaterThan(500);
     }
+  });
+});
+
+// UI-06 stage 3 (spec §7): the Practice tab. Four legend words, one number, plain plurals; a run
+// is "in a row", and nothing reads as a day that went wrong.
+describe("the Practice tab's copy", () => {
+  const en = bundleFor("en");
+  const ru = bundleFor("ru");
+
+  it.each([
+    [0, "📅 2026 · the whole year", "📅 2026 · весь год"],
+    [1, "📅 2026 · 1 practice", "📅 2026 · 1 практика"],
+    [3, "📅 2026 · 3 practices", "📅 2026 · 3 практики"],
+    [5, "📅 2026 · 5 practices", "📅 2026 · 5 практик"],
+    [21, "📅 2026 · 21 practices", "📅 2026 · 21 практика"],
+    [143, "📅 2026 · 143 practices", "📅 2026 · 143 практики"],
+  ])("the year row with %i practices", (n, english, russian) => {
+    expect(format(en, "stats-year-open", { year: "2026", n })).toBe(english);
+    expect(format(ru, "stats-year-open", { year: "2026", n })).toBe(russian);
+  });
+
+  it("names the moon phase and the city on a day's card", () => {
+    expect(format(en, "stats-day-moon", { phase: "purnima", city: "Mysuru" })).toBe(
+      "🌕 Full moon · 📍 Mysuru",
+    );
+    expect(format(ru, "stats-day-moon", { phase: "amavasya", city: "Майсур" })).toBe(
+      "🌑 Новолуние · 📍 Майсур",
+    );
+  });
+
+  it("counts 'of' for any month, with the Russian genitive", () => {
+    expect(format(en, "stats-consistency", { x: 9, y: 10 })).toBe("Practice on 9 of 10 days");
+    expect(format(ru, "stats-consistency", { x: 9, y: 10 })).toBe("Практика в 9 из 10 дней");
+    expect(format(ru, "stats-consistency", { x: 18, y: 21 })).toBe("Практика в 18 из 21 дня");
+  });
+
+  it("reads as written", () => {
+    expect(format(en, "stats-more")).toBe("The month in numbers");
+    expect(format(ru, "stats-more")).toBe("Месяц в цифрах");
+    expect(format(en, "stats-legend-label")).toBe("What the marks mean");
+    expect(format(ru, "stats-legend-label")).toBe("Что означают отметки");
+    expect(format(en, "stats-show-ladies")).toBe("Show 🌸 on my calendar");
+    expect(format(ru, "stats-show-ladies")).toBe("Показывать 🌸 в календаре");
+    expect(format(en, "stats-show-ladies-hint")).toBe(
+      "On this phone only. While it's off, these days look like rest.",
+    );
+    expect(format(ru, "stats-show-ladies-hint")).toBe(
+      "Только на этом телефоне. Пока выключено, эти дни выглядят как отдых.",
+    );
+  });
+
+  it.each(LOCALES)("%s: the eight-item legend's keys are gone, the kept ones stay", (locale) => {
+    const ids = new Set([...messageIds(locale), ...Object.keys(shape(PRACTICE[locale]))]);
+    for (const gone of [
+      "stats-legend-moon",
+      "stats-legend-auto",
+      "stats-legend-away",
+      "stats-legend-skipped",
+      "stats-legend-moon-marker",
+      "stats-consistency-count",
+    ]) {
+      expect(ids.has(gone)).toBe(false);
+    }
+    for (const kept of ["stats-legend-practiced", "stats-legend-rest", "stats-legend-none"]) {
+      expect(ids.has(kept)).toBe(true);
+    }
+  });
+
+  it.each([
+    ["en", enPractice],
+    ["ru", ruPractice],
+  ])("%s: never a streak, a miss or a skipped day", (_locale, source) => {
+    expect(source).not.toMatch(/streak|missed|skipp|пропуск|серия|серии|полос/i);
   });
 });

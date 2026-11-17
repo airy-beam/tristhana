@@ -195,15 +195,9 @@ stats-year-total = { $year }: { $n ->
         [few] { $n } практики
        *[many] { $n } практик
     }
-stats-consistency = В этом месяце: практика в { $x } из { $y ->
+stats-consistency = Практика в { $x } из { $y ->
         [one] { $y } дня
        *[other] { $y } дней
-    }
-stats-consistency-count = В этом месяце: { $n ->
-        [0] пока без практики
-        [one] { $n } практика
-        [few] { $n } практики
-       *[many] { $n } практик
     }
 stats-run-current = 🌿 { $n ->
         [one] { $n } практика
@@ -214,12 +208,8 @@ stats-run-longest = Больше всего подряд в этом году: {
 stats-consistency-hint = Дни без отметки не учитываются. Отдых, лунные дни, болезнь и поездки не сбивают счёт: отдых тоже часть практики.
 stats-legend-practiced = Практика
 stats-legend-rest = Отдых
-stats-legend-moon = 🌙 Лунный день (отдых)
-stats-legend-away = Болезнь или поездка
-stats-legend-skipped = Без практики
 stats-legend-none = Без отметки
-stats-legend-moon-marker = Полнолуние или новолуние · 📍 { $city }
-stats-show-ladies = Показывать 🌸 дни на этом устройстве
+stats-show-ladies = Показывать 🌸 в календаре
 stats-cell-label = { $date }: { $status }{ $moon ->
         [yes] , полнолуние или новолуние
        *[no] {""}
@@ -344,7 +334,6 @@ day-off-ask-instead = { $d ->
     }
 day-off-ask-other = Другой…
 day-off-ask-later = Не сейчас
-stats-legend-auto = Выходной или лунный день (без отметки)
 stats-cell-auto = { $date }: { $kind ->
         [moon] 🌙 лунный день (📍 { $city })
        *[day_off] 😌 выходной

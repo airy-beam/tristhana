@@ -238,6 +238,7 @@ beforeAll(async () => {
   await Promise.all([
     import("./App"),
     import("./screens/stats/Stats"),
+    import("./screens/stats/Year"),
     import("./screens/badges/Badges"),
     import("./screens/trends/Trends"),
     import("./screens/settings/Links"),
@@ -688,6 +689,49 @@ describe("Back or tabs, never both", () => {
       expect(bar()).not.toBeNull();
     });
     expect(current()).toEqual(["📊 Practice"]);
+  });
+
+  // UI-06 stage 3: the year is a layer over the Practice root, and the day card is one too.
+  test("the year over Practice hides the bar; Back returns to the month", async () => {
+    await launch();
+    await today();
+    await go("practice");
+    await screen.findByRole("heading", { level: 2, name: "November 2026" });
+
+    fireEvent.click(screen.getByRole("button", { name: /^📅/ }));
+
+    expect(await heading("2026")).toHaveFocus();
+    await waitFor(() => {
+      expect(bar()).toBeNull();
+    });
+    back();
+    await waitFor(() => {
+      expect(bar()).not.toBeNull();
+    });
+    expect(screen.getByRole("heading", { level: 2, name: "November 2026" })).toBeVisible();
+    expect(current()).toEqual(["📊 Practice"]);
+  });
+
+  test("a day opened on the Practice month hides the bar until Back closes it", async () => {
+    await launch();
+    await today();
+    await go("practice");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: (n) => plain(n).startsWith("Tue, Nov 3:") }),
+    );
+
+    const card = await screen.findByRole("region", { name: (n) => plain(n).includes("Nov 3") });
+    await waitFor(() => {
+      expect(bar()).toBeNull();
+    });
+    expect(within(card).getByRole("heading", { level: 2 })).toHaveFocus();
+    back();
+    await waitFor(() => {
+      expect(bar()).not.toBeNull();
+    });
+    expect(screen.queryByRole("region", { name: (n) => plain(n).includes("Nov 3") })).toBeNull();
+    expect(await practice()).toBeInTheDocument(); // still the Practice root
   });
 });
 

@@ -191,12 +191,7 @@ stats-year-total = { $n ->
         [one] { $n } practice in { $year }
        *[other] { $n } practices in { $year }
     }
-stats-consistency = This month: practice on { $x } of { $y } days
-stats-consistency-count = { $n ->
-        [0] This month: no practice yet
-        [one] This month: { $n } practice
-       *[other] This month: { $n } practices
-    }
+stats-consistency = Practice on { $x } of { $y } days
 # Shown only from 2, but kept plural-safe.
 stats-run-current = { $n ->
         [one] 🌿 { $n } practice in a row
@@ -206,12 +201,8 @@ stats-run-longest = Most in a row this year: { $n }
 stats-consistency-hint = Days you haven't logged are left out. Rest, moon, sick and travel days don't reset the count: rest is part of the practice.
 stats-legend-practiced = Practice
 stats-legend-rest = Rest
-stats-legend-moon = 🌙 Moon day (rest)
-stats-legend-away = Sick or traveling
-stats-legend-skipped = No practice
 stats-legend-none = Not logged
-stats-legend-moon-marker = Full or new moon · 📍 { $city }
-stats-show-ladies = Show 🌸 days on this device
+stats-show-ladies = Show 🌸 on my calendar
 stats-cell-label = { $date }: { $status }{ $moon ->
         [yes] , full or new moon
        *[no] {""}
@@ -334,7 +325,6 @@ day-off-ask-instead = { $d ->
     }
 day-off-ask-other = Other…
 day-off-ask-later = Not now
-stats-legend-auto = Day off or moon day (not logged)
 stats-cell-auto = { $date }: { $kind ->
         [moon] 🌙 moon day (📍 { $city })
        *[day_off] 😌 day off

@@ -8,14 +8,18 @@ interface Props {
   month: number;
   moon: Set<string>;
   auto: Map<string, AutoDay>;
+  /** The followed city, named in an unlogged moon day. */
   city: string;
+  /** The device switch: a ladies' holiday gets its small mark and its own name. */
   showLadies: boolean;
   weekdays: string[];
   dateLabel: (day: string) => string;
-  onPick: (day: string) => void;
+  /** A tap on a day up to today, with the day's button (the focus returns to it). */
+  onPick: (day: string, from: HTMLElement) => void;
 }
 
-/** A large calendar for one month: tap a day up to today to log or change it. */
+/** A large calendar for one month: tap a day up to today to log or change it. Three fills and
+ * the moon ring; a day with nothing logged is a plain number (never greyed, never crossed). */
 export function MonthView({
   stats,
   month,
@@ -32,8 +36,8 @@ export function MonthView({
   const days = daysInMonth(stats.year, month);
   return (
     <div className="month-grid" role="group" aria-labelledby="month-title">
-      {weekdays.map((w) => (
-        <span key={w} className="weekday" aria-hidden="true">
+      {weekdays.map((w, i) => (
+        <span key={`w${String(i)}`} className="weekday" aria-hidden="true">
           {w}
         </span>
       ))}
@@ -55,18 +59,24 @@ export function MonthView({
                 status: l10n.getString(labelKey(cell, showLadies)),
                 moon: marker,
               });
+        const kind = future ? "future" : kindOf(cell, rest !== undefined);
+        const classes = [
+          "day",
+          kind !== "none" && kind,
+          day === stats.today && "today",
+          moon.has(day) && "moon-marker",
+          showLadies && cell === "ladies" && "flower",
+        ];
         return (
           <button
             key={day}
             type="button"
-            className={`day ${future ? "future" : rest ? "auto" : kindOf(cell, showLadies)}${
-              day === stats.today ? " today" : ""
-            }${moon.has(day) ? " moon-marker" : ""}`}
+            className={classes.filter(Boolean).join(" ")}
             disabled={future}
             aria-label={label}
             aria-current={day === stats.today ? "date" : undefined}
-            onClick={() => {
-              onPick(day);
+            onClick={(event) => {
+              onPick(day, event.currentTarget);
             }}
           >
             {i + 1}

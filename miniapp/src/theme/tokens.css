@@ -191,7 +191,8 @@ body {
   font-size: 13px;
 }
 
-/* Stats (ST-01..03) */
+/* A full-width row (My asanas, Badges), the day-off question, a switch. The Practice tab's own
+   rules load with it: `screens/stats/stats.css`. */
 .row-button {
   display: block;
   width: 100%;
@@ -204,143 +205,8 @@ body {
   font: inherit;
   text-align: left;
 }
-.stats .pager {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.stats .pager .link {
-  font-size: 1.4em;
-  padding: 0 12px;
-}
-.stats .pager .link:disabled {
-  opacity: 0.3;
-}
-.heatmap {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px 4px;
-  margin: 8px 0;
-}
-.mini-month {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 0;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: none;
-  color: var(--c-hint);
-  font: inherit;
-  font-size: 0.75em;
-}
-.mini-month[aria-pressed="true"] {
-  border-color: var(--c-accent);
-  color: var(--c-text);
-}
-.cell,
-.swatch {
-  fill: var(--c-surface);
-  background: var(--c-surface);
-}
-.cell.none,
-.swatch.none {
-  fill: transparent;
-  stroke: var(--c-hint);
-  stroke-opacity: 0.35;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-hint) 35%, transparent);
-}
-.cell.future {
-  fill: transparent;
-}
-.cell.practiced,
-.swatch.practiced,
-.day.practiced {
-  fill: var(--c-accent);
-  background: var(--c-accent);
-  color: var(--c-accent-text);
-}
-.cell.rest,
-.swatch.rest,
-.day.rest {
-  fill: #9ccfb4;
-  background: #9ccfb4;
-}
-.cell.moon,
-.swatch.moon,
-.day.moon {
-  fill: #6fb08d;
-  background: #6fb08d;
-}
-.cell.ladies,
-.swatch.ladies,
-.day.ladies {
-  fill: #e7a3bd;
-  background: #e7a3bd;
-}
-.cell.away,
-.swatch.away,
-.day.away {
-  fill: #b9bcc4;
-  background: #b9bcc4;
-}
-.cell.skipped,
-.swatch.skipped,
-.day.skipped {
-  fill: #ead9b5;
-  background: #ead9b5;
-}
-/* Auto-rest (PR-09): an unlogged day shown as rest. The rest hue, lighter, with a dashed
-   edge, so it never looks like a logged day; the moon ring still sits on top. */
-.cell.auto {
-  fill: color-mix(in srgb, #9ccfb4 45%, transparent);
-  stroke: #6fb08d;
-  stroke-width: 1;
-  stroke-dasharray: 2 1.5;
-}
-.swatch.auto,
-.day.auto {
-  background: color-mix(in srgb, #9ccfb4 45%, transparent);
-  outline: 1px dashed #6fb08d;
-  outline-offset: -1px;
-}
 .question {
   margin-top: 8px;
-}
-.moon-ring {
-  fill: none;
-  stroke: var(--c-text);
-  stroke-width: 1.2;
-  opacity: 0.7;
-}
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin: 8px 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.8em;
-  color: var(--c-hint);
-}
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-}
-.swatch.ring {
-  background: transparent;
-  border: 1.2px solid var(--c-text);
-  border-radius: 50%;
-  opacity: 0.7;
 }
 .toggle {
   display: flex;
@@ -348,61 +214,6 @@ body {
   gap: 8px;
   font-size: 0.85em;
   color: var(--c-hint);
-}
-.month-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin: 8px 0;
-}
-.month-grid .weekday {
-  text-align: center;
-  font-size: 0.75em;
-  color: var(--c-hint);
-}
-.day {
-  aspect-ratio: 1;
-  min-height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-hint) 35%, transparent);
-  color: var(--c-text);
-  font: inherit;
-}
-.day.future {
-  box-shadow: none;
-  color: var(--c-hint);
-}
-.day.today {
-  outline: 2px solid var(--c-text);
-  outline-offset: 1px;
-}
-.day.moon-marker {
-  box-shadow:
-    inset 0 0 0 2px var(--c-bg),
-    inset 0 0 0 3px var(--c-text);
-}
-.summary .counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  margin: 4px 0 8px;
-  padding: 0;
-  list-style: none;
-}
-.summary .counts li {
-  display: flex;
-  gap: 6px;
-}
-
-/* Pastel cells keep dark numbers in the dark theme too. */
-.day.rest,
-.day.moon,
-.day.ladies,
-.day.away,
-.day.skipped {
-  color: #1f2328;
 }
 
 /* PR-08: the celebration card (tap to dismiss) and the short history. */
@@ -484,7 +295,9 @@ body {
   padding-right: 40px;
 }
 
-.screen h1:focus {
+/* So is the heading of a day card opened from a calendar. */
+.screen h1:focus,
+.daylog h2:focus {
   outline: none;
 }
 

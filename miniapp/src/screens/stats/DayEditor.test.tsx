@@ -47,19 +47,12 @@ function stubApi(celebrations: unknown[]) {
   );
 }
 
-function renderEditor(onClose: () => void = () => undefined, showLadies = true) {
+function renderEditor(onClose: () => void = () => undefined) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <L10nProvider locale="en">
-        <DayEditor
-          date={DAY}
-          label="Mar 1"
-          zone="Asia/Almaty"
-          locale="en"
-          showLadies={showLadies}
-          onClose={onClose}
-        />
+        <DayEditor date={DAY} label="Mar 1" zone="Asia/Almaty" locale="en" onClose={onClose} />
       </L10nProvider>
     </QueryClientProvider>,
   );
@@ -70,6 +63,7 @@ const visible = (el: HTMLElement) => el.textContent.replace(/[⁨⁩]/g, "");
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe("DayEditor practice count (GM-01 part 2)", () => {
@@ -190,18 +184,66 @@ describe("DayEditor: the three-choice card", () => {
     );
   });
 
-  it("has no 🌸 among the reasons while 🌸 days are hidden on this device", async () => {
+  // UI-06 stage 3 (QB): the device switch decides what the calendar marks, never what the day
+  // card offers; with the default (off) a past 🌸 day could not be logged in the app at all.
+  it("offers 🌸 among the reasons, also while the calendar hides 🌸 days", async () => {
+    localStorage.setItem("stats.showLadies", "0");
     stubApi([]);
-    renderEditor(undefined, false);
+    renderEditor();
 
     fireEvent.click(await screen.findByRole("button", { name: "Other…" }));
 
     const reasons = screen.getByRole("group", { name: /Pick what fits/ });
     expect(within(reasons).getAllByRole("button").map(visible)).toEqual([
       "🌙 Moon day",
+      "🌸 Ladies' holiday",
       "🤒 Sick / injury",
       "✈️ Travel",
       "🌱 No practice",
     ]);
+    fireEvent.click(screen.getByRole("button", { name: "🌸 Ladies' holiday" }));
+
+    // Shown as what it is, with the line that says who sees it.
+    expect(await screen.findByRole("button", { name: "Change" })).toHaveAccessibleDescription(
+      "🌸 Ladies' holiday",
+    );
+    expect(screen.getByText("Only you see this. Others see “Rest day”.")).toBeInTheDocument();
+  });
+
+  it("comes into view and its heading takes the focus when it opens", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    stubApi([]);
+    renderEditor();
+
+    expect(screen.getByRole("heading", { level: 2, name: "Mar 1" })).toHaveFocus();
+    await screen.findByText("Practice or rest? Both go in your log.");
+    // The heading at once, then the whole card with its choices.
+    await vi.waitFor(() => {
+      expect(scrolled).toHaveBeenCalledTimes(2);
+    });
+    expect(scrolled).toHaveBeenLastCalledWith({ block: "nearest" });
+  });
+
+  it("shows the lines it is given under the heading, once the day is read", async () => {
+    stubApi([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <L10nProvider locale="en">
+          <DayEditor
+            date={DAY}
+            label="Mar 1"
+            zone="Asia/Almaty"
+            locale="en"
+            onClose={() => undefined}
+          >
+            <p>A line about the day</p>
+          </DayEditor>
+        </L10nProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("A line about the day")).toBeInTheDocument();
   });
 });

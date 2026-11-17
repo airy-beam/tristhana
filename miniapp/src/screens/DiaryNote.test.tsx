@@ -155,7 +155,6 @@ const renderEditor = (date: string) =>
       label="A day"
       zone="Asia/Almaty"
       locale="en"
-      showLadies
       onClose={() => undefined}
     />,
   );
@@ -519,7 +518,6 @@ describe("DiaryNote: review fixes", () => {
             label="A day"
             zone="Asia/Almaty"
             locale="en"
-            showLadies
             onClose={() => undefined}
           />
         </L10nProvider>

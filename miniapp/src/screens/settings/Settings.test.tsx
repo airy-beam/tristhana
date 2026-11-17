@@ -277,7 +277,7 @@ describe("Settings", () => {
     renderWith(<Settings me={ME} onBack={vi.fn()} />);
 
     expect(await screen.findByText(/stored encrypted/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show 🌸 on my calendar" }));
     expect(localStorage.getItem("stats.showLadies")).toBe("1");
   });
 });
@@ -570,7 +570,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
     renderWith(<Settings me={shown} onBack={vi.fn()} />);
     fireEvent.click(await toggle());
 
-    expect(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Show 🌸 on my calendar" })).not.toBeChecked();
     expect(localStorage.getItem("stats.showLadies")).not.toBe("1");
   });
 });
