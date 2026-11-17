@@ -767,6 +767,8 @@ links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
 link-no-name = (no name)
+request-confirmed = ✅ { $name } confirmed your request and is on your list of teachers now.
+request-no-answer = No answer from { $name } yet. Ask them in class, or pick another teacher.
 export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
 export-readme-requests = teacher_requests in data.json: requests to a teacher from the last 30 days, the ones you sent and the ones you received, without names. other_side: "teacher" = you asked a teacher, "student" = a student asked you. state for requests you sent: "waiting" = no answer yet, "no_answer" = no answer within 7 days, "confirmed" = the teacher confirmed, "withdrawn" = taken back, or the link was removed later. For requests you received: "waiting" = waiting for your answer, "confirmed" = you confirmed, "declined" = you answered "Not my student", "closed" = it ended without your answer.
 export-readme-shalas = shalas in data.json: the shalas you're in. side: "staff" or "student"; owner: the shala is yours; roles: your roles there ("admin" = manager, "office" = front desk). No one else's names.

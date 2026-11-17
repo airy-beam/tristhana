@@ -83,7 +83,8 @@ def test_every_route_needs_auth(api: TestClient, method: str, url: str) -> None:
 
 
 def test_links_of_someone_new_are_empty(api: TestClient) -> None:
-    assert _links(api) == {"teachers": [], "students": []}
+    # ID-07: `asked` and `waiting` are the caller's side of teacher requests.
+    assert _links(api) == {"teachers": [], "students": [], "asked": [], "waiting": 0}
 
 
 def test_links_have_exactly_the_agreed_keys(api: TestClient, storage: InMemoryStorage) -> None:
@@ -94,7 +95,7 @@ def test_links_have_exactly_the_agreed_keys(api: TestClient, storage: InMemorySt
 
     body = _links(api)
 
-    assert set(body) == {"teachers", "students"}
+    assert set(body) == {"teachers", "students", "asked", "waiting"}  # the last two: ID-07
     [listed_teacher], [listed_student] = body["teachers"], body["students"]
     assert set(listed_teacher) == {
         "id",

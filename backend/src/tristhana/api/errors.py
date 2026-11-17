@@ -58,6 +58,8 @@ type ErrorCode = Literal[
     "already_sent",
     "invalid_listing",
     "listing_wait",
+    "request_gone",
+    "list_full",
     "unavailable",
 ]
 

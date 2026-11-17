@@ -11,6 +11,7 @@ from tristhana.domain.moon import City, MoonDay, ShalaMoon, TeacherMoon
 from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
 from tristhana.domain.progression import Celebration, Position
 from tristhana.domain.shalas import ShalaRole
+from tristhana.domain.teacher_requests import Closing
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,7 +223,20 @@ class Announcement:
     local_date: date
 
 
-type Notification = MoonReminder | PracticeReminder | Announcement
+@dataclass(frozen=True, slots=True)
+class RequestClosed:
+    """ID-07: the one note that closes a student's request to a teacher, always silent.
+    `NO_ANSWER` is the same note after a quiet "no" and after a week of silence: nothing
+    here could tell the two apart."""
+
+    closing: Closing
+    teacher_id: UUID  # for "Make main"; no capability, the tap is keyed on the student
+    teacher_name: str | None
+    shala_id: UUID  # "pick another teacher" opens this shala's question
+    make_main: bool  # confirmed, and not the student's first teacher (as ID-04)
+
+
+type Notification = MoonReminder | PracticeReminder | Announcement | RequestClosed
 
 
 @dataclass(frozen=True, slots=True)

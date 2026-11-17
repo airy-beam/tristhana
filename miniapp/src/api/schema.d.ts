@@ -912,6 +912,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/student-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Requests
+         * @description The people waiting for the caller's answer.
+         */
+        get: operations["get_student_requests_api_v1_me_student_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/student-requests/approve-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Approve All
+         * @description Confirms who was waiting at `as_of`, so someone who asked a moment later is never
+         *     confirmed unseen.
+         */
+        post: operations["post_approve_all_api_v1_me_student_requests_approve_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/student-requests/{student_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Approve
+         * @description "Yes, my student": the link comes to exist. 404 `request_gone` (refetch the list);
+         *     409 `list_full` (the request stays).
+         */
+        post: operations["post_approve_api_v1_me_student_requests__student_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/student-requests/{student_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Decline
+         * @description "Not my student". Idempotent; the student is not told. 404 `request_gone`.
+         */
+        post: operations["post_decline_api_v1_me_student_requests__student_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/student-requests/{student_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Reopen
+         * @description Undo of "Not my student", while the request can still be answered. 404
+         *     `request_gone`.
+         */
+        post: operations["post_reopen_api_v1_me_student_requests__student_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/students": {
         parameters: {
             query?: never;
@@ -966,6 +1069,27 @@ export interface paths {
          */
         post: operations["post_new_asana_api_v1_me_students__id__new_asana_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/teacher-requests/{teacher_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Teacher Request
+         * @description The student takes a request back. Idempotent and silent: the teacher gets no message,
+         *     and the answer is the same whether anything was waiting.
+         */
+        delete: operations["delete_teacher_request_api_v1_me_teacher_requests__teacher_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1398,6 +1522,25 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** ApproveAllIn */
+        ApproveAllIn: {
+            /**
+             * As Of
+             * Format: date-time
+             * @description `as_of` of the list the person was looking at
+             */
+            as_of: string;
+        };
+        /** ApprovedAllOut */
+        ApprovedAllOut: {
+            /** Approved */
+            approved: number;
+            /**
+             * Left
+             * @description Still waiting: asked after `as_of`, or a list is full
+             */
+            left: number;
+        };
         /** AsanaCardIn */
         AsanaCardIn: {
             /**
@@ -1410,6 +1553,20 @@ export interface components {
              * @enum {string}
              */
             kind: "asana";
+        };
+        /**
+         * AskedTeacherOut
+         * @description A teacher the caller asked and is waiting for. Nothing else, on purpose.
+         */
+        AskedTeacherOut: {
+            /** Name */
+            name: string | null;
+            shala: components["schemas"]["RequestShalaOut"];
+            /**
+             * Teacher Id
+             * Format: uuid
+             */
+            teacher_id: string;
         };
         /** AttendanceCountsOut */
         AttendanceCountsOut: {
@@ -2114,7 +2271,7 @@ export interface components {
             retry_after_s?: number | null;
         };
         /** @enum {string} */
-        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "not_attendable" | "invalid_attendance" | "invalid_period" | "nothing_to_share" | "rate_limited" | "already_sent" | "invalid_listing" | "listing_wait" | "unavailable";
+        ErrorCode: "auth_missing" | "auth_invalid" | "auth_expired" | "invalid_timezone" | "invalid_range" | "invalid_year" | "invalid_display_name" | "date_in_future" | "date_too_early" | "day_not_practiced" | "invalid_length" | "invalid_practice" | "invalid_check_in" | "note_too_long" | "body_too_large" | "timezone_unknown" | "unknown_location" | "unknown_city" | "invalid_settings" | "invalid_day_off" | "class_caps" | "invalid_class" | "invalid_rest_period" | "invalid_progression" | "progression_changed" | "not_latest" | "not_linked" | "links_changed" | "not_found" | "not_allowed" | "shala_caps" | "invalid_shala_name" | "export_too_soon" | "bot_unreachable" | "export_too_large" | "confirmation_required" | "account_deleted" | "announcement_limit" | "invalid_announcement" | "not_attendable" | "invalid_attendance" | "invalid_period" | "nothing_to_share" | "rate_limited" | "already_sent" | "invalid_listing" | "listing_wait" | "request_gone" | "list_full" | "unavailable";
         /** EventBody */
         EventBody: {
             /**
@@ -2316,10 +2473,20 @@ export interface components {
         Level: "authorised" | "authorised-1" | "authorised-2" | "certified";
         /** LinksOut */
         LinksOut: {
+            /**
+             * Asked
+             * @description ID-07: teachers the caller asked and waits for, oldest first
+             */
+            asked: components["schemas"]["AskedTeacherOut"][];
             /** Students */
             students: components["schemas"]["StudentOut"][];
             /** Teachers */
             teachers: components["schemas"]["TeacherOut"][];
+            /**
+             * Waiting
+             * @description ID-07: how many people wait for the caller's answer
+             */
+            waiting: number;
         };
         /** ListingIn */
         ListingIn: {
@@ -3247,6 +3414,19 @@ export interface components {
              */
             start: string;
         };
+        /**
+         * RequestShalaOut
+         * @description The shala a request came through.
+         */
+        RequestShalaOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** RestCounts */
         RestCounts: {
             /** Ladies */
@@ -3933,6 +4113,39 @@ export interface components {
             linked_at: string;
             /** Name */
             name: string | null;
+        };
+        /**
+         * StudentRequestOut
+         * @description Someone waiting for the caller's answer: a name they could already see as staff.
+         */
+        StudentRequestOut: {
+            /** Name */
+            name: string | null;
+            shala: components["schemas"]["RequestShalaOut"];
+            /**
+             * Student Id
+             * Format: uuid
+             */
+            student_id: string;
+        };
+        /** StudentRequestsOut */
+        StudentRequestsOut: {
+            /**
+             * As Of
+             * Format: date-time
+             * @description The moment the list was drawn: send it back unchanged to `approve-all`
+             */
+            as_of: string;
+            /**
+             * Requests
+             * @description Oldest first
+             */
+            requests: components["schemas"]["StudentRequestOut"][];
+            /**
+             * Total
+             * @description Everyone waiting for the caller, whatever the page
+             */
+            total: number;
         };
         /** StudentTodayOut */
         StudentTodayOut: {
@@ -6950,6 +7163,284 @@ export interface operations {
             };
         };
     };
+    get_student_requests_api_v1_me_student_requests_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentRequestsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_approve_all_api_v1_me_student_requests_approve_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveAllIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovedAllOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_approve_api_v1_me_student_requests__student_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_decline_api_v1_me_student_requests__student_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    post_reopen_api_v1_me_student_requests__student_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     get_students_api_v1_me_students_get: {
         parameters: {
             query?: {
@@ -7163,6 +7654,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_teacher_request_api_v1_me_teacher_requests__teacher_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teacher_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Service Unavailable */

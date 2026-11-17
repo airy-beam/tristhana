@@ -1185,6 +1185,69 @@ async def test_prune_takes_rows_past_thirty_days(world: World) -> None:
     assert await world.ask(student, teacher) is AskState.CREATED
 
 
+async def test_the_tick_sends_each_closing_note_once_and_prunes(world: World) -> None:
+    """The tick's step on the real `due`, the real ledger (category `request`) and the real
+    prune: a yes at once, a quiet "no" and silence together at day 7, each note once."""
+    from tests.fakes import FakeCalculator, InMemoryMoon
+    from tristhana.application.ports.notifications import RequestClosed
+    from tristhana.application.tick import RunTick
+
+    teacher = await world.staff(name="Лена")
+    yes, silent, declined = [await world.student(n) for n in ("Yes", "Silent", "No")]
+    for student in (yes, silent, declined):
+        await world.asked(student, teacher)
+    await world.requests.approve(teacher.id, yes.id, CAPS, _now())
+    await world.requests.decline(teacher.id, declined.id, _now())
+    clock, notifier = FixedClock(_now()), FakeNotifier()
+    tick = RunTick(
+        clock,
+        cities(),
+        InMemoryMoon(),
+        FakeCalculator(),
+        SqlNotificationRepository(world.engine),
+        notifier,
+        requests=world.requests,
+    )
+
+    rows = await _sql(world.engine, "SELECT provider_user_id, account_id FROM tristhana.identity")
+    names = {a.id: a.display_name for a in (yes, silent, declined, teacher)}
+    name_of = {telegram_id: names.get(account) for telegram_id, account in rows}
+
+    def closed() -> list[tuple[str | None, Closing]]:
+        return [
+            (name_of[r.telegram_id], n.closing)
+            for r, n in notifier.delivered
+            if isinstance(n, RequestClosed)
+        ]
+
+    await tick.execute(timedelta(seconds=30))
+    await tick.execute(timedelta(seconds=30))
+    assert closed() == [("Yes", Closing.CONFIRMED)]
+
+    clock.instant = _now(ANSWER_WITHIN)
+    await tick.execute(timedelta(seconds=30))
+    await tick.execute(timedelta(seconds=30))
+
+    assert closed() == [
+        ("Yes", Closing.CONFIRMED),
+        ("Silent", Closing.NO_ANSWER),
+        ("No", Closing.NO_ANSWER),
+    ]
+    ledger = await _sql(
+        world.engine,
+        "SELECT category, status, count(*) FROM tristhana.notification_delivery"
+        " WHERE dedupe_key LIKE 'req:%' GROUP BY 1, 2",
+    )
+    assert ledger.all() == [("request", "sent", 3)]
+    assert await _count(world.engine, "teacher_request") == 3
+
+    clock.instant = _now(KEEP)
+    result = await tick.execute(timedelta(seconds=30))
+
+    assert await _count(world.engine, "teacher_request") == 0
+    assert result.pruned >= 3
+
+
 # Export (ST-09): both directions, projected, and no trace of the other person
 
 

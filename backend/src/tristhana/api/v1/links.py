@@ -1,7 +1,10 @@
 """The caller's teachers and students (ID-04, ADR-0030), and what a teacher sees of a
 student (ST-06, ADR-0031). The invite code never appears in a URL or a query (Cloud Run
-logs those), and accepting an invite has no endpoint: it always lands in the bot (Q12)."""
+logs those), and accepting an invite has no endpoint: it always lands in the bot (Q12).
+`GET /me/links` also carries the caller's side of teacher requests (ID-07, ADR-0046): the
+teachers they wait for, with no state and no date, and how many people wait for them."""
 
+import asyncio
 import base64
 from datetime import date as date_
 from datetime import datetime
@@ -17,17 +20,21 @@ from tristhana.api.deps import (
     links,
     mark_for_student,
     progression_track,
+    teacher_requests,
     teacher_view,
 )
 from tristhana.api.errors import ApiError, error_responses
 from tristhana.api.v1.directory_listing import ListingMarkOut
 from tristhana.api.v1.practice import Length
 from tristhana.api.v1.progression import PositionOut
+from tristhana.api.v1.teacher_requests import AskedTeacherOut
 from tristhana.application.policies import Principal
 from tristhana.application.ports.teacher_links import Links, LinksChanged, NotLinked
+from tristhana.application.ports.teacher_requests import MyRequests
 from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.application.teacher_marks import MarkForStudent
+from tristhana.application.teacher_requests import RequestUseCases
 from tristhana.application.teacher_view import TeacherViewUseCases
 from tristhana.domain.progression import Position, Progression, Track, teacher_targets
 from tristhana.domain.teacher_links import MAX_STUDENTS, effective_primary, invite_url
@@ -37,6 +44,7 @@ from tristhana.settings import Settings
 router = APIRouter(prefix="/me", tags=["links"], responses=error_responses(401, 503))
 
 UseCases = Annotated[LinkUseCases, Depends(links)]
+RequestCases = Annotated[RequestUseCases, Depends(teacher_requests)]
 ViewCases = Annotated[TeacherViewUseCases, Depends(teacher_view)]
 MarkCase = Annotated[MarkForStudent, Depends(mark_for_student)]
 TrackDep = Annotated[Track, Depends(progression_track)]
@@ -64,11 +72,17 @@ class StudentOut(BaseModel):
 class LinksOut(BaseModel):
     teachers: list[TeacherOut]
     students: list[StudentOut]
+    asked: list[AskedTeacherOut] = Field(
+        description="ID-07: teachers the caller asked and waits for, oldest first"
+    )
+    waiting: int = Field(description="ID-07: how many people wait for the caller's answer")
 
     @classmethod
-    def of(cls, found: Links) -> "LinksOut":
+    def of(cls, found: Links, requests: MyRequests) -> "LinksOut":
         main = effective_primary(found.teachers)
         return cls(
+            asked=[AskedTeacherOut.of(a) for a in requests.asked],
+            waiting=requests.waiting,
             teachers=[
                 TeacherOut(
                     id=t.id,
@@ -86,6 +100,16 @@ class LinksOut(BaseModel):
         )
 
 
+async def _links(
+    principal: Principal, use_cases: LinkUseCases, requests: RequestUseCases
+) -> LinksOut:
+    """The two reads side by side: the links and the caller's requests."""
+    found, mine = await asyncio.gather(
+        use_cases.get.execute(principal), requests.mine.execute(principal)
+    )
+    return LinksOut.of(found, mine)
+
+
 class InviteIn(BaseModel):
     rotate: bool = Field(default=False, description="True: the old link and QR stop working")
 
@@ -97,10 +121,10 @@ class InviteOut(BaseModel):
 
 @router.get("/links")
 async def get_links(
-    principal: CurrentPrincipal, use_cases: UseCases, response: Response
+    principal: CurrentPrincipal, use_cases: UseCases, requests: RequestCases, response: Response
 ) -> LinksOut:
     response.headers["Cache-Control"] = "no-store"
-    return LinksOut.of(await use_cases.get.execute(principal))
+    return await _links(principal, use_cases, requests)
 
 
 @router.post("/invite")
@@ -122,7 +146,11 @@ async def post_invite(
 
 @router.put("/teachers/{id}/primary", responses=error_responses(404, 409))
 async def put_primary(
-    id: UUID, principal: CurrentPrincipal, use_cases: UseCases, response: Response
+    id: UUID,
+    principal: CurrentPrincipal,
+    use_cases: UseCases,
+    requests: RequestCases,
+    response: Response,
 ) -> LinksOut:
     try:
         await use_cases.primary.execute(principal, id)
@@ -131,7 +159,7 @@ async def put_primary(
     except LinksChanged:
         raise ApiError(409, "links_changed") from None
     response.headers["Cache-Control"] = "no-store"
-    return LinksOut.of(await use_cases.get.execute(principal))
+    return await _links(principal, use_cases, requests)
 
 
 @router.delete("/teachers/{id}", status_code=204)

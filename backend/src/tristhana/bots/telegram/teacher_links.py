@@ -28,7 +28,7 @@ from aiogram.types import (
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
-from tristhana.application.ports.notifications import KeepOffer
+from tristhana.application.ports.notifications import KeepOffer, RequestClosed
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
 from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
@@ -69,6 +69,7 @@ from tristhana.domain.teacher_links import (
     next_primary,
     shown_name,
 )
+from tristhana.domain.teacher_requests import Closing
 from tristhana.domain.teacher_view import DayCell, StudentCard
 
 if TYPE_CHECKING:
@@ -111,6 +112,23 @@ def joined_screen(
                 )
             ],
         )
+    return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+def request_closed_note(t: Translator, locale: Locale, note: RequestClosed) -> Screen:
+    """ID-07: the note that closes a student's request, in the student's language.
+    "Confirmed" offers `[⭐ Make main]` from the second teacher on, as the invite does (ID-04).
+    "No answer yet" is one text whatever happened on the teacher's side."""
+    name = _name(t, locale, note.teacher_name)
+    rows: list[list[InlineKeyboardButton]] = []
+    if note.closing is Closing.CONFIRMED:
+        text = t.t(locale, "request-confirmed", name=name)
+        if note.make_main:
+            rows.append([button(t, locale, "links-make-main", cb.person("p", note.teacher_id))])
+    else:
+        text = t.t(locale, "request-no-answer", name=name)
+        # ID-07 slice 3: `[request-pick-another]` → `h1:t:<note.shala_id>` goes above the Menu.
+    rows.append(menu_row(t, locale))
     return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
 

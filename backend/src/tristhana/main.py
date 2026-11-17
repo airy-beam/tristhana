@@ -445,6 +445,7 @@ class _Services:
             self._storage.shalas,
             self._storage.announcements,  # NT-03
             self._storage.share_cards,  # ST-07: expired cards are pruned
+            self._storage.teacher_requests,  # ID-07: the closing notes and the prune
         )
         view = TeacherViewUseCases(
             GetStudents(self._storage.teacher_view, clock),

@@ -50,3 +50,40 @@ def test_russian_has_no_word_for_a_refusal_beyond_the_machine_name() -> None:
 
 def test_russian_has_no_gendered_ending() -> None:
     assert not re.search(r"\(а\)|\(ла\)|\(ась\)", T.t("ru", KEY))  # noqa: RUF001
+
+
+# The student's two closing notes (the tick sends them; spec §2, §8)
+
+CLOSING_KEYS = ("request-confirmed", "request-no-answer")
+
+
+@pytest.mark.parametrize("key", CLOSING_KEYS)
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_a_closing_note_names_the_teacher_in_both_languages(locale: str, key: str) -> None:
+    text = T.t(locale, key, name="Анна")  # type: ignore[arg-type]
+
+    assert text != key
+    assert "Анна" in text  # nominative, as given: a name is never declined
+
+
+@pytest.mark.parametrize("key", CLOSING_KEYS)
+@pytest.mark.parametrize("locale", ["en", "ru"])
+def test_a_closing_note_has_no_word_for_a_refusal(locale: str, key: str) -> None:
+    text = T.t(locale, key, name="Anna").lower()  # type: ignore[arg-type]
+
+    assert not re.search("отклон|отказ|declin|reject|refus", text)
+
+
+@pytest.mark.parametrize("key", CLOSING_KEYS)
+def test_a_russian_closing_note_is_informal_and_has_no_gendered_ending(key: str) -> None:
+    text = T.t("ru", key, name="Анна")
+
+    assert not re.search(r"\(а\)|\(ла\)|\(ась\)|подтвердил|ответил", text)  # noqa: RUF001
+    assert not re.search(r"\b[Вв]ы\b|\b[Вв]аш", text)
+
+
+def test_no_answer_says_yet_and_offers_a_way_on() -> None:
+    en, ru = (T.t(locale, "request-no-answer", name="Anna") for locale in ("en", "ru"))
+
+    assert "yet" in en
+    assert "пока" in ru
