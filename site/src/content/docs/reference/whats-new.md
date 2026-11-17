@@ -1,13 +1,16 @@
 ---
 title: "What's new"
 description: "New things in Tristhana, newest first."
-features: [UI-05, ID-07]
+features: [UI-05, ID-07, UI-06]
 ---
 
 New things in Tristhana, newest first.
 
 ## November 2026
 
+- **The Practice tab opens on one month.** Four marks: :ftl[stats-legend-practiced], :ftl[stats-legend-rest], :ftl[status-moon] and :ftl[status-skipped]. Tap a day to open it right there. The year is one row down.
+- **Settings in the app are the bot's five rows**: what is set shows right on the row. Quiet hours are under :ftl[settings-reminders-button]; your name and your data are under :ftl[settings-more-button].
+- **:ftl[settings-open-app]** in the bot now opens the app's settings.
 - **Pick your teacher at your shala.** After you join a shala, the bot asks :ftl[request-ask] Tap a name, and your teacher confirms. Nothing from your log is shown before that.
 - **For teachers: :ftl[request-yes-mine]** when a student of your shala picks you. Everyone waiting for your answer is in one list at the top of :ftl[menu-students]. Your own link works as before.
 - **A shala in two fields**: its name and its city. You start as its teacher, and as the owner you can now change your own roles under :ftl[shala-staff-title]{from=app}.

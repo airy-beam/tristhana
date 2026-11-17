@@ -28,7 +28,7 @@ Moon days depend on the place, so two cities can differ by a day. Your dates als
 
 ## The times look wrong
 
-Tristhana shows every time in your own time zone, and it needs your city for that. Open :ftl[menu-open] → :ftl[menu-settings] in the bot and choose your city. See [Settings and your city](../../students/settings/).
+Tristhana shows every time in your own time zone, and it needs your city for that. Open :ftl[menu-open] → :ftl[menu-settings] in the bot, or the gear in the app, and choose your city in the second row. See [Settings and your city](../../students/settings/).
 
 ## My reminders stopped coming
 
@@ -46,7 +46,7 @@ Your teacher gets one message with your name and confirms. Nothing from your log
 
 ## How do I delete everything?
 
-:ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-data-button]. You can download your data first. See [Your data](../../students/your-data/).
+:ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-data-button] in the bot, or the gear → :ftl[settings-more-button] in the app. You can download your data first. See [Your data](../../students/your-data/).
 
 ## Where do I find this guide again?
 

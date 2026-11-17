@@ -16,7 +16,7 @@ After you log a practice and tap :ftl[practice-done], the bot shows the :ftl[che
 
 Everything is optional. For an earlier practice day, pick that day, tap :ftl[status-practiced] and then :ftl[practice-done]: the same button is there.
 
-Don't want the button? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-checkin-off].
+Don't want the button? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-checkin-off]. In the app: the gear → :ftl[settings-more-button], and switch off :ftl[settings-checkin].
 
 ## Diary
 

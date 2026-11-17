@@ -13,11 +13,11 @@ features: [ST-09, WH-04]
 - Самочувствие, заметки дневника, значки и причина отдыха не показываются никому и никогда.
 - Учитель, которого ты добавляешь, видит твоё имя, практику или отдых со дня, когда появился в списке, объём практики и последнюю асану, а если какое-то время показать нечего — короткую пометку об этом. Шала видит твоё имя и отметки о посещении занятий.
 
-Подробнее: [Мой учитель](../my-teacher/) и [Приватность простыми словами](../../reference/privacy/).
+Подробнее: [Мой учитель](../my-teacher/) и [Приватность простыми словами](../../reference/privacy/). Коротко о том же в приложении: шестерёнка → :ftl[settings-more-button] → :ftl[settings-privacy-open].
 
 ## Скачать свои данные
 
-1. Открой :ftl[menu-open] → :ftl[menu-settings] → :ftl[settings-more-button] и нажми :ftl[settings-data-button].
+1. Открой :ftl[menu-open] → :ftl[menu-settings] → :ftl[settings-more-button] и нажми :ftl[settings-data-button]. В приложении: шестерёнка → :ftl[settings-more-button], последняя карточка.
 2. Нажми :ftl[export-button]{from=bot}.
 
 ![Экран «Мои данные» в боте](../../../../assets/shots/ru/bot-my-data.webp)

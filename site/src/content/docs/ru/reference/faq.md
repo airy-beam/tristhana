@@ -28,7 +28,7 @@ features: [UI-05, ID-07]
 
 ## Время показано неправильно
 
-Tristhana показывает время в твоём часовом поясе, и для этого ей нужен твой город. Открой в боте :ftl[menu-open] → :ftl[menu-settings] и выбери город. Смотри [Настройки и твой город](../../students/settings/).
+Tristhana показывает время в твоём часовом поясе, и для этого ей нужен твой город. Открой в боте :ftl[menu-open] → :ftl[menu-settings] или шестерёнку в приложении и выбери город во второй строке. Смотри [Настройки и твой город](../../students/settings/).
 
 ## Напоминания перестали приходить
 
@@ -46,7 +46,7 @@ Tristhana показывает время в твоём часовом пояс�
 
 ## Как удалить всё?
 
-:ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-data-button]. Перед этим данные можно скачать. Смотри [Твои данные](../../students/your-data/).
+В боте: :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-data-button]. В приложении: шестерёнка → :ftl[settings-more-button]. Перед этим данные можно скачать. Смотри [Твои данные](../../students/your-data/).
 
 ## Как снова открыть эту справку?
 
