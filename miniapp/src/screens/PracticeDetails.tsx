@@ -1,4 +1,4 @@
-import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
+import { Localized, useLocalization } from "@fluent/react";
 import { useState } from "react";
 
 import {
@@ -18,18 +18,11 @@ import {
 } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
 import { haptics } from "../telegram";
-import {
-  lengthOf,
-  lengthText,
-  rangeOf,
-  rangeText,
-  sameLength,
-  zoneLabel,
-  type Range,
-} from "./practiceText";
+import { lengthOf, lengthText, rangeOf, rangeText, sameLength, type Range } from "./practiceText";
 import { CelebrationCard, shareOf } from "./progression/CelebrationCard";
 import { placeFor } from "./settings/zones";
 import { celebrationLines, get, stopLabel } from "./progression/progressionText";
+import { zoneLabel } from "./timeLabel";
 
 const CONTEXTS: readonly PracticeContext[] = ["mysore", "led", "private", "self"];
 const DURATIONS = [30, 45, 60, 75, 90, 120, 150, 180];
@@ -47,7 +40,9 @@ interface Props {
   locale: Locale;
 }
 
-/** Details of today's practice (PR-02 context, PR-03 length, PR-05 duration and start). */
+/** Details of a practiced day (PR-02 class type, PR-03 length, PR-05 duration and start), the
+ * panel behind the day card's "Add details" (UI-06). Lazy, in the `dayExtras` chunk: it mounts
+ * only on that tap. */
 export function PracticeDetails({ date, practice, zone, locale }: Props) {
   const { l10n } = useLocalization();
   const me = useMe().data; // cached: the home city for the time label (MD-04)
@@ -82,39 +77,14 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
       },
     );
   };
-  const last = presets?.last;
   const hasDetails =
     !!current.context || !!current.length || !!current.duration_min || !!current.start_time;
 
   return (
     <div className="details">
-      <Localized id="practice-title">
-        <h3 />
+      <Localized id="practice-context">
+        <p className="label" />
       </Localized>
-      {/* Only while nothing is set, as in the bot: the copy would replace a context the
-          person just chose (Q27). */}
-      {/* What the tap will copy, as in the bot (Q23); with its day when it is old (Q296). */}
-      {last && !hasDetails && catalog && (
-        <p className="hint small">
-          {lastTimeText(l10n, catalog, last, presets.last_date ?? null, date, locale)}
-        </p>
-      )}
-      {last && !hasDetails && (
-        <Localized id="practice-same-as-last">
-          <button
-            type="button"
-            className="chip"
-            onClick={() => {
-              update({
-                context: last.context ?? null,
-                online: last.online,
-                length: last.length ?? null,
-                duration_min: last.duration_min ?? null,
-              });
-            }}
-          />
-        </Localized>
-      )}
       <div className="chips" role="group">
         {CONTEXTS.map((c) => (
           <Localized key={c} id={`context-${c}`}>
@@ -224,11 +194,13 @@ export function PracticeDetails({ date, practice, zone, locale }: Props) {
         ))}
       </div>
 
+      {/* The last field, in the open: one field is not worth a fold. */}
       {zone && (
         <StartTime
           key={current.start_time ?? ""} // a new saved value resets the draft
           value={current.start_time ?? null}
           zone={practice?.timezone ?? zone}
+          viewer={zone}
           place={placeFor(me?.home_city, practice?.timezone ?? zone, locale)}
           date={date}
           onCommit={(start_time) => {
@@ -344,41 +316,6 @@ function ranges(catalog: Catalog): Range[] {
   return out;
 }
 
-const OLD_AFTER_DAYS = 14; // as the bot and the reminder: older practices say which day
-const utcDay = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
-
-/** "Last time: Mysore · Full Primary · 90 min", or "Last time (Thu, Oct 1): …" when the
- * practice is more than 14 days older than the day being logged. Never the start time:
- * the tap doesn't copy it. */
-export function lastTimeText(
-  l10n: ReactLocalization,
-  catalog: Catalog,
-  last: Practice,
-  lastDate: string | null,
-  day: string,
-  locale: Locale,
-): string {
-  const parts: string[] = [];
-  if (last.context) {
-    const context = get(l10n, `context-${last.context}`);
-    parts.push(last.online ? `${context} ${get(l10n, "practice-online-suffix")}` : context);
-  }
-  if (last.length) parts.push(lengthText(l10n, catalog, last.length, locale));
-  if (last.duration_min) parts.push(get(l10n, "duration-min", { min: last.duration_min }));
-  const summary = parts.join(" · ");
-  if (lastDate === null || utcDay(day) - utcDay(lastDate) <= OLD_AFTER_DAYS * 86_400_000) {
-    return get(l10n, "practice-last-time", { summary });
-  }
-  const when = new Intl.DateTimeFormat(locale, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: lastDate.slice(0, 4) === day.slice(0, 4) ? undefined : "numeric",
-    timeZone: "UTC",
-  }).format(utcDay(lastDate));
-  return get(l10n, "practice-last-time-dated", { date: when, summary });
-}
-
 const rangeKey = (r: Range) => `${String(r.first)}${String(r.last)}${r.firstPart ?? ""}`;
 
 /** "Other…": series range, then the last asana (stop points only) or the full series. */
@@ -451,12 +388,15 @@ function CustomLength({
 function StartTime({
   value,
   zone,
+  viewer,
   place,
   date,
   onCommit,
 }: {
   value: string | null;
   zone: string;
+  /** The account's zone: a day logged in another one shows its offset (ADR-0044). */
+  viewer: string;
   /** The home city's name when it names `zone` (MD-04). */
   place: string | undefined;
   date: string;
@@ -481,7 +421,9 @@ function StartTime({
           if (e.key === "Enter") onCommit(draft || null);
         }}
       />
-      <span className="hint">{zoneLabel(zone, date, value ?? undefined, place)}</span>
+      <span className="hint">
+        {zoneLabel(zone, date, { at: value ?? undefined, place, viewer })}
+      </span>
     </label>
   );
 }

@@ -1,9 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-// ID-04 (spec §2, §4): the 👥 Settings row opens a lazy screen with the bot's three parts and
-// its ⭐ and takeover rules. Writes wait for the server, a 409 refetches, the QR comes from the
-// API, and the link is never built here. Driven through App, so the file doesn't care where
-// the screen lives. App keeps one QueryClient per module, so each test imports a fresh App.
+// ID-04 (spec §2, §4): the lazy screen with the bot's three parts and its ⭐ and takeover rules.
+// Writes wait for the server, a 409 refetches, the QR comes from the API, and the link is never
+// built here. Since UI-06 stage 2 it is the Shala tab's root (Settings has no row for it), and
+// someone with nobody on the lists sees one line and two quiet starts instead of empty cards.
+// Driven through App, so the file doesn't care where the screen lives. App keeps one
+// QueryClient per module, so each test imports a fresh App.
 
 const telegram = vi.hoisted(() => ({
   openSettings: vi.fn() as () => void,
@@ -16,6 +18,7 @@ vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
+  useBackShown: vi.fn(() => false),
   backButtonAvailable: vi.fn(() => true),
   markReady: vi.fn(),
   useMainButton: vi.fn(),
@@ -147,11 +150,15 @@ function stubApi(links: () => LinksBody, answer: Answer = () => undefined): Requ
 }
 
 const plain = (text: string | null | undefined) => (text ?? "").replace(/[⁨⁩]/g, "");
-const pageText = () => plain(document.body.textContent);
+/** The screen's own text: the tab bar and the gear are the shell's. */
+const pageText = () =>
+  plain([...document.querySelectorAll("main")].map((main) => main.textContent).join(" "));
 const calls = (seen: Request[], method: string, path: string) =>
   seen.filter((r) => r.method === method && new URL(r.url).pathname === path);
 
-const homeLoaded = () => screen.findByRole("button", { name: /^⚙️ / });
+/** Today has loaded: the account is known. */
+const homeLoaded = () => screen.findByRole("heading", { level: 2, name: /^(Today|Сегодня), / });
+const TAB = { en: "🏛 Shala", ru: "🏛 Шала" } as const;
 
 async function renderApp(locale: "en" | "ru" = "en") {
   accountLocale = locale;
@@ -163,19 +170,12 @@ async function renderApp(locale: "en" | "ru" = "en") {
 
 async function openScreen(locale: "en" | "ru" = "en") {
   await renderApp(locale);
-  act(() => {
-    telegram.openSettings();
-  });
-  const row = locale === "en" ? "👥 Teachers and students" : "👥 Учителя и ученики";
-  fireEvent.click(await screen.findByRole("button", { name: row }));
-  await waitFor(() => {
-    expect(screen.queryByRole("button", { name: row })).not.toBeInTheDocument();
-  });
+  fireEvent.click(screen.getByRole("button", { name: TAB[locale] }));
+  await screen.findByRole("heading", { level: 1, name: TAB[locale] });
 }
 
 beforeEach(() => {
   localStorage.clear();
-  localStorage.setItem("onboard.tour", "1");
   confirmDestructive.mockReset();
   confirmDestructive.mockResolvedValue(false);
   openTelegramLink.mockReset();
@@ -195,21 +195,24 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("the Settings row opens the lazy screen, and Home has no row for it", async () => {
-  // ST-06: Home now reads the shared `useLinks` for its students row, and the 60 s staleTime
-  // keeps that to one fetch for both screens.
+test("the Shala tab opens the lazy screen; Today and Settings have no row for it", async () => {
   const seen = stubApi(() => TWO);
   await renderApp();
-  expect(screen.queryByRole("button", { name: "👥 Teachers and students" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Teachers and students/ })).toBeNull();
+  expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(0); // Today doesn't read the lists
+
+  fireEvent.click(screen.getByRole("button", { name: "🏛 Shala" }));
+
+  await screen.findByText("Лена");
+  expect(screen.getByRole("heading", { level: 1, name: "🏛 Shala" })).toBeInTheDocument();
+  expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(1);
 
   act(() => {
     telegram.openSettings();
   });
-  fireEvent.click(await screen.findByRole("button", { name: "👥 Teachers and students" }));
-
-  await screen.findByText("Лена");
-  expect(screen.getByRole("heading", { name: "👥 Teachers and students" })).toBeInTheDocument();
-  expect(calls(seen, "GET", "/api/v1/me/links")).toHaveLength(1);
+  await screen.findByRole("heading", { level: 1, name: "Settings" });
+  await screen.findByRole("button", { name: "📖 Guide" });
+  expect(screen.queryByRole("button", { name: /Teachers and students/ })).toBeNull();
 });
 
 test("both lists, with a fallback for no name", async () => {
@@ -225,13 +228,40 @@ test("both lists, with a fallback for no name", async () => {
   expect(pageText()).toContain("(no name)");
 });
 
-test("empty states say so without a nudge", async () => {
-  stubApi(() => ({ teachers: [], students: [] }));
+test("nobody yet: one plain line and two starts in one small card, no empty cards", async () => {
+  const seen = stubApi(() => ({ teachers: [], students: [] }));
 
   await openScreen();
 
-  await screen.findByText("No teachers on your list. Your log works the same either way.");
-  expect(screen.getByText("No students on your list.")).toBeInTheDocument();
+  await screen.findByText(
+    "Nobody here yet. To add a teacher or join a shala, open the link they send you.",
+  );
+  expect(screen.getByRole("heading", { level: 2, name: "For teachers and shalas" })).toBeVisible();
+  const invite = screen.getByRole("button", { name: "Invite students" });
+  expect(screen.getByRole("button", { name: "Shala and classes" })).toBeInTheDocument();
+  expect(pageText()).not.toContain("start below");
+  // The only card is the one that holds the two starts.
+  expect([...document.querySelectorAll("main .card")]).toEqual([invite.parentElement]);
+  expect(pageText()).not.toContain("No students on your list.");
+  expect(calls(seen, "POST", "/api/v1/me/invite")).toHaveLength(0); // nothing is made unasked
+});
+
+test("each empty list says so without a nudge, in the bot's words", async () => {
+  let lists: LinksBody = { teachers: [], students: [student(SHIVA, "Shiva")] };
+  stubApi(() => lists);
+
+  await openScreen();
+
+  await screen.findByText(
+    "No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.",
+  );
+  expect(pageText()).not.toContain("No students on your list.");
+
+  lists = { teachers: [lena()], students: [] };
+  cleanup();
+  await openScreen();
+  expect(await screen.findByText("No students on your list.")).toBeInTheDocument();
+  expect(pageText()).not.toContain("No teacher on your list.");
 });
 
 test("⭐ shows only with two or more teachers", async () => {
@@ -410,8 +440,9 @@ test("with students the button is the plain invite", async () => {
   expect(screen.queryByRole("button", { name: "I teach: invite students" })).toBeNull();
 });
 
+/** With nobody on the lists, the quiet "Invite students" start opens the invite card. */
 async function openInvite() {
-  fireEvent.click(await screen.findByRole("button", { name: "I teach: invite students" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Invite students" }));
   return screen.findByRole("img");
 }
 
@@ -498,7 +529,7 @@ test("Russian: the screen and its longest label", async () => {
   await openScreen("ru");
 
   await screen.findByRole("button", { name: "Я преподаю: пригласить учеников" });
-  expect(screen.getByRole("heading", { name: "👥 Учителя и ученики" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: "🏛 Шала" })).toBeInTheDocument();
   expect(screen.getByText("Учеников в списке нет.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Убрать…" })).toBeInTheDocument();
 });

@@ -8,7 +8,7 @@ import {
 } from "../api/client";
 import { haptics } from "../telegram";
 import { useDateLabel } from "./PauseOffer";
-import { zoneLabel } from "./practiceText";
+import { zoneLabel } from "./timeLabel";
 
 const TIMES = ["09:00", "10:00", "12:00", "18:00", "20:00", "21:00"] as const;
 
@@ -63,7 +63,7 @@ export function PracticeReminderCard({
   };
 
   return (
-    <section className="card" aria-labelledby="remind-title">
+    <section className="card" id="remind" aria-labelledby="remind-title">
       <Localized id="remind-card-title">
         <h2 id="remind-title" />
       </Localized>
@@ -105,7 +105,11 @@ export function PracticeReminderCard({
             <Localized
               id="remind-time-label"
               vars={{
-                zone: zoneLabel(zone, new Date().toISOString().slice(0, 10), "12:00", place),
+                // The account's own zone: the place, no offset (ADR-0044).
+                zone: zoneLabel(zone, new Date().toISOString().slice(0, 10), {
+                  place,
+                  viewer: zone,
+                }),
               }}
             >
               <p className="label" />

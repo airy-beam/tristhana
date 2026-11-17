@@ -4,14 +4,17 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { Catalog, Days, PracticePresets } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
-import { zoneLabel } from "./practiceText";
 import { TodayCard } from "./TodayCard";
 
 vi.mock("../telegram", () => ({
   useBackButton: vi.fn(),
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
 }));
+
+// UI-06 stage 2: the details are a panel behind the day card's "Add details" entry (its own
+// chunk, with its copy). Nothing here is on screen until that tap; "Same as last time" and
+// the line saying what it copies stay on the card itself.
 
 const TODAY = "2026-10-19";
 
@@ -78,9 +81,6 @@ const echo = async (request: Request) =>
   json({ slot: 1, timezone: null, ...((await request.json()) as object) });
 let putResponse: (request: Request) => Response | Promise<Response> = echo;
 
-const plain = (text: string | null | undefined) => (text ?? "").replace(/[\u2068\u2069]/g, "");
-const says = (text: string) => (_: string, el: Element | null) =>
-  el?.tagName === "P" && plain(el.textContent) === text;
 const daysBefore = (iso: string, n: number) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
 
@@ -135,6 +135,11 @@ function renderCard(zone: string | null = "Asia/Almaty", locale: Locale = "en") 
   );
 }
 
+/** Opens the panel: "Add details", or "Details" once some exist. */
+async function openDetails() {
+  fireEvent.click(await screen.findByRole("button", { name: /^📝 (Add details|Details)$/ }));
+}
+
 async function lastPut(seen: Request[]): Promise<unknown> {
   await vi.waitFor(() => {
     expect(seen.some((r) => r.method === "PUT")).toBe(true);
@@ -157,13 +162,30 @@ describe("PracticeDetails", () => {
     });
     renderCard();
 
-    await screen.findByRole("button", { name: /Rest day/, pressed: true });
+    await screen.findByRole("button", { name: "Change" }); // logged: the card is folded
+    expect(screen.getByText(/Rest day/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /details/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
+  });
+
+  it("stays folded on a practiced day until Add details is tapped", async () => {
+    stubApi(practicedToday);
+    renderCard();
+
+    const entry = await screen.findByRole("button", { name: "📝 Add details" });
+    expect(screen.queryByRole("button", { name: "Mysore" })).not.toBeInTheDocument();
+    fireEvent.click(entry);
+
+    // The class type has its heading, as length and duration do.
+    expect(await screen.findByText("Type of practice")).toBeInTheDocument();
+    expect(screen.getByText("Length")).toBeInTheDocument();
+    expect(screen.getByText("Duration")).toBeInTheDocument();
   });
 
   it("a context tap saves the whole practice", async () => {
     const seen = stubApi(practicedToday);
     renderCard();
+    await openDetails();
 
     fireEvent.click(await screen.findByRole("button", { name: "Mysore" }));
 
@@ -191,31 +213,29 @@ describe("PracticeDetails", () => {
     });
   });
 
+  const same = () => screen.findByRole("button", { name: "🔁 Same as last time" });
+
   it("says what same as last time will copy, without a date while it is recent", async () => {
     stubApi(practicedToday);
     renderCard();
 
-    expect(await screen.findByText(says("Last time: Led · Full Primary · 90 min"))).toBeVisible();
+    expect(await same()).toHaveAccessibleDescription("Led · Full Primary · 90 min");
   });
 
   it("names the day when that practice is more than 14 days old", async () => {
     stubApi(practicedToday, { ...PRESETS, last_date: daysBefore(TODAY, 15) });
     renderCard();
 
-    expect(
-      await screen.findByText(
-        (_, el) =>
-          el?.tagName === "P" &&
-          /^Last time \(\w{3}, \w{3} \d{1,2}\): Led/.test(plain(el.textContent)),
-      ),
-    ).toBeVisible();
+    expect(await same()).toHaveAccessibleDescription(
+      /^\w{3}, \w{3} \d{1,2} · Led · Full Primary · 90 min$/,
+    );
   });
 
   it("gives no date at exactly 14 days", async () => {
     stubApi(practicedToday, { ...PRESETS, last_date: daysBefore(TODAY, 14) });
     renderCard();
 
-    expect(await screen.findByText(says("Last time: Led · Full Primary · 90 min"))).toBeVisible();
+    expect(await same()).toHaveAccessibleDescription("Led · Full Primary · 90 min");
   });
 
   it("same as last time is offered only while nothing is set", async () => {
@@ -243,13 +263,20 @@ describe("PracticeDetails", () => {
     });
     renderCard();
 
-    await screen.findByRole("button", { name: "Led", pressed: true });
+    // The row reads "Details" now, with the day's own summary under it.
+    const details = await screen.findByRole("button", { name: "📝 Details" });
+    await vi.waitFor(() => {
+      expect(details).toHaveAccessibleDescription("Led");
+    });
     expect(screen.queryByRole("button", { name: "🔁 Same as last time" })).not.toBeInTheDocument();
+    await openDetails();
+    expect(await screen.findByRole("button", { name: "Led", pressed: true })).toBeInTheDocument();
   });
 
   it("shows presets and recent lengths with their labels", async () => {
     stubApi(practicedToday);
     renderCard();
+    await openDetails();
 
     expect(await screen.findByRole("button", { name: "Full Primary" })).toBeInTheDocument();
     expect(
@@ -260,6 +287,7 @@ describe("PracticeDetails", () => {
   it("the custom picker offers half Primary + Intermediate", async () => {
     const seen = stubApi(practicedToday);
     renderCard();
+    await openDetails();
     fireEvent.click(await screen.findByRole("button", { name: "🎯 Other…" }));
 
     const [range, end] = screen.getAllByRole("combobox");
@@ -271,16 +299,53 @@ describe("PracticeDetails", () => {
     });
   });
 
-  it("offers the start time with a zone label only when the zone is known", async () => {
+  it("shows the start time as the last field, no fold, with a zone label, only when the zone is known", async () => {
     stubApi(practicedToday);
     const { unmount } = renderCard("Asia/Almaty");
-    expect(await screen.findByText("Almaty (UTC+5)")).toBeInTheDocument();
+    await openDetails();
+    // My own zone: the place, no offset (ADR-0044).
+    const start = await screen.findByLabelText(/Start time/);
+    expect(screen.getByText("Almaty")).toBeInTheDocument();
+    // Nothing to unfold, and no field after it.
+    expect(screen.queryByRole("button", { name: /More|Start time/ })).not.toBeInTheDocument();
+    const fields = [...document.querySelectorAll(".details .label, .details input")];
+    expect(fields.at(-1)).toBe(start);
     unmount();
 
     stubApi(practicedToday);
     renderCard(null);
+    await openDetails();
     await screen.findByRole("button", { name: "Mysore" });
     expect(screen.queryByText(/Start time/)).not.toBeInTheDocument();
+  });
+
+  it("labels a start time logged in another zone with its offset", async () => {
+    stubApi({
+      ...practicedToday,
+      days: [
+        {
+          date: TODAY,
+          status: "practiced",
+          practices: [
+            {
+              slot: 1,
+              context: "mysore",
+              online: false,
+              length: null,
+              duration_min: null,
+              start_time: "06:30",
+              timezone: "Europe/Berlin",
+            },
+          ],
+          check_ins: [],
+        },
+      ],
+    });
+    renderCard("Asia/Almaty");
+    await openDetails();
+
+    expect(await screen.findByText("Berlin (UTC+2)")).toBeInTheDocument(); // 19 October
+    expect(screen.getByLabelText(/Start time/)).toHaveValue("06:30");
   });
 
   it("self-practice hides the online toggle", async () => {
@@ -296,6 +361,7 @@ describe("PracticeDetails", () => {
       ],
     });
     renderCard();
+    await openDetails();
 
     await screen.findByRole("button", { name: "Self-practice", pressed: true });
     expect(screen.queryByRole("button", { name: "🌐 Online" })).not.toBeInTheDocument();
@@ -316,6 +382,7 @@ describe("PracticeDetails server sync", () => {
       });
     stubApi(practicedToday);
     renderCard();
+    await openDetails();
 
     fireEvent.click(await screen.findByRole("button", { name: "½ Primary → Navasana" }));
 
@@ -329,6 +396,7 @@ describe("PracticeDetails server sync", () => {
   it("saves the start time on blur, not on every keystroke", async () => {
     const seen = stubApi(practicedToday);
     renderCard();
+    await openDetails();
     const input = await screen.findByLabelText(/Start time/);
 
     fireEvent.change(input, { target: { value: "06:3" } });
@@ -337,20 +405,5 @@ describe("PracticeDetails server sync", () => {
     fireEvent.blur(input);
 
     expect(await lastPut(seen)).toMatchObject({ start_time: "06:30" });
-  });
-});
-
-describe("zoneLabel", () => {
-  it.each([
-    ["Asia/Almaty", "Almaty (UTC+5)"],
-    ["Asia/Kolkata", "Kolkata (UTC+5:30)"],
-    ["America/New_York", "New York (UTC-4)"],
-    ["UTC", "UTC"],
-  ])("%s -> %s", (zone, label) => {
-    expect(zoneLabel(zone, "2026-10-19")).toBe(label);
-  });
-
-  it("names the home city when it is given (MD-04)", () => {
-    expect(zoneLabel("Asia/Almaty", "2026-10-19", "06:30", "Astana")).toBe("Astana (UTC+5)");
   });
 });

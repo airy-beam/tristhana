@@ -12,15 +12,16 @@ import {
 import { DayEditor } from "./stats/DayEditor";
 import { TodayCard } from "./TodayCard";
 
-// PR-07 (spec §6, ADR-0025): the diary note block in the Today card (any status, or none)
-// and the day editor. Collapsed: the note + Edit, or a quiet "Add a note" link. Editing is a
+// PR-07 (spec §6, ADR-0025): the diary note in the Today card (any status, or none) and the
+// day editor. A list row (UI-06): "Add a note", or "Note" with the note's first line, which
+// opens the whole note with Edit and Remove note. Editing is a
 // textarea with explicit Save / Cancel (never save-on-blur), a counter from 1800 code points,
 // closing confirmation while dirty, not optimistic for the text (a failed save keeps it open),
 // blank Save sends DELETE, Remove asks inline first. No drafts in localStorage.
 
 vi.mock("../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
-  haptics: { impact: vi.fn(), notify: vi.fn() },
+  haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
   confirmDestructive: vi.fn(() => Promise.resolve(false)),
   backButtonAvailable: vi.fn(() => true),
@@ -169,8 +170,16 @@ async function sent(seen: Request[], method: string, date = TODAY): Promise<Requ
   return noteRequests(seen, method, date);
 }
 
-const addLink = () => screen.findByRole("button", { name: "Add a note" });
-const editButton = () => screen.findByRole("button", { name: /edit/i });
+const addLink = () => screen.findByRole("button", { name: "📓 Add a note" });
+/** The row of a note that exists; a tap opens the whole note under it. */
+const noteRow = () => screen.findByRole("button", { name: "📓 Note" });
+const openNote = async () => {
+  fireEvent.click(await noteRow());
+};
+const editButton = async () => {
+  await openNote();
+  return screen.getByRole("button", { name: /edit/i });
+};
 const saveButton = () => screen.getByRole("button", { name: /^save$/i });
 const cancelButton = () => screen.getByRole("button", { name: /^cancel$/i });
 const textarea = () => screen.getByRole<HTMLTextAreaElement>("textbox");
@@ -191,13 +200,33 @@ afterEach(() => {
 });
 
 describe("DiaryNote: where and how it shows", () => {
-  it("shows the note collapsed with Edit on the Today card", async () => {
+  it("shows the note as a row with its first line; a tap opens it, with Edit", async () => {
     stubApi({ days: days([day(TODAY)], [note(TODAY)]) });
     renderToday();
 
-    expect(await screen.findByText(NOTE)).toBeInTheDocument();
-    expect(await editButton()).toBeInTheDocument();
+    const row = await noteRow();
+    expect(row).toHaveAccessibleDescription(NOTE);
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
+
+    fireEvent.click(row);
+
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(row).not.toHaveAccessibleDescription(); // the whole note is right under it
+    expect(screen.getByText(NOTE, { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /edit/i })).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+
+    fireEvent.click(row); // folds again
+    expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
+    expect(row).toHaveAccessibleDescription(NOTE);
+  });
+
+  it("the row shows the first line that has something in it", async () => {
+    stubApi({ days: days([day(TODAY)], [note(TODAY, "\n  Slow breath today.  \nSecond line.")]) });
+    renderToday();
+
+    expect(await noteRow()).toHaveAccessibleDescription("Slow breath today.");
   });
 
   it("Edit opens the textarea with the note", async () => {
@@ -217,8 +246,8 @@ describe("DiaryNote: where and how it shows", () => {
     renderToday();
 
     const link = await addLink();
-    const block = link.parentElement?.textContent ?? "";
-    expect(block).not.toMatch(/yet|\?|\d/i);
+    expect(link.textContent).not.toMatch(/yet|\?|\d/i);
+    expect(link).not.toHaveAccessibleDescription();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
@@ -515,7 +544,7 @@ describe("DiaryNote: removing", () => {
   it("asks inline first, then DELETEs and says so honestly", async () => {
     const seen = stubApi({ days: days([day(TODAY)], [note(TODAY)]) });
     renderToday();
-    await screen.findByText(NOTE);
+    await openNote();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove note" }));
 

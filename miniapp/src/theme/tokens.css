@@ -9,6 +9,8 @@
   --c-accent-text: var(--tg-theme-button-text-color, #ffffff);
   --c-surface: var(--tg-theme-secondary-bg-color, #f4f4f5);
   --c-destructive: var(--tg-theme-destructive-text-color, #e53935);
+  /* A hairline: between list rows, over a panel. */
+  --c-line: color-mix(in srgb, var(--c-hint) 30%, transparent);
   --space: 16px;
   color-scheme: light dark;
 }
@@ -139,6 +141,7 @@ body {
 }
 
 .details select,
+.details textarea,
 .details input[type="time"] {
   display: block;
   width: 100%;
@@ -392,10 +395,6 @@ body {
   display: flex;
   gap: 6px;
 }
-.editor .row {
-  display: flex;
-  gap: var(--space);
-}
 
 /* Pastel cells keep dark numbers in the dark theme too. */
 .day.rest,
@@ -468,80 +467,315 @@ body {
   padding-left: 20px;
 }
 
-/* UI-02: the quick tour. Theme colours only; the spotlight's shadow is the dim. */
-[data-tour] {
-  scroll-margin-top: 12px;
+/* UI-06: the shell. Three tabs and a gear on the roots; a screen with Back has neither
+   (ADR-0047). Theme colours only. */
+.shell {
+  --tabbar: 50px;
+  --shell-bottom: max(env(safe-area-inset-bottom), var(--tg-viewport-safe-area-inset-bottom, 0px));
+  position: relative;
 }
 
-.tour-blocker {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
+.shell.tabs > .under > .screen {
+  padding-bottom: calc(var(--space) * 1.5 + var(--tabbar) + var(--shell-bottom));
 }
 
-.tour-blocker.dim {
-  background: rgb(0 0 0 / 55%);
+/* The heading leaves room for the gear. Focused by the shell after a tab switch. */
+.shell.tabs > .under > .screen > h1 {
+  padding-right: 40px;
 }
 
-.tour-spot {
-  position: fixed;
-  z-index: 101;
-  border-radius: 12px;
-  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 55%);
-  outline: 2px solid var(--c-accent);
-  pointer-events: none;
-  transition:
-    top 0.2s,
-    left 0.2s,
-    width 0.2s,
-    height 0.2s;
-}
-
-.tour-sheet {
-  position: fixed;
-  right: 8px;
-  bottom: calc(100vh - var(--tg-viewport-stable-height, 100vh) + 8px + env(safe-area-inset-bottom));
-  left: 8px;
-  z-index: 102;
-  padding: var(--space);
-  border-radius: 12px;
-  background: var(--c-bg);
-  color: var(--c-text);
-}
-
-.tour-sheet.top {
-  top: calc(8px + env(safe-area-inset-top));
-  bottom: auto;
-}
-
-.tour-sheet p {
+.screen h1:focus {
   outline: none;
 }
 
-.tour-sheet .row {
+.gear {
+  position: absolute;
+  top: calc(var(--space) * 1.5 - 7px);
+  right: calc(var(--space) - 10px);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Raised by the part of the page Telegram has not revealed, and clear of the home indicator. */
+.tabbar {
+  position: fixed;
+  right: 0;
+  bottom: calc(100vh - var(--tg-viewport-stable-height, 100vh));
+  left: 0;
+  z-index: 50;
+  display: flex;
+  padding-bottom: var(--shell-bottom);
+  border-top: 1px solid color-mix(in srgb, var(--c-hint) 30%, transparent);
+  background: var(--tg-theme-bottom-bar-bg-color, var(--c-surface));
+}
+
+.tabbar button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tabbar);
+  padding: 4px 2px;
+  border: 0;
+  border-top: 2px solid transparent;
+  background: none;
+  color: var(--c-hint);
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Active: weight and a top line as well as colour. */
+.tabbar button[aria-current="page"] {
+  border-top-color: var(--c-accent);
+  color: var(--c-text);
+  font-weight: 600;
+}
+
+/* While a text field has the focus the bar is out of the way, so it never rides on the
+   keyboard: iOS lays the keyboard over the page, Android resizes the page. */
+:root:has(textarea:focus, input:not([type="checkbox"], [type="radio"]):focus) .tabbar {
+  display: none;
+}
+
+/* The empty Shala tab: a small heading over the starts for teachers and shalas. */
+.starts {
+  margin: calc(var(--space) * 1.5) 0 8px;
+  color: var(--c-hint);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.starts + .card {
+  margin-top: 0;
+}
+
+/* UI-06: list rows (`Row`). One row style for the day card's entries, the two rows under it
+   and the empty Shala tab: icon, label, an optional muted second line, a chevron. A `.list`
+   draws the hairlines between its rows. Each at least 44px high; nothing wraps: a long line
+   ends in an ellipsis. Theme colours only. */
+.card.list {
+  padding: 0 var(--space);
+}
+
+.card.list:empty {
+  display: none;
+}
+
+.lrow {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.tour-sheet .row button {
-  min-width: 44px;
+  width: 100%;
   min-height: 44px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--c-text);
+  font: inherit;
+  text-align: left;
 }
 
-.tour-sheet .chip {
+.list > .lrow:not(:first-child) {
+  border-top: 1px solid var(--c-line);
+}
+
+.lrow:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.lrow:active {
+  opacity: 0.6;
+}
+
+/* The chevron: to the right for a row that leads somewhere, down while its panel is open. */
+.lrow::after {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px 0 0;
+  border: solid var(--c-hint);
+  border-width: 2px 2px 0 0;
+  opacity: 0.7;
+  transform: rotate(45deg);
+  content: "";
+}
+
+.lrow[aria-expanded="true"]::after {
+  transform: translateY(-2px) rotate(135deg);
+}
+
+/* A row that does its thing on the tap: no chevron, the label in the link colour. */
+.lrow.act::after {
+  content: none;
+}
+
+.lrow.act .lrow-title {
+  color: var(--c-link);
+}
+
+.lrow-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.lrow-label {
+  display: flex;
+}
+
+.lrow-icon {
+  flex: none;
+  width: 28px;
+}
+
+.lrow-title,
+.lrow-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lrow-sub {
+  display: block;
+  margin-top: 1px;
+  color: var(--c-hint);
+  font-size: 13px;
+}
+
+.lrow-sub.in {
+  padding-left: 28px;
+}
+
+/* UI-06: the day card. Three choices, one per row (nothing truncates at 320px). Once the day
+   is logged they fold into one line that states it, with "Change"; then the entries, as list
+   rows. Each control at least 44px high. */
+.choices {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.choice {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: inherit;
+  text-align: left;
+}
+
+.choice[aria-pressed="true"] {
   background: var(--c-accent);
   color: var(--c-accent-text);
 }
 
-.tour-sheet .row button:last-child {
-  margin-left: auto;
+.reasons {
+  margin: 0 0 4px 12px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tour-spot {
-    transition: none;
-  }
+.card .reasons .hint {
+  margin: 0;
+}
+
+/* The logged day's one line: the chosen choice, in the shape the choices have, and a quiet
+   "Change" on its right. */
+.state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 12px;
+  padding-left: 14px;
+  border-radius: 12px;
+  background: var(--c-bg);
+}
+
+.state p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.state .link,
+.daylog .link.clear {
+  min-height: 44px;
+  margin: 0;
+  padding: 0 14px;
+}
+
+.daylog .link.clear {
+  display: block;
+  margin-top: 4px;
+}
+
+.daylog .list {
+  margin-top: 4px;
+}
+
+/* The last row's own padding closes the card. */
+.daylog > .list:last-child {
+  margin-bottom: -6px;
+}
+
+/* An open panel belongs to the row above it: set in, with a quiet line. */
+.daylog .details {
+  margin: 0 0 8px;
+  padding: 0 0 4px 12px;
+  border-top: 0;
+  border-left: 2px solid var(--c-line);
+}
+
+/* The note being written stands in place of its row. */
+.daylog .note-edit {
+  padding: 12px 0 4px;
+  border-left: 0;
+}
+
+.daylog .note-edit:not(:first-child) {
+  border-top: 1px solid var(--c-line);
+}
+
+.note {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.daylog .row,
+.next .row {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+
+.daylog .row .link,
+.next .link {
+  min-height: 44px;
+  margin-top: 0;
+}
+
+/* The next step: one sentence, one button, a quiet "Not now". */
+.next p {
+  margin: 0 0 12px;
+}
+
+.chip.primary {
+  min-height: 44px;
+  background: var(--c-accent);
+  color: var(--c-accent-text);
 }
 
 /* Teachers and students (ID-04). A QR needs a white quiet zone in the dark theme too. */

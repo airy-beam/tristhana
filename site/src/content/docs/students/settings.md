@@ -9,7 +9,7 @@ Your name, language, city and time zone, and whose moon days you follow.
 ## Where the settings are
 
 - **In the bot:** :ftl[menu-open] → :ftl[menu-settings] (or :cmd[settings]). Five rows: language, city, day off, :ftl[settings-reminders-button], and :ftl[settings-more-button] for everything else.
-- **In the app:** :ftl[settings-open]{from=app} at the bottom of the first screen. Some things are only here: your name, quiet hours and the daily limit.
+- **In the app:** the gear :ftl[settings-open]{from=app} in the top corner of any tab. Some things are only here: your name, quiet hours and the daily limit.
 
 ![The settings screen in the bot](../../../assets/shots/en/bot-settings.webp)
 

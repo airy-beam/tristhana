@@ -538,6 +538,9 @@ class _UnavailableAccounts:
     async def mark_welcomed(self, account_id: UUID, at: datetime) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def journey_facts(self, account_id: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def delete(self, account_id: UUID) -> NoReturn:
         raise StorageUnavailable("not configured")
 

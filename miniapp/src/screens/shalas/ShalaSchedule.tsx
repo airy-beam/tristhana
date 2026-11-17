@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { lazy, Suspense, useState, type ReactNode, type SyntheticEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
 
 import {
   useAddClosure,
@@ -17,9 +17,10 @@ import {
   type Shala,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
+import { lazyRetry } from "../../shell/lazyRetry";
 import { confirmDestructive, haptics } from "../../telegram";
-import { zoneLabel } from "../practiceText";
 import { deviceZone } from "../settings/zones";
+import { zoneLabel } from "../timeLabel";
 import ClassForm, { useTypeName } from "./ClassForm";
 import {
   DASH,
@@ -36,21 +37,35 @@ import {
 const WEEK = 7;
 const WEEKS = 4;
 // SC-05: the staff roster is its own lazy chunk.
-const Attendance = lazy(() => import("./Attendance"));
+const Attendance = lazyRetry(() => import("./Attendance"));
 
 /** The shala's week (SC-02): every member reads it in the shala's zone (the card above names
  * it once); a day whose offset differs (a DST week) names it again. Staff who manage classes
  * open an occurrence to cancel, hold anyway or restore it, and add classes, closures and
  * swaps. Silent: no one gets a message (Q122). */
-export default function ShalaSchedule({ shala, week: first = 0 }: { shala: Shala; week?: number }) {
+export default function ShalaSchedule({
+  shala,
+  week: first = 0,
+  adding: start = false,
+}: {
+  shala: Shala;
+  week?: number;
+  /** UI-06: the class form is open from the start and in view (Today's "Add a class"). */
+  adding?: boolean;
+}) {
   const me = useMe().data;
   const locale: Locale = me?.locale ?? "en";
   const [week, setWeek] = useState(Math.min(Math.max(first, 0), WEEKS - 1));
-  const [adding, setAdding] = useState(false);
+  const manage = shala.me.schedule;
+  const [adding, setAdding] = useState(start && manage);
+  const form = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (start) form.current?.scrollIntoView({ block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when opened for the form
+  }, []);
   const from = addDays(todayIn(shala.zone), week * WEEK);
   const query = useSchedule(shala.id, from, WEEK);
   const schedule = query.data;
-  const manage = shala.me.schedule;
   return (
     <section className="card schedule">
       <Localized id="schedule-title">
@@ -95,12 +110,14 @@ export default function ShalaSchedule({ shala, week: first = 0 }: { shala: Shala
       </div>
       {manage &&
         (adding ? (
-          <ClassForm
-            shala={shala}
-            onDone={() => {
-              setAdding(false);
-            }}
-          />
+          <div ref={form}>
+            <ClassForm
+              shala={shala}
+              onDone={() => {
+                setAdding(false);
+              }}
+            />
+          </div>
         ) : (
           <Localized id="schedule-add-class">
             <button
@@ -179,6 +196,8 @@ function Week({
   const [open, setOpen] = useState<string | null>(null);
   const removeSwap = useRemoveSwap(shala.id);
   const first = schedule.days[0]?.date ?? todayIn(schedule.zone);
+  // Full labels, no viewer: a day row that names its zone again marks a daylight-saving
+  // change, where the offset is the information (ADR-0044).
   const header = zoneLabel(schedule.zone, first);
   // Times and days in the shala's zone, from the instant: an online class may run in another
   // city's zone (Q124), and its wall clock there is not the one under this header.

@@ -129,6 +129,10 @@ export async function seedCast(client, locale, options = {}) {
   ).staff;
   const helper = staff.find((person) => !person.owner && person.id !== teacher_id);
   if (staff.length < 2 || !helper) throw new Error(`${locale}: the assistant did not join`);
+  // She lives in the same city and logs nothing: her Today in the app is the screen before the
+  // first tap, with the class's place named in her language.
+  await client.call(assistant, "POST", "/me/device-timezone", { timezone: CITY.zone });
+  await client.call(assistant, "PATCH", "/me", { home_city: CITY.slug });
   const mysore = classes[0];
   let covered = "";
   for (let ahead = 2; ahead <= 9 && !covered; ahead++) {

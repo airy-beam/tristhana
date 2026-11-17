@@ -5,7 +5,9 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    Date,
     Row,
+    Select,
     Text,
     case,
     delete,
@@ -20,7 +22,7 @@ from sqlalchemy import (
     true,
     update,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -32,6 +34,7 @@ from tristhana.domain.accounts import (
     ProfileChange,
     ProfileUpdate,
 )
+from tristhana.domain.journey import JourneyFacts, OwnedShala
 from tristhana.domain.locale import DEFAULT_LOCALE, LOCALES, Locale
 from tristhana.domain.moon import ShalaMoon, TeacherMoon
 from tristhana.domain.rest_days import DayOff, Weekdays
@@ -40,9 +43,13 @@ from tristhana.infrastructure.db.tables import (
     account,
     day_log,
     identity,
+    notification_settings,
+    progression,
     shala,
+    shala_class,
     shala_staff,
     shala_student,
+    teacher_invite,
     teacher_link,
 )
 
@@ -164,6 +171,54 @@ _NEW_COLUMNS = (
     null().cast(JSONB).label("main_teacher"),
     null().cast(JSONB).label("main_shala"),
 )
+
+
+def journey_statement(account_id: UUID) -> Select[*tuple[Any, ...]]:
+    """UI-06 stage 2: one row of scalar subqueries, each keyed by `account_id` alone (PK or
+    index prefix), so no row of another account is read. Plain columns only. The owned
+    shalas are the `shala_owner_id_idx` rows (at most `MAX_OWNED`), each with two counts by
+    index prefix: `shala_class (shala_id, starts_on)` and the `shala_student` PK."""
+    has_days = exists().where(day_log.c.account_id == account_id)
+    # "Yes" and "no" both answer it; other settings create the row with the choice NULL.
+    reminder_answered = exists().where(
+        notification_settings.c.account_id == account_id,
+        notification_settings.c.practice_on.is_not(None),
+    )
+    # As `to_progression`: a stored position has its event ("standing only" included).
+    position_set = exists().where(
+        progression.c.account_id == account_id, progression.c.last_event_id.is_not(None)
+    )
+    # A UTC date whatever the connection's zone: the link's age is counted in whole days.
+    invite_made_on = (
+        select(func.timezone("UTC", teacher_invite.c.created_at).cast(Date))
+        .where(teacher_invite.c.account_id == account_id)
+        .scalar_subquery()
+    )
+    classes = (
+        select(func.count())
+        .select_from(shala_class)
+        .where(shala_class.c.shala_id == shala.c.id)
+        .scalar_subquery()
+    )
+    students = (
+        select(func.count())
+        .select_from(shala_student)
+        .where(shala_student.c.shala_id == shala.c.id)
+        .scalar_subquery()
+    )
+    one = func.jsonb_build_object("id", shala.c.id, "classes", classes, "students", students)
+    owned = (
+        select(func.jsonb_agg(aggregate_order_by(one, shala.c.created_at, shala.c.id)))
+        .where(shala.c.owner_id == account_id)
+        .scalar_subquery()
+    )
+    return select(
+        has_days.label("has_days"),
+        reminder_answered.label("reminder_answered"),
+        position_set.label("position_set"),
+        invite_made_on.label("invite_made_on"),
+        owned.cast(JSONB).label("owned"),
+    )
 
 
 def to_mask(days: Weekdays | None) -> int | None:
@@ -332,6 +387,19 @@ class SqlAccountRepository:
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one_or_none()
         return None if row is None else bool(row.has_days)
+
+    async def journey_facts(self, account_id: UUID) -> JourneyFacts:
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(journey_statement(account_id))).one()
+        return JourneyFacts(
+            has_days=row.has_days,
+            reminder_answered=row.reminder_answered,
+            position_set=row.position_set,
+            invite_made_on=row.invite_made_on,
+            owned=tuple(
+                OwnedShala(UUID(s["id"]), s["classes"], s["students"]) for s in row.owned or ()
+            ),
+        )
 
     async def delete(self, account_id: UUID) -> bool:
         """ST-09: every per-account FK cascades; others' `progression_event.marked_by` → NULL."""

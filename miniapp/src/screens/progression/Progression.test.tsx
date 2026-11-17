@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { Catalog, Progression as ProgressionValue } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
 import { haptics, useBackButton } from "../../telegram";
-import { PracticeDetails } from "../PracticeDetails";
+import { PracticeDetails } from "../dayExtras"; // the panel's chunk, with its copy
 import Progression from "./Progression";
 
 // PR-08 (spec §6): "🧘 My asanas" unset (suggestion, choose) and set (current line, next,

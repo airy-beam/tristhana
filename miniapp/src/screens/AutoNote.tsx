@@ -2,7 +2,7 @@ import { Localized } from "@fluent/react";
 
 import { useMoonCities, type AutoDay } from "../api/client";
 import type { Locale } from "../i18n/negotiate";
-import { cityName } from "./MoonCard";
+import { cityName } from "./cityName";
 
 /** Why an unlogged day shows as rest (PR-09, ADR-0022): a moon day of the followed city
  * or the weekly day off. Nothing is pressed: logging anything replaces it. */

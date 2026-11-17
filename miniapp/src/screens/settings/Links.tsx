@@ -1,5 +1,13 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Fragment, lazy, Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import {
+  Fragment,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type Ref,
+  type SyntheticEvent,
+} from "react";
 
 import {
   ApiError,
@@ -18,39 +26,60 @@ import {
   type LinkedStudent,
   type LinkedTeacher,
 } from "../../api/client";
-import {
-  backButtonAvailable,
-  confirmDestructive,
-  haptics,
-  openTelegramLink,
-  useBackButton,
-} from "../../telegram";
+import { confirmDestructive, haptics, openTelegramLink } from "../../telegram";
 import type { Locale } from "../../i18n/negotiate";
-import { cityName } from "../MoonCard";
+import { lazyRetry } from "../../shell/lazyRetry";
+import type { ShalaOpen, Start } from "../../shell/nav";
+import { cityName } from "../cityName";
+import { Row } from "../Row";
 import { checkedMonth, useListing, type ListingMark } from "./listing";
 
 // SC-01: the card is its own lazy chunk, loaded when a shala is opened.
-const ShalaScreen = lazy(() => import("../shalas/ShalaScreen"));
-const Announcements = lazy(() => import("../announcements/Announcements"));
+const ShalaScreen = lazyRetry(() => import("../shalas/ShalaScreen"));
+const Announcements = lazyRetry(() => import("../announcements/Announcements"));
 // ID-05: the form (and its copy) loads when the row is tapped.
-const DirectoryListing = lazy(() => import("./DirectoryListing"));
+const DirectoryListing = lazyRetry(() => import("./DirectoryListing"));
 
 interface Props {
-  onBack: () => void;
+  /** My students (ST-06), from the row in the students card. */
   onStudents: () => void;
-  /** UI-06: opened by the bot's "Create a shala" (`?open=new-shala`): the create form starts
-   * open with its name focused. */
-  create?: boolean;
+  /** My schedule (SC-03), the first row for anyone in a shala. */
+  onSchedule: () => void;
+  /** UI-06: a one-time intent. `create`: the bot's "Create a shala" (`?open=new-shala`), the
+   * form open with its name focused. `invite`: the invite card open. `shala:<id>`: that
+   * shala's card open; `class:<id>` and `join:<id>`: that card with its class form or its
+   * student invite open (Today's next step). */
+  start?: Start | null | undefined;
+  /** The shell focuses the heading after a tab switch. */
+  headingRef?: Ref<HTMLHeadingElement> | undefined;
 }
 
-/** "👥 Teachers and students" (ID-04): my teachers, my students, my invite. An invite is
- * confirmed in the bot. A teacher never sees who chose them as main. Loaded lazily, so Settings stays light. Writes are not optimistic. */
-export default function Links({ onBack, onStudents, create = false }: Props) {
-  const [shala, setShala] = useState<string | null>(null);
+/** What a start opens on the lists themselves. */
+type Intent = "create" | "invite";
+
+const CARD = /^(shala|class|join):(.+)$/;
+/** The shala card a start opens, and what for. */
+function cardOf(start: Start | null): { id: string; open?: ShalaOpen } | null {
+  const [, kind, id] = (start && CARD.exec(start)) ?? [];
+  if (!id) return null;
+  return kind === "class" || kind === "join" ? { id, open: kind } : { id };
+}
+
+/** The Shala tab's root (UI-06): my schedule, my teachers, my students, my invite, my shalas
+ * (ID-04, SC-01). A root registers no Back layer; a shala's card, the announcements and the
+ * directory line open over it and do. An invite is confirmed in the bot. A teacher never sees
+ * who chose them as main. Loaded lazily. Writes are not optimistic. */
+export default function Links({ onStudents, onSchedule, start = null, headingRef }: Props) {
+  // Once: back on the lists, a tap on the same shala opens its card plainly.
+  const [shala, setShala] = useState(() => cardOf(start));
   const [feed, setFeed] = useState(false);
   const [listing, setListing] = useState(false);
   // Once: coming back from a card, the feed or the directory line finds the form closed.
-  const [creating, setCreating] = useState(create);
+  const [intent, setIntent] = useState<Intent | null>(
+    start === "create" || start === "invite" ? start : null,
+  );
+  // After a start the full layout stays, also for someone with nobody on it yet.
+  const [begun, setBegun] = useState(intent !== null);
   const locale: Locale = useMe().data?.locale ?? "en";
   if (listing)
     return (
@@ -79,7 +108,8 @@ export default function Links({ onBack, onStudents, create = false }: Props) {
     return (
       <Suspense fallback={null}>
         <ShalaScreen
-          id={shala}
+          id={shala.id}
+          open={shala.open}
           onBack={() => {
             setShala(null);
           }}
@@ -88,19 +118,25 @@ export default function Links({ onBack, onStudents, create = false }: Props) {
     );
   return (
     <Lists
-      onBack={onBack}
       onStudents={onStudents}
-      create={creating}
+      onSchedule={onSchedule}
+      headingRef={headingRef}
+      intent={intent}
+      begun={begun}
+      onStart={(chosen) => {
+        setIntent(chosen);
+        setBegun(true);
+      }}
       onShala={(id) => {
-        setCreating(false);
-        setShala(id);
+        setIntent(null);
+        setShala({ id });
       }}
       onFeed={() => {
-        setCreating(false);
+        setIntent(null);
         setFeed(true);
       }}
       onListing={() => {
-        setCreating(false);
+        setIntent(null);
         setListing(true);
       }}
       locale={locale}
@@ -109,52 +145,105 @@ export default function Links({ onBack, onStudents, create = false }: Props) {
 }
 
 function Lists({
-  onBack,
   onStudents,
-  create,
+  onSchedule,
+  headingRef,
+  intent,
+  begun,
+  onStart,
   onShala,
   onFeed,
   onListing,
   locale,
-}: Required<Props> & {
+}: Pick<Props, "onStudents" | "onSchedule" | "headingRef"> & {
+  intent: Intent | null;
+  begun: boolean;
+  onStart: (intent: Intent) => void;
   onShala: (id: string) => void;
   onFeed: () => void;
   onListing: () => void;
   locale: Locale;
 }) {
-  useBackButton(onBack);
   const query = useLinks();
   const links = query.data;
+  const shalas = useMyShalas();
+  // Both lists decide between the layout and "nobody yet": neither is drawn on a guess.
+  const settled = begun || ((links || query.isError) && (shalas.data || shalas.isError));
+  const nobody =
+    !begun &&
+    links?.teachers.length === 0 &&
+    links.students.length === 0 &&
+    shalas.data?.length === 0;
   return (
-    <main className="screen links">
-      {!backButtonAvailable() && (
-        <Localized id="stats-back">
-          <button type="button" className="link" onClick={onBack} />
-        </Localized>
-      )}
-      <Localized id="links-title">
-        <h1 />
+    <main className="screen links" aria-busy={settled ? undefined : true}>
+      <Localized id="tab-shala">
+        <h1 ref={headingRef} tabIndex={-1} />
       </Localized>
       {query.isError && (
         <Localized id="links-load-failed">
           <p className="hint" role="alert" />
         </Localized>
       )}
-      {links && links.teachers.length > 0 && (
-        <Localized id="ann-list">
-          <button type="button" className="row-button" onClick={onFeed} />
-        </Localized>
+      {nobody ? (
+        <Nobody onStart={onStart} />
+      ) : (
+        settled && (
+          <>
+            {shalas.data && shalas.data.length > 0 && (
+              <Localized id="my-schedule-open">
+                <button
+                  type="button"
+                  className="row-button"
+                  onClick={() => {
+                    haptics.selection();
+                    onSchedule();
+                  }}
+                />
+              </Localized>
+            )}
+            {links && links.teachers.length > 0 && (
+              <Localized id="ann-list">
+                <button type="button" className="row-button" onClick={onFeed} />
+              </Localized>
+            )}
+            {links && (
+              <>
+                <Teachers teachers={links.teachers} locale={locale} />
+                <Students students={links.students} onOpen={onStudents} />
+                <InviteCard hasStudents={links.students.length > 0} open={intent === "invite"} />
+                <ListingRow onOpen={onListing} />
+              </>
+            )}
+            <Shalas onOpen={onShala} create={intent === "create"} />
+          </>
+        )
       )}
-      {links && (
-        <>
-          <Teachers teachers={links.teachers} locale={locale} />
-          <Students students={links.students} onOpen={onStudents} />
-          <InviteCard hasStudents={links.students.length > 0} />
-          <ListingRow onOpen={onListing} />
-        </>
-      )}
-      <Shalas onOpen={onShala} create={create} />
     </main>
+  );
+}
+
+/** Nobody yet (UI-06): no teacher, no student, no shala. One plain line, then two starts as
+ * list rows in one small card, with the bot's labels under the bot's name for that row, so a
+ * student reads past them. */
+function Nobody({ onStart }: { onStart: (intent: Intent) => void }) {
+  const { l10n } = useLocalization();
+  const start = (intent: Intent) => () => {
+    haptics.selection();
+    onStart(intent);
+  };
+  return (
+    <>
+      <Localized id="shala-empty">
+        <p className="hint" />
+      </Localized>
+      <Localized id="shala-starts-title">
+        <h2 className="starts" />
+      </Localized>
+      <div className="card list">
+        <Row label={l10n.getString("shala-start-invite")} onClick={start("invite")} />
+        <Row label={l10n.getString("shala-start-shala")} onClick={start("create")} />
+      </div>
+    </>
   );
 }
 
@@ -517,7 +606,7 @@ function Students({ students, onOpen }: { students: LinkedStudent[]; onOpen: () 
   );
 }
 
-function InviteCard({ hasStudents }: { hasStudents: boolean }) {
+function InviteCard({ hasStudents, open }: { hasStudents: boolean; open: boolean }) {
   const { l10n } = useLocalization();
   const invite = useInvite();
   const [shown, setShown] = useState<Invite | null>(null);
@@ -534,6 +623,14 @@ function InviteCard({ hasStudents }: { hasStudents: boolean }) {
       },
     });
   };
+  // UI-06: "Invite students" opens the card itself, as a tap on the row would.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!open || opened.current) return;
+    opened.current = true;
+    load(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when asked to open
+  }, [open]);
   const rotate = async () => {
     const ok = await confirmDestructive(
       l10n.getString("invite-new-ask"),

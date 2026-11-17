@@ -14,7 +14,9 @@ Share a link or show a QR code. A student confirms, and you are connected.
 
 ![The invite screen in the bot, with the buttons to send the link and to show a QR code](../../../assets/shots/en/bot-invite.webp)
 
-In the app the same link is under :ftl[settings-open] → :ftl[links-title].
+In the app the same link is on the :ftl[tab-shala] tab: tap :ftl[shala-start-invite].
+
+![The Shala tab in the app before anyone is on it, with Invite students and Shala and classes](../../../assets/shots/en/app-shala-empty.webp)
 
 There is no teacher account to apply for. If you teach, you share your link, and that's all.
 

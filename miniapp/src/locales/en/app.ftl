@@ -1,5 +1,14 @@
 # Mini App copy (en). Keys must match locales/ru/app.ftl. Keys are prefixed by screen.
 
+## Shell (UI-06): tabs as the bot's Menu rows; tab-shala is also that tab's heading.
+tab-today = 📝 Today
+tab-practice = 📊 Practice
+tab-shala = 🏛 Shala
+tabs-label = Sections
+# Also the day card's line when "Add details" or "How do you feel?" fails to open, so it names no screen.
+chunk-failed = Couldn't load this. Check your connection and try again.
+chunk-retry = Try again
+
 # Home: greeting with the Telegram first name (display only).
 home-greeting = Namaste, { $name } 🙏
 home-greeting-anon = Namaste 🙏
@@ -30,9 +39,15 @@ practice-days =
 # Shown when the Telegram session is older than 24 hours (or can't be verified).
 session-expired = This session has expired. Close Tristhana and open it again from the bot.
 
-# Home: today's status card (PR-01). Status labels match the bot.
-home-first-hint = Start by logging today: practice or rest.
-today-title = Today
+# Today: the day card (PR-01, UI-06). Labels and sentences match the bot's Today.
+# $date: "Sun, Oct 18".
+today-title = Today, { $date }
+today-prompt = Practice or rest? Both go in your log.
+today-other = Other…
+today-reasons = Pick what fits. Any day belongs in your log.
+# On a logged day the choices fold into one line (its status-* label) with this next to it:
+# the bot's word. It shows the three choices again, and Clear.
+today-change = Change
 status-practiced = 🧘 Practiced
 status-rest = 😌 Rest day
 status-moon = 🌙 Moon day
@@ -46,31 +61,16 @@ today-save-failed = Couldn't save. Try again in a moment.
 today-load-failed = Couldn't load today's status. Try again in a moment.
 
 # Practice details on a practiced day (PR-02, PR-03, PR-05). Matches the bot's wording.
-practice-title = Practice
-# What "Same as last time" will copy (the bot shows the same line).
-practice-last-time = Last time: { $summary }
-# The practice is more than 14 days older than the day being logged (Q296).
-practice-last-time-dated = Last time ({ $date }): { $summary }
+practice-add-details = 📝 Add details
+practice-details = 📝 Details
 practice-online-suffix = online
 practice-same-as-last = 🔁 Same as last time
 context-mysore = Mysore
 context-led = Led
 context-private = 1:1
 context-self = Self-practice
-practice-online = 🌐 Online
-practice-length = Length
-practice-duration = Duration
-preset-short = ☀️ Short → standing
-preset-half-primary = ½ Primary → Navasana
-preset-full-primary = Full Primary
-preset-other = 🎯 Other…
-length-pick-range = Series
-length-pick-end = Last asana
-length-full-series = Full series
 duration-min = { $min } min
 duration-none = No duration
-practice-start-time = Start time
-practice-clear = Remove details
 series-name =
     { $n ->
         [1] Primary
@@ -100,7 +100,6 @@ series-half =
     }
 half-first = { $series }, 1st half
 half-second = { $series }, 2nd half
-length-only = Only { $series }
 length-summary =
     { $kind ->
         [short] Short practice
@@ -124,6 +123,18 @@ moon-in-days =
        *[other] in { $n } days
     }
 moon-day-line = { $phase } · { $date } · { $in }
+# Today's row for the next moon day (UI-06): this label, then the line under it.
+today-moon =
+    { $phase ->
+        [purnima] 🌕 Next moon day
+       *[amavasya] 🌑 Next moon day
+    }
+# $when: "Tue, Nov 24", or "today" / "tomorrow" (moon-in-days).
+today-moon-fact =
+    { $phase ->
+        [purnima] Full moon · { $when }
+       *[amavasya] New moon · { $when }
+    }
 moon-none = No moon days in the next two months yet: the calendar is being prepared.
 moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
 moon-city = City for the calendar
@@ -173,7 +184,6 @@ remind-weekday = { $d ->
     }
 
 ## Stats (ST-01..03). Runs say "in a row", never "streak"/"broken"/"missed".
-stats-open = 📊 My practice
 stats-title = My practice
 badges-open = 🏅 Badges
 trends-open = ✨ Check-ins over time
@@ -240,7 +250,9 @@ stats-next = ›
     .aria-label = Next year
 
 ## Settings (ID-06).
-settings-open = ⚙️ Settings
+# The gear: its icon, and its name for screen readers.
+settings-open = ⚙️
+    .aria-label = Settings
 settings-title = Settings
 settings-name = Name
 settings-name-hint = How I greet you, and the name your teachers and students see here. Leave it empty to use your Telegram name.
@@ -347,7 +359,8 @@ pause-days = { $n ->
         [one] { $n } day
        *[other] { $n } days
     }
-pause-other = Other…
+# More day counts. Never "Other…" here: on the day card it sits right under the day's own "Other…" (UI-06).
+pause-other = Another number…
 pause-back = ‹ Back
 pause-only = { $rel ->
         [yesterday] Just yesterday
@@ -379,14 +392,8 @@ settings-ladies-button = Show the 🌸 Ladies' holiday button
 settings-ladies-button-hint = In the bot and here. Days you already logged stay as they are.
 
 ## After-practice check-in (PR-06). Always optional; describes, never advises.
-checkin-title = How do you feel?
-checkin-mood = Mood
 checkin-energy = ⚡ Energy: 1 low → 5 high
 checkin-effort = 🔥 Effort: 1 easy → 5 hard
-checkin-body = Body
-checkin-mind = Mind
-# Screen readers: the mood chips are emoji.
-checkin-mood-label = Mood { $n } of 5
 checkin-mood-chip = { $n ->
         [1] 😔
         [2] 😕
@@ -406,15 +413,17 @@ checkin-tag = { $tag ->
         [scattered] Scattered
        *[steady_breath] Steady breath
     }
-checkin-edit = ✨ Check-in
-checkin-clear = Remove check-in
-checkin-save-failed = Couldn't save the check-in. Try once more in a moment.
-settings-checkin = Offer a check-in after practice
-settings-checkin-hint = Mood, energy and effort right after logging today's practice. You can always add one from the day.
+checkin-edit = ✨ How do you feel?
+checkin-summary-energy = ⚡ energy { $n }/5
+checkin-summary-effort = 🔥 effort { $n }/5
+settings-checkin = Show “How do you feel?” after practice
+settings-checkin-hint = Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.
 
 ## Diary note (PR-07). Private, per day, any status; never asked for.
 diary-title = Diary
-diary-add = Add a note
+diary-add = 📓 Add a note
+# The row of a note that exists (the bot's button); its first line shows under it.
+diary-row = 📓 Note
 diary-edit = Edit
 diary-save = Save
 diary-cancel = Cancel
@@ -478,9 +487,6 @@ timeline-item-removed = { $item }: set aside
 timeline-empty-unset = Set where your practice ends in My asanas, and your timeline starts from there.
 timeline-empty-start = New asanas will appear here with their dates.
 timeline-truncated = Showing the newest { $count } entries.
-progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
-progression-ask-yes = 🎉 Yes, new
-progression-ask-no = Not new
 ## PR-08 Phase 3: who marked it; $teacher falls back to `progression-by-teacher`.
 progression-marked-by = Marked by { $teacher }
 progression-event-by = · { $teacher }
@@ -503,7 +509,6 @@ celebrate-practice-count = 🎉 { $count } { $count ->
         [one] practice
        *[other] practices
     } in your log. Thank you for coming to the mat.
-preset-mine = 🧘 My practice: { $length }
 # Milestone item names: the catalog name, plus the everyday name where people use one.
 milestone-label =
     { $slug ->
@@ -784,27 +789,14 @@ feed-off-done = Turned off.
 # UI-05: opens the public guide site in the browser (Settings, and outside Telegram).
 guide-open = 📖 Guide
 
-## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
-
-tour-open = 🧭 Quick tour
-tour-offer = Want a quick look around? It takes a minute.
-tour-offer-yes = Show me
-tour-offer-no = Not now
-tour-progress = { $n } of { $total }
-tour-next = Next
-tour-prev = ‹
-    .aria-label = Previous step
-tour-done = Done
-tour-today = Log today: practice or rest. After a practice you can add details, how it felt and a private note.
-tour-stats = Your year at a glance, plus a calendar for filling in earlier days.
-tour-asanas = Your last asana. Mark a new one here when your teacher gives it, or your teacher can mark it for you.
-tour-students = Your students: today's mark, the last asana and the last 7 days for each. Their notes, check-ins and reasons for rest stay with them.
-tour-schedule = The week's classes in all your shalas, in your time zone.
-tour-moon = The next moon days: full and new moons, traditional rest days. You pick the city in Settings.
-tour-settings = Your city, weekly day off, reminders and privacy. Teachers, students and shalas are here too, and so is this tour.
-
-links-title = 👥 Teachers and students
-links-empty = No teachers on your list. Your log works the same either way.
+## Shala tab (UI-06; ID-04, SC-01). shala-empty and the two starts: nobody on the lists yet;
+## the starts carry the bot's labels, under the bot's name for that row (shala-starts-title), so a
+## student does not take them for their own next step.
+shala-empty = Nobody here yet. To add a teacher or join a shala, open the link they send you.
+shala-starts-title = For teachers and shalas
+shala-start-invite = Invite students
+shala-start-shala = Shala and classes
+links-empty = No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.
 links-no-students = No students on your list.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
@@ -933,3 +925,19 @@ listing-level-name = { $level ->
        *[authorised] Authorised
     }
 listing-about = The name is in the public teachers directory of Sharath Yoga Centre (SYC); it was looked up by hand on that date. This is not an endorsement by SYC, and Tristhana has no connection with SYC. The level is the teacher's own words: the directory shows no levels. Many experienced teachers are not in this directory; the line says nothing about a teacher who doesn't have it.
+
+## Today: the next step (UI-06). One suggestion at a time: a sentence, its button, and "Not now" (kept on this device only).
+next-reminder = 🔔 Want me to ask once a day, so logging takes one tap?
+next-reminder-do = Yes, remind me
+# After that one tap, as the bot's answer to "Yes, remind me"; $time is "10:00 Almaty".
+remind-offer-set = 🔔 I'll ask once a day at { $time }.
+remind-change-time = ⏰ Change the time
+next-position = Set where your practice ends, and the length choices will match your practice.
+next-position-do = Open My asanas
+next-invite = Your invite link is ready. Send it to your students, and you'll see what they share with you.
+next-invite-do = Open the invite
+next-class = Your shala has no classes yet. Add the first one, and students will see the schedule.
+next-class-do = Add a class
+next-shala-invite = Your shala has a schedule now. Invite students, and they'll see its classes.
+next-shala-invite-do = Invite students
+next-not-now = Not now

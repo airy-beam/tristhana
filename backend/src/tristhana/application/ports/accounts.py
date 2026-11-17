@@ -9,6 +9,7 @@ from tristhana.domain.accounts import (
     ProfileChange,
     ProfileUpdate,
 )
+from tristhana.domain.journey import JourneyFacts
 from tristhana.domain.rest_days import DayOff
 
 
@@ -57,6 +58,14 @@ class AccountRepository(Protocol):
         """UI-06: record that the person has met the front door (or their first Today), only
         while it is not recorded. One statement. Returns whether the account has any logged
         day; None = already recorded (a second `/start` racing the first), nothing written."""
+        ...
+
+    async def journey_facts(self, account_id: UUID) -> JourneyFacts:
+        """UI-06 stage 2: what the next step is derived from, in one statement. Only this
+        account's own rows: whether a day is logged, whether the practice reminder was ever
+        chosen, whether a position is set, the date (UTC) of their teacher invite link, and
+        the shalas they own (oldest first) with each one's class and student counts. A shala
+        they only teach at or study in is never read."""
         ...
 
     async def delete(self, account_id: UUID) -> bool:

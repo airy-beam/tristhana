@@ -37,7 +37,9 @@ const labels = createLabels();
  * @param {string} step
  * @param {"en" | "ru"} locale
  * @param {"bot" | "app"} from
- * @returns {{ text: string, exact: boolean } | { index: number }}
+ * A control with no visible words (the Mini App's gear, "⚙️") is found by its accessible
+ * name, the message's `.aria-label`.
+ * @returns {{ text: string, exact: boolean, name?: string } | { index: number }}
  */
 function target(step, locale, from) {
   if (/^#\d+$/.test(step)) return { index: Number(step.slice(1)) };
@@ -48,7 +50,8 @@ function target(step, locale, from) {
     if (!text) throw new Error(`no "${who}" in the demo cast`);
     return { text, exact: false };
   }
-  return { text: labels.label(locale, step, {}, from), exact: true };
+  const name = labels.ariaLabel(locale, step, from) ?? undefined;
+  return { text: labels.label(locale, step, {}, from), exact: true, name };
 }
 
 /**
@@ -81,6 +84,21 @@ try {
   const client = createClient({ api: API, secret: DEMO.secret });
   for (const locale of locales) await seedCast(client, locale, { log: console.log });
 
+  const health = /** @type {{ version: string, commit: string }} */ (
+    await (await fetch(`${API}/api/v1/health`)).json()
+  );
+  const serverLine = Object.fromEntries(
+    locales.map((locale) => [
+      locale,
+      labels.label(
+        locale,
+        "home-server-status",
+        { version: health.version, commit: health.commit.slice(0, 7) },
+        "app",
+      ),
+    ]),
+  );
+
   for (const locale of locales) {
     const context = await browser.newContext({
       viewport: PHONE,
@@ -112,11 +130,34 @@ try {
         for (const key of shot.click ?? []) {
           const to = target(key, locale, "app");
           if ("index" in to) throw new Error(`${shot.name}: "#n" steps are for bot shots`);
-          await page.getByText(to.text, { exact: to.exact }).first().click();
+          const control = to.name
+            ? page.getByRole("button", { name: to.name, exact: true })
+            : page.getByText(to.text, { exact: to.exact });
+          await control.first().click();
           await page.waitForLoadState("networkidle");
         }
         // Let fonts, lazy chunks and entry animations settle.
         await page.waitForTimeout(400);
+        // The dev build always shows the server's version on Today; people see it only after
+        // a long press, so it does not belong in a guide picture.
+        // (Fluent wraps the variables in invisible marks in the app, so compare without them.)
+        await page.getByRole("status").evaluateAll((lines, wanted) => {
+          for (const line of lines) {
+            if (line.textContent?.replace(/[\u2066-\u2069]/g, "") !== wanted) continue;
+            // Hidden, not removed: the node stays React's.
+            /** @type {HTMLElement} */ (line).style.display = "none";
+          }
+        }, serverLine[locale]);
+        if (shot.full === true) {
+          // The whole page, as one tall phone: a plain full-page capture would leave the
+          // fixed tab bar where the first screen ends, across the middle of the picture.
+          const height = await page.evaluate(() => document.documentElement.scrollHeight);
+          await page.setViewportSize({
+            width: PHONE.width,
+            height: Math.max(height, PHONE.height),
+          });
+          await page.waitForTimeout(200);
+        }
         png = await page.screenshot({ fullPage: shot.full === true });
       }
       await page.close();

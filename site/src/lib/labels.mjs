@@ -93,7 +93,32 @@ export function createLabels(sources = SOURCES) {
     return text;
   }
 
-  return { label };
+  /**
+   * The accessible name of a control whose visible text is only an icon: the message's
+   * `.aria-label` attribute (the Mini App's gear is "⚙️" with the name "Settings"). Null when
+   * the message has no such attribute; its visible text is then its name.
+   * @param {string} locale
+   * @param {string} key
+   * @param {string} [from] "bot" or "app"
+   * @returns {string | null}
+   */
+  function ariaLabel(locale, key, from) {
+    if (!LOCALES.includes(locale)) throw new LabelError(`unknown locale "${locale}"`);
+    for (const name of from ? [from] : Object.keys(sources)) {
+      const pattern = bundle(name, locale).getMessage(key)?.attributes["aria-label"];
+      if (pattern === undefined) continue;
+      /** @type {Error[]} */
+      const errors = [];
+      const text = bundle(name, locale).formatPattern(pattern, {}, errors);
+      if (errors.length) {
+        throw new LabelError(`"${key}.aria-label" (${name}, ${locale}): ${errors[0].message}`);
+      }
+      return text;
+    }
+    return null;
+  }
+
+  return { label, ariaLabel };
 }
 
 /** The names in the tuple `name` of the tool that registers the bot's commands. */

@@ -8,7 +8,7 @@ import type { Locale } from "../../i18n/negotiate";
 import enTrends from "../../locales/en/trends.ftl?raw";
 import ruTrends from "../../locales/ru/trends.ftl?raw";
 import { backButtonAvailable, useBackButton } from "../../telegram";
-import { cityName } from "../MoonCard";
+import { cityName } from "../cityName";
 import { get } from "../progression/progressionText";
 
 addMessages({ en: enTrends, ru: ruTrends });

@@ -16,7 +16,7 @@ Yes. Most of Tristhana is your own log: practice, rest, moon days and your asana
 
 ## I forgot to log a few days. What now?
 
-Nothing is lost. In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-earlier-day], or tap the day in the app's calendar. You can also leave days empty. An empty day is just an empty day.
+Nothing is lost. In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-earlier-day], or tap the day in the calendar on the app's :ftl[tab-practice] tab. You can also leave days empty. An empty day is just an empty day.
 
 ## Does a rest day interrupt my practices in a row?
 
@@ -46,7 +46,7 @@ Your name, practice or rest from the day you added them, your practice length an
 
 ## Where do I find this guide again?
 
-In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-guide]{from=bot}. In the app, open :ftl[settings-open] and tap :ftl[guide-open]. Both open the guide in your language.
+In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-guide]{from=bot}. In the app, tap the gear :ftl[settings-open] and then :ftl[guide-open]. Both open the guide in your language.
 
 ## Something isn't working, or I have an idea
 

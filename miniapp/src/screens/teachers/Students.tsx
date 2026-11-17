@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import {
   ApiError,
@@ -24,6 +24,7 @@ import {
 } from "../../telegram";
 import { lengthText } from "../practiceText";
 import { get, isStanding, stopLabel } from "../progression/progressionText";
+import { lazyRetry } from "../../shell/lazyRetry";
 
 interface Props {
   locale: Locale;
@@ -32,7 +33,7 @@ interface Props {
 
 /** "👥 My students" (ST-06): name and today's mark in the list, the 7 days on the card only, so
  * no side-by-side week can read as a "who hasn't practiced" list (Q78). Loaded lazily. */
-const Announcements = lazy(() => import("../announcements/Announcements"));
+const Announcements = lazyRetry(() => import("../announcements/Announcements"));
 
 export default function Students({ locale, onBack }: Props) {
   const [open, setOpen] = useState<string | null>(null);

@@ -8,9 +8,9 @@ Your year at a glance, a summary of each month, quiet badges, and cards you can 
 
 ## Open it
 
-Open the app and tap :ftl[stats-open].
+Open the app and tap the :ftl[tab-practice] tab.
 
-![The My practice screen: the year, the month and the summary](../../../assets/shots/en/app-my-practice.webp)
+![The Practice tab: My asanas, the year, the month and the summary](../../../assets/shots/en/app-my-practice.webp)
 
 ## What you see
 

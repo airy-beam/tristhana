@@ -128,6 +128,8 @@ function stubApi(stub: Stub = {}): Request[] {
           occurrences: [],
           closures: [],
         }); // SC-02
+      if (path === `/api/v1/shalas/${SHALA}/join-link`)
+        return json({ url: "https://t.me/x?start=s_a", qr: "data:image/png;base64,AA==" });
       if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
       if (path === "/api/v1/me/invite") return json({ url: "https://t.me/x?start=t_a", qr: "" });
       if (path === "/api/v1/moon/cities") return json(CITIES);
@@ -184,25 +186,32 @@ describe("the Shalas part of Teachers and students", () => {
   it("lists my shalas, then Create a shala", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
     await screen.findByText(/Ashtanga Almaty/);
     expect(screen.getByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
   });
 
-  it("offers Create a shala with no shalas", async () => {
+  // UI-06 stage 2: with nobody on the lists and no shala there are no empty cards; the quiet
+  // "Shala and classes" start opens the layout with the form.
+  it("with no shalas and nobody on the lists, Shala and classes leads to the form", async () => {
     stubApi({ mine: [] });
 
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    const start = await screen.findByRole("button", { name: "Shala and classes" });
+    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
+    fireEvent.click(start);
 
-    expect(await screen.findByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(await screen.findByRole("textbox")).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "🏛 Shalas" })).toBeInTheDocument();
   });
 });
 
 describe("the create form", () => {
+  /** Someone with nobody on the lists yet: the quiet start opens the form. */
   async function openForm() {
-    renderWith(<Links onBack={vi.fn()} onStudents={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "🏛 Create a shala" }));
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Shala and classes" }));
     return screen.findByRole("textbox");
   }
 
@@ -250,23 +259,24 @@ describe("the create form", () => {
   it("starts open with the name focused when asked to (create)", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links create onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
     expect(await screen.findByRole("textbox")).toHaveFocus();
     expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
   });
 
   it("doesn't take the focus when the form is opened by its button", async () => {
-    stubApi();
+    stubApi({ mine: MINE });
+    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
-    const name = await openForm();
+    fireEvent.click(await screen.findByRole("button", { name: "🏛 Create a shala" }));
 
-    expect(name).not.toHaveFocus();
+    expect(await screen.findByRole("textbox")).not.toHaveFocus();
   });
 
   it("opens only once: back from the new shala's card the form is closed", async () => {
     stubApi();
-    renderWith(<Links create onBack={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
     const name = await screen.findByRole("textbox");
     fireEvent.change(name, { target: { value: "Ashtanga Almaty" } });
     fireEvent.submit(name.closest("form") as HTMLFormElement);
@@ -300,7 +310,11 @@ describe("the shala card", () => {
     renderWith(card());
 
     await screen.findByText(/Ashtanga Almaty/);
-    expect(pageText()).toContain("Almaty (UTC+5)");
+    // The shala's zone is my own: its place, no offset (ADR-0044).
+    await waitFor(() => {
+      expect(pageText()).not.toContain("UTC+5");
+    });
+    expect(pageText()).toContain("shala time: Almaty");
     expect(pageText()).toContain("🌙 Moon days: 📍 Almaty");
   });
 
@@ -436,10 +450,84 @@ describe("the shala card", () => {
   });
 });
 
-describe("Follow my shala in Settings", () => {
-  const settings = (locale: Locale = "en") => (
-    <Settings me={{ ...ME, locale }} onBack={vi.fn()} onTour={vi.fn()} onLinks={vi.fn()} />
+// UI-06 (review): Today's next step lands where the work is, not on the card's first row.
+describe("opened for one thing", () => {
+  const scrolled = vi.fn();
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = scrolled;
+  });
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+  const OWNS = shalaOut({ ...OWNER, schedule: true });
+  const form = () => screen.findByRole("button", { name: "Save the class" });
+
+  it("class: the schedule has its class form open and in view", async () => {
+    stubApi({ card: OWNS });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
+
+    const save = await form();
+    expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
+    expect(scrolled).toHaveBeenCalledOnce();
+    expect((scrolled.mock.contexts[0] as HTMLElement).contains(save)).toBe(true);
+  });
+
+  it("join: the student invite is made and shown at once, in view", async () => {
+    const seen = stubApi({ card: OWNS });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="join" />);
+
+    const qr = await screen.findByRole("img", { name: "QR code for the shala's link" });
+    expect(screen.queryByRole("button", { name: "➕ Invite students" })).toBeNull();
+    const posts = calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`);
+    expect(posts).toHaveLength(1);
+    expect(await posts[0]?.json()).toEqual({ rotate: false }); // the same link, never a new one
+    expect((scrolled.mock.contexts[0] as HTMLElement).contains(qr)).toBe(true);
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull(); // the class form stays shut
+  });
+
+  it("opened plainly, nothing is open and nothing scrolls", async () => {
+    const seen = stubApi({ card: OWNS });
+    renderWith(card());
+
+    await screen.findByRole("button", { name: "➕ Add a class" });
+    expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+    expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`)).toHaveLength(0);
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+
+  it("a staff member who may not edit classes gets the card, no form", async () => {
+    stubApi({ card: shalaOut(TEACHER) });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
+
+    await screen.findByRole("button", { name: "➕ Invite students" });
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull();
+  });
+
+  it.each(["class", "join"] as const)(
+    "the Shala tab's start %s:<id> opens that card so, once",
+    async (open) => {
+      stubApi({ mine: MINE, card: OWNS });
+      renderWith(<Links start={`${open}:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+      const opened = () =>
+        open === "class"
+          ? form()
+          : screen.findByRole("img", { name: "QR code for the shala's link" });
+      expect(await opened()).toBeInTheDocument();
+
+      act(() => {
+        vi.mocked(useBackButton).mock.lastCall?.[0](); // Back to the lists
+      });
+      fireEvent.click(await screen.findByRole("button", { name: /Ashtanga Almaty/ }));
+
+      // The same card again, as a tap opens it: nothing unfolded.
+      expect(await screen.findByRole("button", { name: "➕ Add a class" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+    },
   );
+});
+
+describe("Follow my shala in Settings", () => {
+  const settings = (locale: Locale = "en") => <Settings me={{ ...ME, locale }} onBack={vi.fn()} />;
   const shalaLocation = {
     slug: "moscow",
     explicit: false,

@@ -116,6 +116,8 @@ interface Stub {
   card?: unknown;
   schedule?: unknown;
   dayOff?: number[] | null;
+  /** My own zone (the viewer's); Almaty, the shala's, unless given. */
+  timezone?: string;
 }
 
 function stubApi(stub: Stub = {}): Request[] {
@@ -139,7 +141,7 @@ function stubApi(stub: Stub = {}): Request[] {
           id: "00000000-0000-0000-0000-000000000001",
           display_name: "Ash",
           locale: "en",
-          timezone: "Asia/Almaty",
+          timezone: stub.timezone ?? "Asia/Almaty",
           name_from_telegram: true,
           locale_from_telegram: true,
           hide_ladies: false,
@@ -179,11 +181,25 @@ describe("the schedule on the shala card", () => {
     renderWith(card());
 
     await screen.findAllByText(/06:00–09:30/); // two rows: Monday's and the cancelled Friday
+    // The shala's zone is my own: the card names the place, with no offset (ADR-0044).
+    await waitFor(() => {
+      expect(pageText()).not.toContain("UTC+5");
+    });
     const text = pageText();
-    expect(text.match(/Almaty \(UTC\+5\)/g)).toHaveLength(1);
+    expect(text.match(/shala time: Almaty/g)).toHaveLength(1);
     expect(text).toContain("🌙 Moon day");
     expect(text).toContain("😌 Shala day off");
     expect(text).toContain("moon day"); // the cancelled Friday keeps its reason
+  });
+
+  it("shows the zone with its offset, once, to a member in another zone", async () => {
+    stubApi({ timezone: "Asia/Tashkent" }); // the same clock, still another zone
+    renderWith(card());
+
+    await screen.findAllByText(/06:00–09:30/);
+    await waitFor(() => {
+      expect(pageText().match(/Almaty \(UTC\+5\)/g)).toHaveLength(1);
+    });
   });
 
   it("adds your time only when the viewer's offset differs", async () => {
@@ -452,7 +468,15 @@ describe("the class form", () => {
     for (const d of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sunday"])
       expect(weekday(d).checked).toBe(true);
     expect(screen.getByLabelText(/Until/)).toHaveAttribute("type", "time");
-    expect(pageText()).toContain("Almaty (UTC+5)");
+    // The start time's label: my own zone, so the place alone (ADR-0044).
+    expect(await screen.findByText("Start, Almaty")).toBeInTheDocument();
+  });
+
+  it("labels the start with the offset for staff in another zone", async () => {
+    stubApi({ timezone: "Europe/Berlin" });
+    renderWith(form());
+
+    expect(await screen.findByText("Start, Almaty (UTC+5)")).toBeInTheDocument();
   });
 
   it("starts other types with no day ticked; Led shows its hint and minutes", async () => {

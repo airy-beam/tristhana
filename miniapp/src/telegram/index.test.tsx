@@ -3,15 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sdk = vi.hoisted(() => {
   const clicks = new Set<() => void>();
+  /** Whether this client draws Telegram's Back button (false: dev browser, old clients). */
+  const back = { available: true };
   const fn = () => Object.assign(vi.fn(), { isAvailable: () => true, ifAvailable: vi.fn() });
-  const show = fn();
+  const show = Object.assign(vi.fn(), { isAvailable: () => back.available, ifAvailable: vi.fn() });
   const hide = fn();
   const setParams = fn();
   const isDark = Object.assign(
     vi.fn(() => true),
     { sub: vi.fn() },
   );
-  return { clicks, show, hide, setParams, isDark };
+  const setBottomBarColor = fn();
+  return { clicks, back, show, hide, setParams, isDark, setBottomBarColor };
 });
 
 vi.mock("@telegram-apps/sdk-react", () => {
@@ -32,7 +35,7 @@ vi.mock("@telegram-apps/sdk-react", () => {
     init: vi.fn(),
     isTMA: () => true,
     mainButton: { mount: off, setParams: sdk.setParams, onClick: () => vi.fn() },
-    miniApp: { mountSync: off },
+    miniApp: { mountSync: off, setBottomBarColor: sdk.setBottomBarColor },
     popup: {},
     requestWriteAccess: {},
     retrieveLaunchParams: vi.fn(),
@@ -42,7 +45,7 @@ vi.mock("@telegram-apps/sdk-react", () => {
   };
 });
 
-import { initTelegram, useBackButton, useMainButton } from ".";
+import { initTelegram, useBackButton, useBackShown, useMainButton } from ".";
 
 function press() {
   act(() => {
@@ -124,6 +127,78 @@ describe("useBackButton", () => {
   });
 });
 
+// UI-06 stage 2 (ADR-0047): the tab bar is drawn only while no Back layer is mounted.
+describe("useBackShown", () => {
+  function Bar() {
+    return useBackShown() ? null : <nav />;
+  }
+  const bar = () => document.querySelector("nav");
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+    sdk.back.available = true;
+  });
+
+  it("is false on a root and true while any layer is mounted", () => {
+    const { rerender } = render(
+      <>
+        <Bar />
+      </>,
+    );
+    expect(bar()).not.toBeNull();
+
+    rerender(
+      <>
+        <Bar />
+        <Layer onBack={vi.fn()} />
+      </>,
+    );
+    expect(bar()).toBeNull();
+
+    rerender(
+      <>
+        <Bar />
+      </>,
+    );
+    expect(bar()).not.toBeNull();
+  });
+
+  it("ignores a disabled layer (a note with nothing unsaved)", () => {
+    const { rerender } = render(
+      <>
+        <Bar />
+        <Layer onBack={vi.fn()} enabled={false} />
+      </>,
+    );
+    expect(bar()).not.toBeNull();
+
+    rerender(
+      <>
+        <Bar />
+        <Layer onBack={vi.fn()} enabled />
+      </>,
+    );
+    expect(bar()).toBeNull();
+  });
+
+  it("counts layers where Telegram has no Back button, without touching the button", () => {
+    sdk.back.available = false;
+    const { unmount } = render(
+      <>
+        <Bar />
+        <Layer onBack={vi.fn()} />
+      </>,
+    );
+
+    expect(bar()).toBeNull();
+    expect(sdk.show).not.toHaveBeenCalled();
+    expect(sdk.clicks.size).toBe(0);
+    unmount();
+  });
+});
+
 describe("useMainButton", () => {
   function Main({ text, loading }: { text: string; loading: boolean }) {
     useMainButton(text, vi.fn(), loading);
@@ -152,6 +227,12 @@ describe("initTelegram", () => {
     const change = sdk.isDark.sub.mock.lastCall?.[0] as (dark: boolean) => void;
     change(false);
     expect(document.documentElement.style.colorScheme).toBe("light");
+  });
+
+  it("paints Telegram's strip under the tab bar in the bar's colour", () => {
+    initTelegram();
+
+    expect(sdk.setBottomBarColor.ifAvailable).toHaveBeenCalledWith("bottom_bar_bg_color");
   });
 });
 

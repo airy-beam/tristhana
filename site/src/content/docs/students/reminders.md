@@ -13,6 +13,10 @@ A gentle daily nudge to log your practice, and a heads-up before moon days. You 
 
 ![The practice reminder screen with times to choose from](../../../assets/shots/en/bot-remind.webp)
 
+The app offers it too, on the :ftl[tab-today] tab, once you have logged a day: :ftl[next-reminder-do] turns it on in one tap, :ftl[next-not-now] puts the question away.
+
+![Today in the app with the reminder offer under the day's card](../../../assets/shots/en/app-next-step.webp)
+
 Once a day the bot asks how it went. You answer with one tap:
 
 - :ftl[remind-same] logs a practice with the same details as before;
@@ -28,7 +32,7 @@ They are on from the start: 7 days and 1 day before each moon day, at 19:00 your
 
 ## Quiet hours and a daily limit
 
-Reminders don't come between 22:00 and 07:00, and the bot sends at most 3 of them a day. Both can be changed in the app: :ftl[settings-open]{from=app} → :ftl[settings-quiet].
+Reminders don't come between 22:00 and 07:00, and the bot sends at most 3 of them a day. Both can be changed in the app: the gear :ftl[settings-open]{from=app} → :ftl[settings-quiet].
 
 ## Good to know
 

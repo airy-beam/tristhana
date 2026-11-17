@@ -11,7 +11,7 @@ import {
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
-import { cityName } from "../MoonCard";
+import { cityName } from "../cityName";
 import { labelOf } from "../settings/zones";
 import { WEEKDAYS, hmOf, minutesOf, plain, todayIn } from "./scheduleText";
 
@@ -55,7 +55,8 @@ interface Props {
 export default function ClassForm({ shala, onDone }: Props) {
   const { l10n } = useLocalization();
   const typeName = useTypeName();
-  const locale: Locale = useMe().data?.locale ?? "en";
+  const me = useMe().data;
+  const locale: Locale = me?.locale ?? "en";
   const cities = useMoonCities().data;
   const create = useCreateClass(shala.id);
   const [type, setType] = useState<ClassType>("mysore");
@@ -117,9 +118,10 @@ export default function ClassForm({ shala, onDone }: Props) {
   };
   // The start is wall clock where the class runs: another city's zone when online (Q124).
   const runsIn = online ? cities?.find((c) => c.slug === city) : undefined;
+  // It labels the start time, so the offset shows only outside my own zone (ADR-0044).
   const zone = runsIn
-    ? labelOf(runsIn.timezone, cityName(runsIn, runsIn.slug, locale))
-    : labelOf(shala.zone, shala.city.name);
+    ? labelOf(runsIn.timezone, cityName(runsIn, runsIn.slug, locale), me?.timezone)
+    : labelOf(shala.zone, shala.city.name, me?.timezone);
   const offDay = days.some((d) => (shala.days_off ?? []).includes(d));
   const capped = create.error instanceof ApiError && create.error.code === "class_caps";
   return (

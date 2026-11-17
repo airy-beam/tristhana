@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 
 import {
   useLinks,
@@ -19,8 +19,10 @@ import {
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { guideUrl } from "../../guide";
+import type { SettingsFocus } from "../../shell/nav";
 import { backButtonAvailable, haptics, openLink, useBackButton } from "../../telegram";
-import { cityName, MoonSource } from "../MoonCard";
+import { cityName } from "../cityName";
+import { MoonSource } from "../moon/MoonScreen";
 import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
 import { loadShowLadies, saveShowLadies } from "../stats/cells";
 import { MyData } from "./MyData";
@@ -36,21 +38,27 @@ const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")
 interface Props {
   me: Me;
   onBack: () => void;
-  /** Opens the quick tour on Home (UI-02). */
-  onTour: () => void;
-  /** Opens "Teachers and students" (ID-04). */
-  onLinks: () => void;
-  /** Open scrolled to a section (the stats "Set your weekly day off" link). */
-  focus?: "day-off" | undefined;
+  /** Open scrolled to a section: the stats "Set your weekly day off" link, or the practice
+   * reminder (UI-06). */
+  focus?: SettingsFocus | undefined;
+  /** The shell focuses the heading when Settings opens. */
+  headingRef?: Ref<HTMLHeadingElement> | undefined;
 }
 
 /** Everything in one place (ID-06): profile, time zone, moon days, reminders, privacy.
- * Loaded lazily, so Home stays light. */
-export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) {
+ * Pushed by the gear and by Telegram's ⋯ item (UI-06). Loaded lazily, so Today stays light. */
+export default function Settings({ me, onBack, focus, headingRef }: Props) {
   useBackButton(onBack);
+  // Once, when the section is there: the reminder card mounts after its settings load.
+  const loaded = useNotificationSettings().isSuccess;
+  const scrolled = useRef(false);
   useEffect(() => {
-    if (focus) document.getElementById(focus)?.scrollIntoView({ block: "start" });
-  }, [focus]);
+    if (!focus || scrolled.current) return;
+    const section = document.getElementById(focus);
+    if (!section) return;
+    scrolled.current = true;
+    section.scrollIntoView({ block: "start" });
+  }, [focus, loaded]);
   return (
     <main className="screen settings">
       {!backButtonAvailable() && (
@@ -59,7 +67,7 @@ export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) 
         </Localized>
       )}
       <Localized id="settings-title">
-        <h1 />
+        <h1 ref={headingRef} tabIndex={-1} />
       </Localized>
       <Profile me={me} />
       <City me={me} />
@@ -72,12 +80,6 @@ export default function Settings({ me, onBack, onTour, onLinks, focus }: Props) 
       <Quiet zone={me.timezone} />
       <AnnouncementsSwitch />
       <CalendarFeedCard locale={me.locale} />
-      <Localized id="links-title">
-        <button type="button" className="row-button" onClick={onLinks} />
-      </Localized>
-      <Localized id="tour-open">
-        <button type="button" className="row-button" onClick={onTour} />
-      </Localized>
       <Localized id="guide-open">
         <button
           type="button"
@@ -168,6 +170,9 @@ function City({ me }: { me: Me }) {
   const [unlisted, setUnlisted] = useState(false);
   const listed = me.home_city?.slug;
   const showUnlisted = unlisted || (me.home_city_chosen && !listed);
+  // My own city: its name, no offset (ADR-0044). Without one the line says what the clock
+  // is, so the offset is the information.
+  const place = placeFor(me.home_city, me.timezone, me.locale);
   const now = (zone: string) =>
     new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zone }).format(
       new Date(),
@@ -190,7 +195,7 @@ function City({ me }: { me: Me }) {
           id="settings-zone-now"
           vars={{
             time: now(me.timezone),
-            zone: labelOf(me.timezone, placeFor(me.home_city, me.timezone, me.locale)),
+            zone: labelOf(me.timezone, place, place ? me.timezone : null),
           }}
         >
           <p />

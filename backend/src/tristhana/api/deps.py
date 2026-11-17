@@ -14,6 +14,7 @@ from tristhana.application.check_in_trends import GetCheckInTrends
 from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, SaveDiaryNote
 from tristhana.application.export import DeleteMyAccount, SendMyExport
+from tristhana.application.journey import GetNextSteps
 from tristhana.application.moon import (
     GetMoonView,
     NotificationSettingsUseCase,
@@ -77,6 +78,10 @@ def year_stats(request: Request) -> "GetYearStats":
 
 def get_badges(request: Request) -> GetBadges:
     return cast(GetBadges, request.app.state.badges)
+
+
+def get_next_steps(request: Request) -> GetNextSteps:
+    return cast(GetNextSteps, request.app.state.next_steps)
 
 
 def get_check_in_trends(request: Request) -> GetCheckInTrends:

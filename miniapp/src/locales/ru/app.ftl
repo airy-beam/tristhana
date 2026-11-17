@@ -1,5 +1,14 @@
 # Тексты Mini App (ru). Ключи совпадают с locales/en/app.ftl. Префикс ключа — экран.
 
+## Shell (UI-06): tabs as the bot's Menu rows; tab-shala is also that tab's heading.
+tab-today = 📝 Сегодня
+tab-practice = 📊 Практика
+tab-shala = 🏛 Шала
+tabs-label = Разделы
+# Also the day card's line when "Add details" or "How do you feel?" fails to open, so it names no screen.
+chunk-failed = Не получилось загрузить. Проверь связь и попробуй ещё раз.
+chunk-retry = Попробовать ещё раз
+
 # Главный экран: приветствие по имени из Telegram (только для показа).
 home-greeting = Намасте, { $name } 🙏
 home-greeting-anon = Намасте 🙏
@@ -31,9 +40,15 @@ practice-days =
 # Показывается, если сессия Telegram старше 24 часов (или её не удалось проверить).
 session-expired = Сессия истекла. Закрой Тристхану и открой её снова из бота.
 
-# Карточка «Сегодня» на главной (PR-01). Подписи статусов совпадают с ботом.
-home-first-hint = Для начала отметь сегодня: практика или отдых.
-today-title = Сегодня
+# «Сегодня»: карточка дня (PR-01, UI-06). Подписи и фразы совпадают с ботом.
+# $date: «вс, 18 окт.».
+today-title = Сегодня, { $date }
+today-prompt = Практика или отдых? В журнал идёт и то, и другое.
+today-other = Другое…
+today-reasons = Выбери, что подходит. В журнале есть место любому дню.
+# У отмеченного дня варианты сворачиваются в одну строку (его подпись status-*), рядом это
+# слово, как в боте. Оно снова показывает три варианта и «Убрать отметку».
+today-change = Изменить
 status-practiced = 🧘 Практика
 status-rest = 😌 День отдыха
 status-moon = 🌙 Лунный день
@@ -47,31 +62,16 @@ today-save-failed = Не получилось сохранить. Попробу
 today-load-failed = Не получилось загрузить отметку за сегодня. Попробуй ещё раз чуть позже.
 
 # Детали практики (PR-02, PR-03, PR-05). Совпадают с формулировками бота.
-practice-title = Практика
-# Что скопирует «Как в прошлый раз» (в боте та же строка).
-practice-last-time = В прошлый раз: { $summary }
-# Практика старше дня отметки больше чем на 14 дней (Q296).
-practice-last-time-dated = В прошлый раз ({ $date }): { $summary }
+practice-add-details = 📝 Добавить детали
+practice-details = 📝 Детали
 practice-online-suffix = онлайн
 practice-same-as-last = 🔁 Как в прошлый раз
 context-mysore = Майсор
 context-led = Лед-класс
 context-private = Индивидуально
 context-self = Самостоятельно
-practice-online = 🌐 Онлайн
-practice-length = Объём практики
-practice-duration = Длительность
-preset-short = ☀️ Короткая → стоячие
-preset-half-primary = ½ первой → Навасана
-preset-full-primary = Первая серия целиком
-preset-other = 🎯 Другое…
-length-pick-range = Серии
-length-pick-end = Последняя асана
-length-full-series = Вся серия
 duration-min = { $min } мин
 duration-none = Без длительности
-practice-start-time = Время начала
-practice-clear = Убрать детали
 series-name =
     { $n ->
         [1] Первая
@@ -101,7 +101,6 @@ series-half =
     }
 half-first = 1-я половина { $series }
 half-second = 2-я половина { $series }
-length-only = Только { $series }
 length-summary =
     { $kind ->
         [short] Короткая практика
@@ -126,6 +125,18 @@ moon-in-days =
        *[other] через { $n } дней
     }
 moon-day-line = { $phase } · { $date } · { $in }
+# Строка следующего лунного дня на «Сегодня» (UI-06): эта подпись и строка под ней.
+today-moon =
+    { $phase ->
+        [purnima] 🌕 Следующий лунный день
+       *[amavasya] 🌑 Следующий лунный день
+    }
+# $when: «вт, 24 нояб.» либо «сегодня» / «завтра» (moon-in-days).
+today-moon-fact =
+    { $phase ->
+        [purnima] Полнолуние · { $when }
+       *[amavasya] Новолуние · { $when }
+    }
 moon-none = В ближайшие два месяца лунных дней пока нет: календарь готовится.
 moon-calc-note = Даты рассчитаны по городу 📍 { $city } (лунные сутки на восходе). Календарь твоей шалы может отличаться на день: ориентируйся на своего учителя.
 moon-city = Город для календаря
@@ -176,7 +187,6 @@ remind-weekday = { $d ->
     }
 
 ## Статистика (ST-01..03). Только «подряд», никогда «серия», «полоса», «пропуск».
-stats-open = 📊 Моя практика
 stats-title = Моя практика
 badges-open = 🏅 Значки
 trends-open = ✨ Самочувствие за год
@@ -250,7 +260,9 @@ stats-next = ›
     .aria-label = Следующий год
 
 ## Настройки (ID-06).
-settings-open = ⚙️ Настройки
+# The gear: its icon, and its name for screen readers.
+settings-open = ⚙️
+    .aria-label = Настройки
 settings-title = Настройки
 settings-name = Имя
 settings-name-hint = Так я к тебе обращаюсь, и это имя видят твои учителя и ученики. Оставь пустым, и я возьму имя из Telegram.
@@ -358,7 +370,9 @@ pause-days = { $n ->
         [few] { $n } дня
        *[many] { $n } дней
     }
-pause-other = Другое…
+# More day counts. Never «Другое…» here: on the day card it sits right under the day's own «Другое…» (UI-06).
+# «дней» stays: «число» alone also reads as a date.
+pause-other = Другое число дней…
 pause-back = ‹ Назад
 pause-only = { $rel ->
         [yesterday] Только вчера
@@ -390,14 +404,8 @@ settings-ladies-button = Показывать кнопку 🌸 „Женски�
 settings-ladies-button-hint = В боте и здесь. Уже отмеченные дни не меняются.
 
 ## После практики: самочувствие (PR-06). Всегда по желанию; без советов и выводов.
-checkin-title = Самочувствие
-checkin-mood = Настроение
 checkin-energy = ⚡ Энергия: 1 мало → 5 много
 checkin-effort = 🔥 Усилие: 1 легко → 5 тяжело
-checkin-body = Тело
-checkin-mind = Ум
-# Для экранного диктора: кнопки настроения — эмодзи.
-checkin-mood-label = Настроение { $n } из 5
 checkin-mood-chip = { $n ->
         [1] 😔
         [2] 😕
@@ -417,15 +425,17 @@ checkin-tag = { $tag ->
         [scattered] Рассеянность
        *[steady_breath] Ровное дыхание
     }
-checkin-edit = ✨ Самочувствие
-checkin-clear = Убрать самочувствие
-checkin-save-failed = Не получилось сохранить самочувствие. Попробуй ещё раз чуть позже.
-settings-checkin = Предлагать отметить самочувствие после практики
-settings-checkin-hint = Настроение, энергия и усилие сразу после отметки практики. Добавить можно и позже, в любой день практики.
+checkin-edit = ✨ Как самочувствие?
+checkin-summary-energy = ⚡ энергия { $n }/5
+checkin-summary-effort = 🔥 усилие { $n }/5
+settings-checkin = Показывать «Как самочувствие?» после практики
+settings-checkin-hint = Настроение, энергия и усилие в день практики. Уже сделанная отметка остаётся, и её можно изменить.
 
 ## Дневник (PR-07). Личная заметка на день, при любом статусе; не просим писать.
 diary-title = Дневник
-diary-add = Добавить заметку
+diary-add = 📓 Добавить заметку
+# Строка уже написанной заметки (кнопка бота); под ней первая строка заметки.
+diary-row = 📓 Заметка
 diary-edit = Изменить
 diary-save = Сохранить
 diary-cancel = Отмена
@@ -489,9 +499,6 @@ timeline-item-removed = { $item }: отложено
 timeline-empty-unset = Укажи в «Мои асаны», где сейчас заканчивается практика, и отсюда начнётся хронология.
 timeline-empty-start = Новые асаны появятся здесь с датами.
 timeline-truncated = Показаны последние записи: { $count }.
-progression-ask-new = { $asana } — дальше твоей последней асаны. Новая асана? 🎉
-progression-ask-yes = 🎉 Да, новая
-progression-ask-no = Не новая
 ## PR-08 Phase 3: кто отметил; $teacher по умолчанию — `progression-by-teacher`.
 progression-marked-by = Отметка: { $teacher }
 progression-event-by = · { $teacher }
@@ -515,7 +522,6 @@ celebrate-practice-count = 🎉 { $count } { $count ->
         [few] практики
        *[many] практик
     } в журнале. Спасибо, что приходишь на коврик.
-preset-mine = 🧘 Моя практика: { $length }
 # Названия элементов-этапов: из каталога, плюс бытовое название, где оно в ходу.
 milestone-label =
     { $slug ->
@@ -808,27 +814,14 @@ feed-off-done = Отключено.
 # UI-05: opens the public guide site in the browser (Settings, and outside Telegram).
 guide-open = 📖 Справка
 
-## Quick tour (UI-02). Never names the ladies' holiday (a private topic in a tour for everyone).
-
-tour-open = 🧭 Знакомство
-tour-offer = Показать, что здесь где? Это займёт минуту.
-tour-offer-yes = Покажи
-tour-offer-no = Не сейчас
-tour-progress = { $n } из { $total }
-tour-next = Дальше
-tour-prev = ‹
-    .aria-label = Предыдущий шаг
-tour-done = Готово
-tour-today = Практика или отдых? После практики можно добавить детали, самочувствие и личную заметку.
-tour-stats = Весь твой год на одном экране и календарь, чтобы дополнить прошлые дни.
-tour-asanas = Твоя последняя асана. Новая асана от учителя? Отметь её здесь, это может сделать и учитель.
-tour-students = Твои ученики: у каждого отметка за сегодня, последняя асана и последние 7 дней. Заметки, самочувствие и причина отдыха остаются у них.
-tour-schedule = Занятия всех твоих шал на неделю, по твоему времени.
-tour-moon = Ближайшие лунные дни: полнолуние и новолуние, традиционные дни отдыха. Город — в настройках.
-tour-settings = Твой город, выходной, напоминания и приватность. Здесь же учителя, ученики и шалы, а ещё это знакомство.
-
-links-title = 👥 Учителя и ученики
-links-empty = Учителей в списке нет. Журнал практики работает и так.
+## Shala tab (UI-06; ID-04, SC-01). shala-empty and the two starts: nobody on the lists yet;
+## the starts carry the bot's labels, under the bot's name for that row (shala-starts-title), so a
+## student does not take them for their own next step.
+shala-empty = Здесь пока никого нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют.
+shala-starts-title = Учителям и шалам
+shala-start-invite = Пригласить учеников
+shala-start-shala = Шала и занятия
+links-empty = Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют. Журнал практики работает и так.
 links-no-students = Учеников в списке нет.
 links-primary-hint = ⭐ — твой основной учитель. Поменять можно в любой момент.
 links-main-chosen = ⭐ Основной учитель: { $name }
@@ -951,3 +944,19 @@ listing-level-name = { $level ->
        *[authorised] Authorised (авторизация)
     }
 listing-about = Это имя есть в открытом списке учителей Sharath Yoga Centre (SYC); запись сверена вручную в указанную дату. Это не рекомендация от SYC, и Tristhana не имеет отношения к SYC. Уровень указан со слов учителя: в списке уровней нет. Многих опытных учителей в этом списке нет; отсутствие строки ничего не говорит об учителе.
+
+## «Сегодня»: следующий шаг (UI-06). По одной подсказке: фраза, её кнопка и «Не сейчас» (помнит только это устройство).
+next-reminder = 🔔 Спрашивать раз в день, чтобы отмечать одним нажатием?
+next-reminder-do = Да, напоминай
+# After that one tap, as the bot's answer to «Да, напоминай»; $time is «10:00 Алматы».
+remind-offer-set = 🔔 Буду спрашивать раз в день в { $time }.
+remind-change-time = ⏰ Изменить время
+next-position = Укажи, где заканчивается твоя практика, и варианты объёма подстроятся под тебя.
+next-position-do = Открыть «Мои асаны»
+next-invite = Ссылка-приглашение готова. Отправь её ученикам, и ты увидишь то, чем они с тобой делятся.
+next-invite-do = Открыть приглашение
+next-class = В шале пока нет занятий. Добавь первое, и ученики увидят расписание.
+next-class-do = Добавить занятие
+next-shala-invite = В шале уже есть расписание. Пригласи учеников, и они увидят занятия.
+next-shala-invite-do = Пригласить учеников
+next-not-now = Не сейчас

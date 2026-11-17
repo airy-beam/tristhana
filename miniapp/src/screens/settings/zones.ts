@@ -1,6 +1,6 @@
 import type { City } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
-import { zoneLabel } from "../practiceText";
+import { offsetText, zoneCity, zoneLabel } from "../timeLabel";
 
 /** The phone's zone, or null when it says nothing about a place (UTC, unknown). */
 export function deviceZone(): string | null {
@@ -11,12 +11,12 @@ export function deviceZone(): string | null {
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** "UTC+5" for a zone today. */
-export function offsetOf(zone: string): string {
-  return /\(([^)]*)\)$/.exec(zoneLabel(zone, today()))?.[1] ?? "UTC";
-}
+const offsetOf = (zone: string) => offsetText(zone, today(), "12:00");
 
-/** "Almaty (UTC+5)", or "Astana (UTC+5)" with the home city's name. */
-export const labelOf = (zone: string, place?: string) => zoneLabel(zone, today(), "12:00", place);
+/** "Almaty (UTC+5)", or "Astana (UTC+5)" with the home city's name. With the `viewer`'s own
+ * zone it labels a time for them: no offset when the zone is theirs (ADR-0044). */
+export const labelOf = (zone: string, place?: string, viewer?: string | null) =>
+  zoneLabel(zone, today(), { place, viewer });
 
 /** The home city's name when it names `zone` (MD-04, ADR-0029): after a trip the label goes
  * back to the zone's own name. */
@@ -33,7 +33,7 @@ export function placeFor(
 export function placeOf(zone: string, cities: City[] | undefined, ru: boolean): string {
   const city = cities?.find((c) => c.timezone === zone);
   if (city) return ru ? city.name_ru : city.name_en;
-  return (zone.split("/").pop() ?? zone).replace(/_/g, " ");
+  return zoneCity(zone);
 }
 
 /** "Keep Almaty" is remembered per device zone, so the prompt returns only after a move. */

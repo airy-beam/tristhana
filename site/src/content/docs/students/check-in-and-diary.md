@@ -8,7 +8,7 @@ A few taps on how the practice felt, and a private note for anything you want to
 
 ## Check-in
 
-After you log a practice and tap :ftl[practice-done], the bot shows the :ftl[checkin-edit]{from=bot} button. Tap it, or leave it.
+After you log a practice and tap :ftl[practice-done], the bot shows the :ftl[checkin-edit]{from=bot} button. Tap it, or leave it. In the app it is a line on the day's card, once the day says :ftl[status-practiced].
 
 - **Mood:** five faces.
 - **⚡ Energy** and **🔥 Effort:** from 1 to 5.
@@ -27,7 +27,7 @@ Every day can have one private note: after a practice, on a rest day, any day.
 
 ![An empty diary note in the bot, with a hint about what to write](../../../assets/shots/en/bot-note.webp)
 
-In the app, the same note is on the day's card under :ftl[diary-title]{from=app}.
+In the app, tap :ftl[diary-add] on the card of a day you have logged.
 
 ## Good to know
 

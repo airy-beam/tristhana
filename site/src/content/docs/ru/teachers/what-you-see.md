@@ -8,7 +8,7 @@ features: [ST-06, WH-02]
 
 ## Твои ученики
 
-В боте открой :ftl[menu-open] → :ftl[menu-students]. В приложении список находится в :ftl[settings-open] → :ftl[links-title].
+В боте открой :ftl[menu-open] → :ftl[menu-students]. В приложении открой вкладку :ftl[tab-shala] и нажми :ftl[link-students-open].
 
 ![Список учеников в боте](../../../../assets/shots/ru/bot-students.webp)
 

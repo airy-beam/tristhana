@@ -1,11 +1,12 @@
 // ST-07: the small "Share" button (initial bundle); the sheet itself is a lazy chunk.
 import { useLocalization } from "@fluent/react";
-import { lazy, Suspense, useState } from "react";
+import { Suspense, useState } from "react";
 
 import type { ShareSubject } from "../../api/client";
 import { haptics } from "../../telegram";
+import { lazyRetry } from "../../shell/lazyRetry";
 
-const ShareSheet = lazy(() => import("./ShareSheet"));
+const ShareSheet = lazyRetry(() => import("./ShareSheet"));
 
 /** `label` names what is shared ("Share: 2026") when a screen has several Share buttons. */
 export function ShareButton({ subject, label }: { subject: ShareSubject; label?: string }) {

@@ -85,8 +85,6 @@ ST-09:
 UI-01:
   - reference/commands
   - start/first-steps
-UI-02:
-  - start/bot-and-app
 UI-03:
   - start/bot-and-app
 UI-05:
@@ -95,6 +93,7 @@ UI-05:
   - reference/whats-new
 UI-06:
   - reference/commands
+  - start/bot-and-app
   - start/first-steps
 WH-01:
   - students/rest-and-moon-days

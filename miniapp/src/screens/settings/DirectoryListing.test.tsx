@@ -28,6 +28,7 @@ vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   useBackButton: vi.fn(),
+  useBackShown: vi.fn(() => false),
   backButtonAvailable: vi.fn(() => true),
   markReady: vi.fn(),
   mainButtonAvailable: () => telegram.mainButton,
@@ -243,16 +244,12 @@ async function renderApp(locale: "en" | "ru" = "en") {
   render(<App locale={locale} firstName="Ash" inTelegram />);
 }
 
-/** Settings → 👥 Teachers and students. */
+/** The Shala tab (UI-06 stage 2): teachers, students, the invite. */
 async function openLinks(locale: "en" | "ru" = "en") {
   await renderApp(locale);
-  await screen.findByRole("button", { name: /^⚙️ / });
-  act(() => {
-    telegram.openSettings();
-  });
-  const row = locale === "en" ? "👥 Teachers and students" : "👥 Учителя и ученики";
-  fireEvent.click(await screen.findByRole("button", { name: row }));
-  await screen.findByRole("heading", { name: row });
+  const tab = locale === "en" ? "🏛 Shala" : "🏛 Шала";
+  fireEvent.click(await screen.findByRole("button", { name: tab }));
+  await screen.findByRole("heading", { level: 1, name: tab });
 }
 
 /** The form's screen, as the bot's `[Open the app]` opens it. */
@@ -272,7 +269,6 @@ const value = (label: string) =>
 
 beforeEach(() => {
   localStorage.clear();
-  localStorage.setItem("onboard.tour", "1");
   telegram.mainButton = false;
   telegram.main = null;
   confirmDestructive.mockReset();
@@ -298,7 +294,7 @@ afterEach(() => {
 
 describe("the way in", () => {
   test("a quiet row in the invite part opens the form", async () => {
-    stubApi({ listing: listing() });
+    stubApi({ listing: listing(), teachers: [teacher(LENA, "Лена")] });
 
     await openLinks();
     const row = await screen.findByRole("button", { name: "SYC directory listing" });
@@ -309,7 +305,22 @@ describe("the way in", () => {
 
     await screen.findByText(says(INTRO));
     expect(screen.getByLabelText(NAME)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "👥 Teachers and students" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "🏛 Shala" })).toBeNull();
+  });
+
+  // UI-06 stage 2: with nobody on the lists the Shala tab has no cards; the row comes with the
+  // layout that "Invite students" opens. (The bot's `?open=listing` still opens the form.)
+  test("nobody on the lists yet: the row is in the layout behind Invite students", async () => {
+    stubApi({ listing: listing() });
+
+    await openLinks();
+    const start = await screen.findByRole("button", { name: "Invite students" });
+    expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
+    fireEvent.click(start);
+
+    expect(
+      await screen.findByRole("button", { name: "SYC directory listing" }),
+    ).toBeInTheDocument();
   });
 
   test("requests aren't taken (available false): the row is hidden, on a 200", async () => {
@@ -378,7 +389,7 @@ describe("the way in", () => {
     await screen.findByLabelText(NAME);
     expect(screen.getByText(says(INTRO))).toBeInTheDocument();
     expect(calls(seen, "GET")).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: /^⚙️ / })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Today" })).toBeNull(); // not the Today tab
   });
 });
 
@@ -841,7 +852,7 @@ describe("the line on a student's list of teachers", () => {
     ).toBeInTheDocument();
     expect(pageText()).toContain("Это не рекомендация от SYC");
     expect(pageText()).toContain("отсутствие строки ничего не говорит об учителе.");
-    expect(screen.getByRole("button", { name: "Строка о списке SYC" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Строка о списке SYC" })).toBeInTheDocument();
   });
 });
 

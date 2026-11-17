@@ -12,7 +12,7 @@ One line next to your name. It says the name is in the Sharath Yoga Centre teach
 
 ## Ask for it
 
-1. In the app, open :ftl[settings-open] → :ftl[links-title] → :ftl[listing-open].
+1. In the app, open the :ftl[tab-shala] tab and tap :ftl[listing-open].
 2. Fill in :ftl[listing-field-name] and :ftl[listing-field-region]. The level and the note are optional.
 3. Tap :ftl[listing-send].
 

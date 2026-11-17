@@ -131,7 +131,7 @@ function renderStats(locale: Locale = "en") {
   return render(
     <QueryClientProvider client={client}>
       <L10nProvider locale={locale}>
-        <Stats locale={locale} zone="Asia/Almaty" onBack={vi.fn()} onDayOff={vi.fn()} />
+        <Stats locale={locale} zone="Asia/Almaty" onAsanas={vi.fn()} onDayOff={vi.fn()} />
       </L10nProvider>
     </QueryClientProvider>,
   );
@@ -219,7 +219,8 @@ describe("Stats", () => {
     );
 
     const editor = await screen.findByRole("region", { name: (n) => plain(n).includes("Oct 16") });
-    fireEvent.click(within(editor).getByRole("button", { name: "😌 Rest day" }));
+    // The day is named at once; its choices follow the read of that day.
+    fireEvent.click(await within(editor).findByRole("button", { name: "😌 Rest day" }));
 
     await vi.waitFor(() => {
       expect(seen.some((r) => r.method === "PUT")).toBe(true);
@@ -309,7 +310,12 @@ describe("Stats", () => {
     );
 
     const editor = await screen.findByRole("region", { name: (n) => plain(n).includes("Oct 18") });
-    const rest = await within(editor).findByRole("button", { name: "😌 Rest day", pressed: true });
+    // The day's line says rest; behind "Change" Rest day is the pressed choice, with no 🌸.
+    const change = await within(editor).findByRole("button", { name: "Change" });
+    expect(change).toHaveAccessibleDescription("😌 Rest day");
+    fireEvent.click(change);
+    const rest = within(editor).getByRole("button", { name: "😌 Rest day", pressed: true });
+    fireEvent.click(within(editor).getByRole("button", { name: "Other…" }));
     expect(
       within(editor).queryByRole("button", { name: "🌸 Ladies' holiday" }),
     ).not.toBeInTheDocument();
@@ -317,12 +323,51 @@ describe("Stats", () => {
     expect(seen.some((r) => r.method === "PUT")).toBe(false); // never downgraded to rest
   });
 
-  it("has its own back link when Telegram's is unavailable", async () => {
+  // UI-06 stage 2 (ADR-0047): My practice is the Practice tab's root.
+  it("is a root: no Back layer, and no back link where Telegram has no Back button", async () => {
     backButton.available = false;
     stubApi();
+    const { useBackButton } = await import("../../telegram");
+    vi.mocked(useBackButton).mockClear();
+    renderStats();
+    await screen.findByText(/in a row/);
+
+    expect(screen.queryByRole("button", { name: "‹ Back" })).toBeNull();
+    expect(useBackButton).not.toHaveBeenCalled();
+  });
+
+  it("has My asanas as its first row, under the heading", async () => {
+    stubApi();
+    const onAsanas = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <L10nProvider locale="en">
+          <Stats locale="en" zone="Asia/Almaty" onAsanas={onAsanas} onDayOff={vi.fn()} />
+        </L10nProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText(/in a row/);
+
+    const heading = screen.getByRole("heading", { level: 1, name: "My practice" });
+    const first = screen.getAllByRole("button")[0] as HTMLElement;
+    expect(first).toHaveAccessibleName("🧘 My asanas");
+    expect(heading.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(first);
+
+    expect(onAsanas).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the heading and My asanas when the stats fail to load", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response("{}", { status: 500 }))),
+    );
     renderStats();
 
-    expect(await screen.findByRole("button", { name: "‹ Back" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "My practice" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "🧘 My asanas" })).toBeInTheDocument();
   });
 });
 
@@ -371,7 +416,7 @@ describe("Stats auto-rest and the day-off question (PR-09)", () => {
     render(
       <QueryClientProvider client={client}>
         <L10nProvider locale="en">
-          <Stats locale="en" zone="Asia/Almaty" onBack={vi.fn()} onDayOff={onDayOff} />
+          <Stats locale="en" zone="Asia/Almaty" onAsanas={vi.fn()} onDayOff={onDayOff} />
         </L10nProvider>
       </QueryClientProvider>,
     );

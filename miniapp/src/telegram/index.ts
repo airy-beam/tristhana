@@ -18,7 +18,9 @@ import {
   themeParams,
   viewport,
 } from "@telegram-apps/sdk-react";
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useSyncExternalStore } from "react";
+
+import { Covered } from "./covered";
 
 export interface LaunchUser {
   firstName: string | null;
@@ -50,6 +52,7 @@ export function initTelegram(): void {
     themeParams.mountSync.ifAvailable(); // older clients without miniApp support
   }
   themeParams.bindCssVars.ifAvailable();
+  setBottomBarColor();
   followTelegramColorScheme();
   if (viewport.mount.isAvailable()) {
     viewport
@@ -90,9 +93,36 @@ export function backButtonAvailable(): boolean {
   return backButton.show.isAvailable();
 }
 
+/** The strip Telegram draws under the page takes the tab bar's colour (UI-06), so the two read
+ * as one; a no-op on clients without it. */
+export function setBottomBarColor(): void {
+  miniApp.setBottomBarColor.ifAvailable("bottom_bar_bg_color");
+}
+
 // One Back button, several layers: the newest one (a day editor over its screen) gets the press.
+// Layers are counted on every client, also where Telegram draws no Back button (dev browser,
+// old clients): the tab bar follows the count (ADR-0047).
 const backLayers: { current: () => void }[] = [];
 let stopListening: (() => void) | undefined;
+const backWatchers = new Set<() => void>();
+const watchBack = (changed: () => void) => {
+  backWatchers.add(changed);
+  return () => {
+    backWatchers.delete(changed);
+  };
+};
+const backShown = () => backLayers.length > 0;
+const backChanged = () => {
+  backWatchers.forEach((changed) => {
+    changed();
+  });
+};
+
+/** Whether any Back layer is mounted: a pushed screen, an inner layer, an unsaved note. The tab
+ * bar is drawn only while this is false ("Back or tabs, never both", ADR-0047). */
+export function useBackShown(): boolean {
+  return useSyncExternalStore(watchBack, backShown);
+}
 
 /** Shows Telegram's Back button while mounted and `enabled`; `onBack` runs when it's pressed,
  * unless a layer opened later is still there (that one closes first). */
@@ -102,20 +132,24 @@ export function useBackButton(onBack: () => void, enabled = true): void {
     layer.current = onBack;
   }, [onBack]);
   useEffect(() => {
-    if (!enabled || !backButton.show.isAvailable()) return;
+    if (!enabled) return;
+    const native = backButton.show.isAvailable();
     backLayers.push(layer);
-    if (backLayers.length === 1) {
+    if (native && backLayers.length === 1) {
       backButton.show();
       stopListening = backButton.onClick(() => {
         backLayers.at(-1)?.current();
       });
     }
+    backChanged();
     return () => {
       backLayers.splice(backLayers.indexOf(layer), 1);
       if (backLayers.length === 0) {
         stopListening?.();
+        stopListening = undefined;
         backButton.hide.ifAvailable();
       }
+      backChanged();
     };
   }, [enabled]);
 }
@@ -161,14 +195,15 @@ export const haptics = {
   },
 };
 
-/** Shows Telegram's main button with `text` while the component is mounted; `loading` shows
- * its spinner and disables it. */
+/** Shows Telegram's main button with `text` while the component is mounted and not `Covered`;
+ * `loading` shows its spinner and disables it. */
 export function useMainButton(
   text: string,
   onClick: () => void,
   loading = false,
-  visible = true,
+  shown = true,
 ): void {
+  const visible = !useContext(Covered) && shown;
   useEffect(() => {
     if (!mainButton.setParams.isAvailable()) return;
     if (!visible) {
