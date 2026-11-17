@@ -110,6 +110,40 @@
         "title": "AnnouncementOut",
         "type": "object"
       },
+      "ApproveAllIn": {
+        "properties": {
+          "as_of": {
+            "description": "`as_of` of the list the person was looking at",
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of"
+        ],
+        "title": "ApproveAllIn",
+        "type": "object"
+      },
+      "ApprovedAllOut": {
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "integer"
+          },
+          "left": {
+            "description": "Still waiting: asked after `as_of`, or a list is full",
+            "title": "Left",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "approved",
+          "left"
+        ],
+        "title": "ApprovedAllOut",
+        "type": "object"
+      },
       "AsanaCardIn": {
         "properties": {
           "event_id": {
@@ -129,6 +163,37 @@
           "event_id"
         ],
         "title": "AsanaCardIn",
+        "type": "object"
+      },
+      "AskedTeacherOut": {
+        "description": "A teacher the caller asked and is waiting for. Nothing else, on purpose.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "shala": {
+            "$ref": "#/components/schemas/RequestShalaOut"
+          },
+          "teacher_id": {
+            "format": "uuid",
+            "title": "Teacher Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "teacher_id",
+          "name",
+          "shala"
+        ],
+        "title": "AskedTeacherOut",
         "type": "object"
       },
       "AttendanceCountsOut": {
@@ -1855,6 +1920,8 @@
           "already_sent",
           "invalid_listing",
           "listing_wait",
+          "request_gone",
+          "list_full",
           "unavailable"
         ],
         "type": "string"
@@ -2332,6 +2399,14 @@
       },
       "LinksOut": {
         "properties": {
+          "asked": {
+            "description": "ID-07: teachers the caller asked and waits for, oldest first",
+            "items": {
+              "$ref": "#/components/schemas/AskedTeacherOut"
+            },
+            "title": "Asked",
+            "type": "array"
+          },
           "students": {
             "items": {
               "$ref": "#/components/schemas/StudentOut"
@@ -2345,11 +2420,18 @@
             },
             "title": "Teachers",
             "type": "array"
+          },
+          "waiting": {
+            "description": "ID-07: how many people wait for the caller's answer",
+            "title": "Waiting",
+            "type": "integer"
           }
         },
         "required": [
           "teachers",
-          "students"
+          "students",
+          "asked",
+          "waiting"
         ],
         "title": "LinksOut",
         "type": "object"
@@ -4671,6 +4753,26 @@
         "title": "Quiet",
         "type": "object"
       },
+      "RequestShalaOut": {
+        "description": "The shala a request came through.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "RequestShalaOut",
+        "type": "object"
+      },
       "RestCounts": {
         "properties": {
           "ladies": {
@@ -6308,6 +6410,67 @@
           "linked_at"
         ],
         "title": "StudentOut",
+        "type": "object"
+      },
+      "StudentRequestOut": {
+        "description": "Someone waiting for the caller's answer: a name they could already see as staff.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "shala": {
+            "$ref": "#/components/schemas/RequestShalaOut"
+          },
+          "student_id": {
+            "format": "uuid",
+            "title": "Student Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "student_id",
+          "name",
+          "shala"
+        ],
+        "title": "StudentRequestOut",
+        "type": "object"
+      },
+      "StudentRequestsOut": {
+        "properties": {
+          "as_of": {
+            "description": "The moment the list was drawn: send it back unchanged to `approve-all`",
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "requests": {
+            "description": "Oldest first",
+            "items": {
+              "$ref": "#/components/schemas/StudentRequestOut"
+            },
+            "title": "Requests",
+            "type": "array"
+          },
+          "total": {
+            "description": "Everyone waiting for the caller, whatever the page",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requests",
+          "total",
+          "as_of"
+        ],
+        "title": "StudentRequestsOut",
         "type": "object"
       },
       "StudentTodayOut": {
@@ -10656,6 +10819,382 @@
         ]
       }
     },
+    "/api/v1/me/student-requests": {
+      "get": {
+        "description": "The people waiting for the caller's answer.",
+        "operationId": "get_student_requests_api_v1_me_student_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 500,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRequestsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Student Requests",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/student-requests/approve-all": {
+      "post": {
+        "description": "Confirms who was waiting at `as_of`, so someone who asked a moment later is never\nconfirmed unseen.",
+        "operationId": "post_approve_all_api_v1_me_student_requests_approve_all_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveAllIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovedAllOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Approve All",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/student-requests/{student_id}/approve": {
+      "post": {
+        "description": "\"Yes, my student\": the link comes to exist. 404 `request_gone` (refetch the list);\n409 `list_full` (the request stays).",
+        "operationId": "post_approve_api_v1_me_student_requests__student_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Approve",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/student-requests/{student_id}/decline": {
+      "post": {
+        "description": "\"Not my student\". Idempotent; the student is not told. 404 `request_gone`.",
+        "operationId": "post_decline_api_v1_me_student_requests__student_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Decline",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/student-requests/{student_id}/reopen": {
+      "post": {
+        "description": "Undo of \"Not my student\", while the request can still be answered. 404\n`request_gone`.",
+        "operationId": "post_reopen_api_v1_me_student_requests__student_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Reopen",
+        "tags": [
+          "links"
+        ]
+      }
+    },
     "/api/v1/me/students": {
       "get": {
         "operationId": "get_students_api_v1_me_students_get",
@@ -10969,6 +11508,68 @@
           }
         ],
         "summary": "Post New Asana",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/v1/me/teacher-requests/{teacher_id}": {
+      "delete": {
+        "description": "The student takes a request back. Idempotent and silent: the teacher gets no message,\nand the answer is the same whether anything was waiting.",
+        "operationId": "delete_teacher_request_api_v1_me_teacher_requests__teacher_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "teacher_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Teacher Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Delete Teacher Request",
         "tags": [
           "links"
         ]

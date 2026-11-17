@@ -18,6 +18,7 @@ from tristhana.domain.export import (
     ExportPeriod,
     ExportPractice,
     ExportReminder,
+    ExportRequest,
     ExportShala,
 )
 from tristhana.domain.notifications import NotificationSettings
@@ -50,6 +51,7 @@ class Owned:
     announcements: tuple[ExportAnnouncement, ...] = ()  # NT-03
     attendance: tuple[ExportAttendance, ...] = ()  # SC-05
     listing: Listing | None = None  # ID-05: my own request, never who checked it
+    requests: tuple[ExportRequest, ...] = ()  # ID-07: already in the owner's words
 
 
 class ExportRepository(Protocol):

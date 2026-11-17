@@ -1001,6 +1001,9 @@ class FakeNotifier:
         default_factory=list[tuple[Recipient, Any, str, bool]]
     )
     listing_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
+    # ID-07: the teacher's one silent note when a student asks (`TeacherAsked`).
+    asked: list[tuple[Recipient, Any]] = field(default_factory=list[tuple[Recipient, Any]])
+    ask_outcomes: list[DeliveryResult] = field(default_factory=list[DeliveryResult])
 
     @property
     def moon(self) -> list[tuple[Recipient, MoonReminder]]:
@@ -1061,6 +1064,12 @@ class FakeNotifier:
     ) -> DeliveryResult:
         self.listing_checks.append((recipient, outcome, name_as_listed, was_listed))
         return self._listing_outcome()
+
+    async def tell_teacher_asked(self, recipient: Recipient, asked: Any) -> DeliveryResult:
+        self.asked.append((recipient, asked))  # ID-07: a `TeacherAsked`
+        return (
+            self.ask_outcomes.pop(0) if self.ask_outcomes else DeliveryResult(DeliveryStatus.SENT)
+        )
 
 
 @dataclass
@@ -1151,6 +1160,7 @@ class InMemoryStorage:
     badge_repo: Any = None  # GM-02: tests/badge_fakes.py, loaded on first use
     trend_repo: Any = None  # ST-05: tests/check_in_trends_fakes.py, loaded on first use
     listing_repo: Any = None  # ID-05: tests/directory_listing_fakes.py, loaded on first use
+    request_repo: Any = None  # ID-07: tests/teacher_request_fakes.py, loaded on first use
     # PR-08 Phase 3: a test may hand in a progression repo (tests/teacher_mark_fakes.py).
     progression_repo: Any = None
 
@@ -1314,6 +1324,16 @@ class InMemoryStorage:
             self.listing_repo = InMemoryListings(accounts=self.repo)
             self.teacher_links.listings = self.listing_repo
         return self.listing_repo
+
+    @property
+    def teacher_requests(self) -> Any:  # ID-07
+        if self.request_repo is None:
+            from tests.teacher_request_fakes import InMemoryTeacherRequests
+
+            self.request_repo = InMemoryTeacherRequests(
+                self.teacher_links, self.shalas, notifications=self.notifications
+            )
+        return self.request_repo
 
     @property
     def attendance(self) -> Any:  # SC-05

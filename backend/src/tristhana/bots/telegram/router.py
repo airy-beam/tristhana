@@ -47,6 +47,7 @@ from tristhana.bots.telegram.settings import register_settings
 from tristhana.bots.telegram.shalas import ShalaScreens, register_shalas
 from tristhana.bots.telegram.start import StartScreens, register_start
 from tristhana.bots.telegram.teacher_links import LinkScreens, register_links
+from tristhana.bots.telegram.teacher_requests import RequestScreens
 from tristhana.domain.accounts import Account
 
 
@@ -86,8 +87,14 @@ def build_router(
     invites = shalas = None
     if links is not None:  # ID-04 (always wired by the app)
         invites = LinkScreens(links, start, settings, translator, miniapp_url, bot_username)
+        if links.requests is not None:  # ID-07: asking a shala's teacher, the answers
+            invites.requests = RequestScreens(
+                links.requests, start, invites, translator, bot_username
+            )
         if links.shalas is not None:  # SC-01
             shalas = ShalaScreens(links.shalas, start, invites, settings, translator, bot_username)
+            if invites.requests is not None:
+                invites.requests.shalas = shalas  # the student's side lands on the card
     register_start(router, start, invites, shalas)
     if invites is not None:
         register_links(router, invites)

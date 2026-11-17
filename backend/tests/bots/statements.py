@@ -8,6 +8,7 @@ about-once-a-day `last_seen_at` refresh.
 
 import inspect
 from collections.abc import Callable
+from contextvars import ContextVar
 from typing import Any
 
 import pytest
@@ -26,7 +27,9 @@ _MIDDLEWARE = frozenset({"find_by_identity", "create_with_identity", "update_pro
 class Statements:
     def __init__(self, monkeypatch: pytest.MonkeyPatch, storage: InMemoryStorage) -> None:
         self.names: list[str] = []
-        self._depth = 0
+        # Per task: statements run side by side (`asyncio.gather`) each count, while a fake
+        # calling another fake inside one of them still counts once.
+        self._depth: ContextVar[int] = ContextVar("statement_depth", default=0)
         repos: list[Any] = [
             storage.repo,
             storage.day_repo,
@@ -41,6 +44,7 @@ class Statements:
             storage.announcements,
             storage.attendance,
             storage.calendar_feed,
+            storage.teacher_requests,  # ID-07
         ]
         # With their base classes: a storage built from subclassed fakes inherits most methods.
         classes: set[type[Any]] = {base for repo in repos for base in type(repo).__mro__}
@@ -56,13 +60,14 @@ class Statements:
 
     def _counted(self, label: str, original: Callable[..., Any]) -> Callable[..., Any]:
         async def counted(*args: Any, **kwargs: Any) -> Any:
-            if self._depth == 0:
+            depth = self._depth.get()
+            if depth == 0:
                 self.names.append(label)
-            self._depth += 1
+            token = self._depth.set(depth + 1)
             try:
                 return await original(*args, **kwargs)
             finally:
-                self._depth -= 1
+                self._depth.reset(token)
 
         return counted
 

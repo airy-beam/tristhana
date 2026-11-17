@@ -11,6 +11,7 @@ from tristhana.domain.moon import City, MoonDay, ShalaMoon, TeacherMoon
 from tristhana.domain.notifications import NotificationSettings, PracticeReminders, StoredSettings
 from tristhana.domain.progression import Celebration, Position
 from tristhana.domain.shalas import ShalaRole
+from tristhana.domain.teacher_requests import Closing
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,7 +223,20 @@ class Announcement:
     local_date: date
 
 
-type Notification = MoonReminder | PracticeReminder | Announcement
+@dataclass(frozen=True, slots=True)
+class RequestClosed:
+    """ID-07: the one note that closes a student's request to a teacher, always silent.
+    `NO_ANSWER` is the same note after a quiet "no" and after a week of silence: nothing
+    here could tell the two apart."""
+
+    closing: Closing
+    teacher_id: UUID  # for "Make main"; no capability, the tap is keyed on the student
+    teacher_name: str | None
+    shala_id: UUID  # "pick another teacher" opens this shala's question
+    make_main: bool  # confirmed, and not the student's first teacher (as ID-04)
+
+
+type Notification = MoonReminder | PracticeReminder | Announcement | RequestClosed
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +256,17 @@ class AsanaMarked:
     event_id: int
     celebrations: tuple[Celebration, ...]
     target: Position
+
+
+@dataclass(frozen=True, slots=True)
+class TeacherAsked:
+    """ID-07: a student of a shala asks the recipient to be their teacher. The id is for the
+    note's buttons and is no capability: every answer is keyed on the teacher who taps."""
+
+    student_id: UUID
+    student_name: str | None
+    shala_name: str
+    waiting: int  # how many wait for this teacher now, this one included ("See all" from 2)
 
 
 class Notifier(Protocol):
@@ -284,4 +309,10 @@ class Notifier(Protocol):
     ) -> DeliveryResult:
         """ID-05: the teacher's one silent note about the answer. `was_listed`: a re-check
         that ended the line, not a first answer. Outside the ledger and the cap, no retry."""
+        ...
+
+    async def tell_teacher_asked(self, recipient: Recipient, asked: TeacherAsked) -> DeliveryResult:
+        """ID-07: the teacher's one silent note at the student's tap, with Yes and No, in
+        the teacher's language. Outside the ledger and the cap, no retry: the waiting list is
+        the record."""
         ...

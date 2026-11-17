@@ -58,6 +58,15 @@ describe("manifest", () => {
     });
   });
 
+  it("reads a bot shot of the member who has not picked a teacher (ID-07)", () => {
+    const text =
+      "shots:\n  - {name: a, kind: bot, as: member, say: /menu, tap: [menu-teacher, =shala, request-open], features: [ID-07]}\n";
+    expect(parseManifest(text)[0]).toMatchObject({
+      as: "member",
+      tap: ["menu-teacher", "=shala", "request-open"],
+    });
+  });
+
   it("selects by name or feature, and refuses an unknown value", () => {
     const shots = parseManifest(
       "shots:\n  - {name: a, kind: app, as: student, features: [PR-01]}\n  - {name: b, kind: app, as: teacher, features: [ST-06, PR-01]}\n",
@@ -282,15 +291,25 @@ describe("seedCast", () => {
         }
         if (path === "/shalas") return { id: "s1" };
         if (path === "/shalas/s1") {
-          const joined = done.includes("Lila taps ✅");
+          const joined = (/** @type {string} */ who) => done.includes(`${who} taps ✅`);
           return {
-            staff: [{ id: "a1", owner: true }, ...(joined ? [{ id: "a2", owner: false }] : [])],
+            staff: [
+              { id: "a1", owner: true, roles: ["teacher"] },
+              ...(joined("Lila") ? [{ id: "a2", owner: false, roles: ["assistant"] }] : []),
+              ...(joined("Ravi") ? [{ id: "a3", owner: false, roles: ["teacher"] }] : []),
+            ],
           };
         }
         if (path === "/shalas/s1/classes") return { id: `c${done.length}` };
         if (path === "/shalas/s1/join-link") return { url: "https://t.me/x?start=h_xyz" };
-        if (path === "/shalas/s1/staff-invites") return { url: "https://t.me/x?start=hs_one" };
+        if (path === "/shalas/s1/staff-invites") {
+          return { url: `https://t.me/x?start=hs_${body.role === "teacher" ? "two" : "one"}` };
+        }
         if (path === "/me/shalas") return [{}];
+        // ID-07: as many people wait for the teacher as tapped his name on the question.
+        if (path === "/me/student-requests") {
+          return { total: done.filter((line) => line.endsWith(" taps Arjun")).length };
+        }
         if (path.startsWith("/me/schedule")) {
           const row = { class_id: "c1", can_claim: true };
           return {
@@ -340,7 +359,9 @@ describe("seedCast", () => {
     expect(done).toContain("Maya POST /me/progression/events");
     expect(done.filter((line) => line === "Arjun POST /shalas/s1/classes")).toHaveLength(2);
     expect(done).toContain("Arjun PUT /me/moon-location");
-    expect(done).toContain("Maya says /start h_xyz");
+    expect(done.filter((line) => line.endsWith(" says /start h_xyz"))[0]).toBe(
+      "Maya says /start h_xyz",
+    );
     // The assistant joins by a one-time staff link and covers the first Mysore morning two
     // or more days ahead (Nov 13 is a Friday, Nov 14 the day off, so Sunday Nov 15).
     expect(done).toContain("Lila says /start hs_one");
@@ -356,6 +377,29 @@ describe("seedCast", () => {
     expect(done.filter((line) => line.includes("/me/attendance/"))).toEqual([
       "Maya PUT /me/attendance/c1/2026-11-11",
     ]);
+    // ID-07: a second teacher joins the team first, so the question after joining has two
+    // names. Then three people join by the shala's link: two tap the teacher's name on the
+    // question and wait for his answer, the third taps nothing.
+    expect(done).toContain("Ravi says /start hs_two");
+    expect(done.indexOf("Ravi taps ✅")).toBeLessThan(done.indexOf("Leo says /start h_xyz"));
+    expect(done.filter((line) => line.endsWith(" says /start h_xyz")).slice(1)).toEqual([
+      "Leo says /start h_xyz",
+      "Sasha says /start h_xyz",
+      "Tara says /start h_xyz",
+    ]);
+    expect(done.filter((line) => line.endsWith(" taps Arjun"))).toEqual([
+      "Leo taps Arjun",
+      "Sasha taps Arjun",
+    ]);
+    expect(done.filter((line) => line.startsWith("Tara "))).toEqual([
+      "Tara POST /me/device-timezone",
+      "Tara PATCH /me",
+      "Tara says /start h_xyz",
+      "Tara taps ✅",
+    ]);
+    expect(done).toContain("Arjun GET /me/student-requests");
+    // Nobody is answered here: the shots only look at the waiting list.
+    expect(done.some((line) => line.includes("/me/student-requests/"))).toBe(false);
     // UI-06 stage 4: the owner has a city and a shala made as the create form makes it, and
     // nothing in it, so its screen shows the whole setup list.
     expect(done.filter((line) => line.startsWith("Nina "))).toEqual([
@@ -371,38 +415,48 @@ describe("seedCast", () => {
     });
   });
 
+  /** A world where everything works up to the owner's new shala, which has no setup list. */
+  const world = ({ teachers = 2, waiting = 2 } = {}) => ({
+    call: async (/** @type {any} */ user, /** @type {string} */ _m, /** @type {string} */ path) => {
+      if (path.startsWith("/me/moon-days")) return { days: [{ date: "2026-11-10" }] };
+      if (path === "/me/invite") return { url: "https://t.me/x?start=t_a" };
+      if (path === "/me/links") return { teachers: [{}] };
+      if (path === "/shalas") return { id: user.name === "Нина" ? "s2" : "s1", setup: [] };
+      if (path === "/shalas/s1") {
+        return {
+          staff: [
+            { id: "a1", owner: true, roles: ["teacher"] },
+            { id: "a2", owner: false, roles: ["assistant"] },
+            ...(teachers > 1 ? [{ id: "a3", owner: false, roles: ["teacher"] }] : []),
+          ],
+        };
+      }
+      if (path === "/shalas/s1/classes") return { id: "c1" };
+      if (path === "/shalas/s1/join-link") return { url: "https://t.me/x?start=h_x" };
+      if (path === "/shalas/s1/staff-invites") return { url: "https://t.me/x?start=hs_x" };
+      if (path === "/me/shalas") return [{}];
+      if (path.startsWith("/me/schedule")) return { occurrences: [] };
+      if (path === "/me/student-requests") return { total: waiting };
+      return null;
+    },
+    say: async () => ({ method: "sendMessage" }),
+    tap: async () => ({ method: "editMessageText" }),
+  });
+  const seedIn = (/** @type {ReturnType<typeof world>} */ client) =>
+    seedCast(/** @type {any} */ (client), "ru", { today: "2026-11-11" });
+
   it("stops when the owner's new shala comes back with no setup list", async () => {
-    const client = {
-      call: async (
-        /** @type {any} */ user,
-        /** @type {string} */ _m,
-        /** @type {string} */ path,
-      ) => {
-        if (path.startsWith("/me/moon-days")) return { days: [{ date: "2026-11-10" }] };
-        if (path === "/me/invite") return { url: "https://t.me/x?start=t_a" };
-        if (path === "/me/links") return { teachers: [{}] };
-        if (path === "/shalas") return { id: user.name === "Нина" ? "s2" : "s1", setup: [] };
-        if (path === "/shalas/s1") {
-          return {
-            staff: [
-              { id: "a1", owner: true },
-              { id: "a2", owner: false },
-            ],
-          };
-        }
-        if (path === "/shalas/s1/classes") return { id: "c1" };
-        if (path === "/shalas/s1/join-link") return { url: "https://t.me/x?start=h_x" };
-        if (path === "/shalas/s1/staff-invites") return { url: "https://t.me/x?start=hs_x" };
-        if (path === "/me/shalas") return [{}];
-        if (path.startsWith("/me/schedule")) return { occurrences: [] };
-        return null;
-      },
-      say: async () => ({ method: "sendMessage" }),
-      tap: async () => ({ method: "editMessageText" }),
-    };
-    await expect(
-      seedCast(/** @type {any} */ (client), "ru", { today: "2026-11-11" }),
-    ).rejects.toThrow(/the new shala has no setup list/);
+    await expect(seedIn(world())).rejects.toThrow(/the new shala has no setup list/);
+  });
+
+  it("stops when the second teacher is not on the team (ID-07)", async () => {
+    await expect(seedIn(world({ teachers: 1 }))).rejects.toThrow(/second teacher did not join/);
+  });
+
+  it("stops when the requests did not reach the teacher (ID-07)", async () => {
+    await expect(seedIn(world({ waiting: 0 }))).rejects.toThrow(
+      /0 people wait for the teacher, not 2/,
+    );
   });
 
   const stub = (/** @type {{ date: string }[]} */ days) => ({

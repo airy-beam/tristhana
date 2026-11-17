@@ -34,6 +34,7 @@ from tristhana.application.policies import (
 )
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.shalas import CapReached, ShalaCard
+from tristhana.application.ports.teacher_requests import CardRequests, Choices
 from tristhana.application.settings import caller_today
 from tristhana.application.shalas import ShalaUseCases
 from tristhana.bots.telegram import classes_callbacks as classes_cb
@@ -42,6 +43,7 @@ from tristhana.bots.telegram import shalas_callbacks as cb
 from tristhana.bots.telegram.runtime import SettingsUseCases
 from tristhana.bots.telegram.screens import Reply, Screen, answered, nothing, show, zone_label
 from tristhana.bots.telegram.settings import client_profile
+from tristhana.bots.telegram.teacher_requests import waiting_row
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.announcements import Source, SourceKind
 from tristhana.domain.locale import LOCALES, Locale
@@ -65,6 +67,11 @@ PAGE = 10
 QR_FILE = "tristhana-shala.png"
 QR_TIMEOUT_S = 10
 _ROLE_ORDER = (ShalaRole.TEACHER, ShalaRole.ASSISTANT, ShalaRole.OFFICE, ShalaRole.ADMIN)
+
+
+async def _given[T](value: T) -> T:
+    """A value already in hand, for a slot of `asyncio.gather`."""
+    return value
 
 
 def can_remove_staff_of(card: ShalaCard, target: UUID) -> bool:
@@ -190,7 +197,15 @@ class ShalaScreens:
             return await self._start.start(principal, self._t.t(locale, "shala-invalid"))
         if joined.card is None:
             return await self._start.start(principal, self._t.t(locale, "shala-full"))
-        return self._card(principal, joined.card, self._moved(locale, joined.moon))
+        note = self._moved(locale, joined.moon)
+        requests = self._links.requests
+        if requests is None:
+            return self._card(principal, joined.card, note)
+        # ID-07: with a teacher to ask, the reply is the question instead of the card.
+        asked = await requests.choices(principal, joined.card.id)
+        if asked is not None and asked.offer:
+            return requests.question(principal.account, asked, note=note)
+        return self._card(principal, joined.card, note, asked=asked)
 
     async def accept_staff(self, principal: Principal, code: str) -> Screen:
         locale = principal.account.locale
@@ -232,7 +247,11 @@ class ShalaScreens:
         card: ShalaCard,
         note: str | None = None,
         pin: str | None = None,
+        asked: Choices | None = None,
+        waiting: int = 0,
     ) -> Screen:
+        """`asked`: the student's requests in this shala (ID-07); `waiting`: how many people
+        wait for the caller's answer as a teacher."""
         locale = principal.account.locale
         today: date = caller_today(principal, self._clock)
         city = self._cities.find(card.city)
@@ -264,11 +283,22 @@ class ShalaScreens:
         if can_edit_shala(me):
             lines.append(self._t.t(locale, "shala-moon-shared"))
         text = "\n".join(lines)
+        requests = self._links.requests
+        asking: list[list[InlineKeyboardButton]] = []
+        if requests is not None and asked is not None:  # ID-07: who I wait for, and Withdraw
+            waiting_lines, asking = requests.card_parts(locale, asked)
+            if waiting_lines:
+                text = "\n\n".join([text, "\n".join(waiting_lines)])
+        teachers = any(ShalaRole.TEACHER in s.roles for s in card.staff)
+        if requests is not None and can_edit_shala(me) and not teachers:
+            text = f"{text}\n\n{self._t.t(locale, 'request-no-teachers-hint')}"
         if pin:  # NT-03: the live pin
             text = f"{text}\n\n{pin}"
         if note:
             text = f"{text}\n\n{note}"
         rows: list[list[InlineKeyboardButton]] = []
+        if waiting > 0:  # ID-07: people waiting for my answer, in any shala
+            rows.append(waiting_row(self._t, locale, waiting))
         ann = self._links.announcements
         if ann is not None:  # NT-03
             rows.append([ann.card_button(locale, Source(SourceKind.SHALA, card.id))])
@@ -280,6 +310,7 @@ class ShalaScreens:
             if days_off is not None and principal.account.day_off.days is None:  # Q119
                 adopt = classes_cb.adopt_day_off(card.id)
                 rows.append([self._button(locale, "shala-day-off-adopt", adopt, days=days_off)])
+        rows += asking
         if can_view_shala_students(me) and card.students_total is not None:
             rows.append(
                 [
@@ -311,19 +342,32 @@ class ShalaScreens:
         names += [r.value for r in _ROLE_ORDER if r in roles]
         return [self._t.t(locale, "shala-role-in-list", role=n) for n in names]
 
-    async def card(self, principal: Principal, shala: UUID, note: str | None = None) -> Screen:
+    async def card(
+        self,
+        principal: Principal,
+        shala: UUID,
+        note: str | None = None,
+        asked: Choices | None = None,
+    ) -> Screen:
+        """`asked`: the caller's requests here, when the tap has just read them."""
         ann = self._links.announcements
+        requests = self._links.requests
         try:
-            if ann is None:
-                found, pin = await self._h.get.execute(principal, shala), None
-            else:  # NT-03: the live pin loads alongside the card
-                found, pin = await asyncio.gather(
-                    self._h.get.execute(principal, shala),
-                    ann.pin_line(principal, Source(SourceKind.SHALA, shala)),
-                )
+            # NT-03's live pin and ID-07's requests load alongside the card. Whether the
+            # caller is a student or a teacher here is known only once the card is read, so
+            # the requests are one read that serves either side (spec §7: +1, in parallel).
+            found, pin, side = await asyncio.gather(
+                self._h.get.execute(principal, shala),
+                _given(None)
+                if ann is None
+                else ann.pin_line(principal, Source(SourceKind.SHALA, shala)),
+                _given(CardRequests(asked))
+                if requests is None or asked is not None
+                else requests.beside_card(principal, shala),
+            )
         except NotFound:  # gone, left, or a forged id
             return await self._links.overview(principal)
-        return self._card(principal, found, note, pin)
+        return self._card(principal, found, note, pin, side.asked, side.waiting)
 
     # Students (staff only)
 
@@ -547,6 +591,7 @@ class ShalaScreens:
     def work(
         self, tap: cb.ShalaTap, principal: Principal, callback: CallbackQuery
     ) -> Awaitable[Screen]:
+        requests = self._links.requests  # ID-07
         match tap:
             case cb.Join(code):
                 return self.join(principal, code)
@@ -566,6 +611,16 @@ class ShalaScreens:
                 return self.ask_remove(principal, shala, target)
             case cb.Member("x", shala, target):
                 return self.remove(principal, shala, target)
+            case cb.Member("ta" | "tw" | "tx" as action, shala, target) if requests is not None:
+                if action == "ta":  # ID-07: the consent tap
+                    return requests.ask(principal, shala, target)
+                if action == "tw":
+                    return requests.ask_withdraw(principal, shala, target)
+                return requests.withdraw(principal, shala, target)
+            case cb.Member(_, shala, _):
+                return self.card(principal, shala)
+            case cb.Shala("t" | "td" as action, shala) if requests is not None:
+                return requests.ask_screen(principal, shala, details=action == "td")
             case cb.Shala("i", shala):
                 return self.join_link(principal, shala)
             case cb.Shala("w", shala):

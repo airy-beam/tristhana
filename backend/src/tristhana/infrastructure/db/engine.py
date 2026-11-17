@@ -102,12 +102,16 @@ def constraint_name(error: DBAPIError) -> str:
 def is_account_gone(error: DBAPIError) -> bool:
     """A write hit the missing parent row of a just-deleted account (ST-09): 23503 on an
     `<table>_account_id_fkey` constraint, or on the student side of a teacher link (ID-04;
-    the teacher side means someone else's account, so the repository handles that)."""
+    the teacher side means someone else's account, so the repository handles that). The
+    student side of a teacher request is the asking student, the caller (ID-07); where a
+    teacher's approval inserts the link, the repository catches the link's student key
+    before it gets here, because that caller is the teacher."""
     if sqlstate(error) != "23503":
         return False
     name = constraint_name(error)
     return name.endswith("_account_id_fkey") or name in (
         "teacher_link_student_id_fkey",
+        "teacher_request_student_id_fkey",  # ID-07: asking as the account goes
         "shala_owner_id_fkey",  # SC-01: creating a shala as the account goes
         "announcement_author_id_fkey",  # NT-03: announcing as the account goes
     )

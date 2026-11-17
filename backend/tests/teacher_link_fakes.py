@@ -4,6 +4,7 @@ Its own file because it imports the feature's port, and `tests/fakes.py` is impo
 every test: `InMemoryStorage.teacher_links` loads it on first use."""
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -83,6 +84,10 @@ class InMemoryTeacherLinks:
     _tick: int = 0
     # ID-05: an `InMemoryListings`; a listed teacher's mark rides on `preview` and `overview`.
     listings: Any = None
+    # ID-07: `unlink` also closes the pair's request; `InMemoryTeacherRequests` attaches itself.
+    on_unlink: list[Callable[[UUID, UUID], None]] = field(
+        default_factory=list[Callable[[UUID, UUID], None]]
+    )
 
     def _mark(self, teacher: UUID) -> ListingMark | None:
         if self.listings is None:
@@ -223,6 +228,9 @@ class InMemoryTeacherLinks:
         self._check()
         await asyncio.sleep(0)
         removed = self.rows.pop((student, teacher), None) is not None
+        if removed:
+            for hook in self.on_unlink:
+                hook(student, teacher)
         self.writes.append("unlink")
         return Unlinked(removed, self.main_of(student))
 

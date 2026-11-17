@@ -25,6 +25,7 @@ from tristhana.api.v1 import (
     shalas,
     share_cards,
     stats,
+    teacher_requests,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -43,6 +44,7 @@ router.include_router(badges.router)
 router.include_router(journey.router)
 router.include_router(check_in_trends.router)
 router.include_router(links.router)
+router.include_router(teacher_requests.router)
 router.include_router(shalas.router)
 router.include_router(classes.router)
 router.include_router(calendar_feed.router)

@@ -1,7 +1,7 @@
 ---
 title: "Privacy in plain words"
 description: "What Tristhana stores, who can see it, and what is encrypted."
-features: [WH-04, ST-09]
+features: [WH-04, ST-09, ID-07]
 ---
 
 What Tristhana stores, who can see it, and what is encrypted.
@@ -12,6 +12,7 @@ What Tristhana stores, who can see it, and what is encrypted.
 - Your Telegram name and language, and the name you choose in the settings.
 - Your settings: city and time zone, day off, reminders.
 - Your lists: teachers, students and shalas, and your attendance marks.
+- Requests to a teacher at a shala: who picked whom, and on which day. They are kept for 30 days and are in the file you download.
 
 A location you send to the bot is used once to find your time zone and isn't stored.
 
@@ -36,6 +37,7 @@ Other things you log, such as a single sick or travel day, a moon day and check-
 - A teacher sees your practice and rest only from the day you add them. Earlier days stay with you.
 - If nothing shows for about three weeks, your teacher sees one short line saying just that, with no reason.
 - A teacher on your list can mark a new asana for you. You get a message and can undo it.
+- If you pick a teacher at your shala, only you and that teacher see the request. They see your name and the shala's name, and nothing from your log until they confirm. The shala's owner and the rest of its team don't see who picked whom.
 - Students of a teacher or a shala never see each other.
 - A teacher sees all rest as the same thing, whatever the reason.
 - There are no leaderboards and no public profiles.

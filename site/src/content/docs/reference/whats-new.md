@@ -1,13 +1,15 @@
 ---
 title: "What's new"
 description: "New things in Tristhana, newest first."
-features: [UI-05]
+features: [UI-05, ID-07]
 ---
 
 New things in Tristhana, newest first.
 
 ## November 2026
 
+- **Pick your teacher at your shala.** After you join a shala, the bot asks :ftl[request-ask] Tap a name, and your teacher confirms. Nothing from your log is shown before that.
+- **For teachers: :ftl[request-yes-mine]** when a student of your shala picks you. Everyone waiting for your answer is in one list at the top of :ftl[menu-students]. Your own link works as before.
 - **A shala in two fields**: its name and its city. You start as its teacher, and as the owner you can now change your own roles under :ftl[shala-staff-title]{from=app}.
 - **First steps for a new shala**: a short list on the shala's screen. Add a class, invite students and, if you want to, invite your team.
 - **A shorter class form**: the type, the start and the days. The rest is under :ftl[class-form-more].

@@ -1,4 +1,5 @@
-"""The scheduler tick (ADR-0018): send due reminders, keep moon calendars filled, prune.
+"""The scheduler tick (ADR-0018): send due reminders, announcements and the closing notes of
+teacher requests, keep moon calendars filled, prune.
 
 Runs inside one HTTP request (Cloud Run throttles the CPU after the response), so every
 step watches the deadline and leaves the rest to the next tick (every 10 min).
@@ -23,11 +24,14 @@ from tristhana.application.ports.notifications import (
     Recipient,
     ReminderCandidate,
     ReminderPatch,
+    RequestClosed,
 )
 from tristhana.application.ports.shalas import ShalaRepository
 from tristhana.application.ports.share_cards import ShareCardRepository
 from tristhana.application.ports.storage import Clock
+from tristhana.application.ports.teacher_requests import DueClosing, TeacherRequestRepository
 from tristhana.domain import announcements as ann
+from tristhana.domain import teacher_requests as req
 from tristhana.domain.moon import Cities, MoonDay, calendar_years, moon_follow
 from tristhana.domain.notifications import (
     DEFAULTS,
@@ -43,6 +47,7 @@ KEEP_DELIVERIES = timedelta(days=60)
 # practice reminder's long-silence rule (10 reminded days, with days off in between).
 LOOKBACK = timedelta(days=21)
 DUE_ANNOUNCEMENTS = 2000  # recipients read per tick (NT-03); the rest go next tick
+DUE_REQUESTS = 500  # closing notes read per tick (ID-07); the rest go next tick
 
 
 @dataclass(slots=True)
@@ -74,7 +79,9 @@ class RunTick:
         shalas: ShalaRepository | None = None,
         announcements: AnnouncementRepository | None = None,
         share_cards: ShareCardRepository | None = None,
+        requests: TeacherRequestRepository | None = None,
     ) -> None:
+        self._requests = requests  # ID-07: the closing notes, and the 30-day prune
         self._share_cards = share_cards  # ST-07: expired cards
         self._shalas = shalas  # SC-01: expired staff links are pruned with the deliveries
         self._announcements = announcements  # NT-03
@@ -91,6 +98,7 @@ class RunTick:
         result = TickResult()
         await self._send(deadline, result)
         await self._announce(deadline, result)
+        await self._close_requests(deadline, result)
         await self._top_up(deadline, result)
         if self._clock.now() < deadline:
             result.pruned = await self._notifications.prune(self._clock.now() - KEEP_DELIVERIES)
@@ -100,7 +108,52 @@ class RunTick:
                 result.pruned += await self._announcements.prune(self._clock.now() - ann.KEEP)
             if self._share_cards is not None:
                 result.pruned += await self._share_cards.prune(self._clock.now())
+            if self._requests is not None:
+                result.pruned += await self._requests.prune(self._clock.now() - req.KEEP)
         return result
+
+    async def _close_requests(self, deadline: datetime, result: TickResult) -> None:
+        """ID-07 (ADR-0046): the one note that closes a request for the student, from the
+        live rows: "confirmed" as soon as the link exists, "no answer yet" at day 7, for a
+        quiet "no" and for silence in the same run and with the same content. Always silent,
+        so quiet hours decide nothing and nothing is held; the cap is not consulted, but the
+        ledger row counts toward it. The teacher gets nothing here."""
+        if self._requests is None or result.stopped_early:
+            return
+        now = self._clock.now()
+        if now >= deadline:
+            result.stopped_early = True
+            return
+        for row in await self._requests.due(now, DUE_REQUESTS):
+            try:
+                await self._close(row, now, deadline, result)
+            except _Stop:
+                result.stopped_early = True
+                return
+
+    async def _close(
+        self, row: DueClosing, now: datetime, deadline: datetime, result: TickResult
+    ) -> None:
+        confirmed = row.closing is req.Closing.CONFIRMED
+        note = RequestClosed(
+            row.closing,
+            row.teacher_id,
+            row.teacher_name,
+            row.shala_id,
+            make_main=confirmed and row.my_teachers >= 2,
+        )
+        # The ledger's date is the student's; with no zone yet, UTC's.
+        local = now.astimezone(ZoneInfo(row.zone)) if row.zone else now
+        await self._deliver(
+            row.student_id,
+            Recipient(row.telegram_id, row.locale),
+            req.request_key(row.id),
+            "request",
+            local.date(),
+            note,
+            deadline,
+            result,
+        )
 
     async def _announce(self, deadline: datetime, result: TickResult) -> None:
         """NT-03: after the reminders (so a reminder already sent today counts first), from

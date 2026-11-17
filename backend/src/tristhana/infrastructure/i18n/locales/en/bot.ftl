@@ -767,7 +767,87 @@ links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
 link-no-name = (no name)
+
+# ID-07: a student of a shala asks a teacher there; the teacher confirms (spec §2, ADR-0046).
+# Names fall back to `link-no-name`. Nothing the student reads may say or imply a "no".
+
+# The question after joining, and from the shala's card.
+request-ask = Who is your teacher here?
+request-ask-one = Is { $name } your teacher?
+request-yes = ✅ Yes
+# The short consent (ADR-0045): the items of `invite-consent-short`, in "the teacher you
+# pick" wording. A name tapped on this screen agrees to all of `request-consent`.
+request-consent-short =
+    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, they see a short note saying just that.
+    • Check-ins, diary notes and the reason for a rest stay private.
+    • You can remove a teacher from your list any time in /teachers. No one gets a message.
+request-until-yes = Nothing is shown until they confirm. They get one message with your name.
+request-know-them = Pick only a teacher you know.
+# The consent record: the items and rights of `invite-consent` in fewer bullets. The first
+# bullet is the short screen's, word for word; the last three are the request lines (nothing
+# before the yes, counted from today, withdraw before and remove after).
+request-consent =
+    If you pick a teacher and they confirm:
+    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, they see a short note saying just that.
+    • Check-ins, diary notes and the reason for a rest stay private. All rest you log looks the same, whatever the reason.
+    • Any teacher on your list can mark a new asana for you. You get a message and can undo it. They can also send announcements through the bot. You can mute them.
+    • Nothing is shown until they confirm. They get one message with your name.
+    • Days count from today, even if they confirm a few days later.
+    • Until they confirm, you can withdraw your request on the shala's card. You can remove a teacher from your list any time in /teachers. No one gets a message.
+# One line above Today after the tap.
+request-asked = ✉️ Request sent to { $name }. Nothing is shown until they confirm.
+request-waiting = You've already asked { $name }. No answer yet.
+request-recent = You asked { $name } not long ago. Try again later, or ask them for their invite link.
+# At most three teachers in any 7 days; withdrawing frees no slot, so it is not offered here.
+request-too-many = You've asked several teachers lately. You can ask another in a few days.
+request-full = This request can't be sent right now. Try again later.
+# The shala's card, student side.
+request-open = 🤝 Pick a teacher
+request-nobody = There's no one else to pick here right now.
+request-waiting-line = ⏳ Waiting for an answer: { $name }
+request-withdraw = Withdraw: { $name }…
+# "About a month": the pair can't be asked again for 30 days from the ask, in any shala.
+request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You can ask them again in about a month.
+request-withdraw-yes = Withdraw
+request-withdrawn = Request withdrawn.
+# The tick's two closing notes (silent).
+request-confirmed = ✅ { $name } confirmed. They're on your list of teachers now.
+request-no-answer = No answer from { $name } yet. Ask them in class, or pick another teacher.
+request-pick-another = 🤝 Pick another teacher
+# The teacher's side: the note, the waiting list, the answers.
+request-note = 🤝 { $student } from { $shala } says you're their teacher. Confirm only if you know them.
+request-yes-mine = ✅ Yes, my student
+request-not-mine = Not my student
+request-see-all = ⏳ See all ({ $count })
+request-declined = Noted: not your student. { $name } isn't told.
+request-undo = ↩️ Undo
+request-gone = This request is no longer open. If this is your student, send them your own link.
+request-already-student = Already on your list of students.
+request-list-full = This can't be confirmed right now: a list of students or teachers is full. The request stays waiting.
+request-list-title =
+    { $count ->
+        [one] ⏳ { $count } person is waiting for your answer
+       *[other] ⏳ { $count } people are waiting for your answer
+    }
+request-list-hint = Confirm only people you know. If you tap "Not my student", the person isn't told.
+request-list-empty = No one is waiting for your answer.
+request-all = ✅ Confirm all ({ $count })
+request-all-ask =
+    { $count ->
+        [one] Confirm { $count } person as your student? Confirm only if you know them.
+       *[other] Confirm all { $count } people as your students? Confirm only if you know each of them.
+    }
+request-all-yes = ✅ Yes, confirm all
+request-all-done =
+    { $count ->
+        [one] ✅ { $count } student is on your list now.
+       *[other] ✅ { $count } students are on your list now.
+    }
+request-waiting-open = ⏳ Waiting for your answer ({ $count })
+request-no-teachers-hint = No one here has the Teacher role yet, so students can't pick a teacher. Roles are set in the app.
+
 export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
+export-readme-requests = teacher_requests in data.json: requests to a teacher from the last 30 days, the ones you sent and the ones you received, without names. other_side: "teacher" = you asked a teacher, "student" = a student asked you. state for requests you sent: "waiting" = no answer yet, "no_answer" = no answer within 7 days, "confirmed" = the teacher confirmed, "withdrawn" = taken back, or the link was removed later. For requests you received: "waiting" = waiting for your answer, "confirmed" = you confirmed, "declined" = you answered "Not my student", "closed" = it ended without your answer.
 export-readme-shalas = shalas in data.json: the shalas you're in. side: "staff" or "student"; owner: the shala is yours; roles: your roles there ("admin" = manager, "office" = front desk). No one else's names.
 links-make-main = ⭐ Make main
 links-remove = Remove…

@@ -124,6 +124,17 @@ class ExportLink:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportRequest:
+    """A teacher request I sent or received (ID-07): never a name, an id or the shala of the
+    other person. `state` is the word its owner may read (`teacher_requests.exported_state`):
+    on a request I sent it never says that the teacher answered no."""
+
+    other_side: str  # teacher | student
+    asked_on: date
+    state: str  # sent: waiting | no_answer | confirmed | withdrawn; received: … | declined | closed
+
+
+@dataclass(frozen=True, slots=True)
 class ExportShala:
     """One of my own shala memberships (SC-01): never an id, a code or another person."""
 
@@ -187,6 +198,7 @@ class Snapshot:
     announcements: tuple[ExportAnnouncement, ...] = ()  # NT-03: sent by me, oldest first
     attendance: tuple[ExportAttendance, ...] = ()  # SC-05: my own marks, oldest first
     listing: Listing | None = None  # ID-05: my directory request; never who checked it
+    requests: tuple[ExportRequest, ...] = ()  # ID-07: sent and received, oldest first
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,6 +297,10 @@ def to_json(s: Snapshot, labels: ExportLabels) -> dict[str, Any]:
                 "announcements_muted": k.announcements_muted,
             }
             for k in s.links
+        ],
+        "teacher_requests": [
+            {"other_side": r.other_side, "asked_on": r.asked_on.isoformat(), "state": r.state}
+            for r in s.requests
         ],
         "shalas": [
             {

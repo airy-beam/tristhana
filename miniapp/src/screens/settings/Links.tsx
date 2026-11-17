@@ -13,6 +13,7 @@ import {
   type Invite,
   type LinkedStudent,
   type LinkedTeacher,
+  type TeacherLinks,
 } from "../../api/client";
 import { confirmDestructive, haptics, openTelegramLink } from "../../telegram";
 import type { Locale } from "../../i18n/negotiate";
@@ -20,6 +21,7 @@ import { lazyRetry } from "../../shell/lazyRetry";
 import type { ShalaOpen, Start } from "../../shell/nav";
 import { Row } from "../Row";
 import CreateShala from "../shalas/CreateShala";
+import { useWithdrawRequest, type AskedTeacher } from "../teachers/requests";
 import { checkedMonth, useListing, type ListingMark } from "./listing";
 
 // SC-01: the card is its own lazy chunk, loaded when a shala is opened.
@@ -154,6 +156,9 @@ function Lists({
 }) {
   const query = useLinks();
   const links = query.data;
+  // ID-07: the teachers I asked and wait for, and how many people wait for my answer. An
+  // older payload has neither.
+  const { asked = [], waiting = 0 }: Partial<TeacherLinks> = links ?? {};
   const shalas = useMyShalas();
   // Both lists decide between the layout and "nobody yet": neither is drawn on a guess.
   const settled = begun || ((links || query.isError) && (shalas.data || shalas.isError));
@@ -161,6 +166,8 @@ function Lists({
     !begun &&
     links?.teachers.length === 0 &&
     links.students.length === 0 &&
+    asked.length === 0 &&
+    waiting === 0 &&
     shalas.data?.length === 0;
   return (
     <main className="screen links" aria-busy={settled ? undefined : true}>
@@ -196,8 +203,8 @@ function Lists({
             )}
             {links && (
               <>
-                <Teachers teachers={links.teachers} locale={locale} />
-                <Students students={links.students} onOpen={onStudents} />
+                <Teachers teachers={links.teachers} asked={asked} locale={locale} />
+                <Students students={links.students} waiting={waiting} onOpen={onStudents} />
                 <InviteCard hasStudents={links.students.length > 0} open={intent === "invite"} />
                 <ListingRow onOpen={onListing} />
               </>
@@ -351,11 +358,20 @@ function ListingLine({ mark, locale }: { mark: ListingMark; locale: Locale }) {
   );
 }
 
-function Teachers({ teachers, locale }: { teachers: LinkedTeacher[]; locale: Locale }) {
+function Teachers({
+  teachers,
+  asked,
+  locale,
+}: {
+  teachers: LinkedTeacher[];
+  asked: AskedTeacher[];
+  locale: Locale;
+}) {
   const { l10n } = useLocalization();
   const name = useName();
   const makeMain = useMakeMainTeacher();
   const remove = useRemoveTeacher();
+  const withdraw = useWithdrawRequest();
   const several = teachers.length >= 2;
   const main = teachers.find((t) => t.primary);
 
@@ -372,6 +388,17 @@ function Teachers({ teachers, locale }: { teachers: LinkedTeacher[]; locale: Loc
     if (!ok) return;
     haptics.impact("light");
     remove.mutate(teacher.id);
+  };
+
+  const confirmWithdraw = async (teacher: AskedTeacher) => {
+    const ok = await confirmDestructive(
+      l10n.getString("request-withdraw-ask", { name: short(name(teacher.name)) }),
+      l10n.getString("request-withdraw-yes"),
+      l10n.getString("delete-cancel"),
+    );
+    if (!ok) return;
+    haptics.impact("light");
+    withdraw.mutate(teacher.teacher_id);
   };
 
   return (
@@ -423,11 +450,46 @@ function Teachers({ teachers, locale }: { teachers: LinkedTeacher[]; locale: Loc
           {teacher.listing && <ListingLine mark={teacher.listing} locale={locale} />}
         </Fragment>
       ))}
+      {/* ID-07: a teacher I asked in a shala. The line is the same whatever the teacher did:
+          the name, the shala and Withdraw, with no state, date or count. Asking is in the bot. */}
+      {asked.map((teacher) => (
+        <Fragment key={teacher.teacher_id}>
+          <div className="link-person">
+            <span>{name(teacher.name)}</span>
+            <Localized id="request-withdraw">
+              <button
+                type="button"
+                className="link"
+                disabled={withdraw.isPending}
+                onClick={() => {
+                  void confirmWithdraw(teacher);
+                }}
+              />
+            </Localized>
+          </div>
+          <p className="hint small asked-line">
+            {l10n.getString("request-waiting-line", { shala: teacher.shala.name })}
+          </p>
+        </Fragment>
+      ))}
+      {withdraw.isError && (
+        <Localized id="settings-save-failed">
+          <p className="hint" role="alert" />
+        </Localized>
+      )}
     </section>
   );
 }
 
-function Students({ students, onOpen }: { students: LinkedStudent[]; onOpen: () => void }) {
+function Students({
+  students,
+  waiting,
+  onOpen,
+}: {
+  students: LinkedStudent[];
+  waiting: number;
+  onOpen: () => void;
+}) {
   const { l10n } = useLocalization();
   const name = useName();
   const remove = useRemoveStudent();
@@ -445,6 +507,12 @@ function Students({ students, onOpen }: { students: LinkedStudent[]; onOpen: () 
 
   return (
     <section className="card">
+      {/* ID-07: people who named me as their teacher; they are answered on My students. */}
+      {waiting > 0 && (
+        <button type="button" className="row-button" onClick={onOpen}>
+          {l10n.getString("request-waiting-open", { count: waiting })}
+        </button>
+      )}
       {students.length === 0 && (
         <Localized id="links-no-students">
           <p className="hint" />

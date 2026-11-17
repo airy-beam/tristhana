@@ -29,6 +29,7 @@ from tristhana.infrastructure.db.tables import (
     identity,
     teacher_invite,
     teacher_link,
+    teacher_request,
 )
 
 _TEACHER_GONE = "teacher_link_teacher_id_fkey"
@@ -225,13 +226,28 @@ class SqlTeacherLinkRepository:
             raise
 
     async def unlink(self, student: UUID, teacher: UUID) -> Unlinked:
-        """One statement; the main teacher after it is read past the deleted row (MD-02)."""
+        """One statement; the main teacher after it is read past the deleted row (MD-02).
+        A removed link also closes the pair's request (ID-07, ADR-0046), whatever its state,
+        so an old "Yes" button can never bring the link back."""
         link = teacher_link
         deleted = (
             delete(link)
             .where(link.c.student_id == student, link.c.teacher_id == teacher)
             .returning(link.c.teacher_id)
             .cte("deleted")
+        )
+        request = teacher_request
+        closed = (
+            update(request)
+            .where(
+                request.c.student_id == student,
+                request.c.teacher_id == teacher,
+                request.c.state != "withdrawn",
+                exists(select(deleted.c.teacher_id)),
+            )
+            .values(state="withdrawn")
+            .returning(request.c.id)
+            .cte("closed")
         )
         main = (
             select(
@@ -251,7 +267,12 @@ class SqlTeacherLinkRepository:
             .scalar_subquery()
             .cast(JSONB)
         )
-        stmt = select(exists(select(deleted.c.teacher_id)).label("removed"), main.label("main"))
+        stmt = select(
+            exists(select(deleted.c.teacher_id)).label("removed"),
+            main.label("main"),
+            # Named so the statement carries the CTE; Postgres runs its write either way.
+            exists(select(closed.c.id)).label("closed"),
+        )
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one()
         return Unlinked(row.removed, to_teacher(row.main))

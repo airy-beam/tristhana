@@ -1,7 +1,7 @@
 ---
 title: "Create a shala and invite your team"
 description: "Set up your shala in a few minutes and invite the other teachers and helpers."
-features: [SC-01]
+features: [SC-01, ID-07]
 ---
 
 Set up your shala in a few minutes and invite the other teachers and helpers.
@@ -38,7 +38,7 @@ In the bot, open :ftl[menu-open] → :ftl[menu-teacher] and tap the shala's name
 
 ![The shala card in the bot](../../../assets/shots/en/bot-shala.webp)
 
-The card shows the place and the shala's time, the city for moon days, the team, the day off and a pinned announcement if there is one.
+The card shows the place and the shala's time, the city for moon days, the team, the day off and a pinned announcement if there is one. A teacher whose answer students are waiting for also sees :ftl[request-waiting-open]{count=2}.
 
 ## Invite your team
 
@@ -56,7 +56,7 @@ This link adds one person, works once and lasts 7 days. Before confirming, the p
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | :ftl[shala-role]{role=owner}     | Everything. Only the owner can make managers or delete the shala.                                                                                                       |
 | :ftl[shala-role]{role=admin}     | Edit the shala, invite and remove staff (other managers excepted), remove a student, make a new student link, remove any announcement, and everything a teacher can do. |
-| :ftl[shala-role]{role=teacher}   | Classes, closures and swaps, announcements, attendance.                                                                                                                 |
+| :ftl[shala-role]{role=teacher}   | Classes, closures and swaps, announcements, attendance. Students of the shala can pick them as their teacher.                                                           |
 | :ftl[shala-role]{role=office}    | The same as a teacher, and can remove a student from the shala.                                                                                                         |
 | :ftl[shala-role]{role=assistant} | Attendance.                                                                                                                                                             |
 
@@ -66,7 +66,9 @@ Everyone on the team sees the students' names, can show the student link and can
 
 Tap :ftl[shala-invite-students] for a link and a QR code. This link is for everyone and doesn't expire. Each student confirms for themselves: see [My shala](../../students/my-shala/).
 
-The team sees students' names and nothing from their logs. To see a student's practice, a teacher shares their own link: see [Invite your students](../../teachers/invite-students/).
+After joining, the bot asks each student who their teacher is. They can pick only people with the :ftl[shala-role]{role=teacher} role, and nothing from a log is shown until that teacher confirms: see [Invite your students](../../teachers/invite-students/). A teacher's own link works as before.
+
+The team sees students' names and nothing from their logs. Who picked whom stays between the student and that teacher: the owner and the rest of the team don't see it.
 
 ## Moon days and the day off
 
@@ -74,6 +76,7 @@ The owner or a manager sets the moon-day city, what happens on moon days and the
 
 ## Good to know
 
+- If nobody on the team has the :ftl[shala-role]{role=teacher} role, students have nobody to pick. The shala card in the bot says so to the owner and managers.
 - You can own up to 3 shalas. A shala can have up to 30 people on the team and 1000 students.
 - Anyone on the team can leave at any time, except the owner. The owner can only delete the shala.
 - Deleting a shala removes it for everyone in it and can't be undone. Everyone's own logs stay.

@@ -774,7 +774,85 @@ links-primary-hint = ⭐ — твой основной учитель. Поме�
 links-main-chosen = ⭐ Основной учитель: { $name }
 links-main-auto = ⭐ Основной учитель: { $name } (в начале списка)
 link-no-name = (без имени)
+
+# ID-07: a student of a shala asks a teacher there; the teacher confirms (spec §2, ADR-0046).
+# Names fall back to `link-no-name`. Nothing the student reads may say or imply a "no".
+
+# The question after joining, and from the shala's card.
+request-ask = Кто твой учитель здесь?
+request-ask-one = { $name } — твой учитель?
+request-yes = ✅ Да
+# The short consent (ADR-0045): the items of `invite-consent-short`, in "the teacher you
+# pick" wording. A name tapped on this screen agrees to all of `request-consent`.
+request-consent-short =
+    • Выбранный учитель увидит твоё имя{ $me } и то, что ты отмечаешь с сегодняшнего дня: практика или отдых, объём практики и последняя асана. Если какое-то время показать нечего, учитель увидит об этом короткую пометку.
+    • Самочувствие, заметки и причина отдыха остаются личными.
+    • Убрать учителя из списка можно в любой момент в /teachers. Сообщений никто не получит.
+request-until-yes = Пока учитель не подтвердит, ничего не видно. Учителю придёт одно сообщение с твоим именем.
+request-know-them = Выбирай только учителя, которого знаешь.
+# The consent record: the items and rights of `invite-consent` in fewer bullets. The first
+# bullet is the short screen's, word for word; the last three are the request lines (nothing
+# before the yes, counted from today, withdraw before and remove after).
+request-consent =
+    Если выбрать учителя и учитель подтвердит:
+    • Выбранный учитель увидит твоё имя{ $me } и то, что ты отмечаешь с сегодняшнего дня: практика или отдых, объём практики и последняя асана. Если какое-то время показать нечего, учитель увидит об этом короткую пометку.
+    • Самочувствие, заметки и причина отдыха остаются личными. Любой отмеченный отдых выглядит одинаково, какой бы ни была причина.
+    • Любой учитель из твоего списка может отметить тебе новую асану. Придёт сообщение, и отметку можно отменить. Ещё учитель может отправлять объявления через бота. Их можно отключить.
+    • Пока учитель не подтвердит, ничего не видно. Учителю придёт одно сообщение с твоим именем.
+    • Дни считаются с сегодняшнего, даже если учитель подтвердит через несколько дней.
+    • Пока подтверждения нет, запрос можно отозвать в карточке шалы. Убрать учителя из списка можно в любой момент в /teachers. Сообщений никто не получит.
+# One line above Today after the tap.
+request-asked = ✉️ Запрос отправлен: { $name }. Пока учитель не подтвердит, ничего не видно.
+request-waiting = Запрос уже отправлен: { $name }. Ответа пока нет.
+request-recent = Запрос уже был недавно: { $name }. Попробуй позже или попроси у учителя ссылку-приглашение.
+# At most three teachers in any 7 days; withdrawing frees no slot, so it is not offered here.
+request-too-many = Недавно уже были запросы другим учителям. Новый можно отправить через несколько дней.
+request-full = Сейчас отправить запрос не получится. Попробуй позже.
+# The shala's card, student side.
+request-open = 🤝 Выбрать учителя
+request-nobody = Сейчас в этой шале больше некого выбрать.
+request-waiting-line = ⏳ Ждём ответа: { $name }
+request-withdraw = Отозвать: { $name }…
+# "About a month": the pair can't be asked again for 30 days from the ask, in any shala.
+request-withdraw-ask = Отозвать запрос: { $name }? Сообщений никто не получит. Снова выбрать этого учителя можно будет примерно через месяц.
+request-withdraw-yes = Отозвать
+request-withdrawn = Запрос отозван.
+# The tick's two closing notes (silent).
+request-confirmed = ✅ Запрос подтверждён: { $name } теперь в списке твоих учителей.
+request-no-answer = { $name }: ответа пока нет. Спроси на занятии или выбери другого учителя.
+request-pick-another = 🤝 Выбрать другого учителя
+# The teacher's side: the note, the waiting list, the answers.
+request-note = 🤝 { $student } из шалы { $shala } называет тебя своим учителем. Подтверждай, только если знаешь этого человека.
+request-yes-mine = ✅ Да, мой ученик
+request-not-mine = Не мой ученик
+request-see-all = ⏳ Показать всех ({ $count })
+request-declined = Отмечено: не твой ученик. { $name } об этом не узнает.
+request-undo = ↩️ Отменить
+request-gone = Этот запрос уже закрыт. Если это твой ученик, отправь свою ссылку-приглашение.
+request-already-student = Уже в списке твоих учеников.
+request-list-full = Сейчас подтвердить не получится: список учеников или учителей заполнен. Запрос подождёт.
+request-list-title =
+    { $count ->
+        [one] ⏳ { $count } человек ждёт твоего ответа
+        [few] ⏳ { $count } человека ждут твоего ответа
+       *[many] ⏳ { $count } человек ждут твоего ответа
+    }
+request-list-hint = Подтверждай только тех, кого знаешь. Если нажать «Не мой ученик», человек об этом не узнает.
+request-list-empty = Никто не ждёт твоего ответа.
+request-all = ✅ Подтвердить всех ({ $count })
+request-all-ask = Подтвердить всех как своих учеников? В списке: { $count }. Подтверждай, только если знаешь каждого.
+request-all-yes = ✅ Да, подтвердить всех
+request-all-done =
+    { $count ->
+        [one] ✅ { $count } ученик теперь в твоём списке.
+        [few] ✅ { $count } ученика теперь в твоём списке.
+       *[many] ✅ { $count } учеников теперь в твоём списке.
+    }
+request-waiting-open = ⏳ Ждут твоего ответа ({ $count })
+request-no-teachers-hint = В шале пока ни у кого нет роли «Преподаватель», поэтому ученики не могут выбрать учителя. Роли настраиваются в приложении.
+
 export-readme-links = teacher_links в data.json: твои учителя и ученики без имён, поэтому чужих данных в этом списке нет.
+export-readme-requests = teacher_requests в data.json: запросы к учителю за последние 30 дней — твои и те, что пришли тебе, без имён. other_side: «teacher» — твой запрос учителю, «student» — запрос ученика тебе. state для твоих запросов: «waiting» — ответа пока нет, «no_answer» — ответа не было 7 дней, «confirmed» — учитель подтвердил, «withdrawn» — запрос отозван или связь позже убрана. Для запросов к тебе: «waiting» — ждёт твоего ответа, «confirmed» — подтверждён, «declined» — твой ответ «Не мой ученик», «closed» — закрыт без твоего ответа.
 export-readme-shalas = shalas в data.json: шалы, в которых ты состоишь. side: «staff» — в команде, «student» — ученик; owner — это твоя шала; roles — твои роли там («admin» — управляющий, «teacher» — преподаватель, «assistant» — ассистент, «office» — администратор). Чужих имён здесь нет.
 links-make-main = ⭐ Сделать основным
 links-remove = Убрать…

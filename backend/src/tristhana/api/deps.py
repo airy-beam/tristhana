@@ -39,6 +39,7 @@ from tristhana.application.shalas import ShalaUseCases
 from tristhana.application.stats import GetYearStats
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.application.teacher_marks import MarkForStudent
+from tristhana.application.teacher_requests import RequestUseCases
 from tristhana.application.teacher_view import TeacherViewUseCases
 from tristhana.domain.accounts import ExternalProfile, IdentityKey, IdentityProvider
 from tristhana.domain.moon import Cities
@@ -266,3 +267,7 @@ def mark_for_student(request: Request) -> MarkForStudent:
 
 def links(request: Request) -> LinkUseCases:
     return cast(LinkUseCases, request.app.state.links)
+
+
+def teacher_requests(request: Request) -> RequestUseCases:  # ID-07
+    return cast(RequestUseCases, request.app.state.requests)

@@ -18,6 +18,8 @@ from tristhana.application.ports.notifications import (
     MoonReminder,
     Notification,
     Recipient,
+    RequestClosed,
+    TeacherAsked,
 )
 
 if TYPE_CHECKING:
@@ -43,6 +45,8 @@ class TelegramNotifier:
 
         if isinstance(notification, Announcement):
             return await self._announce(recipient, notification)
+        if isinstance(notification, RequestClosed):
+            return await self._request_closed(recipient, notification)
         if isinstance(notification, MoonReminder):
             screen = moon.reminder_screen(self._t, recipient.locale, notification)
         else:
@@ -76,6 +80,24 @@ class TelegramNotifier:
                 request_timeout=SEND_TIMEOUT_S,
             ),
             "announcement",
+        )
+
+    async def _request_closed(self, recipient: Recipient, note: RequestClosed) -> DeliveryResult:
+        """ID-07: the student's closing note. Always silent, so quiet hours need no zone
+        maths; plain text, because the teacher's name is theirs and never markup."""
+        from tristhana.bots.telegram import teacher_links
+
+        screen = teacher_links.request_closed_note(self._t, recipient.locale, note)
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                reply_markup=screen.markup,
+                parse_mode=None,
+                disable_notification=True,
+                request_timeout=SEND_TIMEOUT_S,
+            ),
+            "request note",
         )
 
     async def tell_student_joined(
@@ -180,6 +202,25 @@ class TelegramNotifier:
                 request_timeout=JOIN_NOTE_TIMEOUT_S,  # the admin's tap is waiting
             ),
             "listing answer note",
+        )
+
+    async def tell_teacher_asked(self, recipient: Recipient, asked: TeacherAsked) -> DeliveryResult:
+        """ID-07: the teacher's note with Yes and "Not my student", in the teacher's
+        language. Always silent (a room joining at once makes no noise); plain text, because
+        the names are the student's and the shala's own, never markup."""
+        from tristhana.bots.telegram import teacher_requests
+
+        screen = teacher_requests.asked_note(self._t, recipient.locale, asked)
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                reply_markup=screen.markup,
+                parse_mode=None,
+                disable_notification=True,
+                request_timeout=JOIN_NOTE_TIMEOUT_S,  # the student's tap is waiting
+            ),
+            "request ask note",
         )
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:

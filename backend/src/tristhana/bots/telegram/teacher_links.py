@@ -28,7 +28,7 @@ from aiogram.types import (
 
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import Translator
-from tristhana.application.ports.notifications import KeepOffer
+from tristhana.application.ports.notifications import KeepOffer, RequestClosed
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
 from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
@@ -49,6 +49,7 @@ from tristhana.bots.telegram.screens import (
     show,
 )
 from tristhana.bots.telegram.settings import client_profile
+from tristhana.bots.telegram.teacher_requests import waiting_row
 from tristhana.domain.accounts import Account, ExternalProfile, ProfilePatch
 from tristhana.domain.announcements import Source, SourceKind
 from tristhana.domain.directory_listing import ListingMark
@@ -69,11 +70,13 @@ from tristhana.domain.teacher_links import (
     next_primary,
     shown_name,
 )
+from tristhana.domain.teacher_requests import Closing
 from tristhana.domain.teacher_view import DayCell, StudentCard
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.announcements import AnnouncementScreens
     from tristhana.bots.telegram.start import StartScreens
+    from tristhana.bots.telegram.teacher_requests import RequestScreens
 
 PAGE = 10
 QR_FILE = "tristhana-invite.png"
@@ -114,6 +117,24 @@ def joined_screen(
     return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
 
+def request_closed_note(t: Translator, locale: Locale, note: RequestClosed) -> Screen:
+    """ID-07: the note that closes a student's request, in the student's language.
+    "Confirmed" offers `[⭐ Make main]` from the second teacher on, as the invite does (ID-04).
+    "No answer yet" is one text whatever happened on the teacher's side."""
+    name = _name(t, locale, note.teacher_name)
+    rows: list[list[InlineKeyboardButton]] = []
+    if note.closing is Closing.CONFIRMED:
+        text = t.t(locale, "request-confirmed", name=name)
+        if note.make_main:
+            rows.append([button(t, locale, "links-make-main", cb.person("p", note.teacher_id))])
+    else:
+        text = t.t(locale, "request-no-answer", name=name)
+        again = shalas_callbacks.on_shala("t", note.shala_id)  # that shala's question
+        rows.append([button(t, locale, "request-pick-another", again)])
+    rows.append(menu_row(t, locale))
+    return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+
 def invite_screen(
     t: Translator, locale: Locale, url: str, last_rows: list[list[InlineKeyboardButton]]
 ) -> Screen:
@@ -131,6 +152,10 @@ def invite_screen(
         *last_rows,
     ]
     return Screen(t.t(locale, "invite-simple"), InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+async def _zero() -> int:
+    return 0
 
 
 def _find(people: tuple[Linked, ...], id: UUID) -> Linked | None:
@@ -156,6 +181,7 @@ class LinkScreens:
         self._track = Track(links.catalog)  # in memory: callback positions resolve against it
         self.announcements: AnnouncementScreens | None = None  # NT-03, set by the router
         self.listings: ListingScreens | None = None  # ID-05, set by the router
+        self.requests: RequestScreens | None = None  # ID-07, set by the router
 
     def announce_button(
         self, locale: Locale, shala: UUID | None = None
@@ -332,11 +358,18 @@ class LinkScreens:
     async def students(self, principal: Principal, page: int) -> Screen:
         locale = principal.account.locale
         view = self._links.view
-        found, total = await view.students.execute(principal, page * PAGE, PAGE)
+        asked = self.requests
+        # ID-07: how many people wait for my answer loads alongside the list.
+        (found, total), waiting = await asyncio.gather(
+            view.students.execute(principal, page * PAGE, PAGE),
+            _zero() if asked is None else asked.waiting_count(principal),
+        )
         if not found and page > 0:
             page = 0
             found, total = await view.students.execute(principal, 0, PAGE)
         rows: list[list[InlineKeyboardButton]] = []
+        if waiting > 0:  # also above an empty list: the first student may come this way
+            rows.append(waiting_row(self._t, locale, waiting))
         for p in found:
             label = _name(self._t, locale, p.name)
             if p.today is not None:
@@ -367,7 +400,9 @@ class LinkScreens:
             text = self._t.t(locale, "links-no-students")
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
-    async def teacher(self, principal: Principal, id: UUID) -> Screen:
+    async def teacher(self, principal: Principal, id: UUID, already: bool = False) -> Screen:
+        """`already` (ID-07): a Withdraw tapped after the teacher confirmed lands here, with
+        the line saying so; Remove is on this card."""
         locale = principal.account.locale
         source = Source(SourceKind.TEACHER, id)
         ann = self.announcements
@@ -388,6 +423,8 @@ class LinkScreens:
         rows.append([self._button(locale, "links-remove", cb.person("u", id))])
         rows.append([self._button(locale, "log-back", cb.plain("o"))])
         text = _name(self._t, locale, teacher.name)
+        if already:
+            text = f"{self._t.t(locale, 'invite-already', name=text)}\n\n{text}"
         listing = found.listings.get(id)
         if listing is not None:  # ID-05: the line, the level, and what it means
             fact = "\n".join(card_lines(self._t, locale, listing))
@@ -674,6 +711,7 @@ class LinkScreens:
     def work(
         self, tap: cb.LinkTap, principal: Principal, callback: CallbackQuery
     ) -> Awaitable[Screen]:
+        asked = self.requests  # ID-07
         match tap:
             case cb.Confirm(code):
                 return self.accept(principal, code)
@@ -708,6 +746,33 @@ class LinkScreens:
                 return self.ask_remove_student(principal, id)
             case cb.OnPerson("z", id):
                 return self.remove_student(principal, id)
+            case cb.OnPerson("ra" | "rn" | "ru" | "rv" as action, id) if asked is not None:
+                if action == "ra":  # ID-07: the teacher's answers
+                    return asked.approve(principal, id)
+                if action == "rn":
+                    return asked.decline(principal, id)
+                if action == "ru":
+                    return asked.undo(principal, id)
+                return asked.request(principal, id)
+            case cb.Waiting(page) if asked is not None:
+                return asked.waiting(principal, page)
+            case cb.Tap("rc") if asked is not None:
+                # Without the list's moment nothing can be confirmed: the list, whose
+                # button carries it.
+                return asked.waiting(principal, 0)
+            case cb.AskAll(before) if asked is not None:
+                return asked.ask_all(principal, before)
+            case cb.ConfirmAll(before) if asked is not None:
+                return asked.confirm_all(principal, before)
+            case (
+                cb.OnPerson("ra" | "rn" | "ru" | "rv", _)
+                | cb.Waiting()
+                | cb.AskAll()
+                | cb.ConfirmAll()
+            ):
+                return self.students(principal, 0)
+            case cb.Tap("rc"):
+                return self.students(principal, 0)
             case cb.Tap("n"):
                 return self._start.start(principal)  # stores nothing, tells no one
             case cb.Tap("i", origin):

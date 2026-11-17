@@ -1,0 +1,47 @@
+/* ID-07: teacher requests. The people waiting for a teacher's answer (My students) and the
+   student's waiting line (Shala tab). Loaded with those lazy screens, never with the first
+   chunk. Theme tokens only. */
+/* "Confirm only people you know", read before the first answer. */
+.waiting > .hint {
+  margin: -4px 0 4px;
+}
+
+.waiting ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.waiting li {
+  padding: 12px 0;
+}
+
+.waiting li + li {
+  border-top: 1px solid var(--c-line);
+}
+
+/* The shala under the name, then the note left by "Not my student". */
+.waiting li .hint {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.waiting .chips {
+  margin-top: 10px;
+}
+
+/* Both answers are thumb-sized; "Yes" is the filled one. */
+.waiting .chip {
+  min-height: 44px;
+}
+
+.waiting .row-button {
+  margin: 12px 0 0;
+  background: var(--c-bg);
+}
+
+/* The student's line sits right under the name it belongs to. */
+.card .asked-line {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}

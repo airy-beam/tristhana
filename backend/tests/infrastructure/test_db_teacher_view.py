@@ -1239,9 +1239,13 @@ async def test_each_api_read_is_two_statements(engine: AsyncEngine, migrated_url
     assert counts == [2, 2]
 
 
-async def test_each_bot_tap_is_two_statements_and_a_stale_page_three(
+async def test_each_bot_tap_is_two_statements_plus_the_waiting_count_on_my_students(
     engine: AsyncEngine, migrated_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The account and the read. "My students" also reads how many people wait for the
+    teacher's answer, beside the list (ID-07 spec §7: +1, in parallel); a stale page reads
+    the list once more, not the count."""
+
     async def sent(self: AiohttpSession, bot: object, method: Any, **_: object) -> bool:
         return True
 
@@ -1251,7 +1255,7 @@ async def test_each_bot_tap_is_two_statements_and_a_stale_page_three(
 
     counts = await asyncio.to_thread(_bot_counts, migrated_url, telegram_id, taps)
 
-    assert counts == [2, 2, 3]
+    assert counts == [3, 2, 4]
 
 
 # 500 students: every read is covered by an index that already exists (spec §7)

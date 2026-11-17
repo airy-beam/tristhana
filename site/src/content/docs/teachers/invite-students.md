@@ -1,10 +1,10 @@
 ---
 title: "Invite your students"
-description: "Share a link or show a QR code. A student confirms, and you are connected."
-features: [ID-03, ID-04]
+description: "Two ways to connect with a student: share your own link, or say yes when they pick you at your shala."
+features: [ID-03, ID-04, ID-07]
 ---
 
-Share a link or show a QR code. A student confirms, and you are connected.
+Two ways to connect with a student: share your own link, or say yes when they pick you at your shala.
 
 ## Get your link
 
@@ -26,6 +26,29 @@ Each student opens the link and confirms for themselves. Before they confirm, th
 
 - When a student confirms, you get a message without a sound, and they appear under :ftl[menu-students].
 - If they tap :ftl[invite-decline], you aren't told.
+
+## When a student picks you at a shala
+
+Do you have the :ftl[shala-role]{role=teacher} role at a shala? Then a student who joins it can pick you as their teacher. You don't send them anything, and nothing from their log is shown until you say yes.
+
+1. You get a message without a sound: who says you're their teacher, and at which shala.
+2. Know them? Tap :ftl[request-yes-mine]. They are on your list, and you see their days from the date they asked.
+3. Not your student? Tap :ftl[request-not-mine]. The person isn't told. :ftl[request-undo] takes it back.
+
+![The bot's message to a teacher about a student, with the buttons Yes, my student and Not my student](../../../assets/shots/en/bot-request-note.webp)
+
+Everyone still waiting is in one list: the row :ftl[request-waiting-open]{count=2} at the top of :ftl[menu-students] and on the shala's card. :ftl[request-all]{count=2} confirms everyone on the list you are looking at.
+
+![The list of people waiting for a teacher's answer in the bot](../../../assets/shots/en/bot-requests.webp)
+
+In the app the list is at the top of :ftl[link-students-open], on the :ftl[tab-shala] tab.
+
+![The same list in the app, at the top of My students](../../../assets/shots/en/app-requests.webp)
+
+- Confirm only people you know.
+- A request waits for 7 days. After that, send the student your own link.
+- Nobody else at the shala sees who picked you.
+- Your own link works as before: a student opens it, confirms, and is on your list straight away.
 
 ## If your link got out
 

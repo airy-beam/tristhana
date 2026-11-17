@@ -356,7 +356,7 @@ notification_delivery = Table(
     _timestamp("created_at"),
     _timestamp("updated_at"),
     PrimaryKeyConstraint("account_id", "dedupe_key"),
-    CheckConstraint("category IN ('moon', 'practice', 'announcement')", name="category"),
+    CheckConstraint("category IN ('moon', 'practice', 'announcement', 'request')", name="category"),
     CheckConstraint("status IN ('claimed', 'sent', 'failed', 'blocked')", name="status"),
 )
 
@@ -457,6 +457,37 @@ shala_staff_invite = Table(
     CheckConstraint("code ~ '^[A-Za-z0-9]{16}$'", name="code"),
     CheckConstraint(f"role = ANY ({_ROLES})", name="role"),
     Index("shala_staff_invite_shala_id_idx", "shala_id"),
+)
+
+# ID-07 (ADR-0046): a student of a shala asks a teacher; the link is inserted only on the
+# teacher's yes. One row per pair for 30 days, however it ended (the rate limit). Membership
+# and the Teacher role are a read-time join, never an FK, so a rejoin can't revive a row.
+# `id` is the delivery ledger's key; `asked_on` = the student's local date at the ask, copied
+# into `teacher_link.linked_on`; `quiet_note_agreed` = the consent of the tapped screen.
+teacher_request = Table(
+    "teacher_request",
+    metadata,
+    Column("id", Uuid(), nullable=False, server_default=text("gen_random_uuid()"), unique=True),
+    Column("student_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("teacher_id", Uuid(), ForeignKey(account.c.id, ondelete="CASCADE"), nullable=False),
+    Column("shala_id", Uuid(), ForeignKey(shala.c.id, ondelete="CASCADE"), nullable=False),
+    Column("state", Text(), nullable=False, server_default=text("'waiting'")),
+    Column("asked_on", Date(), nullable=False),
+    Column("quiet_note_agreed", Boolean(), nullable=False),
+    _timestamp("created_at"),
+    PrimaryKeyConstraint("student_id", "teacher_id"),
+    CheckConstraint("state IN ('waiting', 'declined', 'withdrawn', 'approved')", name="state"),
+    CheckConstraint("student_id <> teacher_id", name="not_self"),
+    Index(
+        "teacher_request_teacher_id_created_at_idx",
+        "teacher_id",
+        "created_at",
+        postgresql_where=text("state = 'waiting'"),
+    ),
+    # Every row of a teacher, whatever its state: the account-delete cascade and the export.
+    Index("teacher_request_teacher_id_idx", "teacher_id"),
+    Index("teacher_request_shala_id_idx", "shala_id"),
+    Index("teacher_request_created_at_idx", "created_at"),
 )
 
 # SC-02 (ADR-0034): a weekly rule as columns, expanded at read time. The teacher is a staff row
