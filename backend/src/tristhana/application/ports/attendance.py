@@ -68,7 +68,9 @@ class AttendanceRepository(Protocol):
     async def claim(
         self, me: UUID, snap: Snapshot, state: AttendanceState
     ) -> Guarded[AttendanceState]:
-        """An upsert that keeps `confirmed`; the value is the stored state."""
+        """An upsert that keeps `confirmed`; the value is the stored state. Done with no
+        value: the series has no such date (unknown, or its span ends before the rule date:
+        the class was changed "from a date" meanwhile, ADR-0048); nothing is written."""
         ...
 
     async def remove(self, me: UUID, class_id: UUID, key: date) -> bool:

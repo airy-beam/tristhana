@@ -363,8 +363,16 @@ def test_only_the_owner_invites_a_manager() -> None:
         (AN_ADMIN, A_TEACHER, frozenset({ADMIN}), False),  # admins are made by the owner
         (AN_ADMIN, _staff(ADMIN), frozenset({TEACHER}), False),  # admin can't touch admin
         (AN_ADMIN, _staff(ADMIN), frozenset({ADMIN, TEACHER}), False),
-        (AN_ADMIN, OWNER, frozenset({TEACHER}), False),  # never on the owner
+        (AN_ADMIN, OWNER, frozenset({TEACHER}), False),  # the owner's seat is the owner's
         (_staff(ADMIN, TEACHER), OWNER_TEACHER, NO_ROLES, False),
+        (A_TEACHER, OWNER, frozenset({TEACHER}), False),
+        # Q338 (UI-06 stage 4): the owner changes their own roles, and nobody else's seat
+        # opens with it. Manager is never one of them: the owner already holds every right.
+        (OWNER, OWNER, frozenset({TEACHER}), True),
+        (OWNER_TEACHER, OWNER_TEACHER, NO_ROLES, True),
+        (OWNER, OWNER, frozenset({TEACHER, ASSISTANT, OFFICE}), True),
+        (OWNER, OWNER, frozenset({ADMIN}), False),
+        (OWNER_TEACHER, OWNER_TEACHER, frozenset({ADMIN, TEACHER}), False),
         (A_TEACHER, AN_ASSISTANT, frozenset({TEACHER}), False),
         (AN_OFFICE, A_TEACHER, frozenset({OFFICE}), False),
         (NO_ROLE, A_TEACHER, NO_ROLES, False),

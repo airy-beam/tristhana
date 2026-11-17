@@ -656,30 +656,6 @@ class-type = { $type ->
        *[workshop] Workshop
     }
 class-led-hint = Often Friday or Sunday
-class-form-type = Type
-class-form-title = Title (optional)
-class-form-teacher = Teacher
-class-form-no-teacher = —
-class-form-start = Start, { $zone }
-class-form-until = Until
-class-form-length = Length, minutes
-class-form-days = Days (none: a single date)
-class-form-every = Repeats
-class-form-every-n = { $n ->
-        [1] every week
-       *[other] every { $n } weeks
-    }
-class-form-from = First date
-class-form-end = Last date (optional)
-class-form-online = 🌐 Online
-class-form-zone = Times in
-class-form-applies = Applies to
-class-form-day-off-warning = One of the chosen days is the shala's day off.
-class-form-window-invalid = The class needs to end after it starts, and by midnight.
-class-form-save = Save the class
-class-form-cancel = Cancel
-class-form-failed = Couldn't save the class. Check the times and try again.
-class-form-caps = That's the limit for this shala for now.
 shala-moon-policy-label = 🌙 On moon days
 shala-moon-policy = { $p ->
         [pranayama] 🌙 Moon days: pranayama, chanting and talks only
@@ -695,7 +671,7 @@ shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunris
 shala-day-off-label = 😌 Day off (up to two)
 shala-day-off-line = 😌 Day off: { $days }
 shala-day-off-adopt = 😌 Make { $days } my day off too
-occurrence-cancel = ❌ Cancel this class
+occurrence-cancel = ❌ Cancel this date
 occurrence-hold = ✅ Hold anyway
 occurrence-restore = ↩ Restore
 occurrence-note = No one gets a message. The change shows on the schedule.

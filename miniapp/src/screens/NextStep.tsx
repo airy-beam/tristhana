@@ -14,7 +14,7 @@ const COPY: Partial<Record<string, string>> = {
   position: "next-position",
 };
 
-// "Not now" is remembered on this device only (Q333): no flag on the server.
+// "Not now" is remembered on this device only (Q334): no flag on the server.
 const keyOf = (step: Step) => `next.skip.${step.kind}${step.shala_id ? `.${step.shala_id}` : ""}`;
 
 /** Blocked storage counts as "not now": never a nag. */

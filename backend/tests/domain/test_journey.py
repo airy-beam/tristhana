@@ -1,5 +1,5 @@
 """UI-06 (spec §2 M0, §3; Q310): who meets the front door, and what the Menu holds. Pure:
-everything comes from the loaded account, so neither needs a read. Stage 2 (spec §6, Q334):
+everything comes from the loaded account, so neither needs a read. Stage 2 (spec §6, Q335):
 the next step on the Today tab, from the account and one read's facts."""
 
 from dataclasses import replace
@@ -220,7 +220,7 @@ def test_a_person_to_whom_nothing_applies_has_no_step() -> None:
     assert next_steps(replace(NOBODY, teaches=True, shala=STAFF_AT), SETTLED, TODAY) == ()
 
 
-# "Invite your first student" (Q334)
+# "Invite your first student" (Q335)
 
 
 def test_a_teacher_with_a_link_and_nobody_on_it_is_offered_the_invite() -> None:
@@ -267,7 +267,7 @@ def test_a_link_dated_after_today_counts_as_fresh() -> None:
 
 
 def test_a_shala_owner_is_never_offered_the_teachers_invite() -> None:
-    """Q334: the shala steps cover it, also once they are done."""
+    """Q335: the shala steps cover it, also once they are done."""
     done = OwnedShala(FIRST, classes=2, students=5)
     empty = OwnedShala(FIRST, classes=0, students=0)
 

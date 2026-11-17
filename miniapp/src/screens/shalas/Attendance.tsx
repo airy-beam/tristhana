@@ -12,7 +12,7 @@ import {
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
 import { zoneLabel } from "../timeLabel";
-import { useTypeName } from "./ClassForm";
+import { useTypeName } from "./classText";
 import { DASH, dayName, plain, timeIn } from "./scheduleText";
 
 const PAGE = 50;

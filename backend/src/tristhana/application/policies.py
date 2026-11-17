@@ -121,6 +121,11 @@ def can_view_shala(actor: Membership | None) -> bool:
     return actor is not None
 
 
+def can_view_shala_setup(actor: Membership | None) -> bool:
+    """UI-06 stage 4: the setup list is the owner's own to-do; nobody else is shown it."""
+    return actor is not None and actor.owner
+
+
 def can_view_shala_students(actor: Membership | None) -> bool:
     """Staff see student names; students never see each other (Q106)."""
     return actor is not None and actor.staff
@@ -186,9 +191,13 @@ def can_invite_staff(actor: Membership | None, role: ShalaRole) -> bool:
 def can_set_roles(
     actor: Membership | None, target: Membership, roles: frozenset[ShalaRole]
 ) -> bool:
-    """Never on the owner or a student; a manager's roles only by the owner."""
-    if actor is None or not target.staff or target.owner:
+    """Never on a student; a manager's roles only by the owner. The owner's seat is the
+    owner's alone (a shala has one owner, so an owner acting on an owner is acting on
+    themselves, Q338), and never holds Manager: the owner already has every right."""
+    if actor is None or not target.staff:
         return False
+    if target.owner:
+        return actor.owner and ShalaRole.ADMIN not in roles
     allowed = grantable(actor)
     if not allowed or not roles <= allowed:
         return False

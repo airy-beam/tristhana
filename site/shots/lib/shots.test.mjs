@@ -31,10 +31,31 @@ describe("manifest", () => {
     [
       "a bot shot that clicks",
       ok.replace("say:", "click: [x], say:"),
-      /click and full are for app/,
+      /click, full and top are for app/,
+    ],
+    ["a bot shot with a top", ok.replace("say:", "top: x, say:"), /top are for app/],
+    [
+      "a full-page shot with a top",
+      "shots:\n  - {name: a, kind: app, as: owner, full: true, top: x, features: [SC-01]}\n",
+      /top is one step, and not for a full-page shot/,
+    ],
+    [
+      "a top that is a list",
+      "shots:\n  - {name: a, kind: app, as: owner, top: [x], features: [SC-01]}\n",
+      /top is one step/,
     ],
   ])("refuses %s", (_name, text, message) => {
     expect(() => parseManifest(text)).toThrow(message);
+  });
+
+  it("reads an app shot of the owner that begins at one thing on the page", () => {
+    const text =
+      'shots:\n  - {name: a, kind: app, as: owner, click: [tab-shala, "css=.x >> nth=-1"], top: "css=.y", features: [SC-01]}\n';
+    expect(parseManifest(text)[0]).toMatchObject({
+      as: "owner",
+      click: ["tab-shala", "css=.x >> nth=-1"],
+      top: "css=.y",
+    });
   });
 
   it("selects by name or feature, and refuses an unknown value", () => {
@@ -239,6 +260,8 @@ describe("seedCast", () => {
   it("sets the city, logs 91 days, links the teacher and fills the shala through the bot", async () => {
     /** @type {string[]} */
     const done = [];
+    /** @type {unknown} */
+    let created;
     const client = {
       call: async (
         /** @type {any} */ user,
@@ -249,9 +272,14 @@ describe("seedCast", () => {
         done.push(
           `${user.name} ${method} ${path.split("?")[0]}${body?.status ? ` ${body.status}` : ""}`,
         );
+        if (path === "/shalas" && user.name === "Nina") created = body;
         if (path.startsWith("/me/moon-days")) return { days: [{ date: "2026-11-10" }] };
         if (path === "/me/invite") return { url: "https://t.me/tristhana_bot?start=t_abc123" };
         if (path === "/me/links") return { teachers: [{}] };
+        // The owner's new shala (UI-06 stage 4): nothing in it yet, so every step is due.
+        if (path === "/shalas" && user.name === "Nina") {
+          return { id: "s2", setup: ["add_class", "invite_students", "invite_staff"] };
+        }
         if (path === "/shalas") return { id: "s1" };
         if (path === "/shalas/s1") {
           const joined = done.includes("Lila taps ✅");
@@ -325,7 +353,56 @@ describe("seedCast", () => {
     expect(done).toContain("Arjun POST /shalas/s1/closures");
     expect(done).toContain("Arjun POST /me/announcements");
     // The student marks the latest class that has already started, never a future one.
-    expect(done.at(-1)).toBe("Maya PUT /me/attendance/c1/2026-11-11");
+    expect(done.filter((line) => line.includes("/me/attendance/"))).toEqual([
+      "Maya PUT /me/attendance/c1/2026-11-11",
+    ]);
+    // UI-06 stage 4: the owner has a city and a shala made as the create form makes it, and
+    // nothing in it, so its screen shows the whole setup list.
+    expect(done.filter((line) => line.startsWith("Nina "))).toEqual([
+      "Nina POST /me/device-timezone",
+      "Nina PATCH /me",
+      "Nina POST /shalas",
+    ]);
+    expect(created).toEqual({
+      name: "Ashtanga Almaty",
+      city: "almaty",
+      online: false,
+      roles: ["teacher"],
+    });
+  });
+
+  it("stops when the owner's new shala comes back with no setup list", async () => {
+    const client = {
+      call: async (
+        /** @type {any} */ user,
+        /** @type {string} */ _m,
+        /** @type {string} */ path,
+      ) => {
+        if (path.startsWith("/me/moon-days")) return { days: [{ date: "2026-11-10" }] };
+        if (path === "/me/invite") return { url: "https://t.me/x?start=t_a" };
+        if (path === "/me/links") return { teachers: [{}] };
+        if (path === "/shalas") return { id: user.name === "Нина" ? "s2" : "s1", setup: [] };
+        if (path === "/shalas/s1") {
+          return {
+            staff: [
+              { id: "a1", owner: true },
+              { id: "a2", owner: false },
+            ],
+          };
+        }
+        if (path === "/shalas/s1/classes") return { id: "c1" };
+        if (path === "/shalas/s1/join-link") return { url: "https://t.me/x?start=h_x" };
+        if (path === "/shalas/s1/staff-invites") return { url: "https://t.me/x?start=hs_x" };
+        if (path === "/me/shalas") return [{}];
+        if (path.startsWith("/me/schedule")) return { occurrences: [] };
+        return null;
+      },
+      say: async () => ({ method: "sendMessage" }),
+      tap: async () => ({ method: "editMessageText" }),
+    };
+    await expect(
+      seedCast(/** @type {any} */ (client), "ru", { today: "2026-11-11" }),
+    ).rejects.toThrow(/the new shala has no setup list/);
   });
 
   const stub = (/** @type {{ date: string }[]} */ days) => ({

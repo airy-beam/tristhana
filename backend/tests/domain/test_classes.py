@@ -16,6 +16,7 @@ Shapes the spec leaves open, assumed here (adjust with the module, in one place:
 import itertools
 import re
 from collections.abc import Iterable, Mapping
+from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -46,6 +47,7 @@ from tristhana.domain.classes import (
     check_swap,
     expand,
     rule_dates,
+    split_start,
     to_rrule,
     wall_to_utc,
 )
@@ -247,6 +249,95 @@ def test_the_window_bounds_are_inclusive_and_starts_on_bounds_the_rule() -> None
 @pytest.mark.parametrize(("start", "end"), [(NOV[10], NOV[9]), (NOV[20], NOV[1])])
 def test_an_empty_window_gives_nothing(start: date, end: date) -> None:
     assert list(rule_dates(_series(weekdays=EVERY_DAY), start, end)) == []
+
+
+# split_start (UI-06 stage 4, ADR-0048): where the successor of a split series starts
+
+
+@pytest.mark.parametrize("day", [3, 9, 15, 16, 30])
+def test_a_weekly_series_splits_on_the_date_asked(day: int) -> None:
+    old = _series(weekdays={MON, WED}, starts_on=NOV[2])
+
+    assert split_start(old, 1, NOV[day]) == NOV[day]
+
+
+@pytest.mark.parametrize(
+    ("every", "asked", "expected"),
+    [
+        # From Wed 4 Nov (the week of Mon 2): every 2 runs in the weeks of 2, 16 and 30 Nov.
+        (2, 5, 5),  # the start week itself
+        (2, 8, 8),  # its Sunday
+        (2, 9, 16),  # the off week's Monday: on to the next week of the rule
+        (2, 11, 16),
+        (2, 15, 16),  # the off week's Sunday
+        (2, 16, 16),
+        (2, 18, 18),  # inside a week of the rule: the date asked
+        (2, 22, 22),
+        (2, 23, 30),
+        # Every 3: the weeks of 2 and 23 Nov. Every 4: the weeks of 2 and 30 Nov.
+        (3, 9, 23),
+        (3, 16, 23),
+        (3, 22, 23),
+        (3, 25, 25),
+        (4, 9, 30),
+        (4, 23, 30),
+        (4, 29, 30),
+        (4, 30, 30),
+    ],
+)
+def test_every_n_weeks_splits_in_one_of_the_rules_own_weeks(
+    every: int, asked: int, expected: int
+) -> None:
+    """D2: the successor counts weeks from its own start, so it must start in an "on" week."""
+    old = _series(weekdays={MON, WED}, starts_on=NOV[4], every=every)
+
+    assert split_start(old, every, NOV[asked]) == NOV[expected]
+
+
+@pytest.mark.parametrize("every", [1, 2, 3, 4])
+@pytest.mark.parametrize("weekdays", [{MON, WED}, {SUN}, EVERY_DAY])
+def test_the_successor_keeps_the_rhythm_and_loses_no_date(every: int, weekdays: set[int]) -> None:
+    """From any date, the successor's dates are exactly the old rule's dates from there on."""
+    old = _series(weekdays=weekdays, starts_on=NOV[4], every=every)
+    end = date(2027, 3, 31)
+
+    for offset in range(1, 90):
+        asked = NOV[4] + timedelta(days=offset)
+        start = split_start(old, every, asked)
+        successor = replace(old, starts_on=start)
+
+        assert start >= asked
+        assert list(rule_dates(successor, asked, end)) == list(rule_dates(old, asked, end))
+
+
+@pytest.mark.parametrize(("was", "now"), [(2, 1), (2, 3), (1, 2), (4, 2)])
+def test_a_changed_interval_starts_on_the_date_asked(was: int, now: int) -> None:
+    """A new rhythm has no old weeks to keep: it counts from the date the person chose."""
+    old = _series(weekdays={MON, WED}, starts_on=NOV[4], every=was)
+
+    assert split_start(old, now, NOV[11]) == NOV[11]  # an off week of "every 2" and "every 4"
+
+
+@pytest.mark.parametrize("day", [1, 3, 4])
+def test_a_date_on_or_before_the_start_is_left_alone(day: int) -> None:
+    """Nothing to split: the series changes whole, and its own start stays."""
+    old = _series(weekdays={MON, WED}, starts_on=NOV[4], every=2)
+
+    assert split_start(old, 2, NOV[day]) == NOV[day]
+
+
+def test_a_one_off_is_never_snapped() -> None:
+    old = _series(CONFERENCE, weekdays=(), starts_on=NOV[4], every=2)
+
+    assert split_start(old, 2, NOV[11]) == NOV[11]
+
+
+def test_a_year_boundary_keeps_the_week_count() -> None:
+    """Weeks are counted in days from the start week, not by ISO week numbers (53 → 1)."""
+    old = _series(weekdays={MON}, starts_on=date(2026, 12, 21), every=2)
+
+    assert split_start(old, 2, date(2026, 12, 29)) == date(2027, 1, 4)
+    assert split_start(old, 2, date(2027, 1, 5)) == date(2027, 1, 5)
 
 
 def test_a_window_entirely_before_the_series_gives_nothing() -> None:

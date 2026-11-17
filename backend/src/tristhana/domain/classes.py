@@ -94,6 +94,34 @@ class ClassSeries:
     ends_on: date | None
 
 
+class _Keep:
+    """A patch field that was not sent: leave it as it is."""
+
+    def __repr__(self) -> str:
+        return "KEEP"
+
+
+KEEP = _Keep()
+
+
+@dataclass(frozen=True, slots=True)
+class ClassPatch:
+    """Fields of a class to change; KEEP = not sent. None clears the four that may be empty:
+    the title, the city (back to the shala's), the teacher and the last date."""
+
+    type: ClassType | _Keep = KEEP
+    title: str | _Keep | None = KEEP
+    online: bool | _Keep = KEEP
+    city: str | _Keep | None = KEEP
+    teacher_id: UUID | _Keep | None = KEEP
+    start: time | _Keep = KEEP
+    minutes: int | _Keep = KEEP
+    weekdays: Weekdays | _Keep = KEEP
+    every: int | _Keep = KEEP
+    starts_on: date | _Keep = KEEP
+    ends_on: date | _Keep | None = KEEP
+
+
 @dataclass(frozen=True, slots=True)
 class Override:
     on_date: date  # the rule's date
@@ -176,6 +204,25 @@ def rule_dates(series: ClassSeries, start: date, end: date) -> Iterator[date]:
         if day.isoweekday() in s.weekdays and ((day - anchor).days // 7) % s.every == 0:
             yield day
         day += timedelta(days=1)
+
+
+def split_start(old: ClassSeries, every: int, from_date: date) -> date:
+    """Where the successor of `old` starts when a change applies from `from_date` (ADR-0048).
+
+    The successor counts its weeks from its own start, so a series that keeps an interval
+    above one week must start in one of the old rule's weeks: `from_date` if it lies in one,
+    else the Monday of the next. The old rule has no dates in the days skipped, so none is
+    lost. A new interval counts from the date asked; so does a one-off, and a date on or
+    before the old start, where nothing is split.
+    """
+    if not old.weekdays or every != old.every or every == 1 or from_date <= old.starts_on:
+        return from_date
+    anchor = old.starts_on - timedelta(days=old.starts_on.weekday())
+    week = (from_date - anchor).days // 7
+    behind = week % every
+    if behind == 0:
+        return from_date
+    return anchor + timedelta(weeks=week + every - behind)
 
 
 def wall_to_utc(day: date, at: time, zone: str) -> datetime:

@@ -528,6 +528,8 @@ class ScheduleScreens:
                     principal, tap.shala, tap.class_id, tap.key, override, keep=True
                 )
         except NotFound:
+            # Also an old button for a date its class no longer has: the class was changed
+            # from an earlier date (ADR-0048). The write's own guard refused it.
             note = self._t.t(locale, "class-gone")
         except NotAllowed:
             pass

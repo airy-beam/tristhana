@@ -674,32 +674,6 @@ class-type = { $type ->
        *[workshop] Семинар
     }
 class-led-hint = Часто в пятницу или воскресенье
-class-form-type = Тип
-class-form-title = Название (по желанию)
-class-form-teacher = Преподаватель
-class-form-no-teacher = —
-class-form-start = Начало, { $zone }
-class-form-until = Окончание
-class-form-length = Длительность, мин
-class-form-days = Дни (не выбраны — одна дата)
-class-form-every = Повтор
-class-form-every-n = { $n ->
-        [1] каждую неделю
-        [one] каждую { $n } неделю
-        [few] каждые { $n } недели
-       *[many] каждые { $n } недель
-    }
-class-form-from = Первая дата
-class-form-end = Последняя дата (по желанию)
-class-form-online = 🌐 Онлайн
-class-form-zone = Часовой пояс
-class-form-applies = Для каких дат
-class-form-day-off-warning = Один из выбранных дней — выходной в шале.
-class-form-window-invalid = Занятие должно закончиться после начала и не позже полуночи.
-class-form-save = Сохранить занятие
-class-form-cancel = Отмена
-class-form-failed = Не получилось сохранить занятие. Проверь время и попробуй ещё раз.
-class-form-caps = Для этой шалы это пока предел.
 shala-moon-policy-label = 🌙 В лунные дни
 shala-moon-policy = { $p ->
         [pranayama] 🌙 В лунные дни только пранаяма, чантинг и конференции
@@ -715,7 +689,7 @@ shala-moon-policy-note = Даты считаются по лунному гор�
 shala-day-off-label = 😌 Выходной (до двух дней)
 shala-day-off-line = 😌 Выходной: { $days }
 shala-day-off-adopt = 😌 Мой выходной тоже: { $days }
-occurrence-cancel = ❌ Отменить
+occurrence-cancel = ❌ Отменить на эту дату
 occurrence-hold = ✅ Всё равно провести
 occurrence-restore = ↩ Вернуть
 occurrence-note = Сообщений никто не получит. Изменение будет видно в расписании.
@@ -723,8 +697,8 @@ occurrence-failed = Не получилось изменить занятие. �
 occurrence-delete = 🗑 Удалить занятие (все даты)…
 occurrence-delete-ask = Удалить это занятие во все даты? Оно пропадёт из расписания. Сообщений никто не получит.
 occurrence-delete-yes = Удалить
-occurrence-teacher = Учитель в этот день
-occurrence-usual-teacher = Обычный учитель ({ $name })
+occurrence-teacher = Преподаватель на эту дату
+occurrence-usual-teacher = Как обычно ({ $name })
 closure-title = 🏖 Шала закрыта
 closure-start = Первый день
 closure-end = Последний день

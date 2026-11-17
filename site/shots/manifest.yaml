@@ -3,8 +3,10 @@
 #
 #   name      file name; a guide page shows it as ![…](…/shots/<lang>/<name>.webp)
 #   kind      app = the Mini App in a phone-sized browser · bot = a drawing of the bot's real reply
-#   as        who is looking: student, teacher, newcomer, or assistant: on the shala's team,
-#             has logged nothing, and no bot shot acts as her (shots/lib/cast.mjs)
+#   as        who is looking: student, teacher, newcomer, assistant: on the shala's team,
+#             has logged nothing, and no bot shot acts as her, or owner: has just created a
+#             shala of her own and done nothing in it, so no shot may add to it
+#             (shots/lib/cast.mjs)
 #   features  requirement IDs; `npm run shots -- --only PR-01` re-shoots by ID
 #   say       bot: the message the person sends; `=invite` in it is the start code of the demo
 #             teacher's invite link (`/start =invite` is a student opening that link)
@@ -12,8 +14,13 @@
 #             or `=shala` is that name in the demo cast, "#2" is the second button
 #   click     app: the things they tap after Today loads, each by a Mini App Fluent key or
 #             `=name`: a tab first (`tab-practice`, `tab-shala`), then the rows. A control with
-#             no visible words is found by its accessible name (`settings-open` is the gear)
+#             no visible words is found by its accessible name (`settings-open` is the gear).
+#             `=new-shala` is the owner's new shala. "css=<selector>" is for a thing with no
+#             label of its own: a class on the shala's week (`>> nth=-1` picks the last match)
 #   full      app: capture the whole page, not just the first screen
+#   top       app: one step (as in click); the picture begins at that thing, for something
+#             opened far down a long screen (on a page too short to scroll that far, the
+#             picture is that thing alone). Not with full
 #
 # UI-06: nobody has to type a command, so a shot reaches its screen by buttons where it can.
 # `/menu` and `/help` open the Menu and Help for anyone; `/start` is the front door only for
@@ -63,16 +70,27 @@ shots:
   # For shala staff
   - {name: bot-shala, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala], features: [SC-01]}
   - {name: bot-staff-invite, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala, shala-invite-staff], features: [SC-01]}
+  # The new shala's screen with its setup list (UI-06 stage 4). The owner only looks: a class
+  # or a link made here would tick a step off the list.
+  - {name: app-shala-setup, kind: app, as: owner, click: [tab-shala, =new-shala], features: [SC-01, UI-06]}
   - {name: app-shala, kind: app, as: teacher, click: [tab-shala, =shala], features: [SC-01, SC-02]}
-  - {name: app-class-form, kind: app, as: teacher, click: [tab-shala, =shala, schedule-add-class], features: [SC-02]}
+  - {name: app-class-form, kind: app, as: teacher, click: [tab-shala, =shala, schedule-add-class], features: [SC-02, UI-06]}
+  # A class on one date: the last class of the week on screen, so its date has not begun and
+  # the sheet has every row ("End this class…" too). Then "Change the class…": the form,
+  # filled in, with the date the change applies from.
+  - {name: app-occurrence, kind: app, as: teacher, click: [tab-shala, =shala, "css=.schedule-day .row-button >> nth=-1"], top: "css=.schedule-day:has(.sheet)", features: [SC-02, UI-06]}
+  - {name: app-class-edit, kind: app, as: teacher, click: [tab-shala, =shala, "css=.schedule-day .row-button >> nth=-1", class-edit], features: [SC-02, UI-06]}
   - {name: bot-classes, kind: bot, as: teacher, say: /classes, features: [SC-02, SC-03]}
   - {name: bot-attendance, kind: bot, as: teacher, say: /classes, tap: [attend-staff-open, "#1"], features: [SC-05]}
   - {name: app-shala-announce, kind: app, as: teacher, click: [tab-shala, =shala, ann-announce], features: [NT-03]}
 
-  # Last on purpose: these two change what the person has, so nothing may follow them.
+  # Last on purpose: these three change what the person has, so nothing may follow them.
   # `app-today` puts the next step off (kept in the browser), clears the student's today
   # (Clear is behind "Change") and logs it again with one tap: the folded card, with "Same as
   # last time" on offer.
   # `app-shala-empty` is the newcomer's first look at the app, which gives her a time zone.
+  # `app-shala-new` is the create form as she, who has no shala, finds it: opened and never
+  # sent, so she still has none. The picture begins at the "Shalas" card.
   - {name: app-today, kind: app, as: student, click: [next-not-now, today-change, today-clear, status-practiced], features: [UI-06, PR-01, PR-02]}
   - {name: app-shala-empty, kind: app, as: newcomer, click: [tab-shala], features: [UI-06, ID-03]}
+  - {name: app-shala-new, kind: app, as: newcomer, click: [tab-shala, shala-start-shala], top: "css=section.card:has(form.panel)", features: [SC-01, UI-06]}

@@ -23,7 +23,7 @@ from tristhana.application.policies import (
     can_manage_schedule,
 )
 from tristhana.application.ports.shalas import CapReached, MyShala, ShalaCard
-from tristhana.application.shalas import ShalaUseCases
+from tristhana.application.shalas import ShalaUseCases, setup_of
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.domain.classes import MoonPolicy
 from tristhana.domain.rest_days import InvalidDayOff
@@ -44,6 +44,7 @@ _NO_STORE = {"Cache-Control": "no-store"}
 _PAGE_MAX = 50
 type Role = Literal["admin", "teacher", "assistant", "office"]  # never "owner"
 type MoonPolicyName = Literal["closed", "pranayama", "open"]  # Q117
+type SetupStepName = Literal["add_class", "invite_students", "invite_staff"]  # UI-06 stage 4
 
 
 class ShalaCityOut(BaseModel):
@@ -78,6 +79,10 @@ class ShalaOut(BaseModel):
     me: ShalaMeOut
     days_off: list[int] | None = Field(description="ISO weekdays; null = not set (SC-02)")
     moon_policy: MoonPolicyName
+    setup: list[SetupStepName] | None = Field(
+        description="The owner's setup steps still due, in list order; [] = set up; null for"
+        " everyone but the owner (UI-06)"
+    )
 
 
 class MyShalaOut(BaseModel):
@@ -166,6 +171,7 @@ async def _run[T](work: Awaitable[T]) -> T:
 
 def _out(card: ShalaCard, use_cases: ShalaUseCases, locale: str) -> ShalaOut:
     city = use_cases.cities.find(card.city)
+    setup = setup_of(card)
     return ShalaOut(
         id=card.id,
         name=card.name,
@@ -187,6 +193,7 @@ def _out(card: ShalaCard, use_cases: ShalaUseCases, locale: str) -> ShalaOut:
         ),
         days_off=None if card.days_off is None else sorted(card.days_off),
         moon_policy=MoonPolicy(card.moon_policy).value,
+        setup=None if setup is None else [step.value for step in setup],
     )
 
 

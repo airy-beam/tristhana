@@ -218,6 +218,29 @@ describe("compose", () => {
     });
   });
 
+  // Q339: "Tell students…" after a class is cancelled opens the screen with a text to start
+  // from. It is a draft: edited, then sent through the usual confirm, never by itself.
+  it("starts from a draft, which is edited and sent like any other text", async () => {
+    stubApi();
+    const draft = "Class cancelled: Mysore, Mon, Nov 9, 06:00 Almaty (UTC+5).";
+    renderWith({ view: "compose", shala: SHALA, draft });
+    await screen.findByText(para(/To: everyone in Ashtanga Almaty \(6\)/));
+
+    expect(box()).toHaveValue(draft);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+    fireEvent.change(box(), { target: { value: `${draft} See you on Tuesday.` } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("status");
+
+    expect(tg.confirmAction).toHaveBeenCalledOnce();
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({
+      to: "shala",
+      shala_id: SHALA,
+      text: `${draft} See you on Tuesday.`,
+      pin_days: 0,
+    });
+  });
+
   it("lists what I sent, with unpin, pin and delete", async () => {
     stubApi({ sent: [sentItem("a1", "2026-11-16T05:00:00Z"), sentItem("a2", null)] });
     renderWith({ view: "compose", shala: null });

@@ -6,7 +6,13 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { bundleFor, format } from "./i18n/bundles";
 import { negotiateLocale } from "./i18n/negotiate";
-import { hasTelegramBridge, initTelegram, isInTelegram, launchUser } from "./telegram";
+import {
+  hasTelegramBridge,
+  initTelegram,
+  isInTelegram,
+  launchUser,
+  markTelegramMocked,
+} from "./telegram";
 
 async function start(): Promise<void> {
   // Not `!isInTelegram()`: after a reload the SDK finds the mock's saved launch params and
@@ -14,6 +20,7 @@ async function start(): Promise<void> {
   if (import.meta.env.DEV && !hasTelegramBridge()) {
     const { mockTelegram } = await import("./telegram/mock");
     await mockTelegram();
+    markTelegramMocked();
   }
 
   const inTelegram = isInTelegram();

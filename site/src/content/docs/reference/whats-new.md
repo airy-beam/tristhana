@@ -8,6 +8,11 @@ New things in Tristhana, newest first.
 
 ## November 2026
 
+- **A shala in two fields**: its name and its city. You start as its teacher, and as the owner you can now change your own roles under :ftl[shala-staff-title]{from=app}.
+- **First steps for a new shala**: a short list on the shala's screen. Add a class, invite students and, if you want to, invite your team.
+- **A shorter class form**: the type, the start and the days. The rest is under :ftl[class-form-more].
+- **Change a class**: tap it in the schedule on the date the change should start from and choose :ftl[class-edit] there. Earlier dates stay as they were. :ftl[class-end] ends a class the same way.
+- **:ftl[occurrence-tell]** after you cancel a class on one date: an announcement with the text already written.
 - **The app in three tabs.** :ftl[tab-today] asks how the day went, with three choices, and suggests one next step. :ftl[tab-practice] has your calendar, badges and asanas. :ftl[tab-shala] has your teachers, students and shalas. The settings moved behind the gear :ftl[settings-open].
 - **A simpler bot.** The first time, it asks :ftl[welcome-ask] After that it opens on today, and everything else is under :ftl[menu-open]. There are no commands to remember: the old ones still work as shortcuts.
 - **Three buttons after a practice**: :ftl[practice-same-as-last]{from=bot}, :ftl[practice-add-details] and :ftl[practice-done]. The :ftl[checkin-edit]{from=bot} button now opens the check-in.

@@ -1405,12 +1405,15 @@ export type Schedule = components["schemas"]["ScheduleOut"];
 export type Occurrence = components["schemas"]["ScheduleOccurrenceOut"];
 export type ClassType = components["schemas"]["ClassIn"]["type"];
 export type NewClass = components["schemas"]["ClassIn"];
+export type ClassSeries = components["schemas"]["ClassOut"];
+export type ClassPatch = components["schemas"]["ClassPatchIn"];
 export type OccurrenceChange = components["schemas"]["OccurrenceIn"];
 export type MoonPolicy = components["schemas"]["ShalaOut"]["moon_policy"];
 export type MySchedule = components["schemas"]["MyScheduleOut"];
 export type MyRow = components["schemas"]["MyRowOut"];
 
 const scheduleKey = (id: string) => [...SHALAS_KEY, id, "schedule"];
+const classesKey = (id: string) => [...SHALAS_KEY, id, "classes"];
 const MY_SCHEDULE_KEY = [...SHALAS_KEY, "my-schedule"];
 
 /** "My schedule" (SC-03): a week of every shala I'm in, in my zone; `from` null = my today.
@@ -1444,18 +1447,66 @@ export function useSchedule(id: string, from: string, days: number, enabled = tr
   });
 }
 
+/** After a write to a shala's classes: its schedule and class list, and its card with them (the
+ * owner's setup list follows the classes, UI-06 stage 4). */
+function refreshSchedule(client: ReturnType<typeof useQueryClient>, id: string) {
+  return Promise.all([
+    client.invalidateQueries({ queryKey: [...SHALAS_KEY, id] }),
+    client.invalidateQueries({ queryKey: MY_SCHEDULE_KEY }),
+    // A first class moves "add a class" on to "invite students" (UI-06).
+    client.invalidateQueries({ queryKey: NEXT_STEPS_KEY }),
+  ]);
+}
+
+/** What the screen shows of a shala's classes is out of date (a class it opened is gone):
+ * refetch. */
+export function useRefreshSchedule(id: string) {
+  const client = useQueryClient();
+  return () => {
+    void refreshSchedule(client, id);
+  };
+}
+
 function useScheduleWrite<T, R>(id: string, write: (vars: T) => Promise<R>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: write,
-    onSuccess: () =>
-      Promise.all([
-        client.invalidateQueries({ queryKey: scheduleKey(id) }),
-        client.invalidateQueries({ queryKey: MY_SCHEDULE_KEY }),
-        // A first class moves "add a class" on to "invite students" (UI-06).
-        client.invalidateQueries({ queryKey: NEXT_STEPS_KEY }),
-      ]),
+    onSuccess: () => refreshSchedule(client, id),
   });
+}
+
+async function fetchClasses(id: string): Promise<ClassSeries[]> {
+  const { data, error, response } = await api.GET("/api/v1/shalas/{id}/classes", {
+    params: { path: { id } },
+  });
+  if (!data) fail(response, error);
+  return data;
+}
+
+/** The shala's class series, as saved (the edit form fills itself from one). For those who
+ * manage classes; asked for only when a class is opened for a change, and read again each
+ * time: the form waits for a list fetched after it opened (`isFetchedAfterMount`). */
+export function useClasses(id: string, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: classesKey(id),
+    queryFn: () => fetchClasses(id),
+    retry: false,
+    refetchOnMount: "always",
+  });
+}
+
+/** The class series as they are now, past the cache: for a write that follows from one
+ * series' own dates and must not act on an old picture of it. */
+export function useReadClasses(id: string) {
+  const client = useQueryClient();
+  return () =>
+    client.query({
+      queryKey: classesKey(id),
+      queryFn: () => fetchClasses(id),
+      staleTime: 0,
+      retry: false,
+    });
 }
 
 export function useCreateClass(id: string) {
@@ -1466,6 +1517,25 @@ export function useCreateClass(id: string) {
     });
     if (!data) fail(response, error);
     return data;
+  });
+}
+
+/** Change a class (ADR-0048): only the fields sent change. With `from`, a weekly class that
+ * has started changes from that date on and the answer is a new series (its `id`, and a
+ * `starts_on` that may be later than `from`); earlier dates stay. 404: the class was removed,
+ * or ended before `from`. A refusal refetches too: what the form shows may be out of date. */
+export function useUpdateClass(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ classId, body }: { classId: string; body: ClassPatch }) => {
+      const { data, error, response } = await api.PATCH("/api/v1/shalas/{id}/classes/{class_id}", {
+        params: { path: { id, class_id: classId } },
+        body,
+      });
+      if (!data) fail(response, error);
+      return data;
+    },
+    onSettled: () => refreshSchedule(client, id),
   });
 }
 

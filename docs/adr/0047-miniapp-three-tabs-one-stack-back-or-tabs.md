@@ -1,5 +1,5 @@
 # ADR-0047: Mini App navigation is three tabs and one stack; a screen shows Back or the tabs, never both
-- Status: accepted (owner, 2026-11-16, with `docs/specs/UI-06-stage-2-app-shell.md`; Q332 as recommended)
+- Status: accepted (owner, 2026-11-16, with `docs/specs/UI-06-stage-2-app-shell.md`; Q333 as recommended)
 - Builds on ADR-0013 (generated client) and the Back-layer list in `miniapp/src/telegram/index.ts`. Replaces the single `view` state in `App.tsx`.
 - Date: 2026-11-16
 ## Context

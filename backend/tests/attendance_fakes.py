@@ -7,8 +7,8 @@ the person's rows at that shala (Q186), through the shala fake's `on_leave` hook
 call `application/policies.py` themselves; `test_db_attendance.py` pins the SQL to them.
 """
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -81,9 +81,25 @@ class InMemoryAttendance:
                     counts[(c, k)] = Counts(old.confirmed, old.claimed + 1)
         return {"mine": mine, "counts": counts}
 
+    def carry(self, old: UUID, new: UUID, follows: Callable[[date], bool]) -> None:
+        """ADR-0048: a split series' later marks follow the successor; the snapshot's time
+        and type stay as they were written."""
+        for k in [k for k in self.rows if k[0] == old and follows(k[1])]:
+            row = self.rows.pop(k)
+            row.snap = replace(row.snap, class_id=new)
+            self.rows[(new, k[1], k[2])] = row
+
     def _leave(self, shala: UUID, account: UUID) -> None:
         for k in [k for k, r in self.rows.items() if k[2] == account and r.snap.shala_id == shala]:
             del self.rows[k]
+
+    def _belongs(self, snap: Snapshot) -> bool:
+        """The shala has this series and the rule date lies within its span (ADR-0048)."""
+        found = self.schedule.classes.get(snap.class_id)
+        if found is None or found[0] != snap.shala_id:
+            return False
+        c = found[1]
+        return c.starts_on <= snap.key and (c.ends_on is None or c.ends_on >= snap.key)
 
     def _shala_of(self, class_id: UUID) -> UUID | None:
         found = self.schedule.classes.get(class_id)
@@ -131,10 +147,13 @@ class InMemoryAttendance:
         staff = set(shalas.staff_of(shala))
         on_it = {a for (c, k, a) in self.rows if c == class_id and k == key}
         people = students | (staff & here) | on_it
+        kind = self.schedule.classes[class_id][1].type
         regular = {
             a
-            for (c, k, a) in self.rows
-            if c == class_id and key - timedelta(days=REGULAR_DAYS) <= k < key
+            for (_c, k, a), r in self.rows.items()
+            if r.snap.shala_id == shala
+            and r.snap.type is kind
+            and key - timedelta(days=REGULAR_DAYS) <= k < key
         }
         found: list[RosterPerson] = []
         for a in people:
@@ -166,6 +185,8 @@ class InMemoryAttendance:
             return Guarded(None, False)
         if not can_claim_attendance(m):
             return Guarded(m, False)
+        if not self._belongs(snap):
+            return Guarded(m, True, None)
         k = (snap.class_id, snap.key, me)
         old = self.rows.get(k)
         new = AttendanceState.CONFIRMED if old and old.state is AttendanceState.CONFIRMED else state
@@ -193,6 +214,8 @@ class InMemoryAttendance:
             return Guarded(m, False)
         if any(shalas.membership(snap.shala_id, a) is None for a in present):
             return Guarded(m, True, Marked(False, self._counts(snap.class_id, snap.key)))
+        if not self._belongs(snap):  # the series has no such date any more: nothing written
+            return Guarded(m, True, Marked(True, self._counts(snap.class_id, snap.key)))
         for a in removed:
             self.rows.pop((snap.class_id, snap.key, a), None)
         for a in present:

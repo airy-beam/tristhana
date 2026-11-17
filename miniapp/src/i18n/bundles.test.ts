@@ -3,9 +3,11 @@ import { FluentResource } from "@fluent/bundle";
 import enApp from "../locales/en/app.ftl?raw";
 import enClassRow from "../locales/en/class-row.ftl?raw";
 import enDetails from "../locales/en/details.ftl?raw";
+import enShala from "../locales/en/shala.ftl?raw";
 import ruApp from "../locales/ru/app.ftl?raw";
 import ruClassRow from "../locales/ru/class-row.ftl?raw";
 import ruDetails from "../locales/ru/details.ftl?raw";
+import ruShala from "../locales/ru/shala.ftl?raw";
 import { addMessages } from "./lazyMessages";
 import { LOCALES } from "./negotiate";
 import { bundleFor, definedIdCount, format, messageIds, messageVariables } from "./bundles";
@@ -14,8 +16,11 @@ import { bundleFor, definedIdCount, format, messageIds, messageVariables } from 
 // (`details.ftl`, `class-row.ftl`); here they are added as those chunks do it.
 const DETAILS = { en: enDetails, ru: ruDetails };
 const CLASS_ROW = { en: enClassRow, ru: ruClassRow };
+// UI-06 stage 4: the class form, the occurrence sheet's groups and the setup list (`shala.ftl`).
+const SHALA = { en: enShala, ru: ruShala };
 addMessages(DETAILS);
 addMessages(CLASS_ROW);
+addMessages(SHALA);
 
 /** Each message of a raw `.ftl` source with the `$variables` it uses. */
 function shape(source: string): Record<string, string[]> {
@@ -35,6 +40,7 @@ function shape(source: string): Record<string, string[]> {
 describe.each([
   ["details.ftl", DETAILS],
   ["class-row.ftl", CLASS_ROW],
+  ["shala.ftl", SHALA],
 ])("%s (lazy copy)", (_file, sources) => {
   it("has the same messages and variables in en and ru", () => {
     expect(shape(sources.ru)).toEqual(shape(sources.en));

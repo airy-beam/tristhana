@@ -25,7 +25,7 @@ from tristhana.application.classes import (
     Schedule,
     Teaching,
 )
-from tristhana.application.policies import NotAllowed, NotFound, Principal
+from tristhana.application.policies import NotAllowed, NotFound
 from tristhana.application.ports.classes import ClassDraft, StoredClass
 from tristhana.application.ports.shalas import CapReached
 from tristhana.application.shalas import ShalaUseCases
@@ -33,6 +33,7 @@ from tristhana.domain.attendance import Counts
 from tristhana.domain.classes import (
     TITLE_MAX,
     WINDOW_MAX,
+    ClassPatch,
     ClassSeries,
     ClassType,
     InvalidClass,
@@ -197,7 +198,8 @@ class ClassIn(BaseModel):
 
 
 class ClassPatchIn(BaseModel):
-    """Fields not sent stay. `from`: the change applies from that date (a new series)."""
+    """Fields not sent stay. `from`: the change applies from that date (a new series);
+    earlier dates are not rewritten (ADR-0048)."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -502,15 +504,23 @@ async def post_class(
     return _class(await _run(use_cases.create.execute(principal, id, _draft(body))))
 
 
-async def _current(
-    use_cases: ClassUseCases, principal: Principal, shala: UUID, class_id: UUID
-) -> StoredClass:
-    found = next(
-        (c for c in await use_cases.classes.execute(principal, shala) if c.id == class_id), None
-    )
-    if found is None:
-        raise NotFound
-    return found
+_NOT_NULL = ("type", "online", "start", "minutes", "weekdays", "every", "starts_on")
+
+
+def _patch(body: ClassPatchIn) -> ClassPatch:
+    """The fields that were sent, and only those. An explicit null clears a field that may be
+    empty (title, city, teacher, last date); for any other it is no value: `InvalidClass`."""
+    sent = body.model_fields_set - {"from_date"}
+    changes: dict[str, Any] = {name: getattr(body, name) for name in sent}
+    if any(changes.get(name, ...) is None for name in _NOT_NULL):
+        raise InvalidClass("null")
+    if body.type is not None and "type" in sent:
+        changes["type"] = ClassType(body.type)
+    if body.start is not None and "start" in sent:
+        changes["start"] = time.fromisoformat(body.start)
+    if body.weekdays is not None and "weekdays" in sent:
+        changes["weekdays"] = frozenset(body.weekdays)
+    return ClassPatch(**changes)
 
 
 @router.patch("/shalas/{id}/classes/{class_id}", responses=error_responses(403, 404, 422))
@@ -522,26 +532,18 @@ async def patch_class(
     use_cases: UseCases,
     response: Response,
 ) -> ClassOut:
-    """A new id after a split with `from`."""
+    """Fields not sent stay as they are. With `from`, the change applies from that date: a
+    weekly class that started before it gets a new id from then on, and the answer is that
+    new series (its `starts_on` is `from`, or the next week of an every-2-4-weeks rhythm);
+    earlier dates keep the old id and stay as they were. A class that ended before `from`
+    is 404."""
     response.headers.update(_NO_STORE)
-    current = await _run(_current(use_cases, principal, id, class_id))
-    sent = body.model_fields_set - {"from_date"}
-    changes: dict[str, object] = {name: getattr(body, name) for name in sent}
-    if "type" in changes and changes["type"] is not None:
-        changes["type"] = ClassType(str(changes["type"]))
-    if "start" in changes and changes["start"] is not None:
-        changes["start"] = time.fromisoformat(str(changes["start"]))
-    if "weekdays" in changes and changes["weekdays"] is not None:
-        changes["weekdays"] = frozenset(body.weekdays or ())
-    for required in ("type", "online", "start", "minutes", "weekdays", "every", "starts_on"):
-        if changes.get(required, ...) is None:
-            raise _fail(422, "invalid_class")
-    fields = {f: getattr(current, f) for f in ClassDraft.__dataclass_fields__}
-    draft = ClassDraft(**(fields | changes))  # type: ignore[arg-type]
-    updated = await _run(
-        use_cases.update.execute(principal, id, class_id, draft, from_date=body.from_date)
-    )
-    return _class(updated)
+
+    async def update() -> StoredClass:
+        patch = _patch(body)
+        return await use_cases.update.execute(principal, id, class_id, patch, body.from_date)
+
+    return _class(await _run(update()))
 
 
 @router.delete(
@@ -568,7 +570,8 @@ async def put_occurrence(
     response: Response,
 ) -> ScheduleOccurrenceOut:
     """`key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,
-    or name a substitute; silent (Q122)."""
+    or name a substitute; silent (Q122). 404 also for a date outside the series: a class
+    changed "from a date" ends the day before, and its later dates have a new id (ADR-0048)."""
     response.headers.update(_NO_STORE)
     override = Override(
         on_date=key,
@@ -599,7 +602,8 @@ async def delete_occurrence(
     use_cases: UseCases,
     response: Response,
 ) -> None:
-    """Restore: the occurrence follows its rule again. Idempotent."""
+    """Restore: the occurrence follows its rule again. Idempotent for a date the series has;
+    404 for a date outside it (as `PUT`)."""
     await _run(use_cases.clear.execute(principal, id, class_id, key))
     response.headers.update(_NO_STORE)
 

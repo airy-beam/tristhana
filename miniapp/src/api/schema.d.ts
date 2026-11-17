@@ -1098,7 +1098,11 @@ export interface paths {
         head?: never;
         /**
          * Patch Class
-         * @description A new id after a split with `from`.
+         * @description Fields not sent stay as they are. With `from`, the change applies from that date: a
+         *     weekly class that started before it gets a new id from then on, and the answer is that
+         *     new series (its `starts_on` is `from`, or the next week of an every-2-4-weeks rhythm);
+         *     earlier dates keep the old id and stay as they were. A class that ended before `from`
+         *     is 404.
          */
         patch: operations["patch_class_api_v1_shalas__id__classes__class_id__patch"];
         trace?: never;
@@ -1114,13 +1118,15 @@ export interface paths {
         /**
          * Put Occurrence
          * @description `key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,
-         *     or name a substitute; silent (Q122).
+         *     or name a substitute; silent (Q122). 404 also for a date outside the series: a class
+         *     changed "from a date" ends the day before, and its later dates have a new id (ADR-0048).
          */
         put: operations["put_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__put"];
         post?: never;
         /**
          * Delete Occurrence
-         * @description Restore: the occurrence follows its rule again. Idempotent.
+         * @description Restore: the occurrence follows its rule again. Idempotent for a date the series has;
+         *     404 for a date outside it (as `PUT`).
          */
         delete: operations["delete_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__delete"];
         options?: never;
@@ -1802,7 +1808,8 @@ export interface components {
         };
         /**
          * ClassPatchIn
-         * @description Fields not sent stay. `from`: the change applies from that date (a new series).
+         * @description Fields not sent stay. `from`: the change applies from that date (a new series);
+         *     earlier dates are not rewritten (ADR-0048).
          */
         ClassPatchIn: {
             /** City */
@@ -3563,6 +3570,8 @@ export interface components {
             /** @description Shown name ("Yoga Chikitsa"; key = slug): Primary and Intermediate only */
             traditional?: components["schemas"]["StopOut"] | null;
         };
+        /** @enum {string} */
+        SetupStepName: "add_class" | "invite_students" | "invite_staff";
         /** ShalaCityOut */
         ShalaCityOut: {
             /**
@@ -3653,6 +3662,11 @@ export interface components {
             name: string;
             /** Online */
             online: boolean;
+            /**
+             * Setup
+             * @description The owner's setup steps still due, in list order; [] = set up; null for everyone but the owner (UI-06)
+             */
+            setup: components["schemas"]["SetupStepName"][] | null;
             /**
              * Staff
              * @description Oldest first

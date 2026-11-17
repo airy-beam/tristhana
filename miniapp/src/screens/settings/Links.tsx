@@ -1,22 +1,10 @@
 import { Localized, useLocalization } from "@fluent/react";
-import {
-  Fragment,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-  type Ref,
-  type SyntheticEvent,
-} from "react";
+import { Fragment, Suspense, useEffect, useRef, useState, type Ref } from "react";
 
 import {
-  ApiError,
-  useCreateShala,
   useMe,
-  useMoonCities,
   useMyShalas,
   type MyShala,
-  type ShalaRole,
   useInvite,
   useLinks,
   useMakeMainTeacher,
@@ -30,8 +18,8 @@ import { confirmDestructive, haptics, openTelegramLink } from "../../telegram";
 import type { Locale } from "../../i18n/negotiate";
 import { lazyRetry } from "../../shell/lazyRetry";
 import type { ShalaOpen, Start } from "../../shell/nav";
-import { cityName } from "../cityName";
 import { Row } from "../Row";
+import CreateShala from "../shalas/CreateShala";
 import { checkedMonth, useListing, type ListingMark } from "./listing";
 
 // SC-01: the card is its own lazy chunk, loaded when a shala is opened.
@@ -247,9 +235,6 @@ function Nobody({ onStart }: { onStart: (intent: Intent) => void }) {
   );
 }
 
-const ROLES: ShalaRole[] = ["teacher", "assistant", "office", "admin"];
-const NAME_MAX = 64;
-
 /** SC-01: my shalas, and the create form (Q103: creating is in the Mini App only). */
 function Shalas({ onOpen, create }: { onOpen: (id: string) => void; create: boolean }) {
   const { l10n } = useLocalization();
@@ -293,124 +278,6 @@ function Shalas({ onOpen, create }: { onOpen: (id: string) => void; create: bool
         </Localized>
       )}
     </section>
-  );
-}
-
-function CreateShala({ onDone, focus }: { onDone: (id: string) => void; focus: boolean }) {
-  const { l10n } = useLocalization();
-  const first = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (focus) first.current?.focus();
-  }, [focus]);
-  const me = useMe().data;
-  const cities = useMoonCities().data;
-  const create = useCreateShala();
-  const locale: Locale = me?.locale ?? "en";
-  const [name, setName] = useState("");
-  const [city, setCity] = useState<string | null>(null);
-  const [online, setOnline] = useState(false);
-  const [roles, setRoles] = useState<ShalaRole[]>(["teacher"]);
-  const [blank, setBlank] = useState(false);
-  const chosen = city ?? me?.home_city?.slug ?? cities?.[0]?.slug ?? "";
-  const submit = (e: SyntheticEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setBlank(true);
-      return;
-    }
-    setBlank(false);
-    haptics.impact("light");
-    create.mutate(
-      { name, city: chosen, online, roles },
-      {
-        onSuccess: (shala) => {
-          onDone(shala.id);
-        },
-        onError: () => {
-          haptics.notify("error");
-        },
-      },
-    );
-  };
-  const capped = create.error instanceof ApiError && create.error.code === "shala_caps";
-  return (
-    <form className="shala-form" onSubmit={submit}>
-      <label className="label">
-        <Localized id="shala-name-label">
-          <span />
-        </Localized>
-        <input
-          ref={first}
-          type="text"
-          value={name}
-          maxLength={NAME_MAX}
-          onChange={(e) => {
-            setName(e.target.value);
-          }}
-        />
-      </label>
-      <label className="label">
-        <Localized id="shala-city-label">
-          <span />
-        </Localized>
-        <select
-          value={chosen}
-          onChange={(e) => {
-            setCity(e.target.value);
-          }}
-        >
-          {cities?.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              {cityName(c, c.slug, locale)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={online}
-          onChange={() => {
-            setOnline(!online);
-          }}
-        />
-        {l10n.getString("shala-online-only")}
-      </label>
-      <Localized id="shala-my-roles">
-        <p className="label" />
-      </Localized>
-      {ROLES.map((role) => (
-        <label key={role} className="toggle">
-          <input
-            type="checkbox"
-            checked={roles.includes(role)}
-            onChange={() => {
-              setRoles((now) =>
-                now.includes(role) ? now.filter((r) => r !== role) : [...now, role],
-              );
-            }}
-          />
-          {l10n.getString("shala-role", { role })}
-        </label>
-      ))}
-      <Localized id="shala-create-submit">
-        <button type="submit" className="row-button" disabled={create.isPending} />
-      </Localized>
-      {(blank || create.isError) && (
-        <Localized
-          id={
-            blank ||
-            (create.error instanceof ApiError && create.error.code === "invalid_shala_name")
-              ? "shala-name-invalid"
-              : capped
-                ? "shala-caps"
-                : "shala-save-failed"
-          }
-        >
-          <p className="hint" role="alert" />
-        </Localized>
-      )}
-    </form>
   );
 }
 

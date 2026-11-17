@@ -230,6 +230,32 @@ function respond(path: string): Response {
   return json({});
 }
 
+// Every screen behind a tab or a row is a lazy chunk, and `launch()` resets the modules. The
+// first test to open one pays for its transform, which on a busy machine can outlast the one
+// second `findBy…` waits (a flake seen on "the gear opens Settings…"). Loading each once here
+// fills the transform cache, which outlives a reset, so no test's first open is the slow one.
+beforeAll(async () => {
+  await Promise.all([
+    import("./App"),
+    import("./screens/stats/Stats"),
+    import("./screens/badges/Badges"),
+    import("./screens/trends/Trends"),
+    import("./screens/settings/Links"),
+    import("./screens/settings/Settings"),
+    import("./screens/settings/DirectoryListing"),
+    import("./screens/progression/Progression"),
+    import("./screens/progression/Timeline"),
+    import("./screens/moon/MoonScreen"),
+    import("./screens/shalas/MySchedule"),
+    import("./screens/shalas/ShalaScreen"),
+    import("./screens/shalas/Attendance"),
+    import("./screens/teachers/Students"),
+    import("./screens/announcements/Announcements"),
+    import("./screens/ClassToday"),
+    import("./screens/share/ShareSheet"),
+  ]);
+}, 60_000);
+
 beforeEach(() => {
   localStorage.clear();
   account = ME;
@@ -839,10 +865,19 @@ describe("Today: one next step, each leading to its place", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Add a class" }));
 
-    expect(await screen.findByRole("button", { name: "Save the class" })).toBeVisible();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ashtanga Almaty");
+    // UI-06 stage 4: the form is a layer of its own over the card; Telegram's main button
+    // saves it.
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+    await waitFor(() => {
+      expect(sdk.main).toContainEqual({ text: "Save the class", isVisible: true });
+    });
+    expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull();
     expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
-    expect(bar()).toBeNull(); // the card is a layer over the Shala root
+    expect(bar()).toBeNull(); // the form and the card are layers over the Shala root
+    back(); // from the form: the shala's card, where the new class would show
+    expect(await screen.findByRole("button", { name: "➕ Add a class" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ashtanga Almaty");
+    expect(bar()).toBeNull();
     back();
     expect(await shala()).toBeInTheDocument();
     expect(current()).toEqual(["🏛 Shala"]);

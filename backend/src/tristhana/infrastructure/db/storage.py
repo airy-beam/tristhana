@@ -875,7 +875,13 @@ class _UnavailableSchedule:
         raise StorageUnavailable("not configured")
 
     async def update(
-        self, shala: UUID, me: UUID, class_id: UUID, draft: ClassDraft, from_date: date | None
+        self,
+        shala: UUID,
+        me: UUID,
+        class_id: UUID,
+        draft: ClassDraft,
+        from_date: date | None,
+        read_ends_on: date | None = None,
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 

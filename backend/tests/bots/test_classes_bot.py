@@ -12,6 +12,8 @@ The clock is frozen on Mon 9 Nov 2026, 08:00 in Almaty, so week 0 starts on a Mo
 the implementation counts from the shala's today or from its ISO week."""
 
 import itertools
+import json
+import time as wall
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time
@@ -26,6 +28,7 @@ from pydantic import SecretStr
 from tests.fakes import InMemoryStorage
 from tests.moon_follow_fakes import person
 from tests.shala_fakes import shala_storage
+from tristhana.api.initdata import sign
 from tristhana.bots.telegram.shalas_callbacks import short_id
 from tristhana.domain.accounts import Account
 from tristhana.domain.classes import ClassType, Override, OverrideStatus
@@ -445,6 +448,77 @@ def test_hold_anyway_is_offered_only_on_an_auto_cancelled_one(
     card = _tap(client, f"c1:o:{short_id(shala)}:{short_id(cls.id)}:20261110")
 
     assert not any(t.startswith("✅") for t in _texts(card))
+
+
+def test_an_old_button_for_a_date_after_a_split_shows_the_current_week(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """UI-06 stage 4 (ADR-0048): the class was changed in the app "from 10 Nov", so its later
+    dates have a new id. An old [class on 10 Nov] button re-renders the week with a note."""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, "teacher")
+    cls = storage.schedule.add_class(shala)
+    s, c = short_id(shala), short_id(cls.id)
+    fields = {
+        "user": json.dumps({"id": ME_TG, "first_name": "Ash", "language_code": "en"}),
+        "auth_date": str(int(wall.time()) - 60),
+    }
+    patched = client.patch(
+        f"/api/v1/shalas/{shala}/classes/{cls.id}",
+        json={"start": "07:00", "from": "2026-11-10"},
+        headers={"Authorization": f"tma {sign(fields, TOKEN)}"},
+    )
+    assert patched.status_code == 200, patched.text
+
+    card = _tap(client, f"c1:o:{s}:{c}:20261110")
+
+    assert card["method"] == "editMessageText"
+    text = " ".join(card["text"].split())
+    assert "This class has just changed. Here's the current schedule." in text
+    assert "🗓 Ashtanga Almaty" in text
+    assert "Tue, Nov 10 07:00–10:30 Mysore" in text
+    assert storage.schedule.overrides == {}
+    assert f"c1:o:{s}:{short_id(UUID(patched.json()['id']))}:20261110" in _datas(
+        _tap(client, f"c1:p:{s}")
+    )
+
+
+@pytest.mark.parametrize("kind", ["x", "h", "r"])
+def test_an_old_write_button_for_a_date_after_a_split_writes_nothing(
+    client: TestClient, storage: InMemoryStorage, kind: str
+) -> None:
+    """UI-06 stage 4 (ADR-0048): an old [Cancel this class] for 10 Nov, tapped after the class
+    was changed "from 10 Nov". The ended series has no such date any more: the same note as the
+    card (`c1:o`) gives, and no override on the ended series."""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, "teacher")
+    cls = storage.schedule.add_class(shala)
+    s, c = short_id(shala), short_id(cls.id)
+    fields = {
+        "user": json.dumps({"id": ME_TG, "first_name": "Ash", "language_code": "en"}),
+        "auth_date": str(int(wall.time()) - 60),
+    }
+    patched = client.patch(
+        f"/api/v1/shalas/{shala}/classes/{cls.id}",
+        json={"start": "07:00", "from": "2026-11-10"},
+        headers={"Authorization": f"tma {sign(fields, TOKEN)}"},
+    )
+    assert patched.status_code == 200, patched.text
+    storage.schedule.writes.clear()
+    storage.shalas.reads.clear()
+
+    done = _tap(client, f"c1:{kind}:{s}:{c}:20261110")
+
+    # The write's own guard refuses the date: no read before it, one for the week after.
+    assert storage.shalas.reads.count("window") == 1
+
+    assert done["method"] == "editMessageText"
+    text = " ".join(done["text"].split())
+    assert "This class has just changed. Here's the current schedule." in text
+    assert "Tue, Nov 10 07:00–10:30 Mysore" in text
+    assert storage.schedule.overrides == {}
+    assert "set_override" not in storage.schedule.writes
+    assert "clear_override" not in storage.schedule.writes
 
 
 def test_the_tap_is_answered_before_the_write(client: TestClient, storage: InMemoryStorage) -> None:

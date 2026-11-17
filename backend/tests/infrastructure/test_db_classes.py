@@ -38,6 +38,7 @@ from tristhana.domain.classes import (
     MAX_FUTURE_CLOSURES,
     MAX_FUTURE_SWAPS,
     ClassType,
+    InvalidClass,
     Override,
     OverrideStatus,
     Swap,
@@ -651,6 +652,155 @@ async def test_a_split_moves_later_overrides_on_every_weekday(engine: AsyncEngin
     assert await _overrides(engine, split.value.id) == later
 
 
+# UI-06 stage 4 (ADR-0048): what a split may and may not touch
+
+
+async def _series_of(engine: AsyncEngine, shala: UUID) -> list[tuple[Any, ...]]:
+    rows = await _sql(
+        engine,
+        "SELECT id, starts_on, ends_on, minutes FROM tristhana.shala_class"
+        " WHERE shala_id = :s ORDER BY starts_on, id",
+        s=shala,
+    )
+    return [tuple(r) for r in rows]
+
+
+@pytest.mark.parametrize("ends_on", [None, date(2027, 1, 31)], ids=["kept", "sent"])
+async def test_a_series_that_ended_before_the_date_is_not_split_again(
+    engine: AsyncEngine, ends_on: date | None
+) -> None:
+    """D3: two people edit the same class "from 16 Nov". The second write names the old id,
+    which by then ends on 15 Nov: no second successor, no rewrite in place, no exception
+    dropped, whether the stale form sent a last date or not. `NotFound` for the use case."""
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner)
+    await repo.set_override(shala, owner, cls, Override(NOV[10], OverrideStatus.CANCELLED))
+    first = await repo.update(shala, owner, cls, _draft(start=time(7)), NOV[16])
+    assert first.value is not None
+    before = await _series_of(engine, shala)
+
+    second = await repo.update(shala, owner, cls, _draft(minutes=180, ends_on=ends_on), NOV[16])
+    later = await repo.update(shala, owner, cls, _draft(minutes=180, ends_on=ends_on), NOV[23])
+
+    assert (second.done, second.value) == (True, None)
+    assert (later.done, later.value) == (True, None)
+    assert await _series_of(engine, shala) == before
+    assert [(row[1], row[2], row[3]) for row in before] == [
+        (NOV[2], NOV[15], 210),
+        (NOV[16], None, 210),
+    ]
+    assert await _overrides(engine, cls) == {NOV[10]}
+
+
+async def test_a_split_needs_the_last_date_that_was_read(engine: AsyncEngine) -> None:
+    """Review fix: someone else applied a change "from 23 Nov" after this writer read the
+    class (no last date then). An earlier `from` would pass the "not ended before" guard and
+    start a second successor beside the first: the statement requires the last date that was
+    read. A writer who read the new last date may still split."""
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner)
+    first = await repo.update(shala, owner, cls, _draft(start=time(7)), NOV[23])
+    assert first.value is not None
+    before = await _series_of(engine, shala)
+
+    stale = await repo.update(shala, owner, cls, _draft(minutes=180), NOV[16])
+
+    assert (stale.done, stale.value) == (True, None)
+    assert await _series_of(engine, shala) == before
+
+    fresh = await repo.update(
+        shala, owner, cls, _draft(minutes=180, ends_on=NOV[22]), NOV[16], NOV[22]
+    )
+
+    assert fresh.value is not None
+    assert [(row[1], row[2], row[3]) for row in await _series_of(engine, shala)] == [
+        (NOV[2], NOV[15], 210),
+        (NOV[16], NOV[22], 180),
+        (NOV[23], None, 210),
+    ]
+
+
+async def test_a_series_ending_on_the_date_itself_still_splits(engine: AsyncEngine) -> None:
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner, ends_on=NOV[16])
+
+    draft = _draft(minutes=180, ends_on=NOV[16])
+    split = await repo.update(shala, owner, cls, draft, NOV[16], NOV[16])
+
+    assert split.value is not None
+    assert [(row[1], row[2], row[3]) for row in await _series_of(engine, shala)] == [
+        (NOV[2], NOV[15], 210),
+        (NOV[16], NOV[16], 180),
+    ]
+
+
+@pytest.mark.parametrize("weekdays", [frozenset({1, 2, 3, 4, 5}), frozenset[int]()])
+async def test_a_class_not_started_or_a_one_off_changes_whole(
+    engine: AsyncEngine, weekdays: frozenset[int]
+) -> None:
+    """`from` on or before the start, or a single date: the row itself changes, id kept."""
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner, weekdays=weekdays, starts_on=NOV[9])
+
+    changed = await repo.update(
+        shala, owner, cls, _draft(weekdays=weekdays, starts_on=NOV[9], minutes=180), NOV[9]
+    )
+    one_off_later = await repo.update(
+        shala, owner, cls, _draft(weekdays=weekdays, starts_on=NOV[9], minutes=120), NOV[10]
+    )
+
+    assert changed.value is not None
+    assert (changed.value.id, changed.value.minutes) == (cls, 180)
+    if weekdays:  # a weekly class that started before 10 Nov is split, not changed whole
+        assert one_off_later.value is not None
+        assert one_off_later.value.id != cls
+    else:
+        assert one_off_later.value is not None
+        assert (one_off_later.value.id, one_off_later.value.minutes) == (cls, 120)
+        assert len(await _series_of(engine, shala)) == 1
+
+
+async def test_a_split_is_one_statement(engine: AsyncEngine) -> None:
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner)
+
+    with _statements(engine) as seen:
+        split = await repo.update(shala, owner, cls, _draft(start=time(7)), NOV[16])
+
+    assert split.value is not None
+    assert len(seen) == 1, seen
+    assert "class_attendance" in seen[0]  # the marks move in the same statement
+
+
+async def test_any_staff_member_may_be_the_teacher(engine: AsyncEngine) -> None:
+    """UI-06 stage 4, the Teacher list: every staff seat may be chosen, the owner without a
+    role and the front desk included (the FK needs a staff row, nothing more). A student or
+    a stranger is refused as an invalid class."""
+    owner, shala = await _owned(engine)
+    office, _ = await _person(engine, "Olga")
+    student, _ = await _person(engine, "Sam")
+    stranger, _ = await _person(engine, "Stranger")
+    await _staff(engine, shala, owner, office.id, ShalaRole.OFFICE)
+    await _student(engine, shala, owner, student.id)
+    await SqlShalaRepository(engine).set_roles(shala, owner, owner, frozenset())
+    repo = SqlScheduleRepository(engine)
+
+    for teacher in (owner, office.id):
+        created = await repo.create(shala, owner, _draft(teacher_id=teacher), CAPS, TODAY)
+        assert created.value is not None
+        assert created.value.teacher_id == teacher
+        changed = await repo.update(shala, owner, created.value.id, _draft(teacher_id=owner), None)
+        assert changed.value is not None
+    for outsider in (student.id, stranger.id):
+        with pytest.raises(InvalidClass):
+            await repo.create(shala, owner, _draft(teacher_id=outsider), CAPS, TODAY)
+
+
 async def test_hold_anyway_keeps_a_move_and_a_substitute(engine: AsyncEngine) -> None:
     owner, shala = await _owned(engine)
     repo = SqlScheduleRepository(engine)
@@ -669,6 +819,42 @@ async def test_hold_anyway_keeps_a_move_and_a_substitute(engine: AsyncEngine) ->
         )
     ).one()
     assert tuple(row) == ("held", NOV[13], time(7), 90)
+
+
+async def test_an_override_needs_a_date_within_the_series(engine: AsyncEngine) -> None:
+    """Review fix (ADR-0048): a date before the series starts or after it ends (the old id
+    of a class changed "from a date") takes no override and reports that there is no such
+    date; inside the span a restore stays idempotent."""
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner, starts_on=NOV[9], ends_on=NOV[15])
+
+    for key in (NOV[6], NOV[16]):
+        written = await repo.set_override(shala, owner, cls, Override(key, OverrideStatus.HELD))
+        cleared = await repo.clear_override(shala, owner, cls, key)
+        assert (written.done, written.value) == (True, False)
+        assert (cleared.done, cleared.value) == (True, False)
+    assert await _overrides(engine, cls) == set()
+
+    last = await repo.set_override(shala, owner, cls, Override(NOV[15], OverrideStatus.HELD))
+    assert last.value is True
+    assert await _overrides(engine, cls) == {NOV[15]}
+    for _ in range(2):
+        cleared = await repo.clear_override(shala, owner, cls, NOV[15])
+        assert (cleared.done, cleared.value) == (True, True)
+    assert await _overrides(engine, cls) == set()
+
+
+async def test_clearing_an_override_is_one_statement(engine: AsyncEngine) -> None:
+    owner, shala = await _owned(engine)
+    repo = SqlScheduleRepository(engine)
+    cls = await _class(engine, shala, owner)
+    await repo.set_override(shala, owner, cls, Override(NOV[10], OverrideStatus.CANCELLED))
+
+    with _statements(engine) as seen:
+        await repo.clear_override(shala, owner, cls, NOV[10])
+
+    assert len(seen) == 1, seen
 
 
 async def test_a_held_write_replaces_unless_it_keeps(engine: AsyncEngine) -> None:

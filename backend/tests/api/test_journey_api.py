@@ -178,7 +178,7 @@ def test_there_is_no_way_to_ask_for_somebody_else(
 
 
 def test_nothing_is_written(api: TestClient, storage: InMemoryStorage) -> None:
-    """No dismissal flag (Q333): "Not now" stays on the device, so there is no write here."""
+    """No dismissal flag (Q334): "Not now" stays on the device, so there is no write here."""
     _account(api, storage)
     _steps(api)  # the daily `last_seen_at` refresh of any authenticated call happens here
     before = storage.repo.writes

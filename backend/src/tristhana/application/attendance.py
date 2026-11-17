@@ -110,8 +110,10 @@ class ClaimAttendance:
         written = await self._attendance.claim(me, snap, claim_state(can_take_attendance(m)))
         if written.me is None:
             raise NotFound
-        if not written.done or written.value is None:
+        if not written.done:
             raise NotAllowed
+        if written.value is None:  # the class changed between the read and the write
+            raise NotAttendable
         o = found.occurrence
         return MyMark(
             class_id,
@@ -129,9 +131,11 @@ class RemoveMyAttendance:
     def __init__(self, attendance: AttendanceRepository) -> None:
         self._attendance = attendance
 
-    async def execute(self, principal: Principal, class_id: UUID, key: date) -> None:
-        """My own row only: no membership check, so a race with a leave can't fail."""
-        await self._attendance.remove(principal.account.id, class_id, key)
+    async def execute(self, principal: Principal, class_id: UUID, key: date) -> bool:
+        """My own row only: no membership check, so a race with a leave can't fail. False:
+        there was no such mark (removed already, or it followed the class to a new id when
+        the class was changed "from a date", ADR-0048); the caller must not say "removed"."""
+        return await self._attendance.remove(principal.account.id, class_id, key)
 
 
 @dataclass(frozen=True, slots=True)

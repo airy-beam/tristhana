@@ -165,7 +165,7 @@ describe("Settings", () => {
     ).not.toBeInTheDocument();
   });
 
-  // UI-06 stage 2: the tour is retired (Q331), and teachers, students and shalas are the
+  // UI-06 stage 2: the tour is retired (Q332), and teachers, students and shalas are the
   // Shala tab (Q300). Neither has a row here any more.
   it("has no quick tour row and no Teachers and students row", async () => {
     stubApi();

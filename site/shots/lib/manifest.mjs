@@ -2,10 +2,10 @@
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 
-/** @typedef {{ name: string, kind: "app" | "bot", as: "student" | "teacher" | "newcomer" | "assistant", features: string[], say?: string, tap?: string[], click?: string[], full?: boolean }} Shot */
+/** @typedef {{ name: string, kind: "app" | "bot", as: "student" | "teacher" | "newcomer" | "assistant" | "owner", features: string[], say?: string, tap?: string[], click?: string[], full?: boolean, top?: string }} Shot */
 
-const KEYS = new Set(["name", "kind", "as", "features", "say", "tap", "click", "full"]);
-const ROLES = ["student", "teacher", "newcomer", "assistant"];
+const KEYS = new Set(["name", "kind", "as", "features", "say", "tap", "click", "full", "top"]);
+const ROLES = ["student", "teacher", "newcomer", "assistant", "owner"];
 
 /** @returns {Shot[]} */
 export function parseManifest(/** @type {string} */ text) {
@@ -30,8 +30,11 @@ export function parseManifest(/** @type {string} */ text) {
     if (shot.kind === "bot" && typeof shot.say !== "string") {
       throw new Error(`${where}: a bot shot needs say`);
     }
-    if (shot.kind === "bot" && (shot.click || shot.full)) {
-      throw new Error(`${where}: click and full are for app shots`);
+    if (shot.kind === "bot" && (shot.click || shot.full || shot.top)) {
+      throw new Error(`${where}: click, full and top are for app shots`);
+    }
+    if (shot.top !== undefined && (typeof shot.top !== "string" || shot.full)) {
+      throw new Error(`${where}: top is one step, and not for a full-page shot`);
     }
     if (shot.kind === "app" && (shot.say || shot.tap)) {
       throw new Error(`${where}: say and tap are for bot shots`);

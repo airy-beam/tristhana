@@ -1095,7 +1095,7 @@
         "type": "object"
       },
       "ClassPatchIn": {
-        "description": "Fields not sent stay. `from`: the change applies from that date (a new series).",
+        "description": "Fields not sent stay. `from`: the change applies from that date (a new series);\nearlier dates are not rewritten (ADR-0048).",
         "properties": {
           "city": {
             "anyOf": [
@@ -5439,6 +5439,14 @@
         "title": "SeriesOut",
         "type": "object"
       },
+      "SetupStepName": {
+        "enum": [
+          "add_class",
+          "invite_students",
+          "invite_staff"
+        ],
+        "type": "string"
+      },
       "ShalaCityOut": {
         "properties": {
           "name": {
@@ -5610,6 +5618,21 @@
             "title": "Online",
             "type": "boolean"
           },
+          "setup": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SetupStepName"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The owner's setup steps still due, in list order; [] = set up; null for everyone but the owner (UI-06)",
+            "title": "Setup"
+          },
           "staff": {
             "description": "Oldest first",
             "items": {
@@ -5647,7 +5670,8 @@
           "students_total",
           "me",
           "days_off",
-          "moon_policy"
+          "moon_policy",
+          "setup"
         ],
         "title": "ShalaOut",
         "type": "object"
@@ -11775,7 +11799,7 @@
         ]
       },
       "patch": {
-        "description": "A new id after a split with `from`.",
+        "description": "Fields not sent stay as they are. With `from`, the change applies from that date: a\nweekly class that started before it gets a new id from then on, and the answer is that\nnew series (its `starts_on` is `from`, or the next week of an every-2-4-weeks rhythm);\nearlier dates keep the old id and stay as they were. A class that ended before `from`\nis 404.",
         "operationId": "patch_class_api_v1_shalas__id__classes__class_id__patch",
         "parameters": [
           {
@@ -11884,7 +11908,7 @@
     },
     "/api/v1/shalas/{id}/classes/{class_id}/occurrences/{key}": {
       "delete": {
-        "description": "Restore: the occurrence follows its rule again. Idempotent.",
+        "description": "Restore: the occurrence follows its rule again. Idempotent for a date the series has;\n404 for a date outside it (as `PUT`).",
         "operationId": "delete_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__delete",
         "parameters": [
           {
@@ -11984,7 +12008,7 @@
         ]
       },
       "put": {
-        "description": "`key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,\nor name a substitute; silent (Q122).",
+        "description": "`key` is the rule's date. Cancel, hold anyway (Q126), move (±6 days), change the time,\nor name a substitute; silent (Q122). 404 also for a date outside the series: a class\nchanged \"from a date\" ends the day before, and its later dates have a new id (ADR-0048).",
         "operationId": "put_occurrence_api_v1_shalas__id__classes__class_id__occurrences__key__put",
         "parameters": [
           {

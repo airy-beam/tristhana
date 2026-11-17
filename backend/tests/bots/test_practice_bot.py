@@ -468,7 +468,9 @@ def test_the_start_time_carries_the_offset_only_outside_my_zone(
     storage.repo.accounts[account.id] = replace(account, timezone=None)
     unknown = _tap(client, f"p1:v:{d}")
 
-    assert "\n\nMysore · 06:30 Almaty\n\n" in mine["text"]
+    # A whole line, so no offset follows; what comes after it depends on whether the day is
+    # still today in Almaty (after 19:00 UTC it is yesterday there), so the test does not care.
+    assert "Mysore · 06:30 Almaty" in mine["text"].split("\n")
     assert "Mysore · 06:30 Tashkent (UTC+5)" in elsewhere["text"]  # the same clock, not mine
     assert "Mysore · 06:30 Tashkent (UTC+5)" in unknown["text"]
 

@@ -62,6 +62,9 @@ class ShalaCard:
     me: Membership
     days_off: frozenset[int] | None = None  # SC-02: None = not set
     moon_policy: MoonPolicy = MoonPolicy.CLOSED  # SC-02 (Q117)
+    # UI-06 stage 4: class series of the shala, ended ones included (as `journey_facts`
+    # counts them). It feeds the owner's setup list (`application.shalas.setup_of`).
+    classes_total: int = 0
 
 
 @dataclass(frozen=True, slots=True)
