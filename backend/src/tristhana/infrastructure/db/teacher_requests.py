@@ -33,6 +33,7 @@ from tristhana.application.ports.teacher_requests import (
     ApprovedAll,
     Asked,
     AskedTeacher,
+    CardRequests,
     Choices,
     DueClosing,
     MyRequests,
@@ -154,9 +155,11 @@ def _count(table: Any, *where: Any) -> Any:
     return select(func.count()).select_from(table).where(*where).scalar_subquery()
 
 
-def _waiting_for(teacher: UUID, now: datetime) -> Any:
+def _waiting_for(teacher: UUID, now: datetime, before: datetime | None = None) -> Any:
+    """How many wait for `teacher`; with `before`, only who asked before that moment."""
     y = _R.alias("y")
-    return _count(y, y.c.teacher_id == teacher, _teacher_sees(y, now))
+    earlier = () if before is None else (y.c.created_at < before,)
+    return _count(y, y.c.teacher_id == teacher, _teacher_sees(y, now), *earlier)
 
 
 def _people(build: Any, order: Any, source: Any, *where: Any) -> Any:
@@ -195,53 +198,84 @@ def _left(row: Any) -> int:
     return row.waiting - int(was) + int(now)
 
 
+def _choices(me: UUID, now: datetime) -> tuple[Any, Any, Any]:
+    """For a row of `shala`: the teachers `me` can ask there, the ones `me` waits for
+    there, and whether `me` is a student there at all."""
+    staff, teacher = shala_staff, account.alias("teacher")
+    kept = _R.alias("kept")
+    offer = _people(
+        func.jsonb_build_object("id", teacher.c.id, "name", teacher.c.display_name),
+        (staff.c.created_at, staff.c.account_id),
+        staff.join(teacher, teacher.c.id == staff.c.account_id),
+        staff.c.shala_id == _S.c.id,
+        staff.c.roles.contains([ShalaRole.TEACHER.value]),
+        ~exists().where(
+            teacher_link.c.student_id == me, teacher_link.c.teacher_id == staff.c.account_id
+        ),
+        ~exists().where(
+            kept.c.student_id == me,
+            kept.c.teacher_id == staff.c.account_id,
+            kept.c.created_at > now - KEEP,
+        ),
+    )
+    x, asked = _R.alias("x"), account.alias("asked")
+    waiting = _people(
+        func.jsonb_build_object("id", asked.c.id, "name", asked.c.display_name),
+        (x.c.created_at, x.c.teacher_id),
+        x.join(asked, asked.c.id == x.c.teacher_id),
+        x.c.student_id == me,
+        x.c.shala_id == _S.c.id,
+        _student_sees(x, now),
+    )
+    is_student = exists().where(
+        shala_student.c.shala_id == _S.c.id, shala_student.c.account_id == me
+    )
+    return offer, waiting, is_student
+
+
+def _found(row: Any) -> Choices:
+    return Choices(
+        row.id,
+        row.name,
+        tuple(TeacherChoice(UUID(t["id"]), t["name"]) for t in row.offer),
+        tuple(TeacherChoice(UUID(t["id"]), t["name"]) for t in row.waiting),
+    )
+
+
 class SqlTeacherRequestRepository:
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
 
     async def choices(self, shala: UUID, me: UUID, now: datetime) -> Choices | None:
-        staff, teacher = shala_staff, account.alias("teacher")
-        kept = _R.alias("kept")
-        offer = _people(
-            func.jsonb_build_object("id", teacher.c.id, "name", teacher.c.display_name),
-            (staff.c.created_at, staff.c.account_id),
-            staff.join(teacher, teacher.c.id == staff.c.account_id),
-            staff.c.shala_id == _S.c.id,
-            staff.c.roles.contains([ShalaRole.TEACHER.value]),
-            ~exists().where(
-                teacher_link.c.student_id == me, teacher_link.c.teacher_id == staff.c.account_id
-            ),
-            ~exists().where(
-                kept.c.student_id == me,
-                kept.c.teacher_id == staff.c.account_id,
-                kept.c.created_at > now - KEEP,
-            ),
-        )
-        x, asked = _R.alias("x"), account.alias("asked")
-        waiting = _people(
-            func.jsonb_build_object("id", asked.c.id, "name", asked.c.display_name),
-            (x.c.created_at, x.c.teacher_id),
-            x.join(asked, asked.c.id == x.c.teacher_id),
-            x.c.student_id == me,
-            x.c.shala_id == _S.c.id,
-            _student_sees(x, now),
-        )
-        is_student = exists().where(
-            shala_student.c.shala_id == _S.c.id, shala_student.c.account_id == me
-        )
+        offer, waiting, is_student = _choices(me, now)
         stmt = select(_S.c.id, _S.c.name, offer.label("offer"), waiting.label("waiting")).where(
             _S.c.id == shala, is_student
         )
         async with connection(self._engine) as conn:
             row = (await conn.execute(stmt)).one_or_none()
-        if row is None:
-            return None
-        return Choices(
-            row.id,
-            row.name,
-            tuple(TeacherChoice(UUID(t["id"]), t["name"]) for t in row.offer),
-            tuple(TeacherChoice(UUID(t["id"]), t["name"]) for t in row.waiting),
+        return None if row is None else _found(row)
+
+    async def card(self, shala: UUID, me: UUID, now: datetime) -> CardRequests:
+        offer, waiting, is_student = _choices(me, now)
+        teaches = exists().where(
+            shala_staff.c.shala_id == _S.c.id,
+            shala_staff.c.account_id == me,
+            shala_staff.c.roles.contains([ShalaRole.TEACHER.value]),
         )
+        # Each half is read only for the side the caller is on: a CASE runs one branch.
+        stmt = select(
+            _S.c.id,
+            _S.c.name,
+            is_student.label("student"),
+            case((is_student, offer)).label("offer"),
+            case((is_student, waiting)).label("waiting"),
+            case((teaches, _waiting_for(me, now)), else_=0).label("answers"),
+        ).where(_S.c.id == shala)
+        async with connection(self._engine) as conn:
+            row = (await conn.execute(stmt)).one_or_none()
+        if row is None:
+            return CardRequests(None)
+        return CardRequests(_found(row) if row.student else None, row.answers)
 
     async def ask(
         self,
@@ -254,7 +288,7 @@ class SqlTeacherRequestRepository:
         now: datetime,
     ) -> Guarded[Asked]:
         earlier, x, asked = _R.alias("earlier"), _R.alias("x"), account.alias("asked")
-        link = teacher_link
+        a, link = _R.alias("a"), teacher_link
         cur = (
             select(
                 _S.c.id,
@@ -268,6 +302,10 @@ class SqlTeacherRequestRepository:
                 earlier.c.state.label("earlier_state"),
                 earlier.c.created_at.label("earlier_at"),
                 _student_valid(earlier).label("earlier_valid"),
+                # `counts_as_asked`: the last 7 days, whatever came of the ask but a yes.
+                _count(a, a.c.student_id == me, a.c.state != _APPROVED, _inside(a, now)).label(
+                    "my_asked"
+                ),
                 _count(x, x.c.student_id == me, _student_sees(x, now)).label("my_waiting"),
                 _count(link, link.c.student_id == me).label("my_teachers"),
                 _waiting_for(teacher, now).label("their_waiting"),
@@ -291,7 +329,7 @@ class SqlTeacherRequestRepository:
             (cur.c.me_code * PAIR + cur.c.t_code).in_(_ASK_PAIRS),
             ~cur.c.linked,
             or_(cur.c.earlier_at.is_(None), cur.c.earlier_at <= now - KEEP),
-            cur.c.my_waiting < caps.asking,
+            cur.c.my_asked < caps.asking,
             cur.c.my_teachers + cur.c.my_waiting < caps.teachers,
             cur.c.their_waiting < caps.waiting,
             cur.c.their_students + cur.c.their_waiting < caps.students,
@@ -348,6 +386,7 @@ class SqlTeacherRequestRepository:
                 linked=row.linked,
                 earlier=(RequestState(row.earlier_state), row.earlier_at) if had else None,
                 now=now,
+                my_asked=row.my_asked,
                 my_waiting=row.my_waiting,
                 my_teachers=row.my_teachers,
                 their_waiting=row.their_waiting,
@@ -414,10 +453,18 @@ class SqlTeacherRequestRepository:
         )
 
     async def waiting(
-        self, me: UUID, now: datetime, offset: int, limit: int, student: UUID | None = None
+        self,
+        me: UUID,
+        now: datetime,
+        offset: int,
+        limit: int,
+        student: UUID | None = None,
+        before: datetime | None = None,
     ) -> WaitingPage:
         x, asker = _R.alias("x"), account.alias("asker")
         only = () if student is None else (x.c.student_id == student,)
+        if before is not None:  # as `approve_all` compares: who was on the list drawn then
+            only = (*only, x.c.created_at < before)
         page = (
             select(
                 x.c.student_id,
@@ -451,7 +498,7 @@ class SqlTeacherRequestRepository:
         )
         stmt = select(
             listed.label("page"),
-            _waiting_for(me, now).label("total"),
+            _waiting_for(me, now, before).label("total"),
             func.now().label("as_of"),  # the clock `created_at` is on: `approve_all` compares
         )
         async with connection(self._engine) as conn:

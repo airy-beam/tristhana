@@ -782,41 +782,40 @@ request-consent-short =
     • Check-ins, diary notes and the reason for a rest stay private.
     • You can remove a teacher from your list any time in /teachers. No one gets a message.
 request-until-yes = Nothing is shown until they confirm. They get one message with your name.
-request-know-them = Anyone can choose any name here, so pick only a teacher you know.
-# The consent record: the items and rights of `invite-consent`, then the three request lines.
+request-know-them = Pick only a teacher you know: anyone can write any name here.
+# The consent record: the items and rights of `invite-consent` in fewer bullets. The first
+# bullet is the short screen's, word for word; the last three are the request lines (nothing
+# before the yes, counted from today, withdraw before and remove after).
 request-consent =
     If you pick a teacher and they confirm:
-    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest and your practice length.
-    • They also see your last asana as marked in your log.
-    • All rest you log looks the same, whatever the reason.
-    • If nothing shows for a while, they see a short note saying just that.
-    • Any teacher on your list can also mark a new asana for you. You get a message and can undo it.
-    • Check-ins, diary notes and the reason for a rest stay private.
-    • They can send announcements to all their students through the bot. You can mute them.
-    • You can remove a teacher from your list any time in /teachers. No one gets a message.
+    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, they see a short note saying just that.
+    • Check-ins, diary notes and the reason for a rest stay private. All rest you log looks the same, whatever the reason.
+    • Any teacher on your list can mark a new asana for you. You get a message and can undo it. They can also send announcements through the bot. You can mute them.
     • Nothing is shown until they confirm. They get one message with your name.
     • Days count from today, even if they confirm a few days later.
-    • Until they confirm, you can withdraw the request on the shala's card.
+    • Until they confirm, you can withdraw your request on the shala's card. You can remove a teacher from your list any time in /teachers. No one gets a message.
 # One line above Today after the tap.
 request-asked = ✉️ Request sent to { $name }. Nothing is shown until they confirm.
 request-waiting = You've already asked { $name }. No answer yet.
-request-recent = You asked { $name } not long ago. You can ask again later, or ask them for their own link.
-request-too-many = You can't send more requests for now. Wait for an answer, or withdraw a request on the shala's card.
+request-recent = You asked { $name } not long ago. Try again later, or ask them for their invite link.
+# At most three teachers in any 7 days; withdrawing frees no slot, so it is not offered here.
+request-too-many = You've asked several teachers lately. You can ask another in a few days.
 request-full = This request can't be sent right now. Try again later.
 # The shala's card, student side.
-request-open = 🤝 Ask a teacher
-request-nobody = There's no other teacher to ask here right now.
+request-open = 🤝 Pick a teacher
+request-nobody = There's no one else to pick here right now.
 request-waiting-line = ⏳ Waiting for an answer: { $name }
-request-withdraw = Withdraw request: { $name }…
-request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You won't be able to ask { $name } again here for a while.
+request-withdraw = Withdraw: { $name }…
+# "About a month": the pair can't be asked again for 30 days from the ask, in any shala.
+request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You can ask them again in about a month.
 request-withdraw-yes = Withdraw
 request-withdrawn = Request withdrawn.
 # The tick's two closing notes (silent).
-request-confirmed = ✅ { $name } confirmed your request and is on your list of teachers now.
+request-confirmed = ✅ { $name } confirmed. They're on your list of teachers now.
 request-no-answer = No answer from { $name } yet. Ask them in class, or pick another teacher.
 request-pick-another = 🤝 Pick another teacher
 # The teacher's side: the note, the waiting list, the answers.
-request-note = 🤝 { $student } from { $shala } asks you to be their teacher. Confirm only if you know them.
+request-note = 🤝 { $student } from { $shala } says you're their teacher. Confirm only if you know them.
 request-yes-mine = ✅ Yes, my student
 request-not-mine = Not my student
 request-see-all = ⏳ See all ({ $count })

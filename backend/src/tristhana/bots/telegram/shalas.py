@@ -34,7 +34,7 @@ from tristhana.application.policies import (
 )
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.shalas import CapReached, ShalaCard
-from tristhana.application.ports.teacher_requests import Choices
+from tristhana.application.ports.teacher_requests import CardRequests, Choices
 from tristhana.application.settings import caller_today
 from tristhana.application.shalas import ShalaUseCases
 from tristhana.bots.telegram import classes_callbacks as classes_cb
@@ -353,23 +353,21 @@ class ShalaScreens:
         ann = self._links.announcements
         requests = self._links.requests
         try:
-            # NT-03's live pin and ID-07's requests load alongside the card.
-            found, pin, asked = await asyncio.gather(
+            # NT-03's live pin and ID-07's requests load alongside the card. Whether the
+            # caller is a student or a teacher here is known only once the card is read, so
+            # the requests are one read that serves either side (spec §7: +1, in parallel).
+            found, pin, side = await asyncio.gather(
                 self._h.get.execute(principal, shala),
                 _given(None)
                 if ann is None
                 else ann.pin_line(principal, Source(SourceKind.SHALA, shala)),
-                _given(asked)
+                _given(CardRequests(asked))
                 if requests is None or asked is not None
-                else requests.choices(principal, shala),
+                else requests.beside_card(principal, shala),
             )
         except NotFound:  # gone, left, or a forged id
             return await self._links.overview(principal)
-        waiting = 0
-        if requests is not None and found.me.staff and ShalaRole.TEACHER in found.me.roles:
-            # Only a teacher of the shala can be asked, so only they pay for the count.
-            waiting = await requests.waiting_count(principal)
-        return self._card(principal, found, note, pin, asked, waiting)
+        return self._card(principal, found, note, pin, side.asked, side.waiting)
 
     # Students (staff only)
 

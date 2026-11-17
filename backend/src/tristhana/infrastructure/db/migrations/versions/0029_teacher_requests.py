@@ -9,8 +9,11 @@ previous revision keeps serving while this runs. No backfill: nobody has asked y
 grants come from the default privileges (0001, 0015).
 
 The three foreign keys cascade (the student, the teacher, the shala), so account delete stays
-one statement (ADR-0027). Membership and the Teacher role are a read-time join, not a key: a
-row must outlive a leave-and-rejoin, or the 30 days would not hold.
+one statement (ADR-0027). Each has an index to cascade by: the primary key leads with the
+student, and the teacher and the shala get a plain one each (the waiting-list index leads
+with the teacher too, but it is partial, so it serves neither the cascade nor the export).
+Membership and the Teacher role are a read-time join, not a key: a row must outlive a
+leave-and-rejoin, or the 30 days would not hold.
 """
 
 import sqlalchemy as sa
@@ -73,6 +76,9 @@ def upgrade() -> None:
         ["teacher_id", "created_at"],
         schema=SCHEMA,
         postgresql_where=sa.text("state = 'waiting'"),
+    )
+    op.create_index(
+        "teacher_request_teacher_id_idx", "teacher_request", ["teacher_id"], schema=SCHEMA
     )
     op.create_index("teacher_request_shala_id_idx", "teacher_request", ["shala_id"], schema=SCHEMA)
     op.create_index(

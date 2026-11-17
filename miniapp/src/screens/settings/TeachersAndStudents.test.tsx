@@ -675,7 +675,7 @@ describe("a teacher I asked", () => {
     const [message, ok, cancel] = confirmDestructive.mock.calls[0] ?? [];
     expect(plain(message)).toBe(
       "Withdraw your request to Anna? No one gets a message. " +
-        "You won't be able to ask Anna again here for a while.",
+        "You can ask them again in about a month.",
     );
     expect(ok).toBe("Withdraw");
     expect(cancel).toBe("Cancel");

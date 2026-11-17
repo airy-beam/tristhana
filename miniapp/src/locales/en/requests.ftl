@@ -33,5 +33,5 @@ request-load-failed = Couldn't load who is waiting. Try again in a moment.
 # The student: one line under the name of each teacher they asked. { $shala } is where.
 request-waiting-line = ⏳ Waiting for an answer ({ $shala })
 request-withdraw = Withdraw…
-request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You won't be able to ask { $name } again here for a while.
+request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You can ask them again in about a month.
 request-withdraw-yes = Withdraw

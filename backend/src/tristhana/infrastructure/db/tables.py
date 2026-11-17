@@ -484,6 +484,8 @@ teacher_request = Table(
         "created_at",
         postgresql_where=text("state = 'waiting'"),
     ),
+    # Every row of a teacher, whatever its state: the account-delete cascade and the export.
+    Index("teacher_request_teacher_id_idx", "teacher_id"),
     Index("teacher_request_shala_id_idx", "shala_id"),
     Index("teacher_request_created_at_idx", "created_at"),
 )

@@ -202,6 +202,11 @@ def _asks(w: World, shala: UUID, name: str, state: RequestState = RequestState.W
     return student
 
 
+def _moment(w: World) -> int:
+    """The clock's second: what a list drawn now carries in its "Confirm all"."""
+    return int(w.clock.instant.timestamp())
+
+
 def _on(action: str, shala: UUID) -> str:
     return shala_cb.on_shala(action, shala)  # type: ignore[arg-type]
 
@@ -569,8 +574,8 @@ def test_the_card_shows_who_i_wait_for_with_withdraw_and_the_way_to_ask(
     assert (_t("request-open"), _on("t", shala)) in flat  # Boris can still be asked
     assert (_t("request-withdraw", name="Anna"), _member("tw", shala, anna.id)) in flat
     assert _t("request-no-teachers-hint") not in body["text"]
-    names = [n for n in statements.names if "choices" in n or "mine" in n]
-    assert names == ["InMemoryTeacherRequests.choices"]  # one more read, with the card's own
+    names = [n for n in statements.names if "TeacherRequests" in n]
+    assert names == ["InMemoryTeacherRequests.card"]  # one more read, beside the card's own
 
 
 def test_the_card_has_no_ask_row_once_everyone_is_asked_or_linked(w: World) -> None:
@@ -963,7 +968,7 @@ def test_the_waiting_list_names_each_person_and_their_shala(
     assert _rows(body) == [
         [("Zoe · Ashtanga Almaty", f"t1:rv:{zoe.id}")],
         [("Yan · Ashtanga Astana", f"t1:rv:{yan.id}")],
-        [(_t("request-all", count=2), "t1:rc")],
+        [(_t("request-all", count=2), f"t1:rc:{_moment(w)}")],  # the moment it was drawn
         [(_t("log-back"), "t1:s:0")],
     ]
     assert statements.count == 1, statements.names
@@ -979,7 +984,7 @@ def test_the_waiting_list_pages_by_ten(w: World) -> None:
 
     assert [text for text, _ in _rows(first)[9]] == ["S09 · Ashtanga Almaty"]
     assert _rows(first)[10] == [(_t("page-next"), "t1:rl:1")]
-    assert _rows(first)[11] == [(_t("request-all", count=23), "t1:rc")]
+    assert _rows(first)[11] == [(_t("request-all", count=23), f"t1:rc:{_moment(w)}")]
     assert _rows(last)[:3] == [
         [(f"S{i} · Ashtanga Almaty", f"t1:rv:{people[i].id}")] for i in (20, 21, 22)
     ]
@@ -987,7 +992,9 @@ def test_the_waiting_list_pages_by_ten(w: World) -> None:
     assert (beyond["text"], _rows(beyond)) == (first["text"], _rows(first))
 
 
-@pytest.mark.parametrize("data", ["t1:rl:0", "t1:rl:3", "t1:rc", "t1:rcy:1795000000"])
+@pytest.mark.parametrize(
+    "data", ["t1:rl:0", "t1:rl:3", "t1:rc", "t1:rc:1795000000", "t1:rcy:1795000000"]
+)
 def test_with_nobody_waiting_the_list_says_so_and_leads_back(w: World, data: str) -> None:
     body = _tap(w, data)
 
@@ -1003,17 +1010,22 @@ def test_confirm_all_names_how_many_then_confirms_them(
     shala = _teach(w)
     people = [_asks(w, shala, name) for name in ("Zoe", "Yan", "Xena")]
     w.later(minutes=5)
+    moment = _moment(w)
+    listed = _tap(w, "t1:rl:0")
+    assert _rows(listed)[3] == [(_t("request-all", w.lang, count=3), f"t1:rc:{moment}")]
+    w.later(seconds=40)  # the teacher reads the names
+    statements = Statements(monkeypatch, w.storage)
 
-    ask = _tap(w, "t1:rc")
+    ask = _tap(w, f"t1:rc:{moment}")
 
-    moment = int(w.clock.instant.timestamp())
     assert ask["text"] == _t("request-all-ask", w.lang, count=3)
     assert _rows(ask) == [
-        [(_t("request-all-yes", w.lang), f"t1:rcy:{moment}")],
+        [(_t("request-all-yes", w.lang), f"t1:rcy:{moment}")],  # the list's moment, not this one
         [(_t("log-back", w.lang), "t1:rl:0")],
     ]
     assert w.storage.teacher_links.rows == {}  # nothing yet
-    statements = Statements(monkeypatch, w.storage)
+    assert statements.count == 1, statements.names
+    statements.names.clear()
 
     done = _tap(w, f"t1:rcy:{moment}")
 
@@ -1024,14 +1036,110 @@ def test_confirm_all_names_how_many_then_confirms_them(
     assert statements.count == 1, statements.names
 
 
+def _confirm_all(listed: Any) -> str:
+    """The list's "Confirm all" button, as it was drawn."""
+    return next(data for data in _datas(listed) if data.startswith("t1:rc:"))
+
+
+def test_someone_who_asks_between_the_list_and_the_confirm_all_tap_stays_waiting(
+    w: World,
+) -> None:
+    """The teacher confirms who they saw: the list is drawn with three names, a stranger
+    asks ten seconds later, and "Confirm all" is tapped twenty seconds after that."""
+    shala = _teach(w)
+    seen = [_asks(w, shala, name) for name in ("Zoe", "Yan", "Xena")]
+    w.later(minutes=5)
+    listed = _tap(w, "t1:rl:0")
+    w.later(seconds=10)
+    stranger = _asks(w, shala, "Stranger")
+    w.later(seconds=20)
+
+    ask = _tap(w, _confirm_all(listed))
+
+    assert ask["text"] == _t("request-all-ask", count=3)  # the three on the list, not four
+    assert _datas(ask)[0] == _confirm_all(listed).replace("t1:rc:", "t1:rcy:")
+    w.later(seconds=5)
+
+    done = _tap(w, _datas(ask)[0])
+
+    assert done["text"] == _t("request-all-done", count=3)
+    assert _rows(done) == [
+        [(_t("link-students-open"), "t1:s:0")],
+        [(_t("request-see-all", count=1), "t1:rl:0")],
+    ]
+    assert set(w.storage.teacher_links.rows) == {(p.id, w.me.id) for p in seen}
+    assert w.state(stranger.id, w.me.id) is RequestState.WAITING
+
+
+def test_a_request_in_the_lists_own_second_is_left_waiting_on_either_side_of_it(
+    w: World,
+) -> None:
+    """The moment is whole seconds, rounded down, and the comparison is strict. Rounding up
+    (or `<=`) would confirm someone who asked after the list in its own second, unseen. So
+    the one who asked just before the list in that second waits too: not confirmed, not
+    lost, and on the next list."""
+    shala = _teach(w)
+    zoe = _asks(w, shala, "Zoe")
+    w.later(seconds=2)
+    seen = _asks(w, shala, "Seen")  # in the list's second, before it: on the list
+    listed = _tap(w, "t1:rl:0")
+    unseen = _asks(w, shala, "Unseen")  # in the same second, after it: not on the list
+    assert [text for row in _rows(listed)[:2] for text, _ in row] == [
+        "Zoe · Ashtanga Almaty",
+        "Seen · Ashtanga Almaty",
+    ]
+    assert _confirm_all(listed) == f"t1:rc:{_moment(w)}"
+    w.later(seconds=30)
+
+    ask = _tap(w, _confirm_all(listed))
+    done = _tap(w, _datas(ask)[0])
+
+    assert ask["text"] == _t("request-all-ask", count=1)  # the count it will confirm
+    assert done["text"] == _t("request-all-done", count=1)
+    assert set(w.storage.teacher_links.rows) == {(zoe.id, w.me.id)}
+    assert w.state(unseen.id, w.me.id) is RequestState.WAITING  # never confirmed unseen
+    assert w.state(seen.id, w.me.id) is RequestState.WAITING  # and not lost:
+    assert _rows(done)[1] == [(_t("request-see-all", count=2), "t1:rl:0")]
+    again = _tap(w, "t1:rl:0")  # the next list carries a later moment and takes both
+    assert _tap(w, _datas(_tap(w, _confirm_all(again)))[0])["text"] == _t(
+        "request-all-done", count=2
+    )
+
+
+def test_a_list_with_only_its_own_seconds_requests_is_drawn_again(w: World) -> None:
+    """Nobody to confirm for that moment: no confirm step with a wrong count, the list."""
+    shala = _teach(w)
+    zoe = _asks(w, shala, "Zoe")
+    listed = _tap(w, "t1:rl:0")
+    w.later(seconds=3)
+
+    body = _tap(w, _confirm_all(listed))
+
+    assert body["text"].splitlines()[0] == _t("request-list-title", count=1)
+    assert _confirm_all(body) == f"t1:rc:{_moment(w)}"
+    assert w.state(zoe.id, w.me.id) is RequestState.WAITING
+
+
+def test_confirm_all_without_a_moment_only_draws_the_list(w: World) -> None:
+    """`t1:rc` was never on a button; it must confirm nobody."""
+    shala = _teach(w)
+    zoe = _asks(w, shala, "Zoe")
+    w.later(minutes=5)
+
+    body = _tap(w, "t1:rc")
+
+    assert (body["text"], _rows(body)) == (lambda b: (b["text"], _rows(b)))(_tap(w, "t1:rl:0"))
+    assert w.state(zoe.id, w.me.id) is RequestState.WAITING
+
+
 def test_confirm_all_leaves_a_late_arrival_and_a_declined_one(w: World) -> None:
-    """Spec §2: it approves only requests made before the moment the count was shown, and
+    """Spec §2: it approves only requests made before the moment the list was drawn, and
     never a declined one; the reply carries the count."""
     shala = _teach(w)
     zoe = _asks(w, shala, "Zoe")
     quiet = _asks(w, shala, "Quiet", RequestState.DECLINED)
     w.later(minutes=5)
-    ask = _tap(w, "t1:rc")
+    ask = _tap(w, _confirm_all(_tap(w, "t1:rl:0")))
     assert ask["text"] == _t("request-all-ask", count=1)
     w.later(seconds=1)
     late = _asks(w, shala, "Late")  # asks a second after the screen was drawn
@@ -1054,7 +1162,7 @@ def test_an_old_confirm_all_confirms_only_who_is_still_waiting(w: World) -> None
     shala = _teach(w)
     zoe, yan = (_asks(w, shala, name) for name in ("Zoe", "Yan"))
     w.later(minutes=5)
-    ask = _tap(w, "t1:rc")
+    ask = _tap(w, _confirm_all(_tap(w, "t1:rl:0")))
     w.requests.rows[(yan.id, w.me.id)].state = RequestState.WITHDRAWN
 
     done = _tap(w, _datas(ask)[0])
@@ -1102,17 +1210,50 @@ def test_my_students_shows_how_many_wait_even_when_the_list_is_empty(
     assert statements.count == 2, statements.names  # the list, and the count beside it
 
 
-def test_a_teachers_shala_card_shows_how_many_wait(w: World) -> None:
+def test_a_teachers_shala_card_shows_how_many_wait(
+    w: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
     shala = _teach(w)
     zoe = _person(w, "Zoe")
     w.storage.shalas.add_student(shala, zoe.id)
     before = _tap(w, _on("c", shala))
     w.requests.add(zoe.id, w.me.id, shala)
+    statements = Statements(monkeypatch, w.storage)
 
     body = _tap(w, _on("c", shala))
 
     assert _rows(body) == [[(_t("request-waiting-open", count=1), "t1:rl:0")], *_rows(before)]
     assert "Zoe" not in body["text"]
+    # Spec §7: +1, in parallel. Not `choices` (nothing for staff) and then the count.
+    assert [n for n in statements.names if "TeacherRequests" in n] == [
+        "InMemoryTeacherRequests.card"
+    ]
+
+
+def test_the_shala_card_costs_the_same_for_a_teacher_a_student_and_other_staff(
+    w: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The card, its pin and one read of requests, side by side, whoever opens it."""
+    taught = _teach(w)
+    joined, _ = _shala(w, "Anna", name="Ashtanga Astana", code="Ast4naC0deAst4na")
+    _join(w, joined)
+    desk, _ = _shala(w, "Boris", name="Ashtanga Aktau", code="Akt4uC0deAkt4uC0")
+    w.storage.shalas.add_staff(desk, w.me.id, ShalaRole.OFFICE)
+    _asks(w, taught, "Zoe")
+    statements = Statements(monkeypatch, w.storage)
+    cost: dict[str, list[str]] = {}
+
+    for name, shala in {"teacher": taught, "student": joined, "front desk": desk}.items():
+        statements.clear()
+        body = _tap(w, _on("c", shala))
+        cost[name] = sorted(statements.names)
+        # People wait for me as a teacher, in a shala where I teach: shown only there.
+        assert ("t1:rl:0" in _datas(body)) is (name == "teacher"), name
+
+    assert cost["teacher"] == cost["student"] == cost["front desk"]
+    assert cost["teacher"].count("InMemoryTeacherRequests.card") == 1
+    assert len(cost["teacher"]) == len(set(cost["teacher"]))  # no read twice
+    assert not [n for n in cost["teacher"] if "choices" in n or "mine" in n]
 
 
 def test_nobody_else_sees_that_someone_is_waiting(w: World) -> None:
@@ -1159,7 +1300,10 @@ def test_every_request_screen_keeps_its_data_within_64_bytes_and_fits_long_names
         student = person(w.storage, f"40{i:02}", long[:-2] + f"{i:02}")
         w.storage.shalas.add_student(mine, student.id)
         w.requests.add(student.id, me.id, mine)
+    w.later(minutes=5)
     bodies += [_tap(w, "t1:rl:0"), _tap(w, "t1:rl:1"), _tap(w, "t1:rc"), _tap(w, "t1:s:0")]
+    bodies.append(_tap(w, _confirm_all(bodies[-4])))
+    assert bodies[-1]["text"] == _t("request-all-ask", "ru", count=12)
     first = next(iter(w.requests.rows.values())).student_id
     bodies += [_tap(w, f"t1:rv:{first}"), _tap(w, f"t1:rn:{first}"), _tap(w, f"t1:ru:{first}")]
     bodies += [_tap(w, f"t1:ra:{first}"), _tap(w, f"t1:ra:{uuid4()}")]
@@ -1177,6 +1321,7 @@ def test_the_longest_data_is_the_consent_tap() -> None:
     assert len(longest.encode()) == 51
     assert len(f"t1:ra:{uuid4()}".encode()) == 42
     assert len(link_cb.confirm_all(9_999_999_999).encode()) <= 64
+    assert len(link_cb.ask_all(9_999_999_999).encode()) <= 64
 
 
 @pytest.mark.parametrize(
@@ -1194,6 +1339,8 @@ def test_the_longest_data_is_the_consent_tap() -> None:
         "t1:rl:-1",
         "t1:rl:12345",
         "t1:rc:1",
+        "t1:rc:0123456789",
+        "t1:rc:1795000000:1",
         "t1:rcy",
         "t1:rcy:12",
         "t1:rcy:99999999999",
@@ -1223,4 +1370,5 @@ def test_the_new_data_round_trips() -> None:
         assert link_cb.decode(f"t1:{action}:{account}") == link_cb.OnPerson(action, account)  # type: ignore[arg-type]
     assert link_cb.decode(link_cb.waiting(3)) == link_cb.Waiting(3)
     assert link_cb.decode("t1:rc") == link_cb.Tap("rc")
+    assert link_cb.decode(link_cb.ask_all(1795000000)) == link_cb.AskAll(1795000000)
     assert link_cb.decode(link_cb.confirm_all(1795000000)) == link_cb.ConfirmAll(1795000000)

@@ -28,6 +28,7 @@ from tristhana.application.ports.storage import Clock
 from tristhana.application.ports.teacher_requests import (
     Answer,
     ApprovedAll,
+    CardRequests,
     Choices,
     MyRequests,
     TeacherRequestRepository,
@@ -59,6 +60,18 @@ class GetTeacherChoices:
         if found is None:
             raise NotFound
         return found
+
+
+class GetCardRequests:
+    def __init__(self, requests: TeacherRequestRepository, clock: Clock) -> None:
+        self._requests = requests
+        self._clock = clock
+
+    async def execute(self, principal: Principal, shala: UUID) -> CardRequests:
+        """The requests part of a shala's card, read beside the card: a student's choices
+        there, or how many wait for a teacher of it. Keyed on the caller, and empty for
+        anyone else (the card's own read says "not found")."""
+        return await self._requests.card(shala, principal.account.id, self._clock.now())
 
 
 class AskTeacher:
@@ -124,14 +137,22 @@ class GetWaitingRequests:
         self._clock = clock
 
     async def execute(
-        self, principal: Principal, offset: int, limit: int, student: UUID | None = None
+        self,
+        principal: Principal,
+        offset: int,
+        limit: int,
+        student: UUID | None = None,
+        before: datetime | None = None,
     ) -> WaitingPage:
         """The people waiting for the caller's answer, oldest first. `student`: one request's
-        screen. `as_of` goes back into `ApproveAllRequests`."""
+        screen. `as_of` goes back into `ApproveAllRequests`; `before` is an earlier list's
+        `as_of`, and counts who `ApproveAllRequests` would confirm for it."""
         account = principal.account
         if not can_answer_request(account, account.id):
             raise NotAllowed
-        return await self._requests.waiting(account.id, self._clock.now(), offset, limit, student)
+        return await self._requests.waiting(
+            account.id, self._clock.now(), offset, limit, student, before
+        )
 
 
 class ApproveRequest:
@@ -193,6 +214,7 @@ class ReopenRequest:
 @dataclass(frozen=True, slots=True)
 class RequestUseCases:
     choices: GetTeacherChoices
+    card: GetCardRequests
     ask: AskTeacher
     withdraw: WithdrawRequest
     mine: GetMyRequests

@@ -24,6 +24,7 @@ from tristhana.application.ports.teacher_requests import (
     ApprovedAll,
     Asked,
     AskedTeacher,
+    CardRequests,
     Choices,
     DueClosing,
     MyRequests,
@@ -40,6 +41,7 @@ from tristhana.domain.teacher_requests import (
     answerable,
     ask_state,
     closing_due,
+    counts_as_asked,
     kept,
     request_key,
     waiting_for_student,
@@ -100,22 +102,15 @@ class InMemoryTeacherRequests:
 
     async def choices(self, shala: UUID, me: UUID, now: datetime) -> Choices | None:
         self._call("choices")
-        membership = self.shalas.membership(shala, me)
-        if membership is None or not membership.student:
-            return None
-        offer = [
-            TeacherChoice(teacher, self._name(teacher))
-            for teacher in self.shalas.staff_of(shala)
-            if can_ask_teacher(membership, self.shalas.membership(shala, teacher))
-            and (me, teacher) not in self.links.rows
-            and not self._kept(me, teacher, now)
-        ]
-        waiting = [
-            TeacherChoice(r.teacher_id, self._name(r.teacher_id))
-            for r in self._ordered()
-            if r.student_id == me and r.shala_id == shala and self._student_sees(r, now)
-        ]
-        return Choices(shala, self.shalas.shalas[shala].name, tuple(offer), tuple(waiting))
+        return self._choices(shala, me, now)
+
+    async def card(self, shala: UUID, me: UUID, now: datetime) -> CardRequests:
+        self._call("card")
+        member = self.shalas.membership(shala, me)
+        teaches = member is not None and member.staff and ShalaRole.TEACHER in member.roles
+        return CardRequests(
+            self._choices(shala, me, now), self._waiting_for(me, now) if teaches else 0
+        )
 
     async def ask(
         self,
@@ -140,6 +135,11 @@ class InMemoryTeacherRequests:
             linked=(me, teacher) in self.links.rows,
             earlier=None if earlier is None else (earlier.state, earlier.created_at),
             now=now,
+            my_asked=sum(
+                1
+                for r in self._live().values()
+                if r.student_id == me and counts_as_asked(r.state, r.created_at, now)
+            ),
             my_waiting=sum(
                 1
                 for r in self._live().values()
@@ -192,10 +192,22 @@ class InMemoryTeacherRequests:
         return MyRequests(asked, self._waiting_for(me, now))
 
     async def waiting(
-        self, me: UUID, now: datetime, offset: int, limit: int, student: UUID | None = None
+        self,
+        me: UUID,
+        now: datetime,
+        offset: int,
+        limit: int,
+        student: UUID | None = None,
+        before: datetime | None = None,
     ) -> WaitingPage:
         self._call("waiting")
-        rows = [r for r in self._ordered() if r.teacher_id == me and self._teacher_sees(r, now)]
+        rows = [
+            r
+            for r in self._ordered()
+            if r.teacher_id == me
+            and self._teacher_sees(r, now)
+            and (before is None or r.created_at < before)
+        ]
         shown = [r for r in rows if student is None or r.student_id == student]
         page = tuple(
             WaitingRequest(
@@ -296,6 +308,24 @@ class InMemoryTeacherRequests:
         if self.fail_with is not None:
             error, self.fail_with = self.fail_with, None
             raise error
+
+    def _choices(self, shala: UUID, me: UUID, now: datetime) -> Choices | None:
+        membership = self.shalas.membership(shala, me)
+        if membership is None or not membership.student:
+            return None
+        offer = [
+            TeacherChoice(teacher, self._name(teacher))
+            for teacher in self.shalas.staff_of(shala)
+            if can_ask_teacher(membership, self.shalas.membership(shala, teacher))
+            and (me, teacher) not in self.links.rows
+            and not self._kept(me, teacher, now)
+        ]
+        waiting = [
+            TeacherChoice(r.teacher_id, self._name(r.teacher_id))
+            for r in self._ordered()
+            if r.student_id == me and r.shala_id == shala and self._student_sees(r, now)
+        ]
+        return Choices(shala, self.shalas.shalas[shala].name, tuple(offer), tuple(waiting))
 
     def _live(self) -> dict[tuple[UUID, UUID], RequestRow]:
         """ON DELETE CASCADE, read lazily: a row whose accounts or shala are gone is gone."""

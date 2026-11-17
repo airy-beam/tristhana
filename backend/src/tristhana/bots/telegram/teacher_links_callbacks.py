@@ -18,8 +18,10 @@ t1:gp:<id>:<n>:<i>:<k>:<page>               picked → the confirm screen
 t1:gy:<id>:<n>:<i>:<k>:<page>               confirm and mark
 t1:ra:<id>  t1:rn:<id>  t1:ru:<id>          a student's request (ID-07): yes, not my student, undo
 t1:rv:<id>  t1:rl:<page>                    one request's screen, the waiting list
-t1:rc  t1:rcy:<unix seconds>                confirm all: ask, then confirm who asked before that
-                                            moment (the one the ask screen was drawn at)
+t1:rc:<unix seconds>  t1:rcy:<unix seconds>  confirm all: ask, then confirm. Both carry the
+                                            moment the waiting list was drawn, unchanged, so
+                                            only who was on that list is confirmed
+t1:rc                                       never shipped with a button: the waiting list
 
 A position is `<n>:<i>`, the series number and the stop's index in it (`0:0` = standing only):
 a stop key doesn't fit beside a uuid. `<k>` (1-3) counts the steps from there; the server
@@ -121,9 +123,19 @@ class Waiting:
 
 
 @dataclass(frozen=True, slots=True)
+class AskAll:
+    """`t1:rc:<unix>`: the confirm step of "Confirm all". `before` is the moment the waiting
+    list was drawn, in unix seconds rounded down; the step hands it on to `t1:rcy` as it is."""
+
+    before: int
+
+
+@dataclass(frozen=True, slots=True)
 class ConfirmAll:
-    """`t1:rcy`: confirm everyone who asked before `before` (unix seconds, rounded down, so
-    nobody who asked after the screen was drawn is confirmed unseen)."""
+    """`t1:rcy`: confirm everyone who asked before `before`, the moment the list was drawn
+    (unix seconds, rounded down). The comparison is strict, so nobody who asked after the
+    list was drawn is confirmed unseen; someone who asked in the list's own second stays
+    waiting, whichever side of the list they were on."""
 
     before: int
 
@@ -140,6 +152,7 @@ type LinkTap = (
     | Give
     | GiveStep
     | Waiting
+    | AskAll
     | ConfirmAll
 )
 
@@ -188,6 +201,10 @@ def students(page: int) -> str:
 
 def waiting(page: int) -> str:
     return f"{PREFIX}:rl:{page}"
+
+
+def ask_all(before: int) -> str:
+    return f"{PREFIX}:rc:{before}"
 
 
 def confirm_all(before: int) -> str:
@@ -252,6 +269,8 @@ def decode(data: str | None) -> LinkTap | None:
             return Students(int(page))
         case [p, "rl", page] if p == PREFIX and _page(page):
             return Waiting(int(page))
+        case [p, "rc", value] if p == PREFIX and _unix(value):
+            return AskAll(int(value))
         case [p, "rcy", value] if p == PREFIX and _unix(value):
             return ConfirmAll(int(value))
         case [p, "g", value, page] if p == PREFIX and _page(page):

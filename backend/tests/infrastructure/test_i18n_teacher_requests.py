@@ -286,6 +286,18 @@ DETAILS: dict[str, tuple[str, ...]] = {
 }
 
 
+# The rights `invite-consent` gives, in its own sentences: undo a mark, mute announcements,
+# leave without a message. The request consent has fewer bullets and keeps each of them.
+RIGHTS: dict[str, tuple[str, ...]] = {
+    "en": ("You get a message and can undo it.", "You can mute them.", "No one gets a message."),
+    "ru": (
+        "Придёт сообщение, и отметку можно отменить.",
+        "Их можно отключить.",
+        "Сообщений никто не получит.",
+    ),
+}
+
+
 def _bullets(text: str) -> list[str]:
     return [line.removeprefix(BULLET) for line in text.splitlines() if line.startswith(BULLET)]
 
@@ -311,31 +323,41 @@ def test_the_request_consent_names_the_same_items_as_the_invite_consent(locale: 
 
 
 @pytest.mark.parametrize("locale", LOCALES)
-def test_the_request_consent_is_the_invite_consent_plus_three_request_lines(locale: str) -> None:
-    """Spec §3: nothing is visible until they confirm; counted from today even if they
-    confirm some days later; withdraw before, remove after."""
-    invite = _bullets(_text(locale, "invite-consent"))
-    full = _bullets(_text(locale, "request-consent"))
+def test_the_request_consent_keeps_the_invite_consents_rights_and_ends_with_three_request_lines(
+    locale: str,
+) -> None:
+    """Spec §3: the items and rights of `invite-consent` (in fewer bullets: the items are
+    the table's, above), then nothing is visible until they confirm; counted from today even
+    if they confirm some days later; withdraw before, remove after."""
+    invite = _text(locale, "invite-consent")
+    text = _text(locale, "request-consent")
+    full = _bullets(text)
 
-    assert len(full) == len(invite) + 3
+    for right in RIGHTS[locale]:
+        assert right in invite, right  # the list follows the personal link's consent
+        assert right in text, right
+    assert full[0] == _bullets(_text(locale, "request-consent-short"))[0]  # what they see
     until, today, withdraw = full[-3:]
     assert until == _text(locale, "request-until-yes")  # the short screen's own line
     assert re.search("from today|с сегодняшнего", today)
-    assert re.search("withdraw|отозвать", withdraw)
-    assert "Анна" not in _text(locale, "request-consent")  # no name: "the teacher you pick"
+    assert re.search("withdraw|отозвать", withdraw)  # before the yes
+    assert "/teachers" in withdraw  # and after it: remove
+    assert not set(full[:-3]) & {until, today, withdraw}
+    assert "Анна" not in text  # no name: "the teacher you pick"
 
 
 @pytest.mark.parametrize("locale", LOCALES)
 def test_the_short_request_consent_says_nothing_the_full_text_does_not(locale: str) -> None:
-    """As ADR-0045's other pairs: three lines, and apart from the merged "sees" sentence each
-    sentence of the short screen is a sentence of the full text, word for word."""
+    """As ADR-0045's other pairs: three lines, and every sentence of the short screen is a
+    sentence of the full text, word for word (the "sees" sentence too: the full text opens
+    with the short screen's own bullet)."""
     full = _text(locale, "request-consent")
     short = _text(locale, "request-consent-short")
     sentences = [s for bullet in _bullets(short) for s in _sentences(bullet)]
 
     assert len(short.splitlines()) == len(_bullets(short)) == 3
-    assert sentences[0] not in full  # the merged one, pinned by the item table above
-    for sentence in sentences[1:]:
+    assert len(sentences) >= 5
+    for sentence in sentences:
         assert sentence in full, sentence
     for sentence in _sentences(_text(locale, "request-until-yes")):
         assert sentence in full, sentence

@@ -43,6 +43,16 @@ class Choices:
 
 
 @dataclass(frozen=True, slots=True)
+class CardRequests:
+    """What a shala's card shows of requests, whichever side of them the caller is on
+    there. A person is a student of a shala or on its staff, never both, so one half is
+    always empty."""
+
+    asked: Choices | None  # None: not a student there
+    waiting: int = 0  # for my answer, in every shala; 0 unless I hold the Teacher role here
+
+
+@dataclass(frozen=True, slots=True)
 class Asked:
     """`ask`'s result, with what the teacher's note needs. Only `state` and `teacher_name`
     are the student's to see (`AskTeacher` drops the rest)."""
@@ -93,7 +103,7 @@ class WaitingRequest:
 @dataclass(frozen=True, slots=True)
 class WaitingPage:
     requests: tuple[WaitingRequest, ...]  # oldest first
-    total: int  # all that wait for me, whatever the page or the filter
+    total: int  # all that wait for me (with `before`: who asked before it), whatever the page
     as_of: datetime  # the moment the list was drawn: `approve_all` takes it back
 
 
@@ -141,6 +151,12 @@ class TeacherRequestRepository(Protocol):
         """None: no such shala, or not a student there."""
         ...
 
+    async def card(self, shala: UUID, me: UUID, now: datetime) -> CardRequests:
+        """`choices` for a student of the shala, the waiting count for a teacher of it, in
+        one statement: the card's caller is not known to be either until the card is read,
+        and this read runs beside it."""
+        ...
+
     async def ask(
         self,
         shala: UUID,
@@ -163,9 +179,17 @@ class TeacherRequestRepository(Protocol):
     async def mine(self, me: UUID, now: datetime) -> MyRequests: ...
 
     async def waiting(
-        self, me: UUID, now: datetime, offset: int, limit: int, student: UUID | None = None
+        self,
+        me: UUID,
+        now: datetime,
+        offset: int,
+        limit: int,
+        student: UUID | None = None,
+        before: datetime | None = None,
     ) -> WaitingPage:
-        """`student`: only that person's request (one request's screen), with the full total."""
+        """`student`: only that person's request (one request's screen), with the full total.
+        `before`: only requests made before that moment, in the page and in the total, by
+        the comparison `approve_all` makes: the count its confirm step may name."""
         ...
 
     async def approve(self, me: UUID, student: UUID, caps: RequestCaps, now: datetime) -> Answer:

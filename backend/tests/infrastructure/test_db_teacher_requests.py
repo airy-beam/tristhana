@@ -39,6 +39,7 @@ from tristhana.application.ports.teacher_requests import (
     Answered,
     ApprovedAll,
     AskedTeacher,
+    CardRequests,
     TeacherChoice,
     Withdrawn,
 )
@@ -343,11 +344,14 @@ async def test_each_call_is_one_statement(world: World) -> None:
     repo, engine = world.requests, world.engine
     calls: list[tuple[str, Any]] = [
         ("choices", lambda: repo.choices(world.shala, student.id, _now())),
+        ("card, student", lambda: repo.card(world.shala, student.id, _now())),
+        ("card, teacher", lambda: repo.card(world.shala, teacher.id, _now())),
         ("ask", lambda: repo.ask(world.shala, student.id, teacher.id, ON, True, CAPS, _now())),
         ("ask2", lambda: repo.ask(world.shala, second.id, teacher.id, ON, True, CAPS, _now())),
         ("ask3", lambda: repo.ask(world.shala, student.id, other.id, ON, True, CAPS, _now())),
         ("mine", lambda: repo.mine(student.id, _now())),
         ("waiting", lambda: repo.waiting(teacher.id, _now(), 0, 10)),
+        ("waiting before", lambda: repo.waiting(teacher.id, _now(), 0, 1, None, _now())),
         ("decline", lambda: repo.decline(teacher.id, student.id, _now())),
         ("reopen", lambda: repo.reopen(teacher.id, student.id, _now())),
         ("approve", lambda: repo.approve(teacher.id, student.id, CAPS, _now())),
@@ -387,6 +391,33 @@ async def test_choices_offer_the_teacher_role_and_list_who_i_wait_for(world: Wor
     assert found.waiting == (TeacherChoice(boris.id, "Boris"),)
 
 
+async def test_choices_are_the_same_with_a_quiet_no_as_with_a_waiting_request(
+    world: World,
+) -> None:
+    """The student's card and question screen may not tell a "no" from waiting: the asked
+    teacher stays on the waiting line and off the offer, whatever the teacher tapped."""
+    anna, boris = await world.staff(name="Anna"), await world.staff(name="Boris")
+    student = await world.student()
+    await world.asked(student, boris)
+    waiting = await world.requests.choices(world.shala, student.id, _now())
+
+    done = await world.requests.decline(boris.id, student.id, _now())
+    declined = await world.requests.choices(world.shala, student.id, _now())
+
+    assert done.outcome is Answered.DONE
+    assert await world.state(student, boris) == DECLINED
+    assert declined == waiting
+    assert declined is not None
+    assert declined.offer == (TeacherChoice(anna.id, "Anna"),)
+    assert declined.waiting == (TeacherChoice(boris.id, "Boris"),)
+    week = _now(ANSWER_WITHIN)  # and the two run out alike: asked, so not offered again
+    after = await world.requests.choices(world.shala, student.id, week)
+    await world.requests.reopen(boris.id, student.id, _now())
+    assert after == await world.requests.choices(world.shala, student.id, week)
+    assert after is not None
+    assert (after.offer, after.waiting) == ((TeacherChoice(anna.id, "Anna"),), ())
+
+
 async def test_choices_are_none_for_everyone_but_a_student_of_the_shala(world: World) -> None:
     teacher, stranger = await world.staff(), await _person(world.engine)
     student = await world.student()
@@ -394,6 +425,34 @@ async def test_choices_are_none_for_everyone_but_a_student_of_the_shala(world: W
     for who in (teacher, world.owner, stranger):
         assert await world.requests.choices(world.shala, who.id, _now()) is None
     assert await world.requests.choices(uuid4(), student.id, _now()) is None
+
+
+async def test_the_card_read_is_choices_for_a_student_and_the_count_for_a_teacher(
+    world: World,
+) -> None:
+    """One statement beside the card, for whichever side the caller is on (spec §7)."""
+    anna, boris = await world.staff(name="Anna"), await world.staff(name="Boris")
+    desk, stranger = await world.staff(OFFICE, "Desk"), await _person(world.engine)
+    student, other = await world.student(), await world.student("Bea")
+    await world.asked(student, anna)
+    await world.asked(other, anna)
+    await world.requests.decline(anna.id, other.id, _now())
+    repo = world.requests
+
+    mine = await repo.card(world.shala, student.id, _now())
+
+    assert mine == CardRequests(await repo.choices(world.shala, student.id, _now()), 0)
+    assert mine.asked is not None
+    assert mine.asked.offer == (TeacherChoice(boris.id, "Boris"),)
+    assert mine.asked.waiting == (TeacherChoice(anna.id, "Anna"),)
+    assert await repo.card(world.shala, anna.id, _now()) == CardRequests(None, 1)  # not the no
+    assert await repo.card(world.shala, boris.id, _now()) == CardRequests(None, 0)
+    for who in (desk, world.owner, stranger):  # Q322: nobody but the asked teacher
+        assert await repo.card(world.shala, who.id, _now()) == CardRequests(None, 0)
+    assert await repo.card(uuid4(), anna.id, _now()) == CardRequests(None, 0)
+    # The count is for every shala, shown where I teach; the role is read on each call.
+    await world.roles(anna, ASSISTANT)
+    assert await repo.card(world.shala, anna.id, _now()) == CardRequests(None, 0)
 
 
 # The ask
@@ -503,6 +562,7 @@ async def test_every_cap_matches_the_domain_rule(
         linked=False,
         earlier=None,
         now=_now(),
+        my_asked=mine,
         my_waiting=mine,
         my_teachers=1,
         their_waiting=theirs,
@@ -524,6 +584,47 @@ async def test_a_quiet_no_frees_no_slot_for_the_student_and_one_for_the_teacher(
     theirs = await world.ask(other_student, teacher, caps=RequestCaps(waiting=1))
 
     assert (mine, theirs) == (AskState.TOO_MANY, AskState.CREATED)
+
+
+async def test_a_withdrawal_frees_no_asking_slot_until_seven_days_after_the_ask(
+    world: World,
+) -> None:
+    """Three asks in any seven days, however they went: waiting, quietly declined or
+    withdrawn. "Ask three, withdraw three, ask three more" is refused."""
+    student = await world.student()
+    teachers = [await world.staff(name=f"T{n}") for n in range(5)]
+    for teacher in teachers[:3]:
+        await world.asked(student, teacher)
+    assert await world.ask(student, teachers[3]) is AskState.TOO_MANY
+
+    assert await world.requests.withdraw(student.id, teachers[0].id) == Withdrawn(True, False)
+    await world.requests.decline(teachers[1].id, student.id, _now())
+
+    assert len((await world.requests.mine(student.id, _now())).asked) == 2  # two lines wait
+    assert await world.ask(student, teachers[3]) is AskState.TOO_MANY
+    almost = _now(ANSWER_WITHIN - timedelta(hours=1))
+    assert await world.ask(student, teachers[3], now=almost) is AskState.TOO_MANY
+    assert await world.state(student, teachers[3]) is None
+    assert await world.ask(student, teachers[3], now=_now(ANSWER_WITHIN)) is AskState.CREATED
+    assert await world.ask(student, teachers[4]) is AskState.TOO_MANY  # on today's clock again
+
+
+async def test_a_confirmed_request_takes_no_asking_slot(world: World) -> None:
+    """An approved request is a link: the teachers cap counts it, the asking cap does not."""
+    student = await world.student()
+    teachers = [await world.staff(name=f"T{n}") for n in range(5)]
+    for teacher in teachers[:3]:
+        await world.asked(student, teacher)
+
+    done = await world.requests.approve(teachers[0].id, student.id, CAPS, _now())
+
+    assert done.outcome is Answered.DONE
+    assert await world.ask(student, teachers[3]) is AskState.CREATED
+    assert await world.ask(student, teachers[4]) is AskState.TOO_MANY
+    # 1 link + 2 waiting: the link still counts where links count.
+    assert await world.ask(student, teachers[4], caps=RequestCaps(asking=9, teachers=4)) is (
+        AskState.TOO_MANY
+    )
 
 
 async def test_the_guard_matches_the_policy_over_every_membership(world: World) -> None:
@@ -900,6 +1001,29 @@ async def test_confirm_all_takes_the_oldest_that_fit_and_were_on_the_list(world:
     rest = await world.requests.approve_all(teacher.id, _now(), CAPS, _now())
     assert rest == ApprovedAll(approved=2, left=0)  # never the declined one
     assert await world.state(declined, teacher) == DECLINED
+
+
+async def test_the_waiting_count_before_a_moment_is_who_confirm_all_would_take(
+    world: World,
+) -> None:
+    """The confirm step names the people on the list drawn at `as_of`, not who came since."""
+    teacher = await world.staff()
+    first, second = await world.student("A"), await world.student("B")
+    await world.asked(first, teacher)
+    await world.asked(second, teacher)
+    drawn = await world.requests.waiting(teacher.id, _now(), 0, 10)
+    late = await world.student("Late")
+    await world.asked(late, teacher)
+
+    then = await world.requests.waiting(teacher.id, _now(), 0, 10, None, drawn.as_of)
+    now = await world.requests.waiting(teacher.id, _now(), 0, 10)
+
+    assert (drawn.total, then.total, now.total) == (2, 2, 3)
+    assert [r.student_id for r in then.requests] == [first.id, second.id]
+    assert [r.student_id for r in now.requests] == [first.id, second.id, late.id]
+    done = await world.requests.approve_all(teacher.id, drawn.as_of, CAPS, _now())
+    assert done == ApprovedAll(approved=then.total, left=1)
+    assert await world.state(late, teacher) == WAITING
 
 
 async def test_confirm_all_skips_a_student_at_their_own_cap(world: World) -> None:
@@ -1372,4 +1496,10 @@ async def test_0029_up_down_up_and_no_drift(migrated_url: str, world: World) -> 
     assert await _scalar(engine, table) == 1
     await _sql(engine, insert, a=student.id, on=ON)
     assert await _count(engine, "teacher_request") == 0  # no backfill
+    by_teacher = await _scalar(
+        engine,
+        "SELECT indexdef FROM pg_indexes WHERE schemaname = 'tristhana'"
+        " AND indexname = 'teacher_request_teacher_id_idx'",
+    )
+    assert by_teacher.endswith("(teacher_id)")  # plain: no WHERE, for the teacher's cascade
     await asyncio.to_thread(migrate.check, migrated_url)

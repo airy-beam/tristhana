@@ -82,12 +82,25 @@ def test_the_checks_hold_the_four_states_and_refuse_a_self_request() -> None:
     assert any("student_id <> teacher_id" in c for c in checks)
 
 
-def test_the_indexes_serve_the_waiting_list_the_shala_cascade_and_the_tick() -> None:
+def test_the_indexes_serve_the_waiting_list_the_cascades_and_the_tick() -> None:
     indexes = {i.name: i for i in _table().indexes}
 
+    assert set(indexes) == {
+        "teacher_request_teacher_id_created_at_idx",
+        "teacher_request_teacher_id_idx",
+        "teacher_request_shala_id_idx",
+        "teacher_request_created_at_idx",
+    }
     waiting = indexes["teacher_request_teacher_id_created_at_idx"]
     assert [c.name for c in waiting.columns] == ["teacher_id", "created_at"]
     assert "state = 'waiting'" in str(waiting.dialect_options["postgresql"]["where"])
+    # The waiting-list index is partial, so it can't serve a teacher's account delete (the
+    # cascade looks up every row by `teacher_id`) or their export: a plain one does. The
+    # student's side has the primary key.
+    teacher = indexes["teacher_request_teacher_id_idx"]
+    assert [c.name for c in teacher.columns] == ["teacher_id"]
+    assert teacher.dialect_options["postgresql"]["where"] is None
+    assert not teacher.unique
     assert [c.name for c in indexes["teacher_request_shala_id_idx"].columns] == ["shala_id"]
     assert [c.name for c in indexes["teacher_request_created_at_idx"].columns] == ["created_at"]
 

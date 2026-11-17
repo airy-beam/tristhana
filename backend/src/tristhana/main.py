@@ -165,6 +165,7 @@ from tristhana.application.teacher_requests import (
     ApproveRequest,
     AskTeacher,
     DeclineRequest,
+    GetCardRequests,
     GetMyRequests,
     GetTeacherChoices,
     GetWaitingRequests,
@@ -545,6 +546,7 @@ class _Services:
         # `app.state.requests`. The closing notes are the tick's.
         requests = RequestUseCases(
             choices=GetTeacherChoices(request_repo, clock),
+            card=GetCardRequests(request_repo, clock),
             ask=AskTeacher(request_repo, self._notifier, clock),
             withdraw=WithdrawRequest(request_repo),
             mine=GetMyRequests(request_repo, clock),

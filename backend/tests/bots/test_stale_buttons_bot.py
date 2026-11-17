@@ -589,6 +589,7 @@ ID07: dict[str, tuple[str | tuple[str, ...], str | tuple[str, ...]]] = {
     "t1:rl:0": (EMPTY_LIST, EMPTY_LIST),
     "t1:rl:4": (EMPTY_LIST, EMPTY_LIST),
     "t1:rc": (EMPTY_LIST, EMPTY_LIST),
+    "t1:rc:1794700000": (EMPTY_LIST, EMPTY_LIST),
     "t1:rcy:1794700000": (EMPTY_LIST, EMPTY_LIST),
 }
 

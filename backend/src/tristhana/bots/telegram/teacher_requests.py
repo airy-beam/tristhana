@@ -21,7 +21,12 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from tristhana.application.policies import NotAllowed, NotFound, Principal
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.notifications import TeacherAsked
-from tristhana.application.ports.teacher_requests import Answer, Answered, Choices
+from tristhana.application.ports.teacher_requests import (
+    Answer,
+    Answered,
+    CardRequests,
+    Choices,
+)
 from tristhana.application.teacher_requests import RequestUseCases
 from tristhana.bots.telegram import shalas_callbacks as shala_cb
 from tristhana.bots.telegram import teacher_links_callbacks as cb
@@ -145,6 +150,11 @@ class RequestScreens:
             return await self._r.choices.execute(principal, shala)
         except NotFound:
             return None
+
+    async def beside_card(self, principal: Principal, shala: UUID) -> CardRequests:
+        """The requests part of the shala card, read beside it: the student's choices
+        there, or how many wait for a teacher of it (in every shala)."""
+        return await self._r.card.execute(principal, shala)
 
     def card_parts(
         self, locale: Locale, found: Choices
@@ -364,7 +374,10 @@ class RequestScreens:
             turn.append(self._button(locale, "page-next", cb.waiting(page + 1)))
         if turn:
             rows.append(turn)
-        rows.append([_counted(self._t, locale, "request-all", found.total, cb.plain("rc"))])
+        # The moment this list was drawn, rounded down to the second: "Confirm all" takes
+        # it through its confirm step unchanged, and confirms only who asked before it.
+        drawn = int(found.as_of.timestamp())
+        rows.append([_counted(self._t, locale, "request-all", found.total, cb.ask_all(drawn))])
         rows.append([self._button(locale, "log-back", cb.students(0))])
         text = "\n".join(
             [
@@ -374,15 +387,23 @@ class RequestScreens:
         )
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
-    async def ask_all(self, principal: Principal) -> Screen:
-        """`t1:rc`: one confirm step naming how many. Its Yes carries the moment this screen
-        was drawn, rounded down to the second, so someone who asks after it is never
-        confirmed unseen."""
+    async def ask_all(self, principal: Principal, before: int) -> Screen:
+        """`t1:rc:<unix>`: one confirm step. `before` is the moment the list was drawn, and
+        the Yes carries it on unchanged: someone who asked since is on neither the list the
+        teacher read nor in the count named here, and is not confirmed.
+
+        The moment is whole seconds, rounded down, and the comparison is strict. So a
+        request made in the list's own second is left waiting, whether it came just before
+        the list (seen) or just after (unseen): the two can't be told apart, and leaving
+        both is the safe side. It is not lost: it stays on the list, and the next list
+        carries a later moment. With nobody to confirm for this moment, the list as it is
+        now, with a fresh one."""
         locale = principal.account.locale
-        found = await self._r.waiting.execute(principal, 0, 1)
+        found = await self._r.waiting.execute(
+            principal, 0, 1, before=datetime.fromtimestamp(before, UTC)
+        )
         if found.total == 0:
-            return self._empty(locale)
-        before = int(found.as_of.timestamp())
+            return await self.waiting(principal, 0)
         rows = [
             [self._button(locale, "request-all-yes", cb.confirm_all(before))],
             [self._button(locale, "log-back", cb.waiting(0))],
@@ -391,8 +412,8 @@ class RequestScreens:
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def confirm_all(self, principal: Principal, before: int) -> Screen:
-        """`t1:rcy`: confirms who is still waiting and asked before that moment; the reply
-        says how many, and the rest stay on the list."""
+        """`t1:rcy`: confirms who is still waiting and asked before that moment (the list's,
+        see `ask_all`); the reply says how many, and the rest stay on the list."""
         locale = principal.account.locale
         done = await self._r.approve_all.execute(principal, datetime.fromtimestamp(before, UTC))
         if done.approved == 0:  # an old button: the list as it is now

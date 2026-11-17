@@ -44,17 +44,17 @@ request-consent-short · request-until-yes · request-know-them
 
 **Teacher (bot).** The note, sent at the student's tap, always silent:
 ```
-request-note ("{student} from {shala} asks you to be their teacher. Confirm only if you know them.")
+request-note ("{student} from {shala} says you're their teacher. Confirm only if you know them.")
 [Yes, my student] [Not my student]
 [See all (N)]            (N ≥ 2)
 ```
 - Yes → edited to `link-student-joined` + `[👥 My students]`. No → edited to `request-declined` ("the student isn't told") + `[Undo]`.
 - **Waiting list** `t1:rl:<page>`: `request-list-title`, `request-list-hint`, 10 rows of `{student} · {shala}` (each opens the note's screen), `[Confirm all (N)]` → one confirm step naming N → `request-all-done`. Reached from the note, from a row on "My students" (`t1:s`, also when the list is empty), and from the teacher's shala card (`request-waiting-open`), each shown only while N > 0.
-- **Confirm all carries the moment the list was drawn** and approves only requests made before it, so someone who asked a second later is never confirmed unseen. It never touches declined ones.
+- **Confirm all carries the moment the list was drawn** (in the list's own button, `t1:rc:<unix>`, and unchanged through the confirm step, whose count is who was waiting at that moment) and approves only requests made before it, so someone who asked a second later is never confirmed unseen. The moment is whole seconds, rounded down, compared strictly: a request made in the list's own second stays waiting and is on the next list. It never touches declined ones.
 
 **Student, closing notes (tick, silent):** `request-confirmed` (+ `[⭐ Make main]` when it is not their first teacher, as ID-04) · `request-no-answer` ("No answer from {name} yet. Ask them in class, or pick another teacher.") + `request-pick-another` → the question screen of that shala.
 
-**Mini App, ships with ID-07:** teacher: a "Waiting (N)" block on the Students screen with Confirm, Not my student (Undo), Confirm all (native confirm). Student: waiting lines with Withdraw in the Teachers card of `Links`. **Waits:** asking from the app (the consent text stays in one place, the bot, as ID-04 Q12) and the move into the Shala tab → UI-06 stage 4; a "students are waiting" next-step card on Today → stage 2.
+**Mini App, ships with ID-07:** teacher: a "Waiting (N)" block on the Students screen with Confirm, Not my student (Undo), Confirm all (native confirm). Student: waiting lines with Withdraw in the Teachers card of `Links`. The Shala tab's students card has a row "Waiting for your answer (N)" that opens that block. Undo in the app lasts until the screen is left (the bot's until day 7). **Waits:** asking from the app (the consent text stays in one place, the bot, as ID-04 Q12) and the move into the Shala tab → UI-06 stage 4; a "students are waiting" next-step card on Today → stage 2.
 
 **Copy keys** (en + ru, intent only; ux-writer writes, ashtanga-expert checks). RU: «учитель» for the person asked, «Преподаватель» only as the shala role (SC-01 glossary); names nominative; no word for "declined" anywhere on the student's side.
 - **`bot.ftl`, student:** `request-ask`, `request-ask-one`, `request-yes`, `request-consent-short` (what the teacher will see: the ADR-0045 item table of `invite-consent-short`, so it follows Q312), `request-until-yes` (nothing is shown until they confirm; they get one message with your name), `request-know-them`, `request-consent` (the full text, §3), `request-asked`, `request-waiting`, `request-recent`, `request-too-many`, `request-full`, `request-open`, `request-waiting-line`, `request-withdraw` / `-ask` / `-yes` (the ask says this teacher can't be asked again here for a while), `request-withdrawn`, `request-confirmed`, `request-no-answer`, `request-pick-another`.
@@ -66,7 +66,7 @@ request-note ("{student} from {shala} asks you to be their teacher. Confirm only
 `domain/teacher_requests.py` (pure):
 ```python
 ANSWER_WITHIN = timedelta(days=7); KEEP = timedelta(days=30)
-MAX_ASKING = 3      # a student's waiting requests, all shalas
+MAX_ASKING = 3      # a student's asks in any 7 days, all shalas (counts_as_asked)
 MAX_WAITING = 100   # waiting requests per teacher
 class RequestState(StrEnum): WAITING, DECLINED, WITHDRAWN, APPROVED          # stored
 class AskState(StrEnum): CREATED, LINKED, WAITING, RECENT, TOO_MANY, FULL
@@ -78,12 +78,12 @@ def closing_due(state, created_at, linked, now) -> Closing | None
 def request_key(id: UUID) -> str                          # "req:<id>", the ledger's dedupe key
 ```
 - **One projection for the student.** Everything the student can observe goes through `waiting_for_student`, which treats `DECLINED` as `WAITING`: the card, the question screen, `MAX_ASKING`, the API, the export, and the note's due time. A decline therefore frees no slot and moves no clock. The teacher's side uses `waiting_for_teacher`.
-- **Limits (soft, like ID-04's).** At the ask: mine waiting < 3; theirs waiting < 100; my teachers + mine waiting < `MAX_TEACHERS`; their students + theirs waiting < `MAX_STUDENTS`. At the approval both link caps are checked again; when full, the request stays waiting (`request-list-full`). One row per pair for 30 days, however it ended, so one student costs one teacher **at most one message a month** and at most three teachers a week. Shala caps are untouched: a request needs an existing membership, which `MAX_STUDENTS` (1000) and `MAX_STUDENT_OF` (5) already bound. The remedy for a persistent stranger is SC-01's: staff remove them and rotate the link.
+- **Limits (soft, like ID-04's).** At the ask: mine asked < 3, counting every request I made in the last 7 days in any state but `approved` (waiting, declined and withdrawn alike, so a withdrawal frees no slot; an approved one is a link and counts with the teachers); theirs waiting < 100; my teachers + mine waiting < `MAX_TEACHERS`; their students + theirs waiting < `MAX_STUDENTS`. At the approval both link caps are checked again; when full, the request stays waiting (`request-list-full`). One row per pair for 30 days, however it ended, so one student costs one teacher **at most one message a month** and at most three teachers a week. Shala caps are untouched: a request needs an existing membership, which `MAX_STUDENTS` (1000) and `MAX_STUDENT_OF` (5) already bound. The remedy for a persistent stranger is SC-01's: staff remove them and rotate the link.
 - **Consent record.** The tap agrees to `request-consent`, a full text with **the same data items and rights as `invite-consent`** in "the teacher you pick" wording, plus three request lines: nothing is visible until they confirm; counted from today even if they confirm some days later; you can withdraw before, remove after. A test pins that the two texts name the same items (ADR-0045). The row stores `quiet_note_agreed` from the screen that was tapped; **the approval copies it and never sets it** (ADR-0031: a later consent column on `teacher_link` gets a twin here and a new callback letter).
 - **The link born from a request:** `linked_on = asked_on` (the student's local date at the ask), `created_at = now()` at the approval, `is_primary = false`. So history starts at the ask; the order of teachers, the default main teacher and "joined before the announcement" (NT-03) follow the moment the link came to exist. The quiet note needs 21 days from `linked_on`, so it cannot appear at an approval.
 - **Moon (MD-02, ADR-0032/0033).** No write and **no Keep offer**: an approver is always on a shala's staff, and never-chose staff follow their shala with or without students, so their first student flips nothing (`moon_follow` returns before `teaches` is read). The student's city can move in two cases only, both already promised: a never-chose member of an older second shala whose first teacher this is (Q108: "if your teacher teaches here, the shala's calendar comes first", in the join consent), and a stored "Follow my teacher" with no teacher before. Both are changes made by another person's tap, so they are silent and shown in labels and reminders (ADR-0032). A domain test pins that these are the only two.
 
-**Port `TeacherRequestRepository`** (`Storage.teacher_requests`), one statement each: `choices(shala, me, now)` (teachers to offer + my waiting ones; None = not a student there) · `ask(shala, me, teacher, asked_on, agreed, caps, now)` (guarded insert; an existing row older than `KEEP` is recycled by `ON CONFLICT … DO UPDATE … WHERE`, so the rule does not depend on the prune; returns the state and the teacher's name, locale, Telegram id and waiting count) · `withdraw(me, teacher)` · `mine(me, now)` (my waiting requests + how many wait for me) · `waiting(me, now, offset, limit)` · `approve(me, student, caps, now)` · `approve_all(me, before, caps, now)` (oldest first, as many as fit) · `decline(me, student, now)` · `reopen(me, student, now)` · `due(now, limit)` · `prune(before)`. `TeacherLinkRepository.unlink` gains one CTE (close the pair's request).
+**Port `TeacherRequestRepository`** (`Storage.teacher_requests`), one statement each: `choices(shala, me, now)` (teachers to offer + my waiting ones; None = not a student there) · `card(shala, me, now)` (the shala card's side read: `choices` for a student, the waiting count for a teacher of it, one statement for either) · `ask(shala, me, teacher, asked_on, agreed, caps, now)` (guarded insert; an existing row older than `KEEP` is recycled by `ON CONFLICT … DO UPDATE … WHERE`, so the rule does not depend on the prune; returns the state and the teacher's name, locale, Telegram id and waiting count) · `withdraw(me, teacher)` · `mine(me, now)` (my waiting requests + how many wait for me) · `waiting(me, now, offset, limit, student?, before?)` (`before`: only who asked before that moment, for Confirm all's count) · `approve(me, student, caps, now)` · `approve_all(me, before, caps, now)` (oldest first, as many as fit) · `decline(me, student, now)` · `reopen(me, student, now)` · `due(now, limit)` · `prune(before)`. `TeacherLinkRepository.unlink` gains one CTE (close the pair's request).
 
 **Use cases** (`application/teacher_requests.py`; both adapters except `GetTeacherChoices` and `AskTeacher`, bot only for now): `GetTeacherChoices`, `AskTeacher` (computes `asked_on` with `caller_today`; then `Notifier.tell_teacher_asked`, direct, silent, 3 s, no retry: the list is the record), `WithdrawRequest`, `GetMyRequests`, `GetWaitingRequests`, `ApproveRequest`, `ApproveAllRequests`, `DeclineRequest`, `ReopenRequest`. `RunTick` gains `_close_requests` after `_announce` (claim → deliver → finish, category `request`, new `Notification` member `RequestClosed`), and the prune.
 
@@ -96,7 +96,7 @@ def request_key(id: UUID) -> str                          # "req:<id>", the ledg
 | `DELETE /api/v1/me/teacher-requests/{teacher_id}` | → 204, idempotent | `can_withdraw_request` |
 | `GET /api/v1/me/student-requests` | `?offset&limit≤50` → `{requests: [{student_id, name, shala: {id, name}}], total, as_of}` | `can_answer_request` |
 | `POST /api/v1/me/student-requests/{student_id}/approve` | → 204; 404 `request_gone`; 409 `list_full` | same |
-| `POST …/{student_id}/decline` · `…/reopen` | → 204 (decline idempotent); 404 `request_gone` | same |
+| `POST …/{student_id}/decline` · `…/reopen` | → 204 (decline idempotent); 404 `request_gone`, also for an already-linked pair (a "no" never removes a link) | same |
 | `POST /api/v1/me/student-requests/approve-all` | `{as_of}` → `{approved, left}` | same |
 
 No state field, no date and no `declined` anywhere in a student-facing schema. `ErrorCode` += `request_gone`, `list_full`. No ask route yet (§2).
@@ -108,7 +108,7 @@ No state field, no date and no `declined` anywhere in a student-facing schema. `
 | `h1:ta:<shala>:<acct>` | **the consent tap**: ask this teacher |
 | `h1:tw:<shala>:<acct>` · `h1:tx:<shala>:<acct>` | withdraw: ask · do |
 | `t1:ra:<uuid>` · `t1:rn:<uuid>` · `t1:ru:<uuid>` · `t1:rv:<uuid>` | yes · not my student · undo · one request's screen |
-| `t1:rl:<page>` · `t1:rc` · `t1:rcy:<unix seconds>` | waiting list · confirm-all ask · confirm all asked before that moment |
+| `t1:rl:<page>` · `t1:rc:<unix seconds>` · `t1:rcy:<unix seconds>` | waiting list · confirm-all ask · confirm all asked before that moment (both carry the moment the list was drawn; a bare `t1:rc` only draws the list) |
 
 An id in callback data is no capability: every write is keyed on the caller. **Stale buttons** (a note stays in the chat for good):
 
@@ -124,7 +124,7 @@ An id in callback data is no capability: every write is keyed on the caller. **S
 
 ## 6. Migration and ops
 **`0029_teacher_requests`** (expand-only; down `0028`, UI-06's `welcomed_at`; renumber if that order changes):
-- `teacher_request(id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE, student_id uuid NOT NULL → account ON DELETE CASCADE, teacher_id uuid NOT NULL → account ON DELETE CASCADE, shala_id uuid NOT NULL → shala ON DELETE CASCADE, state text NOT NULL DEFAULT 'waiting' CHECK IN ('waiting','declined','withdrawn','approved'), asked_on date NOT NULL, quiet_note_agreed boolean NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`, **PK `(student_id, teacher_id)`**, CHECK `student_id <> teacher_id`; indexes `(teacher_id, created_at) WHERE state = 'waiting'`, `(shala_id)`, `(created_at)`. `op.f()` names. No backfill.
+- `teacher_request(id uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE, student_id uuid NOT NULL → account ON DELETE CASCADE, teacher_id uuid NOT NULL → account ON DELETE CASCADE, shala_id uuid NOT NULL → shala ON DELETE CASCADE, state text NOT NULL DEFAULT 'waiting' CHECK IN ('waiting','declined','withdrawn','approved'), asked_on date NOT NULL, quiet_note_agreed boolean NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`, **PK `(student_id, teacher_id)`**, CHECK `student_id <> teacher_id`; indexes `(teacher_id, created_at) WHERE state = 'waiting'`, `(teacher_id)` (plain: the teacher's delete cascade and export), `(shala_id)`, `(created_at)`. `op.f()` names. No backfill.
 - `notification_delivery_category_check` += `'request'` (the 0005 / 0024 drop-and-recreate; downgrade deletes those rows first).
 - **Delete (ADR-0027):** still one `DELETE FROM account`; three cascade paths reach the table (student, teacher, an owner's shala), none needs a trigger. `is_account_gone` learns `teacher_request_student_id_fkey`. In `approve`, a 23503 on `teacher_link_student_id_fkey` means the **student** vanished mid-tap: the repository catches it inside the connection block and returns "gone", or `is_account_gone` would report the teacher's own account as deleted.
 - **Export (ST-09):** `teacher_request` joins `EXPORTED_TABLES` as `teacher_requests: [{other_side: "teacher" | "student", asked_on, state}]`. On my rows as the student, `state` is `waiting` / `no_answer` / `confirmed` / `withdrawn` through the projection, **never declined**; as the teacher, `waiting` / `declined` / `confirmed` / `closed`. No name, id or shala of the other person (ID-04 Q14).
@@ -149,7 +149,7 @@ An id in callback data is no capability: every write is keyed on the caller. **S
 | ✅ Join | 2 (join, choices) | none |
 | A name / Yes on the question | 2 (ask, Today's read) | 1 silent send, ≤ 3 s |
 | Details, back, withdraw ask | 1 | none |
-| Shala card (student), My students (teacher) | +1, in parallel | none |
+| Shala card (student or teacher: one read serves either), My students (teacher) | +1, in parallel | none |
 | Yes · Not my student · Undo · list page · Confirm all | 1 | **none** (the student's note is the tick's) |
 | Tick | +1 due read, 2 per note, +1 prune | ≤ 500 notes a run |
 

@@ -757,10 +757,19 @@ class LinkScreens:
             case cb.Waiting(page) if asked is not None:
                 return asked.waiting(principal, page)
             case cb.Tap("rc") if asked is not None:
-                return asked.ask_all(principal)
+                # Without the list's moment nothing can be confirmed: the list, whose
+                # button carries it.
+                return asked.waiting(principal, 0)
+            case cb.AskAll(before) if asked is not None:
+                return asked.ask_all(principal, before)
             case cb.ConfirmAll(before) if asked is not None:
                 return asked.confirm_all(principal, before)
-            case cb.OnPerson("ra" | "rn" | "ru" | "rv", _) | cb.Waiting() | cb.ConfirmAll():
+            case (
+                cb.OnPerson("ra" | "rn" | "ru" | "rv", _)
+                | cb.Waiting()
+                | cb.AskAll()
+                | cb.ConfirmAll()
+            ):
                 return self.students(principal, 0)
             case cb.Tap("rc"):
                 return self.students(principal, 0)

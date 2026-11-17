@@ -39,6 +39,8 @@ from tristhana.application.ports.teacher_requests import (
     Answered,
     ApprovedAll,
     AskedTeacher,
+    CardRequests,
+    Choices,
     TeacherChoice,
     Withdrawn,
 )
@@ -49,6 +51,7 @@ from tristhana.application.teacher_requests import (
     AskResult,
     AskTeacher,
     DeclineRequest,
+    GetCardRequests,
     GetMyRequests,
     GetTeacherChoices,
     GetWaitingRequests,
@@ -136,6 +139,10 @@ class World:
         use_case = GetTeacherChoices(self.requests, self.clock)
         return await use_case.execute(Principal(who), shala or self.shala)
 
+    async def card(self, who: Account, shala: UUID | None = None) -> CardRequests:
+        use_case = GetCardRequests(self.requests, self.clock)
+        return await use_case.execute(Principal(who), shala or self.shala)
+
     async def ask(
         self, student: Account, teacher: Account, shala: UUID | None = None, agreed: bool = True
     ) -> AskResult:
@@ -150,9 +157,16 @@ class World:
     async def mine(self, who: Account):
         return await GetMyRequests(self.requests, self.clock).execute(Principal(who))
 
-    async def waiting(self, teacher: Account, offset: int = 0, limit: int = 10, **kw: UUID):
+    async def waiting(
+        self,
+        teacher: Account,
+        offset: int = 0,
+        limit: int = 10,
+        student: UUID | None = None,
+        before: datetime | None = None,
+    ):
         use_case = GetWaitingRequests(self.requests, self.clock)
-        return await use_case.execute(Principal(teacher), offset, limit, **kw)
+        return await use_case.execute(Principal(teacher), offset, limit, student, before)
 
     async def approve(self, teacher: Account, student: Account) -> Answer:
         use_case = ApproveRequest(self.requests, self.clock)
@@ -236,6 +250,50 @@ async def test_the_question_is_for_students_of_the_shala_only(world: World) -> N
             await world.choices(who)
     with pytest.raises(NotFound):
         await world.choices(world.student(), uuid4())
+
+
+# The requests part of a shala card: one read for either side
+
+
+async def test_the_card_read_gives_a_student_their_choices_and_a_teacher_the_count(
+    world: World,
+) -> None:
+    anna, boris = world.teacher("Anna"), world.teacher("Boris")
+    student, other = world.student(), world.student("Bea")
+    await world.ask(student, anna)
+    await world.ask(other, anna)
+    world.requests.calls.clear()
+
+    mine, theirs = await world.card(student), await world.card(anna)
+
+    assert mine == CardRequests(await world.choices(student), 0)
+    assert mine.asked == Choices(
+        world.shala,
+        "Ashtanga Almaty",
+        (TeacherChoice(boris.id, "Boris"),),
+        (TeacherChoice(anna.id, "Anna"),),
+    )
+    assert theirs == CardRequests(None, 2)
+    assert world.requests.calls[:2] == ["card", "card"]  # one call each, no second read
+
+
+async def test_the_card_read_counts_only_for_a_teacher_of_that_shala(world: World) -> None:
+    """The count is for every shala I teach in, and shown on the cards of those alone:
+    not to the owner or a manager (Q322), and not where I am front desk or a student."""
+    anna, student = world.teacher("Anna"), world.student()
+    await world.ask(student, anna)
+    elsewhere = world.shalas.add_shala(world.owner.id, "Ashtanga Astana", roles=frozenset()).id
+    world.shalas.add_staff(elsewhere, anna.id, OFFICE)
+    third = world.shalas.add_shala(world.owner.id, "Ashtanga Aktau", roles=frozenset()).id
+    world.shalas.add_staff(third, anna.id, TEACHER)
+    manager = world.person("Mara")
+    world.shalas.add_staff(world.shala, manager.id, ADMIN)
+
+    assert await world.card(anna, third) == CardRequests(None, 1)  # asked in another shala
+    assert await world.card(anna, elsewhere) == CardRequests(None, 0)
+    for who in (world.owner, manager, world.person("Stranger")):
+        assert await world.card(who) == CardRequests(None, 0)
+    assert await world.card(student, uuid4()) == CardRequests(None, 0)
 
 
 # The ask
@@ -376,16 +434,56 @@ async def test_a_new_ask_after_a_month_is_a_new_request(world: World) -> None:
     assert row.asked_on == date(2026, 12, 17)
 
 
-async def test_three_waiting_requests_are_the_most(world: World) -> None:
+async def test_three_asks_in_seven_days_are_the_most_and_a_withdrawal_frees_none(
+    world: World,
+) -> None:
+    """Or "ask three, withdraw three, ask three more" would reach every teacher of a shala
+    with a message each. The slot comes back seven days after the ask that took it."""
     student = world.student()
-    teachers = [world.teacher(f"T{n}") for n in range(MAX_ASKING + 1)]
-    for teacher in teachers[:MAX_ASKING]:
+    first, second, third, fourth, fifth = (world.teacher(f"T{n}") for n in range(5))
+    assert (await world.ask(student, first)).state is AskState.CREATED
+    world.later(timedelta(days=1))
+    for teacher in (second, third):
         assert (await world.ask(student, teacher)).state is AskState.CREATED
+    assert (await world.ask(student, fourth)).state is AskState.TOO_MANY
 
+    await world.withdraw(student, second)
+
+    assert (await world.mine(student)).asked == (
+        AskedTeacher(first.id, "T0", world.shala, "Ashtanga Almaty"),
+        AskedTeacher(third.id, "T2", world.shala, "Ashtanga Almaty"),
+    )  # two wait, and the third slot is still taken
+    assert (await world.ask(student, fourth)).state is AskState.TOO_MANY
+    world.later(ANSWER_WITHIN - timedelta(days=1) - A_MOMENT)  # just short of a week
+    assert (await world.ask(student, fourth)).state is AskState.TOO_MANY
+    world.later(2 * A_MOMENT)  # seven days after the first ask
+    assert (await world.ask(student, fourth)).state is AskState.CREATED
+    assert (await world.ask(student, fifth)).state is AskState.TOO_MANY  # three again
+    assert len(world.notifier.asked) == 4
+
+
+async def test_withdrawing_all_three_frees_no_slot(world: World) -> None:
+    student = world.student()
+    teachers = [world.teacher(f"T{n}") for n in range(2 * MAX_ASKING)]
+    for teacher in teachers[:MAX_ASKING]:
+        await world.ask(student, teacher)
+        await world.withdraw(student, teacher)
+
+    for teacher in teachers[MAX_ASKING:]:
+        assert (await world.ask(student, teacher)).state is AskState.TOO_MANY
+    assert len(world.notifier.asked) == MAX_ASKING
+
+
+async def test_a_confirmed_ask_is_a_link_and_takes_no_asking_slot(world: World) -> None:
+    student = world.student()
+    teachers = [world.teacher(f"T{n}") for n in range(MAX_ASKING + 2)]
+    for teacher in teachers[:MAX_ASKING]:
+        await world.ask(student, teacher)
+
+    await world.approve(teachers[0], student)
+
+    assert (await world.ask(student, teachers[-2])).state is AskState.CREATED
     assert (await world.ask(student, teachers[-1])).state is AskState.TOO_MANY
-
-    await world.withdraw(student, teachers[0])
-    assert (await world.ask(student, teachers[-1])).state is AskState.CREATED
 
 
 async def test_a_quiet_no_frees_no_slot(world: World) -> None:
@@ -620,6 +718,23 @@ async def test_confirm_all_skips_declined_late_and_over_cap(world: World) -> Non
     assert world.links.students_of(teacher.id) == [first.id, second.id]
     assert world.state(declined, teacher) is RequestState.DECLINED
     assert world.state(third, teacher) is RequestState.WAITING
+    assert world.state(late, teacher) is RequestState.WAITING
+
+
+async def test_the_count_before_a_moment_is_who_was_on_that_list(world: World) -> None:
+    """What the confirm step of "Confirm all" names: not who has asked since."""
+    teacher = world.teacher()
+    for name in ("A", "B"):
+        await world.ask(world.student(name), teacher)
+    page = await world.waiting(teacher)
+    late = world.student("Late")
+    await world.ask(late, teacher)
+
+    then = await world.waiting(teacher, before=page.as_of)
+
+    assert (then.total, then.requests) == (2, page.requests)
+    assert (await world.waiting(teacher)).total == 3
+    assert await world.approve_all(teacher, page.as_of) == ApprovedAll(then.total, left=1)
     assert world.state(late, teacher) is RequestState.WAITING
 
 

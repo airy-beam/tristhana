@@ -29,6 +29,7 @@ from tristhana.domain.teacher_requests import (
     answerable,
     ask_state,
     closing_due,
+    counts_as_asked,
     exported_state,
     kept,
     request_key,
@@ -93,6 +94,23 @@ def test_a_row_stands_for_the_pair_for_thirty_days() -> None:
     assert not kept(ASKED, ASKED + KEEP)
 
 
+# The student's three asks in any seven days
+
+
+@pytest.mark.parametrize("state", [WAITING, DECLINED, WITHDRAWN])
+def test_an_ask_counts_for_seven_days_however_it_went(state: RequestState) -> None:
+    """A withdrawal frees no slot, or "ask three, withdraw three, ask three more" would
+    reach any number of teachers; a quiet no counts exactly as waiting does."""
+    assert counts_as_asked(state, ASKED, ASKED)
+    assert counts_as_asked(state, ASKED, JUST_BEFORE)
+    assert not counts_as_asked(state, ASKED, DAY_7)
+
+
+@pytest.mark.parametrize("now", MOMENTS)
+def test_a_confirmed_ask_is_a_link_and_not_one_of_the_three(now: datetime) -> None:
+    assert not counts_as_asked(APPROVED, ASKED, now)  # the teachers cap counts the link
+
+
 # The closing note
 
 
@@ -124,6 +142,7 @@ def _ask(**facts: object) -> AskState:
         "linked": False,
         "earlier": None,
         "now": ASKED,
+        "my_asked": 0,
         "my_waiting": 0,
         "my_teachers": 0,
         "their_waiting": 0,
@@ -134,25 +153,26 @@ def _ask(**facts: object) -> AskState:
 
 def test_a_first_ask_is_created() -> None:
     assert _ask() is AskState.CREATED
-    assert _ask(my_waiting=2, their_waiting=99, my_teachers=17, their_students=400) is (
-        AskState.CREATED
-    )
+    facts = {"my_asked": 2, "my_waiting": 2, "their_waiting": 99}
+    assert _ask(**facts, my_teachers=17, their_students=400) is AskState.CREATED
 
 
 def test_a_link_wins_over_everything() -> None:
-    assert _ask(linked=True, earlier=(WAITING, ASKED), my_waiting=3) is AskState.LINKED
+    assert _ask(linked=True, earlier=(WAITING, ASKED), my_asked=3) is AskState.LINKED
 
 
 @pytest.mark.parametrize(
     ("facts", "state"),
     [
-        ({"my_waiting": MAX_ASKING}, AskState.TOO_MANY),
+        ({"my_asked": MAX_ASKING}, AskState.TOO_MANY),
+        ({"my_asked": MAX_ASKING, "my_waiting": 0}, AskState.TOO_MANY),  # all three withdrawn
+        ({"my_asked": MAX_ASKING - 1, "my_waiting": MAX_ASKING}, AskState.CREATED),  # older asks
         ({"my_teachers": MAX_TEACHERS}, AskState.TOO_MANY),
         ({"my_teachers": MAX_TEACHERS - 2, "my_waiting": 2}, AskState.TOO_MANY),
         ({"their_waiting": MAX_WAITING}, AskState.FULL),
         ({"their_students": MAX_STUDENTS}, AskState.FULL),
         ({"their_students": MAX_STUDENTS - 40, "their_waiting": 40}, AskState.FULL),
-        ({"my_waiting": MAX_ASKING, "their_waiting": MAX_WAITING}, AskState.TOO_MANY),
+        ({"my_asked": MAX_ASKING, "their_waiting": MAX_WAITING}, AskState.TOO_MANY),
     ],
 )
 def test_every_cap(facts: dict[str, int], state: AskState) -> None:
@@ -163,11 +183,11 @@ def test_the_caps_can_be_lowered() -> None:
     caps = RequestCaps(asking=1, waiting=1, teachers=2, students=2)
 
     assert ask_state(
-        linked=False, earlier=None, now=ASKED, my_waiting=1, my_teachers=0,
+        linked=False, earlier=None, now=ASKED, my_asked=1, my_waiting=0, my_teachers=0,
         their_waiting=0, their_students=0, caps=caps,
     ) is AskState.TOO_MANY  # fmt: skip
     assert ask_state(
-        linked=False, earlier=None, now=ASKED, my_waiting=0, my_teachers=0,
+        linked=False, earlier=None, now=ASKED, my_asked=0, my_waiting=0, my_teachers=0,
         their_waiting=0, their_students=2, caps=caps,
     ) is AskState.FULL  # fmt: skip
 
@@ -218,6 +238,7 @@ def test_every_student_facing_function_is_equal_for_waiting_and_declined(now: da
     for linked in (False, True):
         assert closing_due(DECLINED, ASKED, linked, now) == closing_due(WAITING, ASKED, linked, now)
     assert _ask(earlier=(DECLINED, ASKED), now=now) == _ask(earlier=(WAITING, ASKED), now=now)
+    assert counts_as_asked(DECLINED, ASKED, now) == counts_as_asked(WAITING, ASKED, now)
 
 
 def test_the_ledger_key() -> None:

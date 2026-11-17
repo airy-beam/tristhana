@@ -725,6 +725,9 @@ class _UnavailableTeacherRequests:
     async def choices(self, shala: UUID, me: UUID, now: datetime) -> NoReturn:
         raise StorageUnavailable("not configured")
 
+    async def card(self, shala: UUID, me: UUID, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
     async def ask(
         self,
         shala: UUID,
@@ -744,7 +747,13 @@ class _UnavailableTeacherRequests:
         raise StorageUnavailable("not configured")
 
     async def waiting(
-        self, me: UUID, now: datetime, offset: int, limit: int, student: UUID | None = None
+        self,
+        me: UUID,
+        now: datetime,
+        offset: int,
+        limit: int,
+        student: UUID | None = None,
+        before: datetime | None = None,
     ) -> NoReturn:
         raise StorageUnavailable("not configured")
 

@@ -6,9 +6,9 @@ four, and nothing is written when a request runs out: the 7 days are a read-time
 `created_at`.
 
 One projection serves the student. Everything a student can observe goes through
-`waiting_for_student`, `closing_due`, `ask_state` and `exported_state`, and each of them gives
-the same result for `DECLINED` as for `WAITING`: a "no" and a week of silence must look the
-same. The teacher's side uses `waiting_for_teacher`.
+`waiting_for_student`, `counts_as_asked`, `closing_due`, `ask_state` and `exported_state`, and
+each of them gives the same result for `DECLINED` as for `WAITING`: a "no" and a week of
+silence must look the same. The teacher's side uses `waiting_for_teacher`.
 """
 
 from dataclasses import dataclass
@@ -20,7 +20,7 @@ from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS
 
 ANSWER_WITHIN = timedelta(days=7)  # the teacher's yes counts only inside it (Q318)
 KEEP = timedelta(days=30)  # one row per pair for this long, however it ended (Q317)
-MAX_ASKING = 3  # a student's waiting requests, all shalas (Q319)
+MAX_ASKING = 3  # a student's asks in any 7 days, all shalas (Q319): `counts_as_asked`
 MAX_WAITING = 100  # waiting requests per teacher
 
 
@@ -83,6 +83,16 @@ def waiting_for_teacher(state: RequestState, created_at: datetime, now: datetime
     return state is RequestState.WAITING and _inside(created_at, now)
 
 
+def counts_as_asked(state: RequestState, created_at: datetime, now: datetime) -> bool:
+    """One of the student's `MAX_ASKING` asks: made in the last 7 days, however it went
+    since. Waiting, a quiet no and a withdrawal all count, so withdrawing frees no slot
+    ("ask three, withdraw three, ask three more" would reach any number of teachers) and a
+    no is counted exactly as waiting is. Only a confirmed request does not: it is a link,
+    and the teachers cap counts links. Nothing else is read: not the membership (a leave
+    and rejoin frees no slot either) and not a link made another way."""
+    return state is not RequestState.APPROVED and _inside(created_at, now)
+
+
 def answerable(state: RequestState, created_at: datetime, now: datetime) -> bool:
     """A yes still makes the link: not answered, or a no taken back (Undo, Q320)."""
     return state in _OPEN and _inside(created_at, now)
@@ -111,6 +121,7 @@ def ask_state(
     linked: bool,
     earlier: tuple[RequestState, datetime] | None,
     now: datetime,
+    my_asked: int,
     my_waiting: int,
     my_teachers: int,
     their_waiting: int,
@@ -120,15 +131,16 @@ def ask_state(
 ) -> AskState:
     """Whether a student may ask this teacher now. `earlier` is the pair's own row, if any,
     and `still_valid` whether the student has stayed in its shala since (a rejoin revives
-    nothing, so that row no longer waits, but it still blocks a new ask). `my_waiting`
-    counts by `waiting_for_student`, `their_waiting` by `waiting_for_teacher`. Waiting
-    requests count toward the link caps on both sides (Q319)."""
+    nothing, so that row no longer waits, but it still blocks a new ask). `my_asked`
+    counts by `counts_as_asked` (the asking cap: three in any 7 days), `my_waiting` by
+    `waiting_for_student`, `their_waiting` by `waiting_for_teacher`. Waiting requests count
+    toward the link caps on both sides (Q319)."""
     if linked:
         return AskState.LINKED
     if earlier is not None and kept(earlier[1], now):
         waits = still_valid and waiting_for_student(*earlier, now)
         return AskState.WAITING if waits else AskState.RECENT
-    if my_waiting >= caps.asking or my_teachers + my_waiting >= caps.teachers:
+    if my_asked >= caps.asking or my_teachers + my_waiting >= caps.teachers:
         return AskState.TOO_MANY
     if their_waiting >= caps.waiting or their_students + their_waiting >= caps.students:
         return AskState.FULL
