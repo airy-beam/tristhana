@@ -1,10 +1,10 @@
 ---
 title: "My teacher"
-description: "Connect with your teacher with a link or a QR code, and see exactly what they can and can't see."
-features: [ID-04, MD-02, NT-03]
+description: "Connect with your teacher by their link or through your shala, and see exactly what they can and can't see."
+features: [ID-04, MD-02, NT-03, ID-07]
 ---
 
-Connect with your teacher with a link or a QR code, and see exactly what they can and can't see.
+Connect with your teacher by their link or through your shala, and see exactly what they can and can't see.
 
 ## Add your teacher
 
@@ -16,10 +16,27 @@ Connect with your teacher with a link or a QR code, and see exactly what they ca
 
 Accept only if you know the person: anyone can type any name.
 
+## Pick your teacher at your shala
+
+No link from your teacher? If they teach at your shala, you can pick them in the bot.
+
+1. Open :ftl[menu-open] → :ftl[menu-teacher] and tap your shala.
+2. Tap :ftl[request-open], then your teacher's name. :ftl[consent-details] has the full text of what they would see.
+3. Your teacher confirms. Until then the shala's card says :ftl[request-waiting-line]{from=bot name=Arjun}.
+
+- Nothing from your log is shown until your teacher confirms. They get one message with your name.
+- When they confirm, the bot tells you. They see your days from the day you asked.
+- No answer after 7 days? The bot tells you, once. Ask them in class, or tap :ftl[request-pick-another].
+- To take a request back, tap :ftl[request-withdraw]{from=bot name=Arjun} on the shala's card, or :ftl[request-withdraw]{from=app} on the :ftl[tab-shala] tab in the app. Nobody gets a message.
+- You can ask up to three teachers in a week, and the same teacher again in about a month.
+- Pick only a teacher you know.
+
+The bot asks the same question right after you join a shala: see [My shala](../my-shala/).
+
 ## What your teacher sees
 
 - your name;
-- what you log from the day you add them: practice or rest, and your practice length;
+- what you log from the day you add them, or the day you asked them at your shala: practice or rest, and your practice length;
 - your last asana;
 - if nothing shows for a while, a short note saying just that.
 

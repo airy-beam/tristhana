@@ -2,7 +2,13 @@
 // language and the screenshots exist in both. Telegram ids are from a made-up range.
 
 /** @typedef {import("./client.mjs").DemoUser} DemoUser */
-/** @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser, assistant: DemoUser, owner: DemoUser }} Cast */
+/**
+ * ID-07 added four people around the demo shala: `colleague`, a second teacher on its team, so
+ * a student there has two names to pick from; `asker` and `asker2`, who joined by the shala's
+ * link and named the demo teacher, so two people wait for his answer; and `member`, who joined
+ * the same way and has not picked anyone yet.
+ * @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser, assistant: DemoUser, owner: DemoUser, colleague: DemoUser, member: DemoUser, asker: DemoUser, asker2: DemoUser }} Cast
+ */
 
 export const CITY = { slug: "almaty", zone: "Asia/Almaty" };
 
@@ -21,6 +27,10 @@ export const CAST = {
     newcomer: { id: 9003, name: "Maya", lang: "en" },
     assistant: { id: 9004, name: "Lila", lang: "en" },
     owner: { id: 9005, name: "Nina", lang: "en" },
+    colleague: { id: 9006, name: "Ravi", lang: "en" },
+    member: { id: 9007, name: "Tara", lang: "en" },
+    asker: { id: 9008, name: "Leo", lang: "en" },
+    asker2: { id: 9009, name: "Sasha", lang: "en" },
   },
   ru: {
     student: { id: 9101, name: "Майя", lang: "ru" },
@@ -28,6 +38,10 @@ export const CAST = {
     newcomer: { id: 9103, name: "Майя", lang: "ru" },
     assistant: { id: 9104, name: "Лила", lang: "ru" },
     owner: { id: 9105, name: "Нина", lang: "ru" },
+    colleague: { id: 9106, name: "Рави", lang: "ru" },
+    member: { id: 9107, name: "Тара", lang: "ru" },
+    asker: { id: 9108, name: "Лео", lang: "ru" },
+    asker2: { id: 9109, name: "Саша", lang: "ru" },
   },
 };
 

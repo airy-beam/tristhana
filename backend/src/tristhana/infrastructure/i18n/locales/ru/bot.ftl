@@ -789,7 +789,7 @@ request-consent-short =
     • Самочувствие, заметки и причина отдыха остаются личными.
     • Убрать учителя из списка можно в любой момент в /teachers. Сообщений никто не получит.
 request-until-yes = Пока учитель не подтвердит, ничего не видно. Учителю придёт одно сообщение с твоим именем.
-request-know-them = Выбирай только учителя, которого знаешь: имя здесь можно написать любое.
+request-know-them = Выбирай только учителя, которого знаешь.
 # The consent record: the items and rights of `invite-consent` in fewer bullets. The first
 # bullet is the short screen's, word for word; the last three are the request lines (nothing
 # before the yes, counted from today, withdraw before and remove after).

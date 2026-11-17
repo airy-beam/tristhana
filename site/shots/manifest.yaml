@@ -4,9 +4,10 @@
 #   name      file name; a guide page shows it as ![…](…/shots/<lang>/<name>.webp)
 #   kind      app = the Mini App in a phone-sized browser · bot = a drawing of the bot's real reply
 #   as        who is looking: student, teacher, newcomer, assistant: on the shala's team,
-#             has logged nothing, and no bot shot acts as her, or owner: has just created a
-#             shala of her own and done nothing in it, so no shot may add to it
-#             (shots/lib/cast.mjs)
+#             has logged nothing, and no bot shot acts as her, owner: has just created a
+#             shala of her own and done nothing in it, so no shot may add to it, or member:
+#             joined the demo shala by its link and has not picked a teacher (ID-07), so no
+#             shot may pick one for her (shots/lib/cast.mjs)
 #   features  requirement IDs; `npm run shots -- --only PR-01` re-shoots by ID
 #   say       bot: the message the person sends; `=invite` in it is the start code of the demo
 #             teacher's invite link (`/start =invite` is a student opening that link)
@@ -50,6 +51,10 @@ shots:
   - {name: bot-note, kind: bot, as: student, say: /help, tap: [help-earlier-day, "#1", diary-button], features: [PR-07]}
   - {name: bot-consent, kind: bot, as: newcomer, say: /start =invite, features: [ID-04, UI-06]}
   - {name: bot-teachers, kind: bot, as: student, say: /menu, tap: [menu-teacher], features: [ID-04, SC-01]}
+  # ID-07: "Who is your teacher here?", as the bot asks it right after joining. The member
+  # joined and tapped nothing, so the same question waits on the shala's card; the demo shala
+  # has two people with the Teacher role, so it shows two names.
+  - {name: bot-ask-teacher, kind: bot, as: member, say: /menu, tap: [menu-teacher, =shala, request-open], features: [ID-07]}
   - {name: bot-schedule, kind: bot, as: student, say: /schedule, features: [SC-03, SC-05, SC-06]}
   - {name: app-shala-tab, kind: app, as: student, click: [tab-shala], features: [UI-06, ID-04, SC-01]}
   - {name: app-schedule, kind: app, as: student, click: [tab-shala, my-schedule-open], features: [SC-03]}
@@ -60,7 +65,15 @@ shots:
 
   # For teachers
   - {name: bot-invite, kind: bot, as: teacher, say: /menu, tap: [menu-students, links-invite], features: [ID-03, ID-04]}
-  - {name: bot-students, kind: bot, as: teacher, say: /menu, tap: [menu-students], features: [ST-06]}
+  # ID-07: two people named the demo teacher and wait for his answer, so "My students" begins
+  # with the row "Waiting for your answer (2)". Its label carries the count, so a step names
+  # it by its place: "#1". On the list it opens, "#1" is the person who has waited longest,
+  # and that screen is the note the teacher got at the student's tap. The teacher only looks:
+  # an answer would shorten the list for every shot after it.
+  - {name: bot-students, kind: bot, as: teacher, say: /menu, tap: [menu-students], features: [ST-06, ID-07]}
+  - {name: bot-request-note, kind: bot, as: teacher, say: /menu, tap: [menu-students, "#1", "#1"], features: [ID-07]}
+  - {name: bot-requests, kind: bot, as: teacher, say: /menu, tap: [menu-students, "#1"], features: [ID-07]}
+  - {name: app-requests, kind: app, as: teacher, click: [tab-shala, link-students-open], features: [ID-07]}
   - {name: bot-student-card, kind: bot, as: teacher, say: /menu, tap: [menu-students, =student], features: [ST-06, WH-02]}
   - {name: app-student-card, kind: app, as: teacher, click: [tab-shala, link-students-open, =student], features: [ST-06]}
   - {name: bot-mark-asana, kind: bot, as: teacher, say: /menu, tap: [menu-students, =student, students-give], features: [PR-08]}
@@ -68,7 +81,7 @@ shots:
   - {name: bot-teacher-moon, kind: bot, as: teacher, say: /moon, features: [MD-02]}
 
   # For shala staff
-  - {name: bot-shala, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala], features: [SC-01]}
+  - {name: bot-shala, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala], features: [SC-01, ID-07]}
   - {name: bot-staff-invite, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala, shala-invite-staff], features: [SC-01]}
   # The new shala's screen with its setup list (UI-06 stage 4). The owner only looks: a class
   # or a link made here would tick a step off the list.

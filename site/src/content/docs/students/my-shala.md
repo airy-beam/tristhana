@@ -1,7 +1,7 @@
 ---
 title: "My shala: schedule, calendar, attendance"
 description: "Join a shala, see its classes in your own time zone, add them to your calendar and mark the classes you came to."
-features: [SC-01, SC-03, SC-05, SC-06]
+features: [SC-01, SC-03, SC-05, SC-06, ID-07]
 ---
 
 Join a shala, see its classes in your own time zone, add them to your calendar and mark the classes you came to.
@@ -13,6 +13,21 @@ Join a shala, see its classes in your own time zone, add them to your calendar a
 3. Tap :ftl[shala-join-yes].
 
 The shala's teachers and staff see your name, and nothing from your log. The staff can send announcements, and you can mute them. Your moon days may follow the shala's calendar: see [Rest days, moon days and 🌸](../rest-and-moon-days/).
+
+## Who is your teacher here?
+
+Right after you join, the bot asks :ftl[request-ask] and shows the shala's teachers. The same screen says, in short, what your teacher would see.
+
+1. Tap your teacher's name. If the shala has one teacher, the bot asks about them by name: tap :ftl[request-yes].
+2. Your teacher gets one message with your name. When they confirm, they are on your list of teachers.
+
+![The bot asking who your teacher is, with the shala's teachers to pick from](../../../assets/shots/en/bot-ask-teacher.webp)
+
+- Until your teacher confirms, they see nothing from your log.
+- Not sure yet? Tap :ftl[invite-decline]. The question stays on the shala's card, under :ftl[request-open]. It is there too if you joined a while ago.
+- No question? Then there is nobody to pick at this shala right now.
+
+What comes next, and how to take a request back: [My teacher](../my-teacher/).
 
 ## Your schedule
 

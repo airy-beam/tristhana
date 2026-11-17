@@ -782,7 +782,7 @@ request-consent-short =
     • Check-ins, diary notes and the reason for a rest stay private.
     • You can remove a teacher from your list any time in /teachers. No one gets a message.
 request-until-yes = Nothing is shown until they confirm. They get one message with your name.
-request-know-them = Pick only a teacher you know: anyone can write any name here.
+request-know-them = Pick only a teacher you know.
 # The consent record: the items and rights of `invite-consent` in fewer bullets. The first
 # bullet is the short screen's, word for word; the last three are the request lines (nothing
 # before the yes, counted from today, withdraw before and remove after).

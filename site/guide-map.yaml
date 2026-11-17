@@ -14,6 +14,15 @@ ID-05:
   - teachers/directory-line
 ID-06:
   - students/settings
+ID-07:
+  - reference/faq
+  - reference/privacy
+  - reference/whats-new
+  - staff/create-shala
+  - students/my-shala
+  - students/my-teacher
+  - teachers/invite-students
+  - teachers/what-you-see
 MD-01:
   - reference/moon-calculation
 MD-02:

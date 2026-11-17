@@ -11,7 +11,7 @@ const SATURDAY = 6; // ISO weekday
  * @param {{ today?: string, now?: Date, log?: (line: string) => void }} [options]
  */
 export async function seedCast(client, locale, options = {}) {
-  const { student, teacher, assistant, owner } = CAST[locale];
+  const { student, teacher, assistant, owner, colleague, member, asker, asker2 } = CAST[locale];
   const today = options.today ?? todayIn(CITY.zone);
   const log = options.log ?? (() => {});
 
@@ -171,6 +171,44 @@ export async function seedCast(client, locale, options = {}) {
   if (came) await client.call(student, "PUT", `/me/attendance/${came.class_id}/${came.key}`, {});
   log(
     `${locale}: ${assistant.name} covers ${covered}; ${student.name} marked ${came?.key ?? "no class"}`,
+  );
+
+  // ID-07: a second teacher joins the team by a one-time link, so a student of the shala has
+  // two names to pick from (the demo student still has one: she is linked to the first).
+  const teacherLink = /** @type {{ url: string }} */ (
+    await client.call(teacher, "POST", `${at}/staff-invites`, { role: "teacher" })
+  );
+  const teacherCode = /[?&]start=([\w-]+)/.exec(teacherLink.url)?.[1];
+  if (!teacherCode) throw new Error(`no start code in the staff link ${teacherLink.url}`);
+  await client.tap(colleague, await client.say(colleague, `/start ${teacherCode}`), "✅");
+  const team = /** @type {{ staff: { roles: string[] }[] }} */ (
+    await client.call(teacher, "GET", at)
+  ).staff;
+  if (team.filter((person) => person.roles.includes("teacher")).length !== 2) {
+    throw new Error(`${locale}: the second teacher did not join`);
+  }
+  // Three people join by the shala's link, as the demo student did. With a teacher to pick,
+  // the bot's answer to "Join" is the question "Who is your teacher here?". Two of them tap
+  // the demo teacher's name on it, the consent tap: they wait for his answer, so his waiting
+  // list has two rows and "Confirm all". The third taps nothing and finds the question again
+  // on the shala's card (`bot-ask-teacher`).
+  const askers = [asker, asker2];
+  for (const person of [...askers, member]) {
+    await client.call(person, "POST", "/me/device-timezone", { timezone: CITY.zone });
+    await client.call(person, "PATCH", "/me", { home_city: CITY.slug });
+    const question = await client.tap(person, await client.say(person, `/start ${joinCode}`), "✅");
+    if (person !== member) await client.tap(person, question, teacher.name);
+  }
+  const waiting = /** @type {{ total: number }} */ (
+    await client.call(teacher, "GET", "/me/student-requests")
+  );
+  if (waiting.total !== askers.length) {
+    throw new Error(
+      `${locale}: ${waiting.total} people wait for the teacher, not ${askers.length}`,
+    );
+  }
+  log(
+    `${locale}: ${colleague.name} teaches at ${SHALA[locale]}; ${askers.map((p) => p.name).join(" and ")} wait for ${teacher.name}; ${member.name} has not picked`,
   );
 
   // UI-06 stage 4: the owner has just created a shala, with the two fields of the create form
