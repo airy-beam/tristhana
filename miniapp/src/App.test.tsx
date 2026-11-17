@@ -243,6 +243,11 @@ beforeAll(async () => {
     import("./screens/trends/Trends"),
     import("./screens/settings/Links"),
     import("./screens/settings/Settings"),
+    import("./screens/settings/pages/Language"),
+    import("./screens/settings/pages/City"),
+    import("./screens/settings/pages/DayOff"),
+    import("./screens/settings/pages/Reminders"),
+    import("./screens/settings/pages/More"),
     import("./screens/settings/DirectoryListing"),
     import("./screens/progression/Progression"),
     import("./screens/progression/Timeline"),
@@ -487,19 +492,74 @@ describe("Settings: the gear and Telegram's ⋯ item are one route", () => {
     expect(screen.queryByRole("button", { name: /tour/i })).toBeNull();
   });
 
-  test("the day-off link on Practice opens Settings, and Back returns to Practice", async () => {
+  // UI-06 stage 3: both land on the bot's five rows, each carrying its value, and Guide.
+  test.each([
+    ["the gear", () => fireEvent.click(gear())],
+    ["⋯ Settings", menuSettings],
+  ])("%s shows the five rows, drawn from the account already loaded", async (_name, open) => {
+    account = { ...ME, timezone: "Asia/Almaty", day_off: [7] };
+    await launch();
+    await today();
+
+    open();
+
+    const screenOf = (await settings()).closest("main") as HTMLElement;
+    expect(
+      within(screenOf)
+        .getAllByRole("button")
+        .map((b) => plain(b.textContent)),
+    ).toEqual([
+      "🗣 Language: As in Telegram",
+      "🕐 My time: Almaty (UTC+5)",
+      "😌 Day off: Sunday",
+      "🔔 Reminders",
+      "More…",
+      "📖 Guide",
+    ]);
+    // None of what the pages read (the one long screen read these as it opened).
+    const paths = seen.map((r) => new URL(r.url).pathname);
+    expect(paths).not.toContain("/api/v1/me/notification-settings");
+    expect(paths).not.toContain("/api/v1/me/calendar-feed");
+    expect(paths).not.toContain("/api/v1/me/links");
+  });
+
+  test("a row opens its page over the rows; Back returns to the rows, then to the tab", async () => {
+    await launch();
+    await today();
+    fireEvent.click(gear());
+    await settings();
+
+    fireEvent.click(screen.getByRole("button", { name: "More…" }));
+
+    expect(await heading("⚙️ More settings")).toHaveFocus();
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await settings()).toBeVisible();
+    expect(screen.getByRole("button", { name: "More…" })).toHaveFocus();
+    expect(screen.queryByRole("heading", { level: 1, name: "⚙️ More settings" })).toBeNull();
+    back();
+
+    expect(await today()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("the day-off link on Practice opens the Day off page, and Back returns to Practice", async () => {
     await launch();
     await today();
     await go("practice");
 
     fireEvent.click(await screen.findByRole("button", { name: "😌 Set your weekly day off" }));
 
-    await settings();
-    await waitFor(() => {
-      expect(scrollIntoView).toHaveBeenCalled();
-    });
+    expect(await heading("Day off")).toHaveFocus();
+    expect(screen.getByRole("group", { name: "Day off" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull(); // not the rows
     back();
+
     expect(await practice()).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "Day off" })).toBeNull();
+    expect(sdk.backShown).toBe(false);
   });
 });
 
@@ -557,7 +617,7 @@ describe("Settings keeps what it was opened over", () => {
     const stats = seen.filter((r) => new URL(r.url).pathname === "/api/v1/me/stats").length;
 
     fireEvent.click(link);
-    await settings();
+    await heading("Day off");
     back();
 
     expect(await practice()).toBeVisible();
@@ -831,13 +891,14 @@ describe("Today: one next step, each leading to its place", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
 
-    await settings();
-    await waitFor(() => {
-      expect(scrollIntoView).toHaveBeenCalled(); // the reminder card, once it is there
-    });
-    expect(scrollIntoView.mock.contexts[0]).toHaveProperty("id", "remind");
+    // The Reminders page, not the five rows; it says once why the times wait.
+    expect(await heading("🔔 Reminders")).toHaveFocus();
+    expect(await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" })).toBeChecked();
+    expect(screen.getAllByText(/once your time zone is known/)).toHaveLength(1);
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
     back();
     expect(await today()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
   });
 
   test("with a zone, the reminder step turns the reminder on right there, in one tap", async () => {
@@ -860,11 +921,9 @@ describe("Today: one next step, each leading to its place", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "⏰ Change the time" }));
 
-    await settings();
-    await waitFor(() => {
-      expect(scrollIntoView).toHaveBeenCalled();
-    });
-    expect(scrollIntoView.mock.contexts[0]).toHaveProperty("id", "remind");
+    await heading("🔔 Reminders");
+    expect(plain((await screen.findByText(/^🕐 Times:/)).textContent)).toBe("🕐 Times: Almaty");
+    expect(await screen.findByRole("button", { name: "20:00", pressed: true })).toBeVisible();
     back();
     expect(await today()).toBeVisible();
   });
@@ -1087,6 +1146,22 @@ describe("opened by a bot button (?open=…)", () => {
 
     expect(await shala()).toBeInTheDocument();
     expect(current()).toEqual(["🏛 Shala"]);
+    expect(sdk.backShown).toBe(false);
+  });
+
+  // UI-06 stage 3 (QF): the bot's "⚙️ More in the app".
+  test("?open=settings opens Settings over Today; Back lands on Today", async () => {
+    await launch("/?open=settings");
+
+    await settings();
+    expect(screen.getByRole("button", { name: "More…" })).toBeInTheDocument();
+    expect(bar()).toBeNull();
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull(); // no gear under it
+    menuSettings(); // ⋯ Settings is the same route: no second screen
+    back();
+
+    expect(await today()).toBeVisible();
+    expect(current()).toEqual(["📝 Today"]);
     expect(sdk.backShown).toBe(false);
   });
 

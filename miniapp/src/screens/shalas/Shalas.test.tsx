@@ -5,7 +5,7 @@ import type { Me } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
 import Links from "../settings/Links";
-import Settings from "../settings/Settings";
+import More from "../settings/pages/More";
 import { useBackButton } from "../../telegram";
 import ShalaScreen from "./ShalaScreen";
 
@@ -754,7 +754,8 @@ describe("the setup list", () => {
 });
 
 describe("Follow my shala in Settings", () => {
-  const settings = (locale: Locale = "en") => <Settings me={{ ...ME, locale }} onBack={vi.fn()} />;
+  // The moon calendar's city is on Settings → More (UI-06 stage 3).
+  const settings = (locale: Locale = "en") => <More me={{ ...ME, locale }} onBack={vi.fn()} />;
   const shalaLocation = {
     slug: "moscow",
     explicit: false,
@@ -769,7 +770,7 @@ describe("Follow my shala in Settings", () => {
     const seen = stubApi({ location: shalaLocation });
     renderWith(settings());
     const select = await screen.findByRole<HTMLSelectElement>("combobox", {
-      name: "City for the calendar",
+      name: /^🌙 Moon days · 📍/,
     });
     await waitFor(() => {
       expect(Array.from(select.options).map((o) => plain(o.textContent))).toContain(
@@ -803,7 +804,7 @@ describe("Follow my shala in Settings", () => {
     stubApi();
     renderWith(settings());
     const select = await screen.findByRole<HTMLSelectElement>("combobox", {
-      name: "City for the calendar",
+      name: /^🌙 Moon days · 📍/,
     });
 
     await waitFor(() => {

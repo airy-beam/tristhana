@@ -8,6 +8,8 @@ interface Option<T> {
   label: string;
   /** Its accessible name, when the label is an abbreviation ("Mon" → "Monday"). */
   name?: string | undefined;
+  /** A choice that can't be taken now (a time inside quiet hours). */
+  disabled?: boolean | undefined;
 }
 
 interface Props<T extends string | number> {
@@ -55,7 +57,7 @@ export function Chips<T extends string | number>({
             className="chip"
             aria-pressed={chosen(o.value)}
             aria-label={o.name}
-            disabled={disabled}
+            disabled={disabled || o.disabled}
             onClick={() => {
               onPick(o.value);
             }}

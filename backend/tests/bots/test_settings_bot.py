@@ -245,7 +245,8 @@ def test_more_links_to_the_app_when_there_is_one(storage: InMemoryStorage) -> No
         body = _tap(client, "s1:m")
         first = _command(client, "/settings")
 
-    assert _where(body)["⚙️ More in the app"] == "https://tristhana.web.app"
+    # Straight to the app's Settings (UI-06 stage 3, QF): a bare address would open Today.
+    assert _where(body)["⚙️ More in the app"] == "https://tristhana.web.app?open=settings"
     assert _rows(body)[-1] == BACK
     assert "⚙️ More in the app" not in _texts(first)  # it left the first screen
 

@@ -122,6 +122,48 @@ describe("the real product files", () => {
   });
 });
 
+// UI-06 stage 3: the Mini App's Settings opens on the bot's five rows, in the bot's words. The
+// app carries its own copy of these messages (`settings.ftl`), so nothing but this test keeps
+// the two files saying the same thing. Each key is read from both products, with every value it
+// can take, in both languages.
+describe("words in step: the Settings rows read the same in the app and the bot", () => {
+  const WEEKDAYS = ["1", "2", "3", "4", "5", "6", "7"];
+  const COUNTS = ["1", "2", "3", "5", "21"];
+  /** @type {[string, Record<string, string>[]][]} */
+  const SHARED = [
+    ["settings-language-line", [{ language: "English" }]],
+    ["settings-city-line", [{ zone: "Almaty" }]],
+    ["settings-city-unset-line", [{ zone: "Almaty (UTC+5)" }]],
+    ["settings-city-unlisted-line", [{ zone: "Almaty (UTC+5)" }]],
+    ["settings-city-no-zone-line", [{}]],
+    ["settings-day-off-line", WEEKDAYS.map((d) => ({ d }))],
+    ["settings-days-off-line", WEEKDAYS.flatMap((d) => WEEKDAYS.map((e) => ({ d, e })))],
+    ["settings-day-off-none-line", [{}]],
+    ["settings-day-off-unset-line", [{}]],
+    ["settings-reminders-button", [{}]],
+    ["settings-more-button", [{}]],
+    ["settings-reminders-title", [{}]],
+    ["settings-more-title", [{}]],
+    ["settings-quiet-line", COUNTS.map((n) => ({ start: "22:00", end: "07:00", n }))],
+    ["settings-quiet-off-line", COUNTS.map((n) => ({ n }))],
+  ];
+
+  it("covers the fifteen shared keys", () => {
+    expect(new Set(SHARED.map(([key]) => key)).size).toBe(15);
+  });
+
+  it.each(SHARED)("%s", (key, cases) => {
+    const real = createLabels();
+    for (const locale of ["en", "ru"]) {
+      for (const args of cases) {
+        const bot = real.label(locale, key, args, "bot");
+        expect(real.label(locale, key, args, "app"), `${key} (${locale})`).toBe(bot);
+        expect(bot).not.toBe("");
+      }
+    }
+  });
+});
+
 describe("localeOfPath", () => {
   it("is ru only under the ru content folder", () => {
     expect(localeOfPath("/x/src/content/docs/ru/start/a.md")).toBe("ru");

@@ -5,12 +5,14 @@ import enClassRow from "../locales/en/class-row.ftl?raw";
 import enDetails from "../locales/en/details.ftl?raw";
 import enPractice from "../locales/en/practice.ftl?raw";
 import enRequests from "../locales/en/requests.ftl?raw";
+import enSettings from "../locales/en/settings.ftl?raw";
 import enShala from "../locales/en/shala.ftl?raw";
 import ruApp from "../locales/ru/app.ftl?raw";
 import ruClassRow from "../locales/ru/class-row.ftl?raw";
 import ruDetails from "../locales/ru/details.ftl?raw";
 import ruPractice from "../locales/ru/practice.ftl?raw";
 import ruRequests from "../locales/ru/requests.ftl?raw";
+import ruSettings from "../locales/ru/settings.ftl?raw";
 import ruShala from "../locales/ru/shala.ftl?raw";
 import { addMessages } from "./lazyMessages";
 import { LOCALES } from "./negotiate";
@@ -29,8 +31,11 @@ addMessages(CLASS_ROW);
 addMessages(SHALA);
 // UI-06 stage 3: the Practice tab's own copy (`practice.ftl`).
 const PRACTICE = { en: enPractice, ru: ruPractice };
+// UI-06 stage 3: Settings' rows and pages (`settings.ftl`).
+const SETTINGS = { en: enSettings, ru: ruSettings };
 addMessages(REQUESTS);
 addMessages(PRACTICE);
+addMessages(SETTINGS);
 
 /** Each message of a raw `.ftl` source with the `$variables` it uses. */
 function shape(source: string): Record<string, string[]> {
@@ -53,6 +58,7 @@ describe.each([
   ["shala.ftl", SHALA],
   ["requests.ftl", REQUESTS],
   ["practice.ftl", PRACTICE],
+  ["settings.ftl", SETTINGS],
 ])("%s (lazy copy)", (_file, sources) => {
   it("has the same messages and variables in en and ru", () => {
     expect(shape(sources.ru)).toEqual(shape(sources.en));
@@ -530,5 +536,101 @@ describe("the Practice tab's copy", () => {
     ["ru", ruPractice],
   ])("%s: never a streak, a miss or a skipped day", (_locale, source) => {
     expect(source).not.toMatch(/streak|missed|skipp|пропуск|серия|серии|полос/i);
+  });
+});
+
+// UI-06 stage 3 (spec §4, §7): Settings. The rows are the bot's own lines (the site's test
+// keeps the two files in step); here, that they read right with their values.
+describe("Settings' copy", () => {
+  const en = bundleFor("en");
+  const ru = bundleFor("ru");
+
+  it("puts the value on each row", () => {
+    expect(format(en, "settings-language-line", { language: "English" })).toBe(
+      "🗣 Language: English",
+    );
+    expect(format(ru, "settings-city-line", { zone: "Алматы" })).toBe("🏙 Мой город: Алматы");
+    expect(format(en, "settings-city-unset-line", { zone: "Almaty (UTC+5)" })).toBe(
+      "🏙 My city? 🕐 Almaty (UTC+5)",
+    );
+    expect(format(ru, "settings-city-unlisted-line", { zone: "Алматы (UTC+5)" })).toBe(
+      "🕐 Моё время: Алматы (UTC+5)",
+    );
+  });
+
+  it.each([
+    [1, "😌 Day off: Monday", "😌 Выходной: понедельник"],
+    [6, "😌 Day off: Saturday", "😌 Выходной: суббота"],
+    [7, "😌 Day off: Sunday", "😌 Выходной: воскресенье"],
+  ])("names the day off: %i", (d, english, russian) => {
+    expect(format(en, "settings-day-off-line", { d })).toBe(english);
+    expect(format(ru, "settings-day-off-line", { d })).toBe(russian);
+  });
+
+  it("names two days off, and says when there is none", () => {
+    expect(format(en, "settings-days-off-line", { d: 6, e: 7 })).toBe(
+      "😌 Days off: Saturday, Sunday",
+    );
+    expect(format(ru, "settings-days-off-line", { d: 3, e: 7 })).toBe(
+      "😌 Выходные: среда, воскресенье",
+    );
+    expect(format(en, "settings-day-off-none-line")).toBe("😌 No fixed day off");
+    expect(format(ru, "settings-day-off-unset-line")).toBe("😌 Выходной: не выбран");
+  });
+
+  it.each([
+    [1, "at most 1 message a day", "не больше 1 сообщения в день"],
+    [3, "at most 3 messages a day", "не больше 3 сообщений в день"],
+    [5, "at most 5 messages a day", "не больше 5 сообщений в день"],
+  ])("sums up quiet hours with a limit of %i", (n, english, russian) => {
+    const hours = { start: "22:00", end: "07:00", n };
+    expect(format(en, "settings-quiet-line", hours)).toBe(
+      `🔕 Quiet hours 22:00–07:00 · ${english}`,
+    );
+    expect(format(ru, "settings-quiet-line", hours)).toBe(`🔕 Тихие часы 22:00–07:00 · ${russian}`);
+    expect(format(en, "settings-quiet-off-line", { n })).toBe(`🔕 No quiet hours · ${english}`);
+    expect(format(ru, "settings-quiet-off-line", { n })).toBe(`🔕 Без тихих часов · ${russian}`);
+  });
+
+  it("names the place of the Reminders page's times once", () => {
+    expect(format(en, "settings-times-place", { zone: "Almaty" })).toBe("🕐 Times: Almaty");
+    expect(format(ru, "settings-times-place", { zone: "Алматы" })).toBe("🕐 Время: Алматы");
+  });
+
+  it("says in two short sentences what a day off does, then when it applies", () => {
+    expect(format(en, "settings-day-off-hint", { first: "yes" })).toBe(
+      "Pick one or two. They show as rest, and practice reminders skip them. Past weeks show them too.",
+    );
+    expect(format(en, "settings-day-off-hint", { first: "no" })).toBe(
+      "Pick one or two. They show as rest, and practice reminders skip them. A change applies from today.",
+    );
+    expect(format(ru, "settings-day-off-hint", { first: "no" })).toBe(
+      "Отметь один или два. Они отмечаются как отдых, и напоминания о практике в эти дни не приходят. Изменение действует с сегодняшнего дня.",
+    );
+  });
+
+  it("reads as written", () => {
+    expect(format(en, "settings-log-title")).toBe("Your log");
+    expect(format(ru, "settings-log-title")).toBe("Твой журнал");
+    expect(format(en, "settings-privacy-open")).toBe("🔒 What others see");
+    expect(format(ru, "settings-privacy-open")).toBe("🔒 Что видят другие");
+    expect(format(en, "settings-more-button")).toBe("More…");
+    expect(format(ru, "settings-more-title")).toBe("⚙️ Ещё настройки");
+  });
+
+  it.each(LOCALES)("%s: the city nudge and the labels it made needless are gone", (locale) => {
+    const ids = new Set([...messageIds(locale), ...Object.keys(shape(SETTINGS[locale]))]);
+    for (const gone of [
+      "settings-city-nudge",
+      "settings-city-not-now",
+      "remind-time-label", // Reminders names the place once (`settings-times-place`)
+      "moon-city", // the moon calendar's select is labelled with `moon-title`
+    ]) {
+      expect(ids.has(gone)).toBe(false);
+    }
+    // The guides quote these (spec §7).
+    for (const kept of ["settings-open", "settings-quiet", "guide-open", "feed-open"]) {
+      expect(ids.has(kept)).toBe(true);
+    }
   });
 });

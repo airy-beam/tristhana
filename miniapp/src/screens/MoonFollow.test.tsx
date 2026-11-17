@@ -6,11 +6,11 @@ import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
 import MoonScreen from "./moon/MoonScreen";
 import Links from "./settings/Links";
-import Settings from "./settings/Settings";
+import More from "./settings/pages/More";
 
 // MD-02 (spec §2, §4, §7): "👥 Follow my teacher" as the first option of the moon city select,
 // only with a main teacher, sending `{slug: null}`; the source line on the card and in
-// Settings; the teacher's shared line; Make main and Remove refetch the moon days, days and
+// Settings → More (UI-06 stage 3); the teacher's shared line; Make main and Remove refetch the moon days, days and
 // stats. The API and the Telegram SDK are mocked.
 
 const telegram = vi.hoisted(() => ({
@@ -128,7 +128,8 @@ const plain = (text: string) => text.replace(/[\u2068\u2069]/g, "");
 /** The one element that holds exactly `text` (not its ancestors, not an <option>). */
 const exact = (text: string) => (_: string, el: Element | null) =>
   !!el && el.childElementCount === 0 && el.tagName !== "OPTION" && plain(el.textContent) === text;
-const settings = (locale: Locale = "en") => <Settings me={{ ...ME, locale }} onBack={vi.fn()} />;
+// The moon calendar's city is on Settings → More (UI-06 stage 3), labelled with the moon title.
+const settings = (locale: Locale = "en") => <More me={{ ...ME, locale }} onBack={vi.fn()} />;
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -136,7 +137,7 @@ afterEach(() => {
 });
 
 async function citySelect(): Promise<HTMLSelectElement> {
-  return screen.findByRole<HTMLSelectElement>("combobox", { name: "City for the calendar" });
+  return screen.findByRole<HTMLSelectElement>("combobox", { name: /^🌙 Moon days · 📍/ });
 }
 
 const optionTexts = (select: HTMLSelectElement) =>
@@ -198,7 +199,7 @@ describe("Follow my teacher in Settings", () => {
     stubApi(FOLLOWING);
     renderWith(settings("ru"), "ru");
     const select = await screen.findByRole<HTMLSelectElement>("combobox", {
-      name: "Город для календаря",
+      name: /^🌙 Лунные дни · 📍/,
     });
 
     await waitFor(() => {

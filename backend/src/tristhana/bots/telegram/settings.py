@@ -34,6 +34,7 @@ from tristhana.bots.telegram.screens import (
     Reply,
     Screen,
     answered,
+    app_url,
     button,
     menu_row,
     show,
@@ -363,7 +364,8 @@ class SettingsScreens:
                 [
                     InlineKeyboardButton(
                         text=self._t.t(locale, "settings-open-app"),
-                        web_app=WebAppInfo(url=self._app),
+                        # Straight to the app's Settings (QF); a bare address opens Today.
+                        web_app=WebAppInfo(url=app_url(self._app, "settings")),
                     )
                 ]
             )

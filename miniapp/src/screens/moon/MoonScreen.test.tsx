@@ -6,7 +6,8 @@ import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
 import MoonScreen from "./MoonScreen";
 import { PracticeReminderCard } from "../PracticeReminderCard";
-import Settings from "../settings/Settings";
+import More from "../settings/pages/More";
+import Reminders from "../settings/pages/Reminders";
 import { TodayCard } from "../TodayCard";
 import { MoonRow } from "../TodayRows";
 
@@ -163,8 +164,8 @@ describe("MoonScreen", () => {
 
   it("changes the city", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
-    const select = await screen.findByRole("combobox", { name: "City for the calendar" });
+    renderWith(<More me={ME} onBack={vi.fn()} />); // Settings → More (UI-06 stage 3)
+    const select = await screen.findByRole("combobox", { name: /^🌙 Moon days · 📍/ });
 
     fireEvent.change(select, { target: { value: "almaty" } });
 
@@ -178,7 +179,7 @@ describe("MoonScreen", () => {
 
   it("toggles reminder offsets", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    renderWith(<Reminders me={ME} onBack={vi.fn()} />); // Settings → Reminders
 
     fireEvent.click(
       await screen.findByRole("button", {
@@ -197,7 +198,7 @@ describe("MoonScreen", () => {
 
   it("explains that reminders need a time zone", async () => {
     stubApi();
-    renderWith(<Settings me={{ ...ME, timezone: null }} onBack={vi.fn()} />);
+    renderWith(<Reminders me={{ ...ME, timezone: null }} onBack={vi.fn()} />);
 
     expect(await screen.findByText(/once your time zone is known/)).toBeInTheDocument();
     expect(
@@ -272,10 +273,8 @@ describe("PracticeReminderCard", () => {
     const seen = stubApi();
     renderWith(<PracticeReminderCard zone="Asia/Almaty" />);
 
-    const toggle = await screen.findByRole("button", {
-      name: (name) => plain(name) === "🔔 Ask me once a day",
-      pressed: false,
-    });
+    const toggle = await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+    expect(toggle).not.toBeChecked();
     expect(screen.queryByRole("button", { name: "10:00" })).not.toBeInTheDocument();
     fireEvent.click(toggle);
 
@@ -285,9 +284,10 @@ describe("PracticeReminderCard", () => {
     const put = seen.find((r) => r.method === "PATCH");
     expect(await put?.json()).toEqual({ practice: { on: true } });
     expect(await screen.findByRole("button", { name: "10:00", pressed: true })).toBeInTheDocument();
-    expect(
-      screen.getByText((_, el) => el?.tagName === "P" && plain(el.textContent) === "Time · Almaty"),
-    ).toBeInTheDocument();
+    expect(toggle).toBeChecked();
+    // The page names the place of its times once, above the card (ADR-0044): not here again.
+    expect(screen.getByRole("group", { name: "Send at" })).toBeInTheDocument();
+    expect(screen.queryByText(/Almaty/)).toBeNull();
   });
 
   it("comes on the practice days, with no day choices of its own (PR-09)", async () => {
@@ -305,11 +305,20 @@ describe("PracticeReminderCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("asks for a time zone before showing times", async () => {
+  it("shows no times before a time zone is known (the page says why, once)", async () => {
     stubApi(MOON, { ...SETTINGS, practice: { on: true, at: "10:00:00", days: [1] } });
     renderWith(<PracticeReminderCard zone={null} />);
 
-    expect(await screen.findByText(/once your time zone is known/)).toBeInTheDocument();
+    expect(await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" })).toBeChecked();
+    expect(screen.queryByRole("button", { name: "10:00" })).not.toBeInTheDocument();
+  });
+
+  it("the Reminders page asks for a time zone once, with the reminder on", async () => {
+    stubApi(MOON, { ...SETTINGS, practice: { on: true, at: "10:00:00", days: [1] } });
+    renderWith(<Reminders me={{ ...ME, timezone: null }} onBack={vi.fn()} />);
+
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+    expect(screen.getAllByText(/once your time zone is known/)).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "10:00" })).not.toBeInTheDocument();
   });
 });

@@ -7,8 +7,9 @@ import {
   type NotificationSettings,
 } from "../api/client";
 import { haptics } from "../telegram";
+import { Chips } from "../ui/Chips";
+import { Check } from "../ui/controls";
 import { useDateLabel } from "./PauseOffer";
-import { zoneLabel } from "./timeLabel";
 
 const TIMES = ["09:00", "10:00", "12:00", "18:00", "20:00", "21:00"] as const;
 
@@ -23,15 +24,10 @@ export function inQuiet(quiet: NotificationSettings["quiet"], at: string): boole
   return s < e ? s <= a && a < e : a >= s || a < e;
 }
 
-/** The daily practice reminder (PR-10): on/off and time. It comes on the practice days,
- * which the Day off section decides (PR-09). Off until chosen. */
-export function PracticeReminderCard({
-  zone,
-  place,
-}: {
-  zone: string | null;
-  place?: string | undefined;
-}) {
+/** The daily practice reminder (PR-10): on/off and time, first on Settings → Reminders. It
+ * comes on the practice days, which Day off decides (PR-09). Off until chosen. The page names
+ * the place of its times once, above this card (ADR-0044), and says so when no zone is known. */
+export function PracticeReminderCard({ zone }: { zone: string | null }) {
   const query = useNotificationSettings();
   const save = usePatchNotificationSettings();
   const resume = useEndRestPeriod();
@@ -63,83 +59,56 @@ export function PracticeReminderCard({
   };
 
   return (
-    <section className="card" id="remind" aria-labelledby="remind-title">
+    <section className="card" aria-labelledby="remind-title">
       <Localized id="remind-card-title">
         <h2 id="remind-title" />
       </Localized>
-      <div className="chips" role="group">
-        <Localized id="remind-switch">
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={on}
-            onClick={() => {
-              update({ on: !on });
-            }}
-          />
+      <div className="switch">
+        <Check
+          label={l10n.getString("remind-switch")}
+          checked={on}
+          aria-describedby="remind-explain"
+          onChange={(e) => {
+            update({ on: e.target.checked });
+          }}
+        />
+        <Localized id="remind-explain-app">
+          <p id="remind-explain" className="field-hint" />
         </Localized>
       </div>
       {pausedStart && pausedUntil && (
-        <>
+        <div className="field">
           <Localized id="remind-paused-until" vars={{ until: dateLabel(pausedUntil) }}>
             <p className="hint" />
           </Localized>
           <Localized id="remind-resume">
             <button
               type="button"
-              className="link"
+              className="link tap"
               onClick={() => {
                 haptics.impact("light");
                 resume.mutate({ start: pausedStart }); // the server's "today" decides the end
               }}
             />
           </Localized>
-        </>
+        </div>
       )}
-      <Localized id="remind-explain-app">
-        <p className="hint small" />
-      </Localized>
-      {on &&
-        (zone ? (
-          <>
-            <Localized
-              id="remind-time-label"
-              vars={{
-                // The account's own zone: the place, no offset (ADR-0044).
-                zone: zoneLabel(zone, new Date().toISOString().slice(0, 10), {
-                  place,
-                  viewer: zone,
-                }),
-              }}
-            >
-              <p className="label" />
-            </Localized>
-            <div className="chips" role="group">
-              {TIMES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className="chip"
-                  aria-pressed={practice.at.startsWith(t)}
-                  // A time inside quiet hours would never fire (the server refuses it too).
-                  disabled={inQuiet(settings.quiet, t)}
-                  onClick={() => {
-                    update({ at: `${t}:00` });
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-            <Localized id="remind-days-follow" vars={{ days: daysText(practice.days) }}>
-              <p className="hint small" />
-            </Localized>
-          </>
-        ) : (
-          <Localized id="moon-zone-needed-app">
-            <p className="hint" />
-          </Localized>
-        ))}
+      {on && zone && (
+        <Chips
+          label={l10n.getString("settings-moon-time")}
+          options={TIMES.map((t) => ({
+            value: t,
+            label: t,
+            // A time inside quiet hours would never fire (the server refuses it too).
+            disabled: inQuiet(settings.quiet, t),
+          }))}
+          value={practice.at.slice(0, 5)}
+          onPick={(t) => {
+            update({ at: `${t}:00` });
+          }}
+          hint={l10n.getString("remind-days-follow", { days: daysText(practice.days) })}
+        />
+      )}
       {save.isError && (
         <Localized id="moon-save-failed">
           <p className="status" role="alert" />

@@ -173,26 +173,12 @@ body {
   line-height: 1.4;
 }
 
-/* MD-04: the one-time "Pick your city" nudge with its "Not now" chip. */
-.nudge {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-}
-
-.nudge p {
-  flex: 1 1 200px;
-  margin: 0;
-}
-
 .hint.small {
   font-size: 13px;
 }
 
-/* A full-width row (My asanas, Badges), the day-off question, a switch. The Practice tab's own
-   rules load with it: `screens/stats/stats.css`. */
+/* A full-width row (My asanas, Badges) and the day-off question. The Practice tab's own rules
+   load with it: `screens/stats/stats.css`. */
 .row-button {
   display: block;
   width: 100%;
@@ -207,13 +193,6 @@ body {
 }
 .question {
   margin-top: 8px;
-}
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85em;
-  color: var(--c-hint);
 }
 
 /* PR-08: the celebration card (tap to dismiss) and the short history. */
