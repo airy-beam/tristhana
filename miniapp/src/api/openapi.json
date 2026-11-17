@@ -165,6 +165,55 @@
         "title": "AsanaCardIn",
         "type": "object"
       },
+      "AskIn": {
+        "properties": {
+          "consent": {
+            "$ref": "#/components/schemas/RequestConsent",
+            "description": "The consent text the picker showed (ADR-0049); it decides what the tap grants. Unknown values are 422"
+          },
+          "shala_id": {
+            "format": "uuid",
+            "title": "Shala Id",
+            "type": "string"
+          },
+          "teacher_id": {
+            "format": "uuid",
+            "title": "Teacher Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shala_id",
+          "teacher_id",
+          "consent"
+        ],
+        "title": "AskIn",
+        "type": "object"
+      },
+      "AskOut": {
+        "description": "What this tap came to, as the student may see it, and nothing else: never the\nteacher's answer (a quiet \"no\" gives `waiting` or `recent`, as silence does).",
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/AskResultName"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "AskOut",
+        "type": "object"
+      },
+      "AskResultName": {
+        "enum": [
+          "created",
+          "linked",
+          "waiting",
+          "recent",
+          "too_many",
+          "full"
+        ],
+        "type": "string"
+      },
       "AskedTeacherOut": {
         "description": "A teacher the caller asked and is waiting for. Nothing else, on purpose.",
         "properties": {
@@ -4753,6 +4802,14 @@
         "title": "Quiet",
         "type": "object"
       },
+      "RequestConsent": {
+        "description": "ADR-0049: the consent the student's tap gave, named by the client that showed it (the\napp's ask, the bot's `h1:ta`). A value names a set of promises, not a wording: a change of\npromises is a new value, and an old one keeps its grants while an old client may send it.\nThe client never sends a flag; `grants_quiet_note` says what each value grants.",
+        "enum": [
+          "request-1"
+        ],
+        "title": "RequestConsent",
+        "type": "string"
+      },
       "RequestShalaOut": {
         "description": "The shala a request came through.",
         "properties": {
@@ -6636,6 +6693,60 @@
           "to"
         ],
         "title": "SwapOut",
+        "type": "object"
+      },
+      "TeacherChoiceOut": {
+        "description": "A teacher of the shala, as its members already see them on the card.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TeacherChoiceOut",
+        "type": "object"
+      },
+      "TeacherChoicesOut": {
+        "description": "Who a student of the shala can ask, and who they wait for there. A quiet \"no\" is in\n`waiting`, exactly as silence is.",
+        "properties": {
+          "offer": {
+            "description": "Oldest staff first",
+            "items": {
+              "$ref": "#/components/schemas/TeacherChoiceOut"
+            },
+            "title": "Offer",
+            "type": "array"
+          },
+          "waiting": {
+            "description": "Asked through this shala, no answer",
+            "items": {
+              "$ref": "#/components/schemas/TeacherChoiceOut"
+            },
+            "title": "Waiting",
+            "type": "array"
+          }
+        },
+        "required": [
+          "offer",
+          "waiting"
+        ],
+        "title": "TeacherChoicesOut",
         "type": "object"
       },
       "TeacherOut": {
@@ -11513,6 +11624,93 @@
         ]
       }
     },
+    "/api/v1/me/teacher-requests": {
+      "post": {
+        "description": "The student's consent tap: asks the teacher, who gets one silent note (sent inside\nthis request, at most 3 s; a failure fails nothing). 404 `not_found`: not a student of\nthe shala. 403 `not_allowed`: that person holds no Teacher role there, or the caller is\non its staff.",
+        "operationId": "post_teacher_request_api_v1_me_teacher_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Post Teacher Request",
+        "tags": [
+          "links"
+        ]
+      }
+    },
     "/api/v1/me/teacher-requests/{teacher_id}": {
       "delete": {
         "description": "The student takes a request back. Idempotent and silent: the teacher gets no message,\nand the answer is the same whether anything was waiting.",
@@ -14109,6 +14307,85 @@
         "summary": "Delete Swap",
         "tags": [
           "classes"
+        ]
+      }
+    },
+    "/api/v1/shalas/{id}/teacher-choices": {
+      "get": {
+        "description": "The teachers a student of the shala can ask, and the ones they wait for there. 404\n`not_found`: no such shala, not a member, or on its staff (one body for all three).",
+        "operationId": "get_teacher_choices_api_v1_shalas__id__teacher_choices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeacherChoicesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "TelegramInitData": []
+          }
+        ],
+        "summary": "Get Teacher Choices",
+        "tags": [
+          "links"
         ]
       }
     }

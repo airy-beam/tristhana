@@ -7,6 +7,7 @@ Two things are pinned throughout: a waiting or declined request grants nothing a
 and nothing the student can read back tells a quiet "no" from waiting."""
 
 import asyncio
+import inspect
 import itertools
 from dataclasses import dataclass, field, fields
 from datetime import UTC, date, datetime, timedelta
@@ -71,7 +72,9 @@ from tristhana.domain.teacher_requests import (
     AskState,
     Closing,
     RequestCaps,
+    RequestConsent,
     RequestState,
+    grants_quiet_note,
 )
 
 NOW = datetime(2026, 11, 17, 10, 30, tzinfo=UTC)
@@ -144,12 +147,22 @@ class World:
         return await use_case.execute(Principal(who), shala or self.shala)
 
     async def ask(
-        self, student: Account, teacher: Account, shala: UUID | None = None, agreed: bool = True
+        self,
+        student: Account,
+        teacher: Account,
+        shala: UUID | None = None,
+        consent: RequestConsent = RequestConsent.FIRST,
     ) -> AskResult:
         use_case = AskTeacher(self.requests, self.notifier, self.clock)
         return await use_case.execute(
-            Principal(student), shala or self.shala, teacher.id, quiet_note_agreed=agreed
+            Principal(student), shala or self.shala, teacher.id, consent=consent
         )
+
+    def without_the_note(self, student: Account, teacher: Account) -> None:
+        """A request whose consent granted no quiet note. No `RequestConsent` grants that
+        today (ADR-0049), but a row says only what its consent granted, and the approval
+        copies whatever the row holds."""
+        self.requests.rows[(student.id, teacher.id)].quiet_note_agreed = False
 
     async def withdraw(self, student: Account, teacher: Account) -> Withdrawn:
         return await WithdrawRequest(self.requests).execute(Principal(student), teacher.id)
@@ -373,14 +386,33 @@ async def test_a_teacher_without_telegram_gets_no_note(world: World) -> None:
     assert world.notifier.asked == []
 
 
-async def test_the_consent_of_the_tapped_screen_is_stored(world: World) -> None:
-    anna, boris, student = world.teacher("Anna"), world.teacher("Boris"), world.student()
+@pytest.mark.parametrize("consent", list(RequestConsent))
+async def test_the_request_stores_what_its_named_consent_grants(
+    world: World, consent: RequestConsent
+) -> None:
+    """ADR-0049: the client names the consent it showed; the domain says what it grants."""
+    anna, student = world.teacher("Anna"), world.student()
 
-    await world.ask(student, anna, agreed=True)
-    await world.ask(student, boris, agreed=False)
+    await world.ask(student, anna, consent=consent)
+
+    stored = world.requests.rows[(student.id, anna.id)].quiet_note_agreed
+    assert stored is grants_quiet_note(consent)
+
+
+async def test_the_first_request_consent_stores_the_quiet_note(world: World) -> None:
+    anna, student = world.teacher("Anna"), world.student()
+
+    await world.ask(student, anna, consent=RequestConsent.FIRST)
 
     assert world.requests.rows[(student.id, anna.id)].quiet_note_agreed is True
-    assert world.requests.rows[(student.id, boris.id)].quiet_note_agreed is False
+
+
+def test_ask_takes_a_named_consent_and_no_flag() -> None:
+    parameters = inspect.signature(AskTeacher.execute).parameters
+
+    assert "quiet_note_agreed" not in parameters
+    assert parameters["consent"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameters["consent"].annotation in (RequestConsent, "RequestConsent")
 
 
 async def test_what_the_student_gets_back_holds_no_teacher_side_fact(world: World) -> None:
@@ -539,7 +571,9 @@ async def test_approve_makes_the_link_from_the_day_the_student_asked(
 ) -> None:
     teacher = world.teacher()
     student = world.student(zone="Pacific/Kiritimati")
-    await world.ask(student, teacher, agreed=agreed)
+    await world.ask(student, teacher)
+    if not agreed:
+        world.without_the_note(student, teacher)
     world.later(timedelta(days=3))
 
     answer = await world.approve(teacher, student)
@@ -742,7 +776,8 @@ async def test_confirm_all_through_the_use_case(world: World) -> None:
     teacher = world.teacher()
     students = [world.student(f"S{n}") for n in range(3)]
     for student in students:
-        await world.ask(student, teacher, agreed=False)
+        await world.ask(student, teacher)
+        world.without_the_note(student, teacher)
     page = await world.waiting(teacher)
 
     done = await world.approve_all(teacher, page.as_of)
