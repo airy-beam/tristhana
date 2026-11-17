@@ -330,7 +330,7 @@ FULL: dict[str, str | tuple[str, ...]] = {
     "t1:g": f"t1:r:{frozen.PERSON}",
     "t1:gp": f"t1:r:{frozen.PERSON}",
     "t1:gy": (f"t1:v:{frozen.PERSON}", "w1:m"),
-    "h1:a": SHALA_CARD,
+    "h1:a": "h1:ta:",  # joined: "Who is your teacher here?" (ID-07), the owner teaches
     "h1:b": SHALA_CARD,
     "h1:n": TODAY,
     "h1:l": f"h1:a:{frozen.SHALA_CODE}",  # the consent screen
@@ -563,6 +563,83 @@ def test_the_buttons_ui06_added_to_old_prefixes_also_get_a_screen(w: World) -> N
         body = _tap(w, data)
         assert body["method"] == "editMessageText", data
         assert len(data.encode()) <= 22, data
+
+
+# ID-07 (spec §5): a teacher's note and a student's question stay in the chat for good. Each
+# new button, tapped when nothing it was about is waiting, lands on the nearest living
+# screen: (in the full world, in the bare one). In the full world I am on the staff of the
+# shala, and the other person is both my teacher and my student, so every tap here is a
+# stale one. The table's own rows, request by request, are in
+# `test_teacher_requests_screens_bot.py`.
+_S, _P = "ERERERERQRGBEREREREREQ", "MzMzMzMzQzODMzMzMzMzMw"  # the shala and the person, short
+ALREADY = "t1:s:0"  # "already on your list": 👥 My students
+GONE = "t1:i"  # "no longer open": Invite students, the way out
+EMPTY_LIST = "t1:s:0"  # nobody waiting: Back to My students
+ID07: dict[str, tuple[str | tuple[str, ...], str | tuple[str, ...]]] = {
+    f"h1:t:{_S}": (SHALA_CARD, NO_TEACHER),  # the question: not a student there
+    f"h1:td:{_S}": (SHALA_CARD, NO_TEACHER),
+    f"h1:tn:{_S}": (SHALA_CARD, NO_TEACHER),
+    f"h1:ta:{_S}:{_P}": (SHALA_CARD, NO_TEACHER),  # a name on an old question
+    f"h1:tw:{_S}:{_P}": (SHALA_CARD, NO_TEACHER),
+    f"h1:tx:{_S}:{_P}": (f"t1:u:{frozen.PERSON}", NO_TEACHER),  # linked: the teacher's card
+    f"t1:ra:{frozen.PERSON}": (ALREADY, GONE),
+    f"t1:rn:{frozen.PERSON}": (ALREADY, GONE),
+    f"t1:ru:{frozen.PERSON}": (ALREADY, GONE),
+    f"t1:rv:{frozen.PERSON}": (GONE, GONE),  # a list row: nothing is waiting
+    "t1:rl:0": (EMPTY_LIST, EMPTY_LIST),
+    "t1:rl:4": (EMPTY_LIST, EMPTY_LIST),
+    "t1:rc": (EMPTY_LIST, EMPTY_LIST),
+    "t1:rcy:1794700000": (EMPTY_LIST, EMPTY_LIST),
+}
+
+
+def test_the_id07_table_uses_the_frozen_ids() -> None:
+    from tristhana.bots.telegram.shalas_callbacks import short_id
+
+    assert (short_id(frozen.SHALA), short_id(frozen.PERSON)) == (_S, _P)
+    assert not set(ID07) & set(frozen.PRE_UI06_CALLBACKS)  # new letters, no old meaning
+
+
+@pytest.mark.parametrize("world", ["w", "bare"])
+@pytest.mark.parametrize("data", ID07)
+def test_the_buttons_id07_added_get_a_screen_when_nothing_is_waiting(
+    world: str, data: str, request: pytest.FixtureRequest
+) -> None:
+    w: World = request.getfixturevalue(world)
+    links = dict(w.storage.link_repo.rows)
+
+    _assert_screen(w, data, {data: ID07[data][world == "bare"]})
+
+    assert len(data.encode()) <= 64
+    assert w.storage.link_repo.rows == links  # a "no" never removes a link, a "yes" adds none
+    assert w.storage.teacher_requests.rows == {}
+    assert w.sent == ["answerCallbackQuery"]  # no note to anyone
+
+
+@pytest.mark.parametrize("letter", ["ra", "rn", "ru", "rv"])
+def test_a_request_note_tapped_after_the_week_says_it_is_closed(w: World, letter: str) -> None:
+    """The one line for every reason, with the way out; the link is not made after day 7."""
+    zoe = person(w.storage, "1003", "Zoe")
+    w.storage.shalas.add_student(frozen.SHALA, zoe.id)
+    w.storage.teacher_requests.add(zoe.id, w.me, frozen.SHALA)
+    w.later(days=8)
+
+    text = _assert_screen(w, f"t1:{letter}:{zoe.id}", {"t1": GONE})
+
+    assert text.strip() == T.t("en", "request-gone")
+    assert (zoe.id, w.me) not in w.storage.link_repo.rows
+
+
+def test_pick_another_under_an_old_no_answer_note_opens_that_shalas_question(w: World) -> None:
+    """The closing note's button: `h1:t:<shala>`, for someone still a student there."""
+    del w.storage.shalas.staff[(frozen.SHALA, w.me)]
+    w.storage.shalas.add_student(frozen.SHALA, w.me)
+    boris = person(w.storage, "1004", "Boris")
+    w.storage.shalas.add_staff(frozen.SHALA, boris.id, ShalaRole.TEACHER)
+
+    text = _assert_screen(w, f"h1:t:{_S}", {"h1": f"h1:ta:{_S}:"})
+
+    assert T.t("en", "request-ask") in text or T.t("en", "request-ask-one", name="Boris") in text
 
 
 def _taps(body: Any) -> dict[str, str]:

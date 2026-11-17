@@ -16,6 +16,10 @@ t1:i:o  t1:im:o  t1:w:o  t1:wy:o            the same four screens opened from "T
 t1:g:<id>:<page>                            mark a new asana: the picker (PR-08 Phase 3)
 t1:gp:<id>:<n>:<i>:<k>:<page>               picked → the confirm screen
 t1:gy:<id>:<n>:<i>:<k>:<page>               confirm and mark
+t1:ra:<id>  t1:rn:<id>  t1:ru:<id>          a student's request (ID-07): yes, not my student, undo
+t1:rv:<id>  t1:rl:<page>                    one request's screen, the waiting list
+t1:rc  t1:rcy:<unix seconds>                confirm all: ask, then confirm who asked before that
+                                            moment (the one the ask screen was drawn at)
 
 A position is `<n>:<i>`, the series number and the stop's index in it (`0:0` = standing only):
 a stop key doesn't fit beside a uuid. `<k>` (1-3) counts the steps from there; the server
@@ -31,12 +35,12 @@ from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.teacher_links import parse_invite
 
 PREFIX = "t1"
-type Plain = Literal["n", "o", "i", "im", "q", "w", "wy"]
-type Person = Literal["c", "p", "u", "x", "v", "r", "z"]
+type Plain = Literal["n", "o", "i", "im", "q", "w", "wy", "rc"]
+type Person = Literal["c", "p", "u", "x", "v", "r", "z", "ra", "rn", "ru", "rv"]
 type Origin = Literal["o"]  # where the invite was opened from: "Teacher and shala" (`t1:o`)
-_PLAIN = ("n", "o", "i", "im", "q", "w", "wy")
+_PLAIN = ("n", "o", "i", "im", "q", "w", "wy", "rc")
 _WITH_ORIGIN = ("i", "im", "w", "wy")  # the invite and what is behind it
-_PERSON = ("c", "p", "u", "x", "v", "r", "z")
+_PERSON = ("c", "p", "u", "x", "v", "r", "z", "ra", "rn", "ru", "rv")
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,8 +113,34 @@ class GiveStep:
     confirm: bool
 
 
+@dataclass(frozen=True, slots=True)
+class Waiting:
+    """`t1:rl`: a page of the people waiting for the caller's answer (ID-07)."""
+
+    page: int
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmAll:
+    """`t1:rcy`: confirm everyone who asked before `before` (unix seconds, rounded down, so
+    nobody who asked after the screen was drawn is confirmed unseen)."""
+
+    before: int
+
+
 type LinkTap = (
-    Confirm | Reopen | Details | Card | Language | Students | OnPerson | Tap | Give | GiveStep
+    Confirm
+    | Reopen
+    | Details
+    | Card
+    | Language
+    | Students
+    | OnPerson
+    | Tap
+    | Give
+    | GiveStep
+    | Waiting
+    | ConfirmAll
 )
 
 
@@ -156,6 +186,14 @@ def students(page: int) -> str:
     return f"{PREFIX}:s:{page}"
 
 
+def waiting(page: int) -> str:
+    return f"{PREFIX}:rl:{page}"
+
+
+def confirm_all(before: int) -> str:
+    return f"{PREFIX}:rcy:{before}"
+
+
 def _code(value: str) -> str | None:
     return parse_invite(f"t_{value}")
 
@@ -172,6 +210,11 @@ def _page(value: str) -> bool:
     """At most 4 digits: 500 students fit in 50 pages, and a forged huge page must never reach
     the database as an offset (a page past the end already falls back to page 0)."""
     return 1 <= len(value) <= 4 and value.isascii() and value.isdigit()
+
+
+def _unix(value: str) -> bool:
+    """Seconds since 1970 as 9 or 10 digits (2001 to 2286), nothing a datetime can't hold."""
+    return len(value) in (9, 10) and value.isascii() and value.isdigit() and value[0] != "0"
 
 
 def _step(id: str, n: str, i: str, k: str, page: str, confirm: bool) -> GiveStep | None:
@@ -207,6 +250,10 @@ def decode(data: str | None) -> LinkTap | None:
             return Language(locale, code)  # type: ignore[arg-type]
         case [p, "s", page] if p == PREFIX and _page(page):
             return Students(int(page))
+        case [p, "rl", page] if p == PREFIX and _page(page):
+            return Waiting(int(page))
+        case [p, "rcy", value] if p == PREFIX and _unix(value):
+            return ConfirmAll(int(value))
         case [p, "g", value, page] if p == PREFIX and _page(page):
             found = _person("v", value)
             return Give(found.id, int(page)) if found else None

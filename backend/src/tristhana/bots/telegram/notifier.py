@@ -205,12 +205,23 @@ class TelegramNotifier:
         )
 
     async def tell_teacher_asked(self, recipient: Recipient, asked: TeacherAsked) -> DeliveryResult:
-        """ID-07: the teacher's silent note with Yes and No.
+        """ID-07: the teacher's note with Yes and "Not my student", in the teacher's
+        language. Always silent (a room joining at once makes no noise); plain text, because
+        the names are the student's and the shala's own, never markup."""
+        from tristhana.bots.telegram import teacher_requests
 
-        STUB (ID-07 slice 3): the note's screen and its `t1:r*` buttons are built with the
-        bot. Nothing calls `AskTeacher` before that; when the screen exists, send it here as
-        `tell_staff_joined` does (silent, `JOIN_NOTE_TIMEOUT_S`, plain text, no retry)."""
-        raise NotImplementedError("ID-07 slice 3: the teacher's request note")
+        screen = teacher_requests.asked_note(self._t, recipient.locale, asked)
+        return await _sent(
+            self._runtime().bot.send_message(
+                chat_id=int(recipient.telegram_id),
+                text=screen.text,
+                reply_markup=screen.markup,
+                parse_mode=None,
+                disable_notification=True,
+                request_timeout=JOIN_NOTE_TIMEOUT_S,  # the student's tap is waiting
+            ),
+            "request ask note",
+        )
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:
         """ST-09: a direct `sendDocument` (a webhook reply can't carry a file, ADR-0012)."""

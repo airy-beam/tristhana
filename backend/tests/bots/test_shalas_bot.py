@@ -377,8 +377,12 @@ def test_the_card_names_the_shala_time_without_the_offset_for_a_member_in_its_zo
 
 
 def test_join_edits_into_the_card(client: TestClient, storage: InMemoryStorage) -> None:
+    """With nobody to ask (no Teacher role in the shala), a join ends on the card, as before
+    ID-07; with one, on the question (`test_teacher_requests_screens_bot.py`)."""
     owner = _owner(storage)
-    shala = _shala(storage, owner)
+    shala = storage.shalas.add_shala(
+        owner.id, "Ashtanga Almaty", "almaty", code=JOIN, roles=frozenset()
+    ).id
     consent = _command(client, f"/start h_{JOIN}")
 
     body = _tap(client, _data(consent, "✅"))
