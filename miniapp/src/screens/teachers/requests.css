@@ -1,6 +1,6 @@
-/* ID-07: teacher requests. The people waiting for a teacher's answer (My students) and the
-   student's waiting line (Shala tab). Loaded with those lazy screens, never with the first
-   chunk. Theme tokens only. */
+/* ID-07: teacher requests. The people waiting for a teacher's answer and the student's waiting
+   line, both on the Shala tab. Loaded with its lazy screens, never with the first chunk. Theme
+   tokens only. */
 /* "Confirm only people you know", read before the first answer. */
 .waiting > .hint {
   margin: -4px 0 4px;

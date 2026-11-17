@@ -4,12 +4,12 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { Me } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
-import Links from "../settings/Links";
 import More from "../settings/pages/More";
 import { useBackButton } from "../../telegram";
 import ShalaScreen from "./ShalaScreen";
+import ShalaTab from "./ShalaTab";
 
-// SC-01 (spec §2, §4, §7): the 🏛 Shalas part of 👥 Teachers and students, the create form
+// SC-01 (spec §2, §4, §7): my shalas on the Shala tab (a row each; UI-06 stage 4B), the create form
 // (UI-06 stage 4: two fields, name 1–64 and a listed city preselected with home_city; the
 // owner starts as its teacher and changes the rest on the card, their own roles too), the
 // owner's setup list (add a class, invite students, invite teachers), the card
@@ -61,6 +61,7 @@ interface MeIn {
   roles: Role[];
   student: boolean;
   schedule?: boolean; // SC-02
+  announce?: boolean; // NT-03
 }
 const STAFF = [
   { id: ANNA, name: "Anna", owner: true, roles: ["teacher"] as Role[] },
@@ -166,6 +167,7 @@ function stubApi(stub: Stub = {}): Request[] {
       if (path === `/api/v1/shalas/${SHALA}/staff-invites`)
         return json({ url: "https://t.me/x?start=i_a", qr: "data:image/png;base64,AA==" });
       if (path === `/api/v1/shalas/${SHALA}/classes`) return json([]);
+      if (path === "/api/v1/me/announcements/sent") return json([]); // NT-03
       if (path === "/api/v1/me") return json({ ...ME, day_off: [6], home_city: stub.home ?? null });
       return json({});
     }),
@@ -193,35 +195,41 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("the Shalas part of Teachers and students", () => {
-  it("lists my shalas, then Create a shala", async () => {
+describe("my shalas on the Shala tab", () => {
+  // UI-06 stage 4B: a row per shala (no card title), and creating one is the group's
+  // "Shala and classes", last.
+  it("lists my shalas, then the group's Shala and classes", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
-    await screen.findByText(/Ashtanga Almaty/);
-    expect(screen.getByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    const row = await screen.findByRole("button", { name: /Ashtanga Almaty/ });
+    const create = screen.getByRole("button", { name: "Shala and classes" });
+    expect(row.compareDocumentPosition(create)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByRole("heading", { name: "🏛 Shalas" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
   });
 
   // UI-06 stage 2: with nobody on the lists and no shala there are no empty cards; the quiet
-  // "Shala and classes" start opens the layout with the form.
+  // "Shala and classes" start opens the form under it.
   it("with no shalas and nobody on the lists, Shala and classes leads to the form", async () => {
     stubApi({ mine: [] });
 
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
     const start = await screen.findByRole("button", { name: "Shala and classes" });
-    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
     fireEvent.click(start);
 
-    expect(await screen.findByRole("textbox")).toHaveFocus();
-    expect(screen.getByRole("heading", { name: "🏛 Shalas" })).toBeInTheDocument();
+    const name = await screen.findByRole("textbox");
+    expect(name).toHaveFocus();
+    expect(start).toHaveAttribute("aria-expanded", "true");
+    expect(name.closest("section.card")).toBe(start.closest("section.card"));
   });
 });
 
 describe("the create form", () => {
   /** Someone with nobody on the lists yet: the quiet start opens the form. */
   async function openForm() {
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Shala and classes" }));
     return screen.findByRole("textbox");
   }
@@ -288,24 +296,31 @@ describe("the create form", () => {
   it("starts open with the name focused when asked to (create)", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
     expect(await screen.findByRole("textbox")).toHaveFocus();
-    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Shala and classes" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
-  it("doesn't take the focus when the form is opened by its button", async () => {
+  // UI-06 stage 4B: one row opens it, from a start or a tap, and either way it is to type in.
+  it("opened by its row, it is ready to type too; a second tap closes it", async () => {
     stubApi({ mine: MINE });
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    const row = await screen.findByRole("button", { name: "Shala and classes" });
 
-    fireEvent.click(await screen.findByRole("button", { name: "🏛 Create a shala" }));
+    fireEvent.click(row);
 
-    expect(await screen.findByRole("textbox")).not.toHaveFocus();
+    expect(await screen.findByRole("textbox")).toHaveFocus();
+    fireEvent.click(row);
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("opens only once: back from the new shala's card the form is closed", async () => {
     stubApi();
-    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
     const name = await screen.findByRole("textbox");
     fireEvent.change(name, { target: { value: "Ashtanga Almaty" } });
     fireEvent.submit(name.closest("form") as HTMLFormElement);
@@ -315,7 +330,10 @@ describe("the create form", () => {
       vi.mocked(useBackButton).mock.lastCall?.[0]();
     });
 
-    expect(await screen.findByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Shala and classes" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
@@ -588,7 +606,7 @@ describe("opened for one thing", () => {
     "the Shala tab's start %s:<id> opens that card so, once",
     async (open) => {
       stubApi({ mine: MINE, card: OWNS });
-      renderWith(<Links start={`${open}:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+      renderWith(<ShalaTab start={`${open}:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
       const opened = () =>
         open === "class"
           ? form()
@@ -611,6 +629,73 @@ describe("opened for one thing", () => {
       expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
     },
   );
+});
+
+// UI-06 stage 4B (QF): the bot's "📣 Announce" from a shala (`?open=announce&shala=`) opens
+// that shala's card with the message form over it; Back finds the card, where its
+// announcements are, and then the list.
+describe("opened to announce", () => {
+  const ANNOUNCES = shalaOut({ ...OWNER, announce: true });
+  const back = () => {
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+  };
+  const composer = () => screen.findByRole("heading", { level: 1, name: "📣 Announcement" });
+
+  it("someone who may announce gets the form over the card; Back shows the card", async () => {
+    stubApi({ card: ANNOUNCES });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="announce" />);
+
+    expect(await composer()).toBeVisible();
+    // The card is there under it, hidden.
+    expect(
+      screen.getByRole("button", { name: "📣 Announcements", hidden: true }),
+    ).not.toBeVisible();
+    back();
+
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
+
+  it("once: the card's own Announce opens the form again, plainly", async () => {
+    stubApi({ card: ANNOUNCES });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="announce" />);
+    await composer();
+    back();
+
+    fireEvent.click(await screen.findByRole("button", { name: "📣 Announce" }));
+
+    expect(await composer()).toBeVisible();
+    back();
+    expect(await screen.findByRole("button", { name: "📣 Announce" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
+
+  it.each([
+    ["a student", STUDENT],
+    ["staff without the right", TEACHER],
+  ])("%s gets the card, no form", async (_who, me) => {
+    stubApi({ card: shalaOut(me) });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="announce" />);
+
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
+
+  it("the Shala tab's start announce:<id>: form, then the card, then the list", async () => {
+    stubApi({ mine: MINE, card: ANNOUNCES });
+    renderWith(<ShalaTab start={`announce:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+
+    expect(await composer()).toBeVisible();
+    back();
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    back();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Ashtanga Almaty/ }));
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
 });
 
 // UI-06 stage 4 (Q340): the owner's first steps, from the server's `setup` (the same rule as

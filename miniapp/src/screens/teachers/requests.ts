@@ -18,8 +18,8 @@ import "./requests.css";
 
 // ID-07: teacher requests. A student names a teacher in the bot; the teacher answers here or
 // there, and the student can withdraw. Kept out of api/client, with its copy (`requests.ftl`)
-// and its styles, so the first chunk carries none of it: only the lazy My students and Shala
-// tab chunks import this. Writes wait for the server.
+// and its styles, so the first chunk carries none of it: only the lazy Shala tab chunks import
+// this. Writes wait for the server.
 addMessages({ en, ru });
 
 export type { AskedTeacher, StudentRequest, StudentRequests };

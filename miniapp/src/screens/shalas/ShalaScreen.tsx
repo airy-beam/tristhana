@@ -71,8 +71,9 @@ interface Props {
   id: string;
   onBack: () => void;
   week?: number | undefined; // the schedule's first week shown (0-3), from My schedule
-  /** UI-06: opened for one thing (Today's next step): the class form or the student invite is
-   * open and in view. Once: not again after the announcements were opened from here. */
+  /** UI-06: opened for one thing (Today's next step, the bot's "📣 Announce" from this shala):
+   * the class form, the student invite or the message form is open and in view. Once: not
+   * again after the announcements were opened from here. */
   open?: ShalaOpen | undefined;
 }
 
@@ -99,7 +100,11 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const [gone, setGone] = useState(false);
   // Only for those who manage classes; a start asking for the form leaves the others the card.
   const editing = form !== null && shala?.me.schedule === true;
-  const covered = editing || announcements !== null;
+  // QF: only for those who may announce here; the others (and a former member) get the card.
+  const layer =
+    announcements ??
+    (opened === "announce" && shala?.me.announce ? { view: "compose" as const } : null);
+  const covered = editing || layer !== null;
   // Where the card was scrolled when a layer opened, and what had the focus, to give both back.
   const left = useRef<{ top: number; from: Element | null } | null>(null);
   useEffect(() => {
@@ -147,13 +152,14 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
         />
       </div>
       {editing && <ClassForm shala={shala} edit={form.edit} onDone={closeForm} />}
-      {announcements && (
+      {layer && (
         <Suspense fallback={<main className="screen" aria-busy="true" />}>
           <Announcements
-            mode={{ ...announcements, shala: id }}
+            mode={{ ...layer, shala: id }}
             locale={locale}
             onBack={() => {
               setAnnouncements(null);
+              setOpened(undefined);
             }}
           />
         </Suspense>

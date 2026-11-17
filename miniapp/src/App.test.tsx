@@ -125,6 +125,8 @@ let nextSteps: { kind: string; shala_id: string | null }[] = [];
 let classesToday: unknown[] = [];
 /** Whether GET /shalas/<id> answers with a card I own (else `{}`, as for any unknown path). */
 let ownedShala = false;
+/** Whether GET /shalas/<id> answers 404: I am no longer a member. */
+let leftShala = false;
 /** The page's scroll, and a section scrolled into view (jsdom has neither). */
 const scrollTo = vi.fn();
 const scrollIntoView = vi.fn();
@@ -171,6 +173,7 @@ function respond(path: string): Response {
   if (path === "/api/v1/me/invite")
     return json({ url: "https://t.me/tristhana_bot?start=t_a", qr: QR });
   if (ownedShala && path === `/api/v1/shalas/${SHALA}`) return json(OWNED);
+  if (leftShala && path === `/api/v1/shalas/${SHALA}`) return json({ code: "not_found" }, 404);
   if (path === `/api/v1/shalas/${SHALA}/join-link`)
     return json({ url: "https://t.me/tristhana_bot?start=s_a", qr: QR });
   if (path === `/api/v1/shalas/${SHALA}/schedule`)
@@ -241,7 +244,7 @@ beforeAll(async () => {
     import("./screens/stats/Year"),
     import("./screens/badges/Badges"),
     import("./screens/trends/Trends"),
-    import("./screens/settings/Links"),
+    import("./screens/shalas/ShalaTab"),
     import("./screens/settings/Settings"),
     import("./screens/settings/pages/Language"),
     import("./screens/settings/pages/City"),
@@ -271,6 +274,7 @@ beforeEach(() => {
   nextSteps = [];
   classesToday = [];
   ownedShala = false;
+  leftShala = false;
   sdk.haptic.length = 0;
   sdk.main.length = 0;
   vi.stubGlobal(
@@ -812,15 +816,16 @@ describe("what moved where", () => {
     expect(await practice()).toBeInTheDocument();
   });
 
-  test("Shala: My schedule is the first row for a shala member", async () => {
+  test("Shala: My schedule is the first row for a shala member, and the main one", async () => {
     myShalas = [myShala("student")];
     await launch();
     await today();
     await go("shala");
 
     const row = await screen.findByRole("button", { name: "🗓 My schedule" });
-    const rows = screen.getAllByRole("button").filter((b) => b.className === "row-button");
-    expect(rows[0]).toBe(row);
+    const main = (await shala()).closest("main") as HTMLElement;
+    expect(within(main).getAllByRole("button")[0]).toBe(row);
+    expect(row).toHaveClass("btn");
     fireEvent.click(row);
 
     await heading(/^🗓 My schedule/);
@@ -838,7 +843,7 @@ describe("what moved where", () => {
     expect(screen.queryByRole("button", { name: "🗓 My schedule" })).toBeNull();
   });
 
-  test("Shala: My students opens from the students card, and Back returns to Shala", async () => {
+  test("Shala: My students opens from its row, and Back returns to Shala", async () => {
     links = { teachers: [], students: [SHIVA] };
     await launch();
     await today();
@@ -850,7 +855,8 @@ describe("what moved where", () => {
     expect(bar()).toBeNull();
     back();
     expect(await shala()).toBeInTheDocument();
-    expect(await screen.findByText("Shiva")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "👥 My students" })).toBeInTheDocument();
+    expect(screen.queryByText("Shiva")).toBeNull(); // the names are on My students (QD)
   });
 
   test("Today's moon row opens the whole moon card", async () => {
@@ -1084,20 +1090,22 @@ describe("the empty Shala tab", () => {
     expect(bar()).not.toBeNull();
   });
 
-  test("Invite students opens the full layout with the invite card open", async () => {
+  test("Invite students opens the invite under its row, and no empty card", async () => {
     await launch();
     await today();
     await go("shala");
+    const row = await screen.findByRole("button", { name: "Invite students" });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Invite students" }));
+    fireEvent.click(row);
 
     expect(await screen.findByRole("button", { name: "Copy link" })).toBeInTheDocument();
-    expect(screen.getByText("No students on your list.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByText("No students on your list.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
     expect(seen.filter((r) => new URL(r.url).pathname === "/api/v1/me/invite")).toHaveLength(1);
   });
 
-  test("Shala and classes opens the full layout with the create form, ready to type", async () => {
+  test("Shala and classes opens the create form under its row, ready to type", async () => {
     await launch();
     await today();
     await go("shala");
@@ -1106,10 +1114,10 @@ describe("the empty Shala tab", () => {
 
     expect(await screen.findByLabelText("Name")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "I teach: invite students" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
   });
 
-  test("someone with a teacher sees the layout, not the empty line", async () => {
+  test("someone with a teacher sees the list, not the empty line", async () => {
     links = { teachers: [LENA], students: [] };
     await launch();
     await today();
@@ -1118,7 +1126,7 @@ describe("the empty Shala tab", () => {
     await screen.findByText("Лена");
     expect(screen.queryByText(/Nobody here yet/)).toBeNull();
     expect(screen.getByRole("button", { name: "📣 Announcements" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shala and classes" })).toBeInTheDocument();
   });
 });
 
@@ -1153,12 +1161,15 @@ describe("opened by a bot button (?open=…)", () => {
     await go("today");
     await go("shala");
 
-    expect(await screen.findByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Shala and classes" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(screen.queryByLabelText("Name")).toBeNull();
   });
 
   test("?open=announce opens the composer over the Shala tab; Back goes to the Shala root", async () => {
-    await launch(`/?open=announce&shala=${SHALA}`);
+    await launch("/?open=announce");
 
     await heading("📣 Announcement");
     expect(bar()).toBeNull();
@@ -1166,6 +1177,47 @@ describe("opened by a bot button (?open=…)", () => {
 
     expect(await shala()).toBeInTheDocument();
     expect(current()).toEqual(["🏛 Shala"]);
+    expect(sdk.backShown).toBe(false);
+  });
+
+  // UI-06 stage 4B (QF): the bot's "📣 Announce" on a shala's card.
+  test("?open=announce&shala= opens that shala's card with the composer; Back: card, then root", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    await launch(`/?open=announce&shala=${SHALA}`);
+
+    await heading("📣 Announcement");
+    expect(screen.queryByRole("heading", { level: 1, name: "🏛 Shala" })).toBeNull();
+    expect(bar()).toBeNull();
+    back();
+
+    // The card, where this shala's announcements are.
+    expect(await heading((n: string) => plain(n) === "🏛 Ashtanga Almaty")).toBeVisible();
+    expect(screen.getByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("?open=announce&shala= for a shala I left: the card says so, and Back goes to the root", async () => {
+    leftShala = true;
+    await launch(`/?open=announce&shala=${SHALA}`);
+
+    expect(
+      await screen.findByText(
+        "Couldn't load the shala. Try again in a moment.",
+        {},
+        { timeout: 4000 },
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
     expect(sdk.backShown).toBe(false);
   });
 

@@ -242,7 +242,7 @@ const ABOUT_EN = /^The name is in the public teachers directory of Sharath Yoga 
 beforeAll(async () => {
   await Promise.all([
     import("../../App"),
-    import("../settings/Links"),
+    import("../shalas/ShalaTab"),
     import("../settings/Settings"),
     import("../settings/DirectoryListing"),
     import("../shalas/ShalaScreen"),
@@ -258,7 +258,7 @@ async function renderApp(locale: "en" | "ru" = "en") {
   render(<App locale={locale} firstName="Ash" inTelegram />);
 }
 
-/** The Shala tab (UI-06 stage 2): teachers, students, the invite. */
+/** The Shala tab (UI-06 stage 4B): the row is in its last group, "For teachers and shalas". */
 async function openLinks(locale: "en" | "ru" = "en") {
   await renderApp(locale);
   const tab = locale === "en" ? "🏛 Shala" : "🏛 Шала";
@@ -307,12 +307,12 @@ afterEach(() => {
 });
 
 describe("the way in", () => {
-  test("a quiet row in the invite part opens the form", async () => {
+  test("a quiet row in the group, after the invite, opens the form", async () => {
     stubApi({ listing: listing(), teachers: [teacher(LENA, "Лена")] });
 
     await openLinks();
     const row = await screen.findByRole("button", { name: "SYC directory listing" });
-    const invite = screen.getByRole("button", { name: "I teach: invite students" });
+    const invite = screen.getByRole("button", { name: "Invite students" });
     expect(invite.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     fireEvent.click(row);
@@ -322,19 +322,19 @@ describe("the way in", () => {
     expect(screen.queryByRole("heading", { name: "🏛 Shala" })).toBeNull();
   });
 
-  // UI-06 stage 2: with nobody on the lists the Shala tab has no cards; the row comes with the
-  // layout that "Invite students" opens. (The bot's `?open=listing` still opens the form.)
-  test("nobody on the lists yet: the row is in the layout behind Invite students", async () => {
+  // UI-06 stage 4B: the group is the same for everyone, so with nobody on the lists the row is
+  // there too, under the two starts. (The bot's `?open=listing` still opens the form.)
+  test("nobody on the lists yet: the row is the group's last, under the two starts", async () => {
     stubApi({ listing: listing() });
 
     await openLinks();
-    const start = await screen.findByRole("button", { name: "Invite students" });
-    expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
-    fireEvent.click(start);
+    const row = await screen.findByRole("button", { name: "SYC directory listing" });
 
+    const group = row.closest("section") as HTMLElement;
     expect(
-      await screen.findByRole("button", { name: "SYC directory listing" }),
-    ).toBeInTheDocument();
+      [...group.querySelectorAll("button")].map((b) => b.textContent.replace(/[⁨⁩]/g, "")),
+    ).toEqual(["Invite students", "Shala and classes", "SYC directory listing"]);
+    expect(screen.getByText(/Nobody here yet/)).toBeInTheDocument();
   });
 
   test("requests aren't taken (available false): the row is hidden, on a 200", async () => {
@@ -348,7 +348,7 @@ describe("the way in", () => {
     await waitFor(() => {
       expect(calls(seen, "GET")).toHaveLength(1);
     });
-    await screen.findByRole("button", { name: "I teach: invite students" });
+    await screen.findByRole("button", { name: "Invite students" });
 
     expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -388,7 +388,7 @@ describe("the way in", () => {
     await waitFor(() => {
       expect(calls(seen, "GET")).toHaveLength(1);
     });
-    await screen.findByRole("button", { name: "I teach: invite students" });
+    await screen.findByRole("button", { name: "Invite students" });
 
     expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();

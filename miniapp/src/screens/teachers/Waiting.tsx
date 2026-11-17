@@ -20,7 +20,8 @@ interface Declined {
   at: number;
 }
 
-/** ID-07: the people who named me as their teacher in a shala, on top of My students. Each
+/** ID-07: the people who named me as their teacher in a shala, on top of the Shala tab (UI-06
+ * stage 4B, QC). Each
  * answer is one request and waits for the server. "Not my student" tells the person nothing
  * and keeps its row with an Undo until the screen is left; "Confirm all" asks once and sends
  * back the moment the list was drawn. A request that is no longer open (404, one line for

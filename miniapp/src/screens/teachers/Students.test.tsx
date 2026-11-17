@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import shellSource from "../../shell/Shell.tsx?raw";
 import homeSource from "../Home.tsx?raw";
-import linksSource from "../settings/Links.tsx?raw";
+import shalaTabSource from "../shalas/ShalaTab.tsx?raw";
 
 // The app's tsconfig has no Node types, and Vitest blanks CSS imports, `?raw` included.
 declare const process: {
@@ -15,8 +15,9 @@ declare const process: {
 
 // ST-06 (spec §2, §5, §8): the neutral My students row, the list (name and today's mark, nothing
 // else), the card (7 days, last asana, one quiet note), Show more, a 404 falling back to the
-// list, and Remove dropping the cache. Driven through App. Since UI-06 stage 2 the row lives in
-// the students card on the Shala tab (the Home row was deleted, not duplicated).
+// list, and Remove dropping the cache. Driven through App. Since UI-06 stage 2 the row is on the
+// Shala tab (the Home row was deleted, not duplicated); since stage 4B it is the tab's one row
+// for students (QD), and the people waiting for an answer are on the tab, not here (QC).
 // App keeps one QueryClient per module, so each test imports a fresh App.
 
 const telegram = vi.hoisted(() => ({
@@ -275,7 +276,7 @@ const homeLoaded = () => screen.findByRole("heading", { level: 2, name: /^(Today
 const ROW = { en: "👥 My students", ru: "👥 Мои ученики" } as const;
 const shalaTab = (locale: "en" | "ru" = "en") =>
   screen.getByRole("button", { name: locale === "en" ? "🏛 Shala" : "🏛 Шала" });
-/** The row in the students card on the Shala tab, opening that tab if need be. */
+/** The row on the Shala tab, opening that tab if need be. */
 const homeRow = async (locale: "en" | "ru" = "en") => {
   if (!screen.queryByRole("heading", { level: 1, name: /^🏛 / })) fireEvent.click(shalaTab(locale));
   return screen.findByRole("button", { name: ROW[locale] });
@@ -286,7 +287,7 @@ const homeRow = async (locale: "en" | "ru" = "en") => {
 beforeAll(async () => {
   await Promise.all([
     import("../../App"),
-    import("../settings/Links"),
+    import("../shalas/ShalaTab"),
     import("../settings/Settings"),
     import("../settings/DirectoryListing"),
     import("../shalas/ShalaScreen"),
@@ -523,7 +524,7 @@ describe("the list", () => {
     expect(pageText()).toContain("Couldn't load your students. Try again in a moment.");
   });
 
-  test("opens from the students card on the Shala tab", async () => {
+  test("opens from its row on the Shala tab", async () => {
     stubApi();
     await renderApp();
 
@@ -738,482 +739,21 @@ describe("Remove", () => {
     expect(screen.queryByRole("button", { name: /Anna/ })).toBeNull();
     expect(calls(seen, "GET", "/api/v1/me/students").length).toBeGreaterThan(1);
   });
-
-  test("removing from the Shala tab's students card drops the list's cache too", async () => {
-    confirmDestructive.mockResolvedValue(true);
-    let removed = false;
-    stubApi({
-      rows: () => (removed ? ROWS.slice(1) : ROWS),
-      answer: (request) => {
-        if (request.method !== "DELETE") return undefined;
-        removed = true;
-        return new Response(null, { status: 204 });
-      },
-    });
-    await openList();
-    await screen.findByRole("button", { name: /Anna/ });
-    act(() => {
-      telegram.back();
-    });
-    await screen.findByRole("heading", { level: 1, name: "🏛 Shala" });
-    const person = (await screen.findByText("Anna")).closest(".link-person") as HTMLElement;
-
-    fireEvent.click(within(person).getByRole("button", { name: "Remove…" }));
-
-    await waitFor(() => {
-      expect(removed).toBe(true);
-    });
-    fireEvent.click(await screen.findByRole("button", { name: /^👥 My students/ }));
-    await screen.findByRole("button", { name: /Maria/ });
-    expect(screen.queryByRole("button", { name: /Anna/ })).toBeNull();
-  });
 });
 
-// ID-07 (spec §2, §4, §8): the people who named the caller as their teacher wait in a block on
-// top of the list. Each answer is one request; "Not my student" keeps its row for an Undo; the
-// block is not there when nobody waits.
-describe("the waiting block", () => {
-  const TITLE = /Waiting for your answer|Ждут твоего ответа/;
-  /** A name or a text that reads exactly so, whatever Fluent wrapped its numbers in. */
-  const reads = (text: string) => (found: string) => plain(found) === text;
-  const YES = "✅ Yes, my student";
-  const NO = "Not my student";
-  const UNDO = "↩️ Undo";
-  /** The block, once it's drawn. */
-  const block = async () => {
-    const title = await screen.findByRole("heading", { level: 2, name: TITLE });
-    const card = title.closest("section");
-    if (!card) throw new Error("the waiting block is not a section");
-    return within(card);
-  };
-  /** One person's row in the block. */
-  const person = (name: string) => {
-    const found = screen.getByText(name).closest("li");
-    if (!found) throw new Error(`${name} has no row`);
-    return within(found);
-  };
-  const posts = (seen: Request[], rest: string) => calls(seen, "POST", `${REQUESTS}/${rest}`);
-  const TWO = () => [asks(OLGA, "Olga"), asks(PAVEL, null)];
-
-  test("is absent when nobody waits, and costs one read", async () => {
-    const seen = stubApi();
+// UI-06 stage 4B (QC): the people waiting for my answer are on the Shala tab
+// (`shalas/ShalaTab.test.tsx`, "the waiting block"); My students is the list only.
+describe("no waiting block", () => {
+  test("My students shows no one waiting and never reads who waits", async () => {
+    const seen = stubApi({ waiting: () => [asks(OLGA, "Olga"), asks(PAVEL, "Pavel")] });
 
     await openList();
 
     await screen.findByRole("button", { name: /Maria/ });
-    await waitFor(() => {
-      expect(calls(seen, "GET", REQUESTS)).toHaveLength(1);
-    });
-    expect(screen.queryByRole("heading", { level: 2, name: TITLE })).toBeNull();
-    expect(pageText()).not.toContain("waiting");
-    expect(screen.queryByRole("button", { name: YES })).toBeNull();
-    const read = calls(seen, "GET", REQUESTS)[0];
-    expect(new URL(read?.url ?? "").search).toBe("?offset=0&limit=50");
-  });
-
-  test("shows each person with their shala and both answers", async () => {
-    stubApi({ waiting: TWO });
-
-    await openList();
-
-    const card = await block();
-    expect(plain(card.getByRole("heading", { level: 2 }).textContent)).toBe(
-      "⏳ Waiting for your answer (2)",
-    );
-    expect(person("Olga").getByText("Mysore Room")).toBeInTheDocument();
-    expect(person("(no name)").getByText("Mysore Room")).toBeInTheDocument();
-    expect(card.getAllByRole("button", { name: YES })).toHaveLength(2);
-    expect(card.getAllByRole("button", { name: NO })).toHaveLength(2);
-    expect(
-      card.getByText(
-        'Confirm only people you know. If you tap "Not my student", the person isn\'t told.',
-      ),
-    ).toBeInTheDocument();
-  });
-
-  test("shows a name, a shala and nothing else about the person", async () => {
-    stubApi({ waiting: () => [asks(OLGA, "Olga")] });
-
-    await openList();
-
-    const text = plain((await block()).getByRole("list").textContent);
-    expect(text).toBe(`OlgaMysore Room${YES}${NO}`);
-  });
-
-  test("Yes, my student: one request, then the person is on the list below", async () => {
-    let waiting = TWO();
-    let rows = ROWS;
-    const seen = stubApi({
-      rows: () => rows,
-      waiting: () => waiting,
-      answer: (request) => {
-        if (new URL(request.url).pathname !== `${REQUESTS}/${OLGA}/approve`) return undefined;
-        waiting = waiting.filter((w) => w.student_id !== OLGA);
-        rows = [...ROWS, row(OLGA, "Olga")];
-        return new Response(null, { status: 204 });
-      },
-    });
-    await openList();
-    await block();
-
-    fireEvent.click(person("Olga").getByRole("button", { name: YES }));
-
-    await screen.findByRole("button", { name: "Olga" }); // a row of the list now
-    expect(posts(seen, `${OLGA}/approve`)).toHaveLength(1);
-    expect(plain(screen.getByRole("status").textContent)).toBe(
-      "👥 Olga is on your list of students now.",
-    );
-    expect(heading()).toBe("👥 My students (4)");
-    const card = await block();
-    await waitFor(() => {
-      expect(plain(card.getByRole("heading", { level: 2 }).textContent)).toBe(
-        "⏳ Waiting for your answer (1)",
-      );
-    });
-    expect(card.getAllByRole("button", { name: YES })).toHaveLength(1);
-    expect(confirmAction).not.toHaveBeenCalled(); // one person needs no second question
-  });
-
-  test("Not my student: the row stays with an Undo, and Undo brings the answers back", async () => {
-    let waiting = TWO();
-    const seen = stubApi({
-      waiting: () => waiting,
-      answer: (request) => {
-        const path = new URL(request.url).pathname;
-        if (path === `${REQUESTS}/${OLGA}/decline`) {
-          waiting = waiting.filter((w) => w.student_id !== OLGA);
-        } else if (path === `${REQUESTS}/${OLGA}/reopen`) {
-          waiting = TWO();
-        }
-        return undefined;
-      },
-    });
-    await openList();
-    await block();
-
-    fireEvent.click(person("Olga").getByRole("button", { name: NO }));
-
-    const undo = await screen.findByRole("button", { name: UNDO });
-    expect(posts(seen, `${OLGA}/decline`)).toHaveLength(1);
-    expect(
-      person("Olga").getByText(reads("Noted: not your student. Olga isn't told.")),
-    ).toBeVisible();
-    expect(person("Olga").queryByRole("button", { name: YES })).toBeNull();
-    expect(person("Olga").queryByRole("button", { name: NO })).toBeNull();
-    // Still the first row: it does not jump under the others.
-    expect(plain(screen.getAllByRole("listitem")[0]?.textContent)).toContain("Olga");
-    await waitFor(() => {
-      expect(pageText()).toContain("⏳ Waiting for your answer (1)");
-    });
-
-    fireEvent.click(undo);
-
-    await person("Olga").findByRole("button", { name: YES });
-    expect(posts(seen, `${OLGA}/reopen`)).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: UNDO })).toBeNull();
-    await waitFor(() => {
-      expect(pageText()).toContain("⏳ Waiting for your answer (2)");
-    });
-  });
-
-  test("the last person answered with Not my student keeps the Undo on screen", async () => {
-    let waiting = [asks(OLGA, "Olga")];
-    stubApi({
-      waiting: () => waiting,
-      answer: (request) => {
-        if (new URL(request.url).pathname === `${REQUESTS}/${OLGA}/decline`) waiting = [];
-        return undefined;
-      },
-    });
-    await openList();
-    await block();
-
-    fireEvent.click(person("Olga").getByRole("button", { name: NO }));
-
-    await screen.findByRole("button", { name: UNDO });
-    await screen.findByRole("heading", { level: 2, name: "No one is waiting for your answer." });
-    expect(pageText()).not.toContain("(0)");
-  });
-
-  test("Confirm all shows only when more than one waits", async () => {
-    stubApi({ waiting: () => [asks(OLGA, "Olga")] });
-
-    await openList();
-
-    await block();
-    expect(screen.queryByRole("button", { name: /Confirm all/ })).toBeNull();
-  });
-
-  test("Confirm all asks first, and Cancel sends nothing", async () => {
-    const seen = stubApi({ waiting: TWO });
-    await openList();
-
-    fireEvent.click((await block()).getByRole("button", { name: reads("✅ Confirm all (2)") }));
-
-    await waitFor(() => {
-      expect(confirmAction).toHaveBeenCalledTimes(1);
-    });
-    const [message, ok, cancel] = confirmAction.mock.calls[0] ?? [];
-    expect(plain(message)).toBe(
-      "Confirm all 2 people as your students? Confirm only if you know each of them.",
-    );
-    expect(ok).toBe("✅ Yes, confirm all");
-    expect(cancel).toBe("Cancel");
-    expect(posts(seen, "approve-all")).toHaveLength(0);
-    expect(screen.getAllByRole("button", { name: YES })).toHaveLength(2);
-  });
-
-  test("confirming sends the list's moment back unchanged and says how many", async () => {
-    confirmAction.mockResolvedValue(true);
-    let waiting = TWO();
-    let rows = ROWS;
-    const seen = stubApi({
-      rows: () => rows,
-      waiting: () => waiting,
-      answer: (request) => {
-        if (new URL(request.url).pathname !== `${REQUESTS}/approve-all`) return undefined;
-        waiting = [];
-        rows = [...ROWS, row(OLGA, "Olga"), row(PAVEL, null)];
-        return json({ approved: 2, left: 0 });
-      },
-    });
-    await openList();
-
-    fireEvent.click((await block()).getByRole("button", { name: reads("✅ Confirm all (2)") }));
-
-    await screen.findByText(reads("✅ 2 students are on your list now."));
-    const [sent] = posts(seen, "approve-all");
-    expect(await sent?.json()).toEqual({ as_of: AS_OF });
-    await screen.findByRole("button", { name: "Olga" });
-    await waitFor(() => {
-      expect(screen.queryByRole("heading", { level: 2, name: TITLE })).toBeNull();
-    });
-    expect(heading()).toBe("👥 My students (5)");
-  });
-
-  test("request_gone: a short line, and the list is read again", async () => {
-    let waiting = TWO();
-    const seen = stubApi({
-      waiting: () => waiting,
-      answer: (request) => {
-        if (new URL(request.url).pathname !== `${REQUESTS}/${OLGA}/approve`) return undefined;
-        waiting = waiting.filter((w) => w.student_id !== OLGA);
-        return json({ code: "request_gone" }, 404);
-      },
-    });
-    await openList();
-    await block();
-
-    fireEvent.click(person("Olga").getByRole("button", { name: YES }));
-
-    await screen.findByText(
-      "This request is no longer open. If this is your student, send them your own link.",
-    );
-    await waitFor(() => {
-      expect(screen.queryByText("Olga")).toBeNull();
-    });
-    expect(calls(seen, "GET", REQUESTS)).toHaveLength(2);
-    expect(screen.queryByRole("alert")).toBeNull(); // quiet: nothing went wrong on this side
-    expect(screen.getAllByRole("button", { name: YES })).toHaveLength(1);
-  });
-
-  test("request_gone on Undo drops the row with the same line", async () => {
-    let waiting = [asks(OLGA, "Olga")];
-    stubApi({
-      waiting: () => waiting,
-      answer: (request) => {
-        const path = new URL(request.url).pathname;
-        if (path === `${REQUESTS}/${OLGA}/decline`) waiting = [];
-        if (path === `${REQUESTS}/${OLGA}/reopen`) return json({ code: "request_gone" }, 404);
-        return undefined;
-      },
-    });
-    await openList();
-    await block();
-    fireEvent.click(person("Olga").getByRole("button", { name: NO }));
-
-    fireEvent.click(await screen.findByRole("button", { name: UNDO }));
-
-    await screen.findByText(
-      "This request is no longer open. If this is your student, send them your own link.",
-    );
-    expect(screen.queryByText("Olga")).toBeNull();
-    expect(screen.queryByRole("button", { name: UNDO })).toBeNull();
-  });
-
-  test("list_full: a short line, and the row stays", async () => {
-    const seen = stubApi({
-      waiting: TWO,
-      answer: (request) =>
-        new URL(request.url).pathname === `${REQUESTS}/${OLGA}/approve`
-          ? json({ code: "list_full" }, 409)
-          : undefined,
-    });
-    await openList();
-    await block();
-
-    fireEvent.click(person("Olga").getByRole("button", { name: YES }));
-
-    const line = await screen.findByRole("alert");
-    expect(plain(line.textContent)).toBe(
-      "This can't be confirmed right now: a list of students or teachers is full. " +
-        "The request stays waiting.",
-    );
-    expect(posts(seen, `${OLGA}/approve`)).toHaveLength(1);
-    expect(person("Olga").getByRole("button", { name: YES })).toBeEnabled();
-    expect(pageText()).toContain("⏳ Waiting for your answer (2)");
-  });
-
-  test("a failed answer says so and keeps the row", async () => {
-    stubApi({
-      waiting: TWO,
-      answer: (request) =>
-        new URL(request.url).pathname === `${REQUESTS}/${OLGA}/decline`
-          ? json({ code: "unavailable" }, 503)
-          : undefined,
-    });
-    await openList();
-    await block();
-
-    fireEvent.click(person("Olga").getByRole("button", { name: NO }));
-
-    const line = await screen.findByRole("alert");
-    expect(plain(line.textContent)).toBe("Couldn't save. Try again in a moment.");
-    expect(person("Olga").getByRole("button", { name: NO })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: UNDO })).toBeNull();
-  });
-
-  test("a failed load says so, and the list below still shows", async () => {
-    stubApi({
-      answer: (request) =>
-        new URL(request.url).pathname === REQUESTS ? json({ code: "unavailable" }, 503) : undefined,
-    });
-
-    await openList();
-
-    const line = await screen.findByRole("alert", {}, { timeout: 4000 });
-    expect(plain(line.textContent)).toBe("Couldn't load who is waiting. Try again in a moment.");
-    expect(screen.getByRole("button", { name: /Maria/ })).toBeInTheDocument();
-  });
-
-  test("Show more reads the next page of people", async () => {
-    const many = Array.from({ length: 60 }, (_, n) =>
-      asks(`00000000-0000-0000-0000-${String(n).padStart(12, "0")}`, `Person ${String(n + 1)}`),
-    );
-    const seen = stubApi({ waiting: () => many });
-    await openList();
-    const card = await block();
-    expect(card.getAllByRole("listitem")).toHaveLength(50);
-    expect(pageText()).toContain("⏳ Waiting for your answer (60)");
-
-    fireEvent.click(card.getByRole("button", { name: "Show more" }));
-
-    await screen.findByText("Person 60");
-    expect(card.getAllByRole("listitem")).toHaveLength(60);
-    expect(new URL(calls(seen, "GET", REQUESTS)[1]?.url ?? "").search).toBe("?offset=50&limit=50");
-    expect(card.queryByRole("button", { name: "Show more" })).toBeNull();
-  });
-
-  test("the Shala tab has a way in while someone waits, also with no student yet", async () => {
-    stubApi({ rows: () => [], waiting: TWO });
-    await renderApp();
-    fireEvent.click(shalaTab());
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: reads("⏳ Waiting for your answer (2)") }),
-    );
-
-    await block();
-    expect(screen.getAllByRole("button", { name: YES })).toHaveLength(2);
-  });
-
-  test("the Shala tab has no such row when nobody waits", async () => {
-    stubApi();
-    await renderApp();
-
-    await homeRow();
-
-    expect(screen.queryByRole("button", { name: TITLE })).toBeNull();
-  });
-
-  test("Russian, with a long name on one line at 320 px", async () => {
-    confirmAction.mockResolvedValue(false);
-    const long = "Я".repeat(64);
-    stubApi({ waiting: () => [asks(OLGA, long), asks(PAVEL, "Павел")] });
-
-    await openList("ru");
-
-    const card = await block();
-    expect(plain(card.getByRole("heading", { level: 2 }).textContent)).toBe(
-      "⏳ Ждут твоего ответа (2)",
-    );
-    expect(card.getAllByRole("button", { name: "✅ Да, мой ученик" })).toHaveLength(2);
-    expect(card.getAllByRole("button", { name: "Не мой ученик" })).toHaveLength(2);
-    expect(pageText()).toContain(
-      "Подтверждай только тех, кого знаешь. Если нажать «Не мой ученик», человек об этом не узнает.",
-    );
-    // jsdom has no layout, so this pins the mechanism (as the list's own test does).
-    const { readFileSync } = process.getBuiltinModule("node:fs");
-    const css = readFileSync(`${process.cwd()}/src/theme/tokens.css`, "utf8").replace(
-      /\/\*[\s\S]*?\*\//g,
-      "",
-    );
-    const rules = [...css.matchAll(/([^{}]+)\{([^}]*text-overflow:\s*ellipsis[^}]*)\}/g)];
-    const selectors = rules.map((rule) => (rule[1] ?? "").trim()).filter(Boolean);
-    expect(selectors.some((selector) => card.getByText(long).matches(selector))).toBe(true);
-
-    fireEvent.click(card.getByRole("button", { name: reads("✅ Подтвердить всех (2)") }));
-    await waitFor(() => {
-      expect(confirmAction).toHaveBeenCalledTimes(1);
-    });
-    const [message, ok, cancel] = confirmAction.mock.calls[0] ?? [];
-    expect(plain(message)).toBe(
-      "Подтвердить всех как своих учеников? В списке: 2. Подтверждай, только если знаешь каждого.",
-    );
-    expect(ok).toBe("✅ Да, подтвердить всех");
-    expect(cancel).toBe("Отмена");
-  });
-
-  test("Russian: Not my student and its Undo", async () => {
-    let waiting = TWO();
-    stubApi({
-      waiting: () => waiting,
-      answer: (request) => {
-        if (new URL(request.url).pathname === `${REQUESTS}/${OLGA}/decline`) {
-          waiting = waiting.filter((w) => w.student_id !== OLGA);
-        }
-        return undefined;
-      },
-    });
-    await openList("ru");
-    await block();
-
-    fireEvent.click(person("Olga").getByRole("button", { name: "Не мой ученик" }));
-
-    await screen.findByRole("button", { name: "↩️ Отменить" });
-    expect(pageText()).toContain("Отмечено: не твой ученик. Olga об этом не узнает.");
-  });
-
-  test.each([
-    [1, "✅ 1 ученик теперь в твоём списке."],
-    [2, "✅ 2 ученика теперь в твоём списке."],
-    [5, "✅ 5 учеников теперь в твоём списке."],
-  ])("Russian: Confirm all counts %i through Fluent", async (approved, line) => {
-    confirmAction.mockResolvedValue(true);
-    stubApi({
-      waiting: TWO,
-      answer: (request) =>
-        new URL(request.url).pathname === `${REQUESTS}/approve-all`
-          ? json({ approved, left: 0 })
-          : undefined,
-    });
-    await openList("ru");
-
-    fireEvent.click(
-      (await block()).getByRole("button", { name: reads("✅ Подтвердить всех (2)") }),
-    );
-
-    await screen.findByText(reads(line));
+    expect(screen.queryByRole("heading", { level: 2, name: /Waiting for your answer/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "✅ Yes, my student" })).toBeNull();
+    expect(pageText()).not.toContain("Olga");
+    expect(calls(seen, "GET", REQUESTS)).toHaveLength(1); // the Shala tab's block, not this screen
   });
 });
 
@@ -1334,7 +874,7 @@ describe("the chunk", () => {
   test.each([
     ["Shell.tsx", shellSource],
     ["Home.tsx", homeSource],
-    ["Links.tsx", linksSource],
+    ["ShalaTab.tsx", shalaTabSource],
   ])("%s has no static import of it", (_, source) => {
     expect(source).not.toMatch(/^import .*teachers\/Students/m);
   });

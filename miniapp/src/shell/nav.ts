@@ -14,15 +14,17 @@ export type Screen =
   | { name: "moon" }
   | { name: "schedule" }
   | { name: "students" }
-  | { name: "announce"; shala: string | null }
+  /** The message form for all my students (the bot's My students); a shala's is on its card. */
+  | { name: "announce" }
   | { name: "listing" };
 
-/** What one shala's card is opened for: the class form in its schedule, or its student invite. */
-export type ShalaOpen = "class" | "join";
+/** What one shala's card is opened for: the class form in its schedule, its student invite, or
+ * the message form over it (the bot's "📣 Announce" from that shala). */
+export type ShalaOpen = "class" | "join" | "announce";
 
-/** A one-time intent for the Shala root: the create form open and focused, the invite card
- * open, or one shala's card open (`shala:<id>`), also for one thing on it (`class:<id>`,
- * `join:<id>`). */
+/** A one-time intent for the Shala root: the create form open and focused, the invite open, or
+ * one shala's card open (`shala:<id>`), also for one thing on it (`class:<id>`, `join:<id>`,
+ * `announce:<id>`). */
 export type Start = "create" | "invite" | `${"shala" | ShalaOpen}:${string}`;
 
 export interface Nav {
@@ -72,12 +74,10 @@ export function launchNav(search: string): Nav {
     case "new-shala":
       return { tab: "shala", stack: [], start: "create" };
     case "announce": {
+      // From a shala (QF): its card, with the message form over it; Back finds the card.
       const shala = query.get("shala");
-      return {
-        tab: "shala",
-        stack: [{ name: "announce", shala: shala && UUID.test(shala) ? shala : null }],
-        start: null,
-      };
+      if (shala && UUID.test(shala)) return { tab: "shala", stack: [], start: `announce:${shala}` };
+      return { tab: "shala", stack: [{ name: "announce" }], start: null };
     }
     case "listing":
       return { tab: "shala", stack: [{ name: "listing" }], start: null };

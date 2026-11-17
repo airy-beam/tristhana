@@ -1,5 +1,6 @@
-/* UI-06 stage 4: the shala's lazy screens (the class form's layer, the occurrence sheet, the
-   setup list). Loaded with them, never with the first chunk. Theme tokens only. */
+/* UI-06 stage 4: the shala's lazy screens (the Shala tab's root, the class form's layer, the
+   occurrence sheet, the setup list). Loaded with them, never with the first chunk. Theme
+   tokens only. */
 
 /* The class form: a layer of its own. */
 .class-form h1 {
@@ -107,6 +108,20 @@
 
 .panel {
   padding: 4px 0 12px;
+}
+
+/* UI-06 stage 4B: the Shala tab's root. Its first row is the main one, the filled button (as
+   the setup list's due step); the rest are plain rows. */
+.shala-tab > .btn {
+  margin: 0 0 var(--space);
+}
+
+/* "📣 Announcements" under my teachers, and the invite's buttons in its panel: rows on the
+   card, in the page's colour. */
+.shala-tab .teachers .row-button,
+.shala-tab .panel .row-button {
+  margin: 8px 0 0;
+  background: var(--c-bg);
 }
 
 .panel .btn {
