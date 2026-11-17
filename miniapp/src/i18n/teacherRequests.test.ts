@@ -38,6 +38,7 @@ const TEACHER = [
 const STUDENT = [
   "request-waiting-line",
   "request-withdraw",
+  "request-withdraw-short",
   "request-withdraw-ask",
   "request-withdraw-yes",
   "request-withdrawn",
@@ -115,6 +116,9 @@ describe("ID-07 copy", () => {
     );
     expect(format(bundleFor("en"), "request-withdraw", { name: "Anna" })).toBe("Withdraw: Anna…");
     expect(format(bundleFor("ru"), "request-withdraw", { name: "Anna" })).toBe("Отозвать: Anna…");
+    // The app's button: the name already stands on the line beside it.
+    expect(format(bundleFor("en"), "request-withdraw-short")).toBe("Withdraw…");
+    expect(format(bundleFor("ru"), "request-withdraw-short")).toBe("Отозвать…");
   });
 
   it.each(LOCALES)("%s: nothing the student reads has a word for a refusal", (locale) => {

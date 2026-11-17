@@ -38,6 +38,7 @@ vi.mock("../../telegram", () => ({
   backButtonAvailable: vi.fn(() => true),
   markReady: vi.fn(),
   useMainButton: vi.fn(),
+  mainButtonAvailable: vi.fn(() => false),
   useSettingsButton: (open: () => void) => {
     telegram.openSettings = open;
   },
@@ -740,9 +741,9 @@ describe("a teacher I asked", () => {
     const text = plain(card?.textContent);
     const lines = [
       "⏳ Waiting for an answer: Anna",
-      "Withdraw: Anna…",
+      "Withdraw…",
       "⏳ Waiting for an answer: Boris",
-      "Withdraw: Boris…",
+      "Withdraw…",
     ];
     expect(text).toBe(lines.join(""));
     expect(text).not.toMatch(/\d/);
@@ -944,14 +945,14 @@ describe("picking a teacher from the tab", () => {
 
     const said = await screen.findByRole("status");
     expect(plain(said.textContent)).toBe(
-      "✉️ Request sent to Anna. Nothing is shown until they confirm.",
+      "✉️ Request sent to Anna. Nothing from your log is shown until they confirm.",
     );
     expect(said).toHaveFocus();
     expect(screen.getByRole("heading", { level: 1, name: "🏛 Shala" })).toBeVisible();
     await screen.findByText((t) => plain(t) === "⏳ Waiting for an answer: Anna");
     expect(outline()).toEqual([
       "h1",
-      "✉️ Request sent to Anna. Nothing is shown until they confirm.",
+      "✉️ Request sent to Anna. Nothing from your log is shown until they confirm.",
       "▶ 🗓 My schedule",
       "🏛 Mysore Room",
       "[teachers]",
@@ -1478,6 +1479,53 @@ describe("the waiting block", () => {
     await screen.findByRole("button", { name: "👥 My students" });
     expect(screen.queryByRole("button", { name: UNDO })).toBeNull();
     expect(screen.queryByRole("heading", { level: 2, name: TITLE })).toBeNull();
+  });
+
+  // Spec §5: the Undo lasts until the tab is left. A shala's card, the announcements or the
+  // directory line open over the list and are not leaving it.
+  const OVER = {
+    "a shala's card": () =>
+      screen.findByText("Couldn't load the shala. Try again in a moment.", {}, { timeout: 4000 }),
+    "the announcements": () => screen.findByRole("heading", { level: 1, name: "📣 Announcements" }),
+    "the directory line": () =>
+      screen.findByRole("heading", { level: 1, name: "SYC directory listing" }),
+  };
+  test.each([
+    ["a shala's card", (n: string) => plain(n) === "🏛 Mysore Room"],
+    ["the announcements", "📣 Announcements"],
+    ["the directory line", "SYC directory listing"],
+  ] as const)("the Undo is still there after %s and Back", async (what, row) => {
+    let waiting = [asks(OLGA, "Olga")];
+    requests = () => waiting;
+    mine = [shalaOf(SHALA, "Mysore Room", "staff")];
+    listing = { status: "none", available: true };
+    stubApi(
+      () => ({ teachers: [lena()], students: [student(SHIVA, "Shiva")] }),
+      (request) => {
+        const path = new URL(request.url).pathname;
+        if (path === `${REQUESTS}/${OLGA}/decline`) waiting = [];
+        if (path === `/api/v1/shalas/${SHALA}`) return json({ code: "not_found" }, 404);
+        if (path === "/api/v1/me/announcements")
+          return json({ items: [], sources: [], more: false });
+        return undefined;
+      },
+    );
+    await openScreen();
+    await block();
+    fireEvent.click(person("Olga").getByRole("button", { name: NO }));
+    await screen.findByRole("button", { name: UNDO });
+
+    fireEvent.click(await screen.findByRole("button", { name: row }));
+    await OVER[what]();
+    expect(screen.queryByRole("button", { name: UNDO })).toBeNull();
+    act(() => {
+      telegram.back();
+    });
+
+    expect(await screen.findByRole("button", { name: UNDO })).toBeVisible();
+    expect(
+      person("Olga").getByText(reads("Noted: not your student. Olga isn't told.")),
+    ).toBeVisible();
   });
 
   test("Confirm all shows only when more than one waits", async () => {

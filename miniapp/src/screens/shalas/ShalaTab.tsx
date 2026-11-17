@@ -1,5 +1,14 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Fragment, Suspense, useEffect, useId, useRef, useState, type Ref } from "react";
+import {
+  Fragment,
+  Suspense,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 
 import {
   useInvite,
@@ -21,7 +30,7 @@ import { Row } from "../Row";
 import { checkedMonth, useListing, type ListingMark } from "../settings/listing";
 import { AskedLines, SaidLine } from "../teachers/Asked";
 import { useTeacherChoicesOf, type AskedTeacher, type Said } from "../teachers/requests";
-import { Waiting } from "../teachers/Waiting";
+import { Waiting, type Declined } from "../teachers/Waiting";
 import CreateShala from "./CreateShala";
 import "./shala.css";
 
@@ -74,6 +83,11 @@ export default function ShalaTab({ onStudents, onSchedule, start = null, heading
   );
   // After a start the list draws at once, and never as "nobody yet".
   const begun = start === "create" || start === "invite";
+  // QC: once someone waited for my answer, the block stays for this visit, with each "Not my
+  // student" row and its Undo, also across a shala's card, the feed or the directory line
+  // opened over the list. A tab switch or a pushed screen remounts the tab and ends both.
+  const [answering, setAnswering] = useState(false);
+  const [declined, setDeclined] = useState<Declined[]>([]);
   const locale: Locale = useMe().data?.locale ?? "en";
   if (listing)
     return (
@@ -117,6 +131,12 @@ export default function ShalaTab({ onStudents, onSchedule, start = null, heading
       headingRef={headingRef}
       intent={intent}
       begun={begun}
+      answering={answering}
+      onAnswering={() => {
+        setAnswering(true);
+      }}
+      declined={declined}
+      setDeclined={setDeclined}
       onShala={(id) => {
         setIntent(null);
         setShala({ id });
@@ -140,6 +160,10 @@ function Root({
   headingRef,
   intent,
   begun,
+  answering: answered,
+  onAnswering,
+  declined,
+  setDeclined,
   onShala,
   onFeed,
   onListing,
@@ -147,6 +171,10 @@ function Root({
 }: Pick<Props, "onStudents" | "onSchedule" | "headingRef"> & {
   intent: Intent | null;
   begun: boolean;
+  answering: boolean;
+  onAnswering: () => void;
+  declined: Declined[];
+  setDeclined: (change: (rows: Declined[]) => Declined[]) => void;
   onShala: (id: string) => void;
   onFeed: () => void;
   onListing: () => void;
@@ -185,9 +213,12 @@ function Root({
     setAsking(shala);
   };
   // QC: the people waiting for my answer, on top. Read only when someone waits; once shown it
-  // stays for this visit, so the Undo and the line after the last answer stay on screen.
-  const [answering, setAnswering] = useState(false);
-  if (waiting > 0 && !answering) setAnswering(true);
+  // stays for this visit (the tab holds that), so the Undo and the line after the last answer
+  // stay on screen.
+  const answering = answered || waiting > 0;
+  useLayoutEffect(() => {
+    if (waiting > 0 && !answered) onAnswering();
+  }, [waiting, answered, onAnswering]);
   // Both lists decide between the list and "nobody yet": neither is drawn on a guess. So does
   // who can be picked, the first time, so the main row doesn't move once drawn.
   const [drawn, setDrawn] = useState(false);
@@ -231,7 +262,7 @@ function Root({
         {settled && (
           <>
             {said && <SaidLine said={said} />}
-            {answering && <Waiting />}
+            {answering && <Waiting declined={declined} setDeclined={setDeclined} />}
             {picks.map((s, n) => (
               <Door
                 key={s.id}

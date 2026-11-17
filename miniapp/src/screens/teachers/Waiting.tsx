@@ -14,23 +14,29 @@ import {
   type StudentRequests,
 } from "./requests";
 
-/** A row answered "Not my student" on this visit: kept where it was, for its Undo. */
-interface Declined {
+/** A row answered "Not my student" on this visit: kept where it was, for its Undo. The Shala
+ * tab holds these, so they outlast a shala's card, the announcements or the directory line
+ * opened over the list, and end when the tab is left. */
+export interface Declined {
   row: StudentRequest;
   at: number;
 }
 
 /** ID-07: the people who named me as their teacher in a shala, on top of the Shala tab (UI-06
- * stage 4B, QC). Each
- * answer is one request and waits for the server. "Not my student" tells the person nothing
- * and keeps its row with an Undo until the screen is left; "Confirm all" asks once and sends
- * back the moment the list was drawn. A request that is no longer open (404, one line for
- * every reason) or a full list (409, the request stays) is a short line, and the list is read
- * again. Renders nothing when nobody waits. */
-export function Waiting() {
+ * stage 4B, QC). Each answer is one request and waits for the server. "Not my student" tells
+ * the person nothing and keeps its row with an Undo until the tab is left (`declined`, held by
+ * the tab); "Confirm all" asks once and sends back the moment the list was drawn. A request
+ * that is no longer open (404, one line for every reason) or a full list (409, the request
+ * stays) is a short line, and the list is read again. Renders nothing when nobody waits. */
+export function Waiting({
+  declined,
+  setDeclined,
+}: {
+  declined: Declined[];
+  setDeclined: (change: (rows: Declined[]) => Declined[]) => void;
+}) {
   const { l10n } = useLocalization();
   const [pages, setPages] = useState(1);
-  const [declined, setDeclined] = useState<Declined[]>([]);
   const [line, setLine] = useState<{ text: string; alert: boolean } | null>(null);
   // The line sits over the block: an answer far down a long list brings it into view.
   const said = useRef<HTMLParagraphElement>(null);

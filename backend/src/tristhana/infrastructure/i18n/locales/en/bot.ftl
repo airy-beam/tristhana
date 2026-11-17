@@ -793,9 +793,9 @@ request-consent =
     • Any teacher on your list can mark a new asana for you. You get a message and can undo it. They can also send announcements through the bot. You can mute them.
     • Nothing is shown until they confirm. They get one message with your name.
     • Days count from today, even if they confirm a few days later.
-    • Until they confirm, you can withdraw your request on the shala's card. You can remove a teacher from your list any time. No one gets a message.
+    • Until they confirm, you can withdraw your request. You can remove a teacher from your list any time. No one gets a message.
 # One line above Today after the tap.
-request-asked = ✉️ Request sent to { $name }. Nothing is shown until they confirm.
+request-asked = ✉️ Request sent to { $name }. Nothing from your log is shown until they confirm.
 request-waiting = You've already asked { $name }. No answer yet.
 request-recent = You asked { $name } not long ago. Try again later, or ask them for their invite link.
 # At most three teachers in any 7 days; withdrawing frees no slot, so it is not offered here.

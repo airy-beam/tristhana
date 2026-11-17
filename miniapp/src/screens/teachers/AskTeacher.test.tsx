@@ -275,7 +275,7 @@ describe("the tap", () => {
 
   const LINES = {
     en: {
-      created: "✉️ Request sent to Anna. Nothing is shown until they confirm.",
+      created: "✉️ Request sent to Anna. Nothing from your log is shown until they confirm.",
       linked: "Anna is already on your list of teachers.",
       waiting: "You've already asked Anna. No answer yet.",
       recent: "You asked Anna not long ago. Try again later, or ask them for their invite link.",
@@ -283,7 +283,8 @@ describe("the tap", () => {
       full: "This request can't be sent right now. Try again later.",
     },
     ru: {
-      created: "✉️ Запрос отправлен: Anna. Пока учитель не подтвердит, ничего не видно.",
+      created:
+        "✉️ Запрос отправлен: Anna. Пока учитель не подтвердит, из твоего журнала ничего не видно.",
       linked: "Anna уже в списке твоих учителей.",
       waiting: "Запрос уже отправлен: Anna. Ответа пока нет.",
       recent:

@@ -917,6 +917,29 @@ def test_staff_cannot_ask_a_teacher_of_their_own_shala(world: World) -> None:
     assert world.requests.rows == {}
 
 
+def test_asking_a_teacher_of_another_shala_is_403(world: World, notifier: FakeNotifier) -> None:
+    """A teacher, but not in the shala named: the request is about this shala's teachers."""
+    world.i_study()
+    other = world.storage.shalas.add_shala(world.person("Elsewhere").id, roles=frozenset()).id
+    anna = world.person("Anna")
+    world.storage.shalas.add_staff(other, anna.id, ShalaRole.TEACHER, at=world.joined)
+
+    response = world.ask(anna.id)
+
+    assert _answer(response) == NOT_ALLOWED
+    assert world.requests.rows == {}
+    assert notifier.asked == []
+
+
+def test_asking_myself_is_403(world: World, notifier: FakeNotifier) -> None:
+    world.i_study()
+    world.teacher("Anna")
+
+    assert _answer(world.ask(world.me)) == NOT_ALLOWED
+    assert world.requests.rows == {}
+    assert notifier.asked == []
+
+
 def test_a_no_and_silence_answer_alike_on_both_routes(world: World) -> None:
     """ID-07: the student's side never tells a teacher's "no" from silence. A declined pair
     and a waiting pair give the same bytes from the choices, the ask and the links."""

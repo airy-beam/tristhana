@@ -1,5 +1,13 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Fragment, Suspense, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import {
+  Fragment,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type Ref,
+  type SyntheticEvent,
+} from "react";
 
 import {
   ApiError,
@@ -114,8 +122,19 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const covered = editing || layer !== null || asking;
   // Where the card was scrolled when a layer opened, and what had the focus, to give both back.
   const left = useRef<{ top: number; from: Element | null } | null>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  const wasCovered = useRef(covered);
   useEffect(() => {
-    if (covered || left.current === null) return;
+    const uncovered = wasCovered.current && !covered;
+    wasCovered.current = covered;
+    if (!uncovered) return;
+    if (left.current === null) {
+      // A layer a start opened (the bot's "📣 Announce", Today's "add a class"): nothing on the
+      // card had the focus, so the card's title takes it rather than the page's body.
+      window.scrollTo({ top: 0 });
+      title.current?.focus({ preventScroll: true });
+      return;
+    }
     const { top, from } = left.current;
     left.current = null;
     window.scrollTo({ top });
@@ -146,6 +165,7 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
           open={opened}
           gone={gone}
           said={said}
+          titleRef={title}
           onSaid={setSaid}
           onPick={() => {
             cover();
@@ -197,6 +217,7 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
 interface CardProps extends Props {
   gone: boolean;
   said: Said | null;
+  titleRef: Ref<HTMLHeadingElement>;
   onSaid: (said: Said) => void;
   onPick: () => void;
   onAnnouncements: (view: "feed" | "compose", draft?: string) => void;
@@ -211,6 +232,7 @@ function Card({
   open,
   gone,
   said,
+  titleRef,
   onSaid,
   onPick,
   onAnnouncements,
@@ -244,7 +266,9 @@ function Card({
       )}
       {shala && (
         <>
-          <h1>{l10n.getString("shala-title", { shala: shala.name })}</h1>
+          <h1 ref={titleRef} tabIndex={-1}>
+            {l10n.getString("shala-title", { shala: shala.name })}
+          </h1>
           {said && <SaidLine said={said} />}
           {shala.me.student && <Asking shala={shala} onSaid={onSaid} onPick={onPick} />}
           <SetupList shala={shala} onOpen={setup} />

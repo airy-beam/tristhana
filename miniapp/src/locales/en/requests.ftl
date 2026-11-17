@@ -36,6 +36,10 @@ request-load-failed = Couldn't load who is waiting. Try again in a moment.
 # and the lines after a withdraw or when nobody is left. The bot's words, same keys.
 request-waiting-line = ⏳ Waiting for an answer: { $name }
 request-withdraw = Withdraw: { $name }…
+# The app's button beside the waiting line, which already names the teacher; its label for a
+# screen reader is `request-withdraw`, with the name. The app's own (the bot keeps the name on its
+# button, as a chat button stands alone).
+request-withdraw-short = Withdraw…
 request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You can ask them again in about a month.
 request-withdraw-yes = Withdraw
 request-withdrawn = Request withdrawn.

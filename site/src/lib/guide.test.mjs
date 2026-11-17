@@ -228,8 +228,10 @@ describe("words in step: the request and consent messages are the bot's (ADR-004
       ["link-student-joined", NAMES],
     ],
   };
-  /** The app's own messages in `requests.ftl`: the bot has no such line. */
-  const APP_ONLY = ["request-load-failed"];
+  /** The app's own messages in `requests.ftl`: the bot has no such line. `request-withdraw-short`
+   * is the app's Withdraw beside a line that already names the teacher; the bot's button keeps
+   * `request-withdraw`, with the name. */
+  const APP_ONLY = ["request-load-failed", "request-withdraw-short"];
 
   /** Each message of a raw `.ftl` source, as written (its id line and indented lines). */
   const sources = (/** @type {string} */ text) => {
@@ -275,21 +277,22 @@ describe("words in step: the request and consent messages are the bot's (ADR-004
     }
   });
 
-  it.each(Object.entries(COPIED).flatMap(([file, keys]) => keys.map(([k, c]) => [file, k, c])))(
-    "%s: %s",
-    (file, key, cases) => {
-      for (const locale of LOCALES) {
-        const theirs = sources(bot(locale))[key];
-        const ours = sources(app(locale, file))[key];
-        expect(ours, `${key} (${locale}) as written`).toBe(theirs);
-        for (const args of cases) {
-          const said = format(bot(locale), locale, key, args);
-          expect(format(app(locale, file), locale, key, args), `${key} (${locale})`).toBe(said);
-          expect(said).not.toBe("");
-        }
-      }
-    },
+  /** @type {[string, string, Record<string, string>[]][]} */
+  const EACH = Object.entries(COPIED).flatMap(([file, keys]) =>
+    keys.map(([k, c]) => /** @type {[string, string, Record<string, string>[]]} */ ([file, k, c])),
   );
+  it.each(EACH)("%s: %s", (file, key, cases) => {
+    for (const locale of LOCALES) {
+      const theirs = sources(bot(locale))[key];
+      const ours = sources(app(locale, file))[key];
+      expect(ours, `${key} (${locale}) as written`).toBe(theirs);
+      for (const args of cases) {
+        const said = format(bot(locale), locale, key, args);
+        expect(format(app(locale, file), locale, key, args), `${key} (${locale})`).toBe(said);
+        expect(said).not.toBe("");
+      }
+    }
+  });
 });
 
 describe("localeOfPath", () => {

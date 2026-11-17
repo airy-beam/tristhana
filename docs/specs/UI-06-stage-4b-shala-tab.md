@@ -35,7 +35,9 @@ Sections in **fixed order**; each shows only when it has content; **the first ro
 | 5 | one row per shala, `shala-title` (no card title) | any shala | the card (layer, as now) |
 | 6 | teachers card: teachers (⭐, Make main, Remove…, directory line), asked teachers (`request-waiting-line` + `request-withdraw`, bot text), `ann-list` last | a teacher or a request | – |
 | 7 | `link-students-open` "👥 My students" (QD) | `links.students` not empty | `students` (pushed) |
-| 8 | group `shala-starts-title` ("For teachers and shalas"): `links-invite` / `shala-start-invite` (inline invite card) · `shala-start-shala` (inline create form) · `listing-open` (ID-05 rule) | always (quiet, last) | inline / `listing` |
+| 8 | group `shala-starts-title` ("For teachers and shalas"): `shala-start-invite` (inline invite card) · `shala-start-shala` (inline create form) · `listing-open` (ID-05 rule) | always (quiet, last) | inline / `listing` |
+
+*As built:* row 1 reads in normal text (not the small grey `status` style: it is a result, not an error), keeping `role="status"`; row 8's invite row is always `shala-start-invite`, with or without students (`links-invite` / `links-invite-first` stay the bot's).
 
 **First screen per kind:**
 - **Nobody:** heading · `shala-empty` · the group. One thing to do: open the link the teacher sends (no button can do it); the group is for teachers. Unchanged from stage 2.
@@ -49,17 +51,17 @@ Sections in **fixed order**; each shows only when it has content; **the first ro
 **Starts** (unchanged values): `create` opens the group's create form, focused (also from nobody: the full list shows); `invite` opens the group's invite card; `shala:<id>`, `class:<id>`, `join:<id>` open that card as now; new `announce:<id>` (§6, QF).
 
 ## 4. Asking a teacher from the app
-**Where it starts:** row 3 on the root (QA) and, on the **shala card** of a student, the bot's part placed under the title: one `request-waiting-line` per teacher I wait for there, each with `request-withdraw` (one native confirm, `request-withdraw-ask`), then `request-open` while `offer` is not empty. Both read `GET /shalas/{id}/teacher-choices` (one cache key per shala). Staff never read it.
+**Where it starts:** row 3 on the root (QA) and, on the **shala card** of a student, the bot's part placed under the title: one `request-waiting-line` per teacher I wait for there, each with `request-withdraw` (one native confirm, `request-withdraw-ask`), then `request-open` while `offer` is not empty. *As built:* the card's Pick row is a plain row (the card has no main row); the Withdraw button reads `request-withdraw-short` ("Withdraw…", the name stands on the line beside it) with `request-withdraw` (with the name) as its `aria-label`, on the root and the card. Both read `GET /shalas/{id}/teacher-choices` (one cache key per shala). Staff never read it.
 
 **The picker** (lazy `teachers/AskTeacher.tsx` + `ask.ftl`; a layer with its own Back, so the bar hides; focus on its heading), the bot's question screen line for line:
 - `shala-title` as the heading · `request-ask`, or `request-ask-one` with the name when `offer` has one teacher.
 - `request-consent-short` (`$me` = " (my name)", empty without one) · `request-until-yes` · `request-know-them`.
 - One button per teacher name (`link-no-name` fallback), or one `request-yes`. **A tap is the consent** and sends the request; buttons are disabled while it runs.
-- `consent-details` (`aria-expanded`) swaps the three lines for the full `request-consent`, with `consent-short-back`; the names stay under it (ADR-0045: the same tap from either layer).
+- `consent-details` (`aria-expanded`) swaps the three lines for the full `request-consent`, with `consent-short-back`; the names stay under it (ADR-0045: the same tap from either layer). *As built:* `request-know-them` ("Pick only a teacher you know") stays above the names under Details too.
 - A quiet `invite-decline` ("Not now") closes the layer, as Back does.
 
 **Results** (`AskOut.result`, the bot's `_ASKED` map): the layer closes; the screen it was opened from shows the line with the tapped name: `created` → `request-asked` · `linked` → `invite-already` · `waiting` → `request-waiting` · `recent` → `request-recent` · `too_many` → `request-too-many` · `full` → `request-full`. Then `links` and that shala's `teacher-choices` refetch (the new waiting line appears; the Pick row goes when nobody is left). QE: the app stays where the person asked (the bot goes to Today because a chat has no "where").
-**Errors:** 404 `not_found` (left the shala meanwhile) → the layer closes, `/me/shalas` and `links` refetch, `shala-load-failed` · 403 `not_allowed` (that person has no Teacher role there now, or I am staff now) → choices refetch, the picker redraws without the name, `request-nobody` when nobody is left · anything else → `settings-save-failed`, `notify("error")`, the picker stays.
+**Errors:** 404 `not_found` (left the shala meanwhile) → the layer closes, `/me/shalas` and `links` refetch, `shala-load-failed` · 403 `not_allowed` (that person has no Teacher role there now, or I am staff now) → choices refetch, the picker redraws without the name, `request-nobody` when nobody is left (*as built:* no result line after a 403; the redrawn picker is the answer) · anything else → `settings-save-failed`, `notify("error")`, the picker stays.
 **Withdraw:** `DELETE /me/teacher-requests/{teacher_id}` as built (silent, idempotent); the line goes; `request-withdrawn` as the result line.
 **No "no" can be read:** the line for a declined pair is `request-waiting`, as for silence; nothing shows a state, a date or a count; the picker never offers a pair with a row (the server's `offer` rule).
 
@@ -71,7 +73,7 @@ Sections in **fixed order**; each shows only when it has content; **the first ro
 | My students | `Waiting` + list | the list only (the bot's My students keeps its row) |
 | Student's waiting line + Withdraw | teachers card of the root, app's own text | teachers card (bot text, `$name`) **and** the shala card (bot's part) |
 
-Confirm all is unchanged: the first page's `as_of` goes back to `POST /me/student-requests/approve-all`, so someone who asked after the list was drawn stays waiting. Undo lasts until the tab is left (pushing My students or a tab switch remounts the root; the bot's lasts until day 7; known limit Q345).
+Confirm all is unchanged: the first page's `as_of` goes back to `POST /me/student-requests/approve-all`, so someone who asked after the list was drawn stays waiting. Undo lasts until the tab is left (pushing My students or a tab switch remounts the root; the bot's lasts until day 7; known limit Q345). *As built:* the "Not my student" rows are held by the tab, not the root, so opening a shala's card, the announcements or the directory line from the root and coming Back keeps them and their Undo.
 
 ## 6. Launch links and old state
 | Existing | Today | After |
@@ -110,6 +112,7 @@ Confirm all is unchanged: the first page's `as_of` goes back to `POST /me/studen
 - **New, `requests.ftl`, copied the same way:** `request-open`, `request-nobody`, `request-withdrawn`.
 - **Changed to the bot's text, same key:** `request-waiting-line` ("⏳ Waiting for an answer: { $name }" / bot's ru), `request-withdraw` ("Withdraw: { $name }…"). **Changed in both products (QB):** `request-consent-short`, `request-consent`.
 - **App's own new keys: none.** **Removed** (if `check:guide` finds no quote): `links-shalas-title`, `links-empty` and `links-no-students` from the root (`links-no-students` stays on My students).
+- *As built:* one app-only key, `request-withdraw-short` in `requests.ftl` ("Withdraw…" / «Отозвать…»), the button beside a line that already names the teacher (§4); the bot keeps `request-withdraw` with the name, and the words-in-step test lists it as app-only. `links-shalas-title` and `links-empty` are gone from `app.ftl` (the bot keeps its `links-empty`); `shala-create`, `links-invite` and `links-invite-first` stay in `app.ftl` because guides quote them.
 - **Must survive** (guides quote them): `tab-shala`, `link-students-open`, `my-schedule-open`, `shala-start-invite`, `shala-start-shala`, `shala-create`, `listing-open`, `request-waiting-open`, `request-yes-mine`, `request-not-mine`, `request-undo`, `request-all`, `request-withdraw`, `ann-announce`, `ann-list`, `links-remove`.
 
 ## 10. Cross-cutting checks

@@ -10,9 +10,9 @@ const short = (name: string) =>
   name.length > POPUP_NAME_MAX ? `${name.slice(0, POPUP_NAME_MAX)}…` : name;
 
 /** ID-07, UI-06 stage 4B: the teachers I asked and wait for, as the bot's shala card has them:
- * "⏳ Waiting for an answer: Anna" and "Withdraw: Anna…" (one native confirm). The same line
- * whatever the teacher did: no state, date or count, so a quiet "no" reads as silence. On the
- * Shala tab's teachers card and on the shala's card. */
+ * "⏳ Waiting for an answer: Anna" and "Withdraw…" (named "Withdraw: Anna…" for a screen
+ * reader; one native confirm). The same line whatever the teacher did: no state, date or count,
+ * so a quiet "no" reads as silence. On the Shala tab's teachers card and on the shala's card. */
 export function AskedLines({
   asked,
   onWithdrawn,
@@ -48,15 +48,18 @@ export function AskedLines({
       {asked.map((teacher) => (
         <div key={teacher.id} className="link-person asked">
           <span>{l10n.getString("request-waiting-line", { name: name(teacher) })}</span>
+          {/* The name stands on the line beside it: the button says only "Withdraw…", and
+              its label for a screen reader is the bot's, with the name. */}
           <button
             type="button"
             className="link"
+            aria-label={l10n.getString("request-withdraw", { name: name(teacher) })}
             disabled={withdraw.isPending}
             onClick={() => {
               void confirm(teacher);
             }}
           >
-            {l10n.getString("request-withdraw", { name: name(teacher) })}
+            {l10n.getString("request-withdraw-short")}
           </button>
         </div>
       ))}
@@ -70,7 +73,8 @@ export function AskedLines({
 }
 
 /** The one line an ask or a withdraw leaves where it was done (spec §3 row 1, QE). It takes the
- * focus, so the picker's closing doesn't leave it on nothing, and a screen reader reads it. */
+ * focus, so the picker's closing doesn't leave it on nothing, and a screen reader reads it. A
+ * result reads in normal text (not the small grey status style); only a failure is a hint. */
 export function SaidLine({ said }: { said: Said }) {
   const line = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -80,7 +84,7 @@ export function SaidLine({ said }: { said: Said }) {
     <p
       ref={line}
       tabIndex={-1}
-      className={said.alert ? "hint said" : "status said"}
+      className={said.alert ? "hint said" : "said"}
       role={said.alert ? "alert" : "status"}
     >
       {said.text}
