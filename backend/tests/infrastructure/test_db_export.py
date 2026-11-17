@@ -282,6 +282,7 @@ async def _counts(engine: AsyncEngine, account_id: UUID) -> dict[str, int]:
         for name in sorted(_account_tables()):
             mine = {
                 "teacher_link": "student_id = :a OR teacher_id = :a",
+                "teacher_request": "student_id = :a OR teacher_id = :a",  # ID-07
                 "shala": "owner_id = :a",  # SC-01
                 "shala_staff_invite": "created_by = :a",
                 "announcement": "author_id = :a",  # NT-03
@@ -347,6 +348,15 @@ async def _shalas(engine: AsyncEngine, me: UUID, teacher: UUID) -> None:
     link = await repo.join_link(theirs.id, teacher)
     assert link.value is not None
     assert await repo.join(link.value, me, CAPS, MON)
+    async with engine.connect() as conn:  # ID-07: I asked the teacher there, and they said yes
+        await conn.execute(
+            text(
+                "INSERT INTO tristhana.teacher_request (student_id, teacher_id, shala_id, state,"
+                " asked_on, quiet_note_agreed) VALUES (:a, :t, :s, 'approved', :on, true)"
+            ),
+            {"a": me, "t": teacher, "s": theirs.id, "on": MON},
+        )
+        await conn.commit()
 
 
 async def _link(engine: AsyncEngine, student: UUID, teacher: UUID) -> None:

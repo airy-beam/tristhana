@@ -1,8 +1,8 @@
 # ID-07: one link for shala and teacher (the student asks, the teacher confirms)
 
-- Status: **proposed** (architect, 2026-11-16; the design in §1 is the owner's decision of 2026-11-16, Q305/Q308; Q317–Q323 in §11 are open) · Size **M** · Phase 3, built right after UI-06 stage 1
+- Status: **accepted** (owner, 2026-11-17: Q317–Q322 in §11 all as recommended, "All yes"; Q323 as recommended: M, Phase 3, before the public launch; the design in §1 is the owner's decision of 2026-11-16, Q305/Q308) · Size **M** · Phase 3, built after UI-06 stages 1, 2 and 4A
 - Requirements: **ID-07** (new). Touches ID-04 (a second way a link comes to exist), ID-03, SC-01 (join flow, card), ST-06 (history boundary), MD-02, NT-02, ST-09, UI-05, UI-06 (Today, Menu, layered consent). PR-08 marks and NT-03 announcements begin at the approval, as for any link.
-- Related: ADR-0008, 0018, 0027, 0030, 0031, 0032, 0033, 0038, 0045. New, proposed: **ADR-0046** (teacher requests: a pending row in its own table).
+- Related: ADR-0008, 0018, 0027, 0030, 0031, 0032, 0033, 0038, 0045. New, accepted: **ADR-0046** (teacher requests: a pending row in its own table).
 
 ## 1. Scope
 **The problem.** A student who joins by the shala link shares nothing; for a teacher to follow them, the teacher must also send a personal link and the student must confirm again. Owners expect one link.

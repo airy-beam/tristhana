@@ -18,6 +18,7 @@ from tristhana.application.ports.notifications import (
     MoonReminder,
     Notification,
     Recipient,
+    TeacherAsked,
 )
 
 if TYPE_CHECKING:
@@ -181,6 +182,14 @@ class TelegramNotifier:
             ),
             "listing answer note",
         )
+
+    async def tell_teacher_asked(self, recipient: Recipient, asked: TeacherAsked) -> DeliveryResult:
+        """ID-07: the teacher's silent note with Yes and No.
+
+        STUB (ID-07 slice 3): the note's screen and its `t1:r*` buttons are built with the
+        bot. Nothing calls `AskTeacher` before that; when the screen exists, send it here as
+        `tell_staff_joined` does (silent, `JOIN_NOTE_TIMEOUT_S`, plain text, no retry)."""
+        raise NotImplementedError("ID-07 slice 3: the teacher's request note")
 
     async def send_export(self, recipient: Recipient, file: ExportFile) -> DeliveryResult:
         """ST-09: a direct `sendDocument` (a webhook reply can't carry a file, ADR-0012)."""

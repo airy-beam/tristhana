@@ -160,6 +160,18 @@ from tristhana.application.teacher_links import (
     SetPrimaryTeacher,
 )
 from tristhana.application.teacher_marks import MarkForStudent
+from tristhana.application.teacher_requests import (
+    ApproveAllRequests,
+    ApproveRequest,
+    AskTeacher,
+    DeclineRequest,
+    GetMyRequests,
+    GetTeacherChoices,
+    GetWaitingRequests,
+    ReopenRequest,
+    RequestUseCases,
+    WithdrawRequest,
+)
 from tristhana.application.teacher_view import GetStudent, GetStudents, TeacherViewUseCases
 from tristhana.application.tick import RunTick
 from tristhana.bots.telegram.notifier import TelegramNotifier
@@ -527,6 +539,21 @@ class _Services:
             mute=MuteAnnouncements(announcement_repo),
         )
         app.state.announcements = announcements
+        request_repo = self._storage.teacher_requests
+        # ID-07 (ADR-0046): the bot reaches these through `links.requests`, the API through
+        # `app.state.requests`. The closing notes are the tick's.
+        requests = RequestUseCases(
+            choices=GetTeacherChoices(request_repo, clock),
+            ask=AskTeacher(request_repo, self._notifier, clock),
+            withdraw=WithdrawRequest(request_repo),
+            mine=GetMyRequests(request_repo, clock),
+            waiting=GetWaitingRequests(request_repo, clock),
+            approve=ApproveRequest(request_repo, clock),
+            approve_all=ApproveAllRequests(request_repo, clock),
+            decline=DeclineRequest(request_repo, clock),
+            reopen=ReopenRequest(request_repo, clock),
+        )
+        app.state.requests = requests
         links = LinkUseCases(
             preview=PreviewInvite(teacher_links),
             accept=AcceptInvite(teacher_links, self._notifier, clock, cities),
@@ -543,6 +570,7 @@ class _Services:
             mark=mark,
             shalas=shalas,
             announcements=announcements,
+            requests=requests,
         )
         app.state.links = links
         listing_repo = self._storage.listings

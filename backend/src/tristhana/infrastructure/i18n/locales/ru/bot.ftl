@@ -775,6 +775,7 @@ links-main-chosen = ⭐ Основной учитель: { $name }
 links-main-auto = ⭐ Основной учитель: { $name } (в начале списка)
 link-no-name = (без имени)
 export-readme-links = teacher_links в data.json: твои учителя и ученики без имён, поэтому чужих данных в этом списке нет.
+export-readme-requests = teacher_requests в data.json: запросы к учителю за последние 30 дней — твои и те, что пришли тебе, без имён. other_side: «teacher» — твой запрос учителю, «student» — запрос ученика тебе. state для твоих запросов: «waiting» — ответа пока нет, «no_answer» — ответа не было 7 дней, «confirmed» — учитель подтвердил, «withdrawn» — запрос отозван или связь позже убрана. Для запросов к тебе: «waiting» — ждёт твоего ответа, «confirmed» — подтверждён, «declined» — твой ответ «Не мой ученик», «closed» — закрыт без твоего ответа.
 export-readme-shalas = shalas в data.json: шалы, в которых ты состоишь. side: «staff» — в команде, «student» — ученик; owner — это твоя шала; roles — твои роли там («admin» — управляющий, «teacher» — преподаватель, «assistant» — ассистент, «office» — администратор). Чужих имён здесь нет.
 links-make-main = ⭐ Сделать основным
 links-remove = Убрать…

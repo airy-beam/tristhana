@@ -964,3 +964,7 @@ membership_of = _membership
 allowed_codes = _allowed
 guard = _if
 staff_json = _ordered_staff
+# For the ID-07 request repository: its guard is a pair (the asker, the asked).
+every_membership = _memberships
+code_of = _code_of
+PAIR = _PAIR

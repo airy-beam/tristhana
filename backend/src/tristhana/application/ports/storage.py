@@ -21,6 +21,7 @@ from tristhana.application.ports.rest_periods import RestPeriodRepository
 from tristhana.application.ports.shalas import ShalaRepository
 from tristhana.application.ports.share_cards import ShareCardRepository
 from tristhana.application.ports.teacher_links import TeacherLinkRepository
+from tristhana.application.ports.teacher_requests import TeacherRequestRepository
 from tristhana.application.ports.teacher_view import TeacherViewRepository
 
 
@@ -75,6 +76,9 @@ class Storage(Protocol):
 
     @property
     def teacher_links(self) -> TeacherLinkRepository: ...
+
+    @property
+    def teacher_requests(self) -> TeacherRequestRepository: ...
 
     @property
     def teacher_view(self) -> TeacherViewRepository: ...

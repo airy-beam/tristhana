@@ -178,6 +178,37 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "Teacher requests read no log, practice, check-in, diary, progression or teacher view (ID-07, ADR-0046)"
+type = "forbidden"
+# Direct imports, as the My schedule contract: `ports.storage` (the Clock) re-exports every port.
+# A request is not a link: nothing here may reach what a link grants.
+allow_indirect_imports = true
+source_modules = [
+    "tristhana.domain.teacher_requests",
+    "tristhana.application.teacher_requests",
+    "tristhana.application.ports.teacher_requests",
+    "tristhana.infrastructure.db.teacher_requests",
+]
+forbidden_modules = [
+    "tristhana.application.ports.days",
+    "tristhana.application.ports.practice",
+    "tristhana.application.ports.diary",
+    "tristhana.application.ports.check_in",
+    "tristhana.application.ports.rest_periods",
+    "tristhana.application.ports.progression",
+    "tristhana.application.ports.teacher_view",
+    "tristhana.application.days",
+    "tristhana.application.practice",
+    "tristhana.application.progression",
+    "tristhana.application.teacher_view",
+    "tristhana.infrastructure.db.days",
+    "tristhana.infrastructure.db.practice",
+    "tristhana.infrastructure.db.progression",
+    "tristhana.infrastructure.db.teacher_view",
+    "tristhana.infrastructure.crypto",
+]
+
+[[tool.importlinter.contracts]]
 name = "The teacher view holds no key"
 type = "forbidden"
 allow_indirect_imports = true

@@ -28,6 +28,7 @@ from tristhana.domain.export import (
     ExportPeriod,
     ExportPractice,
     ExportReminder,
+    ExportRequest,
     MarkedBy,
     Snapshot,
     check_rate,
@@ -648,3 +649,20 @@ def test_check_rate_clock_moved_back_waits_at_most_the_window() -> None:
 
 def test_file_name_is_the_local_date() -> None:
     assert export_file_name(date(2026, 10, 28)) == "tristhana-export-2026-10-28.zip"
+
+
+def test_teacher_requests_carry_three_fields_and_no_person() -> None:
+    """ID-07: the side, the day and the projected word; never a name, an id or the shala."""
+    requests = (
+        ExportRequest("teacher", date(2026, 11, 17), "waiting"),
+        ExportRequest("student", date(2026, 11, 10), "declined"),
+    )
+
+    out = to_json(_snapshot(requests=requests), _labels())
+
+    assert out["teacher_requests"] == [
+        {"other_side": "teacher", "asked_on": "2026-11-17", "state": "waiting"},
+        {"other_side": "student", "asked_on": "2026-11-10", "state": "declined"},
+    ]
+    assert to_json(_snapshot(), _labels())["teacher_requests"] == []
+    json.dumps(out)  # JSON-ready values only

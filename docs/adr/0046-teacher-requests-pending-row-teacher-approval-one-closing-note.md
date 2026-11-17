@@ -1,5 +1,5 @@
 # ADR-0046: Teacher requests: a pending row in its own table, a link only on the teacher's yes, one closing note from the tick
-- Status: proposed (the product design was approved by the owner on 2026-11-16, Q305/Q308; the technical rules below await Q317–Q323 in `docs/specs/ID-07-one-link.md`)
+- Status: accepted (owner, 2026-11-17, with `docs/specs/ID-07-one-link.md`: Q317–Q323 as recommended; the product design was approved on 2026-11-16, Q305/Q308)
 - Builds on ADR-0030 (the student consents first), ADR-0031 (consent as a column, the teacher read path), ADR-0033 (shala memberships and roles), ADR-0038 (tick delivery from live rows), ADR-0045 (layered consent). On acceptance, "Amended by ADR-0046" goes into ADR-0030, 0031 and 0033.
 - Date: 2026-11-16
 ## Context

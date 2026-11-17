@@ -57,6 +57,7 @@ from tristhana.application.ports.teacher_links import (
     Links,
     TeacherLinkRepository,
 )
+from tristhana.application.ports.teacher_requests import TeacherRequestRepository
 from tristhana.application.ports.teacher_view import (
     SharedDetail,
     SharedPage,
@@ -114,6 +115,7 @@ class PostgresStorage:
         self._progression: ProgressionRepository | None = None
         self._export: ExportRepository | None = None
         self._teacher_links: TeacherLinkRepository | None = None
+        self._teacher_requests: TeacherRequestRepository | None = None
         self._teacher_view: TeacherViewRepository | None = None
         self._shalas: SqlShalaRepository | None = None
         self._schedule: SqlScheduleRepository | None = None
@@ -147,6 +149,7 @@ class PostgresStorage:
         from tristhana.infrastructure.db.shalas import SqlShalaRepository
         from tristhana.infrastructure.db.share_cards import SqlShareCardRepository
         from tristhana.infrastructure.db.teacher_links import SqlTeacherLinkRepository
+        from tristhana.infrastructure.db.teacher_requests import SqlTeacherRequestRepository
         from tristhana.infrastructure.db.teacher_view import SqlTeacherViewRepository
 
         self._engine = build_engine(
@@ -166,6 +169,7 @@ class PostgresStorage:
         self._progression = SqlProgressionRepository(self._engine)
         self._export = SqlExportRepository(self._engine, self._cipher)
         self._teacher_links = SqlTeacherLinkRepository(self._engine)
+        self._teacher_requests = SqlTeacherRequestRepository(self._engine)
         self._teacher_view = SqlTeacherViewRepository(self._engine)
         self._shalas = SqlShalaRepository(self._engine)
         self._schedule = SqlScheduleRepository(self._engine)
@@ -265,6 +269,12 @@ class PostgresStorage:
         return self._teacher_links
 
     @property
+    def teacher_requests(self) -> TeacherRequestRepository:
+        if self._teacher_requests is None:
+            raise RuntimeError("storage not started")
+        return self._teacher_requests
+
+    @property
     def teacher_view(self) -> TeacherViewRepository:
         if self._teacher_view is None:
             raise RuntimeError("storage not started")
@@ -350,6 +360,10 @@ class UnconfiguredStorage:
     @property
     def teacher_links(self) -> TeacherLinkRepository:
         return _UnavailableTeacherLinks()
+
+    @property
+    def teacher_requests(self) -> TeacherRequestRepository:
+        return _UnavailableTeacherRequests()
 
     @property
     def teacher_view(self) -> TeacherViewRepository:
@@ -702,6 +716,54 @@ class _UnavailableTeacherLinks:
         raise StorageUnavailable("not configured")
 
     async def unlink(self, student: UUID, teacher: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+
+class _UnavailableTeacherRequests:
+    """ID-07: every call says "temporarily unavailable"."""
+
+    async def choices(self, shala: UUID, me: UUID, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def ask(
+        self,
+        shala: UUID,
+        me: UUID,
+        teacher: UUID,
+        asked_on: date,
+        agreed: bool,
+        caps: Any,
+        now: datetime,
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def withdraw(self, me: UUID, teacher: UUID) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def mine(self, me: UUID, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def waiting(
+        self, me: UUID, now: datetime, offset: int, limit: int, student: UUID | None = None
+    ) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def approve(self, me: UUID, student: UUID, caps: Any, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def approve_all(self, me: UUID, before: datetime, caps: Any, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def decline(self, me: UUID, student: UUID, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def reopen(self, me: UUID, student: UUID, now: datetime) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def due(self, now: datetime, limit: int) -> NoReturn:
+        raise StorageUnavailable("not configured")
+
+    async def prune(self, before: datetime) -> NoReturn:
         raise StorageUnavailable("not configured")
 
 

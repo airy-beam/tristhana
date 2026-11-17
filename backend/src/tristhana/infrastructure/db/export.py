@@ -40,6 +40,7 @@ from tristhana.domain.export import (
     ExportPeriod,
     ExportPractice,
     ExportReminder,
+    ExportRequest,
     ExportShala,
     MarkedBy,
 )
@@ -51,6 +52,7 @@ from tristhana.domain.progression import (
     Progression,
     ProgressionEvent,
 )
+from tristhana.domain.teacher_requests import RequestState, exported_state
 from tristhana.infrastructure.db.accounts import ACCOUNT_COLUMNS, to_account
 from tristhana.infrastructure.db.check_in import known_tags
 from tristhana.infrastructure.db.days import Cipher, open_day_status
@@ -80,6 +82,7 @@ from tristhana.infrastructure.db.tables import (
     shala_staff,
     shala_student,
     teacher_link,
+    teacher_request,
 )
 
 # Tables with an FK to `account.id`: each is exported or excluded on purpose. A test fails
@@ -103,6 +106,9 @@ EXPORTED_TABLES = frozenset(
         "announcement",  # as `announcements_sent`, my own only (NT-03)
         "class_attendance",  # my own marks with the shala's name (SC-05, Q193)
         "directory_listing",  # my own request, never `checked_by` (ID-05)
+        # ID-07: as `teacher_requests`, both directions, without the other person or the
+        # shala; the state is projected, so a request I sent never says "declined".
+        "teacher_request",
     }
 )
 EXCLUDED_TABLES: dict[str, str] = {  # table -> why it isn't exported
@@ -160,6 +166,7 @@ class SqlExportRepository:
             announced,
             attended,
             listed,
+            asked,
         ) = rows
         return Owned(
             account=to_account(row),
@@ -239,6 +246,15 @@ class SqlExportRepository:
                 for r in attended
             ),
             listing=to_listing(listed[0]) if listed else None,
+            requests=tuple(
+                ExportRequest(
+                    "teacher" if r.mine else "student",
+                    r.asked_on,
+                    # The stored state stops here: the owner gets the projected word.
+                    exported_state(r.mine, RequestState(r.state), r.created_at, r.now),
+                )
+                for r in asked
+            ),
         )
 
     async def claim(self, account_id: UUID, now: datetime, before: datetime) -> datetime | None:
@@ -365,6 +381,20 @@ def _statements(account_id: UUID, reminders_from: date) -> list[Any]:
         .where(class_attendance.c.account_id == account_id)
         .order_by(class_attendance.c.starts_at, class_attendance.c.id),
         select(*LISTING_COLUMNS).where(directory_listing.c.account_id == account_id),  # ID-05
+        select(  # ID-07: never the other person's id or name, nor the shala
+            (teacher_request.c.student_id == account_id).label("mine"),
+            teacher_request.c.asked_on,
+            teacher_request.c.state,
+            teacher_request.c.created_at,
+            func.now().label("now"),  # the clock `created_at` is on, for the 7 days
+        )
+        .where(
+            or_(
+                teacher_request.c.student_id == account_id,
+                teacher_request.c.teacher_id == account_id,
+            )
+        )
+        .order_by(teacher_request.c.created_at, teacher_request.c.id),
     ]
 
 

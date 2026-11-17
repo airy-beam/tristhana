@@ -244,6 +244,17 @@ class AsanaMarked:
     target: Position
 
 
+@dataclass(frozen=True, slots=True)
+class TeacherAsked:
+    """ID-07: a student of a shala asks the recipient to be their teacher. The id is for the
+    note's buttons and is no capability: every answer is keyed on the teacher who taps."""
+
+    student_id: UUID
+    student_name: str | None
+    shala_name: str
+    waiting: int  # how many wait for this teacher now, this one included ("See all" from 2)
+
+
 class Notifier(Protocol):
     async def deliver(self, recipient: Recipient, notification: Notification) -> DeliveryResult: ...
 
@@ -284,4 +295,10 @@ class Notifier(Protocol):
     ) -> DeliveryResult:
         """ID-05: the teacher's one silent note about the answer. `was_listed`: a re-check
         that ended the line, not a first answer. Outside the ledger and the cap, no retry."""
+        ...
+
+    async def tell_teacher_asked(self, recipient: Recipient, asked: TeacherAsked) -> DeliveryResult:
+        """ID-07: the teacher's one silent note at the student's tap, with Yes and No, in
+        the teacher's language. Outside the ledger and the cap, no retry: the waiting list is
+        the record."""
         ...
