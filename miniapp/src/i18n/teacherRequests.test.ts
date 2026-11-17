@@ -1,4 +1,6 @@
+import enAsk from "../locales/en/ask.ftl?raw";
 import enRequests from "../locales/en/requests.ftl?raw";
+import ruAsk from "../locales/ru/ask.ftl?raw";
 import ruRequests from "../locales/ru/requests.ftl?raw";
 import { bundleFor, format, messageIds } from "./bundles";
 import { addMessages } from "./lazyMessages";
@@ -9,6 +11,10 @@ import { LOCALES } from "./negotiate";
 // wording is pinned in backend/tests/infrastructure/test_i18n_teacher_requests.py.
 const SOURCES = { en: enRequests, ru: ruRequests };
 addMessages(SOURCES);
+// UI-06 stage 4B (ADR-0049): the picker's copy (`ask.ftl`), the bot's messages under the same
+// keys; site/src/lib/guide.test.mjs keeps every copy equal to the bot's.
+const ASK = { en: enAsk, ru: ruAsk };
+addMessages(ASK);
 
 /** What the teacher reads. */
 const TEACHER = [
@@ -34,6 +40,9 @@ const STUDENT = [
   "request-withdraw",
   "request-withdraw-ask",
   "request-withdraw-yes",
+  "request-withdrawn",
+  "request-open",
+  "request-nobody",
 ];
 
 /** The messages of a raw source, by id. */
@@ -96,22 +105,52 @@ describe("ID-07 copy", () => {
     expect(format(bundleFor("en"), "request-all-done", { count })).toBe(expected);
   });
 
-  it("the waiting line names the shala and nothing else", () => {
-    expect(format(bundleFor("en"), "request-waiting-line", { shala: "Mysore Room" })).toBe(
-      "⏳ Waiting for an answer (Mysore Room)",
+  // UI-06 stage 4B: the bot's line and button, with the teacher's name (spec §9).
+  it("the waiting line and its Withdraw name the teacher and nothing else", () => {
+    expect(format(bundleFor("en"), "request-waiting-line", { name: "Anna" })).toBe(
+      "⏳ Waiting for an answer: Anna",
     );
-    expect(format(bundleFor("ru"), "request-waiting-line", { shala: "Mysore Room" })).toBe(
-      "⏳ Ждём ответа (Mysore Room)",
+    expect(format(bundleFor("ru"), "request-waiting-line", { name: "Anna" })).toBe(
+      "⏳ Ждём ответа: Anna",
     );
+    expect(format(bundleFor("en"), "request-withdraw", { name: "Anna" })).toBe("Withdraw: Anna…");
+    expect(format(bundleFor("ru"), "request-withdraw", { name: "Anna" })).toBe("Отозвать: Anna…");
   });
 
   it.each(LOCALES)("%s: nothing the student reads has a word for a refusal", (locale) => {
-    const found = messages(SOURCES[locale]);
-    for (const id of STUDENT) {
-      expect(id).not.toMatch(/declin|reject|refus/);
+    const found = { ...messages(SOURCES[locale]), ...messages(ASK[locale]) };
+    for (const id of STUDENT) expect(id).not.toMatch(/declin|reject|refus/);
+    // The bot's own keys keep their names (`invite-decline` is "Not now"); their words may not.
+    for (const id of [...STUDENT, ...Object.keys(messages(ASK[locale]))]) {
       expect(found[id]).not.toMatch(/отклон|отказ|declin|reject|refus|not your|не тво/i);
     }
   });
+
+  it.each(LOCALES)(
+    "%s: the picker's copy has the bot's keys, and app.ftl none of them",
+    (locale) => {
+      expect(Object.keys(messages(ASK[locale])).sort()).toEqual(
+        [
+          "request-ask",
+          "request-ask-one",
+          "request-yes",
+          "request-consent-short",
+          "request-until-yes",
+          "request-know-them",
+          "request-consent",
+          "consent-details",
+          "consent-short-back",
+          "invite-decline",
+          "request-asked",
+          "request-waiting",
+          "request-recent",
+          "request-too-many",
+          "request-full",
+          "invite-already",
+        ].sort(),
+      );
+    },
+  );
 
   it.each(LOCALES)("%s: no line anywhere says declined or rejected", (locale) => {
     for (const text of Object.values(messages(SOURCES[locale]))) {
@@ -120,7 +159,10 @@ describe("ID-07 copy", () => {
   });
 
   it("RU speaks as «ты», with no gendered past tense about the reader", () => {
-    for (const text of Object.values(messages(SOURCES.ru))) {
+    for (const text of [
+      ...Object.values(messages(SOURCES.ru)),
+      ...Object.values(messages(ASK.ru)),
+    ]) {
       expect(text).not.toMatch(/(?<![а-яё])(вы|вас|вам|ваш[а-яё]*)(?![а-яё])/i);
       expect(text).not.toMatch(/(?<![а-яё])ты [а-яё]+(л|ла)(?![а-яё])/i);
     }

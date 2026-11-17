@@ -107,6 +107,10 @@ interface Stub {
   create?: (body: unknown) => Response;
   /** My account's home city. */
   home?: unknown;
+  /** UI-06 stage 4B: who I can pick here, read again after each write. */
+  choices?: () => unknown;
+  /** What an ask comes to. */
+  ask?: () => Response;
 }
 
 function stubApi(stub: Stub = {}): Request[] {
@@ -122,6 +126,12 @@ function stubApi(stub: Stub = {}): Request[] {
         const body: unknown = await request.json();
         return stub.create?.(body) ?? json(shalaOut(OWNER), 201);
       }
+      if (path === `/api/v1/shalas/${SHALA}/teacher-choices`)
+        return json(stub.choices?.() ?? { offer: [], waiting: [] });
+      if (path === "/api/v1/me/teacher-requests" && request.method === "POST")
+        return stub.ask?.() ?? json({ result: "created" });
+      if (path.startsWith("/api/v1/me/teacher-requests/") && request.method === "DELETE")
+        return new Response(null, { status: 204 });
       if (path === `/api/v1/shalas/${SHALA}` && request.method === "DELETE")
         return new Response(null, { status: 204 });
       if (path.startsWith(`/api/v1/shalas/${SHALA}/staff/`) && request.method === "PUT")
@@ -629,6 +639,125 @@ describe("opened for one thing", () => {
       expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
     },
   );
+});
+
+// ID-07, UI-06 stage 4B (spec §4): the bot's student part of the card, under its title: one
+// line per teacher I wait for here, each with Withdraw, then "🤝 Pick a teacher" while someone
+// can be picked. The picker opens over the card; its line stays on the card (QE).
+describe("the card's student part", () => {
+  const ANNA_C = { id: ANNA, name: "Anna" };
+  const BORIS_C = { id: BORIS, name: "Boris" };
+  const CHOICES = `/api/v1/shalas/${SHALA}/teacher-choices`;
+  it("a student: the waiting lines with Withdraw, then Pick a teacher, right under the title", async () => {
+    stubApi({ card: shalaOut(STUDENT), choices: () => ({ offer: [BORIS_C], waiting: [ANNA_C] }) });
+    renderWith(card());
+
+    const pick = await screen.findByRole("button", { name: "🤝 Pick a teacher" });
+    const line = screen.getByText((t) => plain(t) === "⏳ Waiting for an answer: Anna");
+    const withdraw = screen.getByRole("button", {
+      name: (n) => plain(n) === "Withdraw: Anna…",
+    });
+    const heading = screen.getByRole("heading", { level: 1 });
+    // The title, the waiting line and its Withdraw, then the row, before the rest of the card.
+    expect(heading.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.compareDocumentPosition(withdraw) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(withdraw.compareDocumentPosition(pick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const place = screen.getByText(/shala time/);
+    expect(pick.compareDocumentPosition(place) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // No state, date or count: the name, and nothing else.
+    const box = line.closest(".card");
+    expect(plain(box?.textContent)).toBe("⏳ Waiting for an answer: AnnaWithdraw: Anna…");
+  });
+
+  it("nobody to pick and nobody waited for: nothing at all", async () => {
+    stubApi({ card: shalaOut(STUDENT) });
+    renderWith(card());
+
+    await screen.findByText(/shala time/);
+    expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
+    expect(pageText()).not.toContain("Waiting");
+  });
+
+  it.each([
+    ["owner", OWNER],
+    ["teacher", TEACHER],
+    ["admin", ADMIN],
+  ] as const)("staff (%s) never read who can be picked", async (_, me) => {
+    const seen = stubApi({ card: shalaOut(me), choices: () => ({ offer: [ANNA_C], waiting: [] }) });
+    renderWith(card());
+
+    await screen.findByText(/shala time/);
+    expect(calls(seen, "GET", CHOICES)).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
+  });
+
+  it("Withdraw asks once, takes it back, and the card says so", async () => {
+    telegram.confirmDestructive.mockResolvedValue(true);
+    let withdrawn = false;
+    const seen = stubApi({
+      card: shalaOut(STUDENT),
+      choices: () => (withdrawn ? { offer: [], waiting: [] } : { offer: [], waiting: [ANNA_C] }),
+    });
+    renderWith(card());
+
+    const withdraw = await screen.findByRole("button", {
+      name: (n) => plain(n) === "Withdraw: Anna…",
+    });
+    withdrawn = true;
+    fireEvent.click(withdraw);
+
+    const said = await screen.findByRole("status");
+    expect(plain(said.textContent)).toBe("Request withdrawn.");
+    expect(pageText()).not.toContain("Waiting for an answer");
+    const [message] = telegram.confirmDestructive.mock.calls[0] ?? [];
+    expect(plain(message)).toMatch(/^Withdraw your request to Anna\? No one gets a message\./);
+    expect(calls(seen, "DELETE", `/api/v1/me/teacher-requests/${ANNA}`)).toHaveLength(1);
+  });
+
+  it("Pick opens the picker over the card; the line and the new waiting line stay on the card", async () => {
+    let asked = false;
+    const seen = stubApi({
+      card: shalaOut(STUDENT),
+      choices: () =>
+        asked ? { offer: [], waiting: [BORIS_C] } : { offer: [BORIS_C], waiting: [] },
+      ask: () => {
+        asked = true;
+        return json({ result: "created" });
+      },
+    });
+    renderWith(card());
+
+    fireEvent.click(await screen.findByRole("button", { name: "🤝 Pick a teacher" }));
+
+    await screen.findByText((t) => plain(t) === "Is Boris your teacher?");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(screen.getByText(/shala time/)).not.toBeVisible(); // the card is under the layer
+    fireEvent.click(screen.getByRole("button", { name: "✅ Yes" }));
+
+    const said = await screen.findByRole("status");
+    expect(plain(said.textContent)).toBe(
+      "✉️ Request sent to Boris. Nothing is shown until they confirm.",
+    );
+    const line = await screen.findByText((t) => plain(t) === "⏳ Waiting for an answer: Boris");
+    expect(said.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "🤝 Pick a teacher" })).toBeNull();
+    expect(calls(seen, "POST", "/api/v1/me/teacher-requests")).toHaveLength(1);
+    // Right under the card's title.
+    expect(said.previousElementSibling).toBe(
+      screen.getByRole("heading", { level: 1, name: /Ashtanga Almaty/ }),
+    );
+  });
+
+  it("Russian: the bot's words", async () => {
+    stubApi({ card: shalaOut(STUDENT), choices: () => ({ offer: [BORIS_C], waiting: [ANNA_C] }) });
+    renderWith(card(), "ru");
+
+    expect(await screen.findByRole("button", { name: "🤝 Выбрать учителя" })).toBeVisible();
+    expect(screen.getByText((t) => plain(t) === "⏳ Ждём ответа: Anna")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: (n) => plain(n) === "Отозвать: Anna…" }),
+    ).toBeVisible();
+  });
 });
 
 // UI-06 stage 4B (QF): the bot's "📣 Announce" from a shala (`?open=announce&shala=`) opens

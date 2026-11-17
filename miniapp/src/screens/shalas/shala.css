@@ -116,6 +116,18 @@
   margin: 0 0 var(--space);
 }
 
+/* "🤝 Pick a teacher" for a student of several shalas: which one, under the label. */
+.door-sub {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.row-button .door-sub {
+  color: var(--c-hint);
+}
+
 /* "📣 Announcements" under my teachers, and the invite's buttons in its panel: rows on the
    card, in the page's colour. */
 .shala-tab .teachers .row-button,

@@ -40,8 +40,59 @@
   background: var(--c-bg);
 }
 
-/* The student's line sits right under the name it belongs to. */
-.card .asked-line {
-  margin: 0 0 6px;
+/* The student's waiting line, its Withdraw beside it or under it (UI-06 stage 4B). */
+.asked .link {
+  min-height: 44px;
+  margin: 0;
+  text-align: left;
   overflow-wrap: anywhere;
+}
+
+/* The one line an ask or a withdraw leaves (QE): where it was done, above what it changed. */
+.said {
+  display: block;
+  margin: 0 0 var(--space);
+  overflow-wrap: anywhere;
+}
+
+/* The picker (UI-06 stage 4B, ADR-0049): the question, the consent, the names. */
+.ask-question {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.consent {
+  margin: 0 0 var(--space);
+}
+
+/* The consent's bullets are lines of one message. */
+.consent p {
+  margin: 0 0 8px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.ask-names .btn,
+.ask-names .row-button {
+  min-height: 48px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.ask-names .row-button:disabled {
+  opacity: 0.6;
+}
+
+.ask-more {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 16px;
+}
+
+.ask-more .link {
+  min-height: 44px;
+  margin: 0;
 }

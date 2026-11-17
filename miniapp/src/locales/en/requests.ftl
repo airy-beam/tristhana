@@ -1,5 +1,6 @@
-## ID-07: teacher requests. A student names a teacher in the bot; here the teacher answers
-## (the waiting block on My students) and the student sees who they wait for (the Shala tab).
+## ID-07: teacher requests. A student asks a teacher of their shala (the picker's words are in
+## `ask.ftl`); the teacher answers in the waiting block on top of the Shala tab, and the student
+## sees who they wait for, on the tab and on the shala's card.
 ## Same wording as the bot's `request-*` keys. People and shala names are plain text.
 ## Nothing the student reads may tell a "no" from silence: no state, no date, no word for a
 ## refusal.
@@ -30,8 +31,13 @@ request-all-done =
     }
 request-load-failed = Couldn't load who is waiting. Try again in a moment.
 
-# The student: one line under the name of each teacher they asked. { $shala } is where.
-request-waiting-line = ⏳ Waiting for an answer ({ $shala })
-request-withdraw = Withdraw…
+# The student: one line per teacher I asked and wait for (the Shala tab's teachers card and the
+# shala's card), each with Withdraw; the row that opens the picker while someone can be asked,
+# and the lines after a withdraw or when nobody is left. The bot's words, same keys.
+request-waiting-line = ⏳ Waiting for an answer: { $name }
+request-withdraw = Withdraw: { $name }…
 request-withdraw-ask = Withdraw your request to { $name }? No one gets a message. You can ask them again in about a month.
 request-withdraw-yes = Withdraw
+request-withdrawn = Request withdrawn.
+request-open = 🤝 Pick a teacher
+request-nobody = There's no one else to pick here right now.

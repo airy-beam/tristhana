@@ -36,6 +36,8 @@ import { Check, Field, Select, TextInput } from "../../ui/controls";
 import { cityName } from "../cityName";
 import { Row } from "../Row";
 import { labelOf } from "../settings/zones";
+import { AskedLines, SaidLine } from "../teachers/Asked";
+import { useTeacherChoices, type Said } from "../teachers/requests";
 import ClassForm, { type ClassEdit, type FormResult } from "./ClassForm";
 import ShalaSchedule from "./ShalaSchedule";
 import { WEEKDAYS, weekdayShort } from "./scheduleText";
@@ -83,6 +85,8 @@ interface Props {
  * card stays mounted under them, so Back finds the week, the open date and the scroll as they
  * were left, and the focus returns to the row that opened the layer. */
 const Announcements = lazyRetry(() => import("../announcements/Announcements"));
+// UI-06 stage 4B: "🤝 Pick a teacher" opens the picker (and its copy) over the card.
+const AskTeacher = lazyRetry(() => import("../teachers/AskTeacher"));
 
 /** The class form: a new class, or a saved one opened from a date. */
 type Form = { edit?: ClassEdit };
@@ -98,13 +102,16 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const [opened, setOpened] = useState(open);
   const [form, setForm] = useState<Form | null>(open === "class" ? {} : null);
   const [gone, setGone] = useState(false);
+  // A student asking a teacher here, and the line the ask or a withdraw left (QE).
+  const [asking, setAsking] = useState(false);
+  const [said, setSaid] = useState<Said | null>(null);
   // Only for those who manage classes; a start asking for the form leaves the others the card.
   const editing = form !== null && shala?.me.schedule === true;
   // QF: only for those who may announce here; the others (and a former member) get the card.
   const layer =
     announcements ??
     (opened === "announce" && shala?.me.announce ? { view: "compose" as const } : null);
-  const covered = editing || layer !== null;
+  const covered = editing || layer !== null || asking;
   // Where the card was scrolled when a layer opened, and what had the focus, to give both back.
   const left = useRef<{ top: number; from: Element | null } | null>(null);
   useEffect(() => {
@@ -138,6 +145,12 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
           week={week}
           open={opened}
           gone={gone}
+          said={said}
+          onSaid={setSaid}
+          onPick={() => {
+            cover();
+            setAsking(true);
+          }}
           onAnnouncements={(view, draft) => {
             cover();
             setOpened(undefined);
@@ -152,6 +165,19 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
         />
       </div>
       {editing && <ClassForm shala={shala} edit={form.edit} onDone={closeForm} />}
+      {asking && shala && (
+        <Suspense fallback={<main className="screen" aria-busy="true" />}>
+          <AskTeacher
+            shala={shala}
+            onDone={(line) => {
+              // The line takes the focus; the scroll goes back to where the card was.
+              if (line && left.current) left.current = { ...left.current, from: null };
+              setAsking(false);
+              if (line) setSaid(line);
+            }}
+          />
+        </Suspense>
+      )}
       {layer && (
         <Suspense fallback={<main className="screen" aria-busy="true" />}>
           <Announcements
@@ -170,12 +196,27 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
 
 interface CardProps extends Props {
   gone: boolean;
+  said: Said | null;
+  onSaid: (said: Said) => void;
+  onPick: () => void;
   onAnnouncements: (view: "feed" | "compose", draft?: string) => void;
   onAdd: () => void;
   onEdit: (occurrence: Occurrence) => void;
 }
 
-function Card({ id, onBack, week, open, gone, onAnnouncements, onAdd, onEdit }: CardProps) {
+function Card({
+  id,
+  onBack,
+  week,
+  open,
+  gone,
+  said,
+  onSaid,
+  onPick,
+  onAnnouncements,
+  onAdd,
+  onEdit,
+}: CardProps) {
   useBackButton(onBack);
   const { l10n } = useLocalization();
   const query = useShala(id);
@@ -204,6 +245,8 @@ function Card({ id, onBack, week, open, gone, onAnnouncements, onAdd, onEdit }: 
       {shala && (
         <>
           <h1>{l10n.getString("shala-title", { shala: shala.name })}</h1>
+          {said && <SaidLine said={said} />}
+          {shala.me.student && <Asking shala={shala} onSaid={onSaid} onPick={onPick} />}
           <SetupList shala={shala} onOpen={setup} />
           <Place shala={shala} locale={locale} viewer={me?.timezone} />
           <DayOffOffer shala={shala} />
@@ -249,6 +292,48 @@ function Card({ id, onBack, week, open, gone, onAnnouncements, onAdd, onEdit }: 
         </>
       )}
     </main>
+  );
+}
+
+/** ID-07, UI-06 stage 4B (spec §4): the bot's student part of the card. One line per teacher I
+ * wait for here, each with Withdraw, then "🤝 Pick a teacher" while someone can be picked.
+ * Students only: staff never read who can be picked. */
+function Asking({
+  shala,
+  onSaid,
+  onPick,
+}: {
+  shala: Shala;
+  onSaid: (said: Said) => void;
+  onPick: () => void;
+}) {
+  const { l10n } = useLocalization();
+  const { offer = [], waiting = [] } = useTeacherChoices(shala.id, true).data ?? {};
+  return (
+    <>
+      {waiting.length > 0 && (
+        <section className="card">
+          <AskedLines
+            asked={waiting}
+            onWithdrawn={() => {
+              onSaid({ text: l10n.getString("request-withdrawn") });
+            }}
+          />
+        </section>
+      )}
+      {offer.length > 0 && (
+        <Localized id="request-open">
+          <button
+            type="button"
+            className="row-button"
+            onClick={() => {
+              haptics.selection();
+              onPick();
+            }}
+          />
+        </Localized>
+      )}
+    </>
   );
 }
 

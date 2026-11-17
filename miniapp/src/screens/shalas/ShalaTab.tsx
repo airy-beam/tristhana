@@ -1,5 +1,5 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Fragment, Suspense, useEffect, useRef, useState, type Ref } from "react";
+import { Fragment, Suspense, useEffect, useId, useRef, useState, type Ref } from "react";
 
 import {
   useInvite,
@@ -10,6 +10,7 @@ import {
   useRemoveTeacher,
   type Invite,
   type LinkedTeacher,
+  type MyShala,
   type TeacherLinks,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
@@ -18,7 +19,8 @@ import type { ShalaOpen, Start } from "../../shell/nav";
 import { confirmDestructive, haptics, openTelegramLink } from "../../telegram";
 import { Row } from "../Row";
 import { checkedMonth, useListing, type ListingMark } from "../settings/listing";
-import { useWithdrawRequest, type AskedTeacher } from "../teachers/requests";
+import { AskedLines, SaidLine } from "../teachers/Asked";
+import { useTeacherChoicesOf, type AskedTeacher, type Said } from "../teachers/requests";
 import { Waiting } from "../teachers/Waiting";
 import CreateShala from "./CreateShala";
 import "./shala.css";
@@ -28,6 +30,8 @@ const ShalaScreen = lazyRetry(() => import("./ShalaScreen"));
 const Announcements = lazyRetry(() => import("../announcements/Announcements"));
 // ID-05: the form (and its copy) loads when the row is tapped.
 const DirectoryListing = lazyRetry(() => import("../settings/DirectoryListing"));
+// UI-06 stage 4B (QA): the picker and the bot's words for it load with "🤝 Pick a teacher".
+const AskTeacher = lazyRetry(() => import("../teachers/AskTeacher"));
 
 interface Props {
   /** My students (ST-06), from the "👥 My students" row. */
@@ -157,12 +161,43 @@ function Root({
   const shalas = useMyShalas();
   const mine = shalas.data ?? [];
   const students = links?.students.length ?? 0;
+  // QA: "🤝 Pick a teacher" for a student of a shala with no teacher and nothing asked, one row
+  // per such shala with someone to pick. Who can be picked is read only then.
+  const studentOf = mine.filter((s) => s.side === "student");
+  const lonely = links !== undefined && links.teachers.length === 0 && asked.length === 0;
+  const choices = useTeacherChoicesOf(lonely ? studentOf.map((s) => s.id) : []);
+  const picks = lonely
+    ? studentOf.filter((_s, n) => (choices[n]?.data?.offer.length ?? 0) > 0)
+    : [];
+  const [asking, setAsking] = useState<MyShala | null>(null);
+  const [said, setSaid] = useState<Said | null>(null);
+  // What opened the picker gets the focus back when it closes with nothing to say.
+  const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (asking || !opener.current) return;
+    const from = opener.current;
+    opener.current = null;
+    if (from.isConnected) from.focus({ preventScroll: true });
+  }, [asking]);
+  const pick = (shala: MyShala) => {
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.scrollTo({ top: 0 });
+    setAsking(shala);
+  };
   // QC: the people waiting for my answer, on top. Read only when someone waits; once shown it
   // stays for this visit, so the Undo and the line after the last answer stay on screen.
   const [answering, setAnswering] = useState(false);
   if (waiting > 0 && !answering) setAnswering(true);
-  // Both lists decide between the list and "nobody yet": neither is drawn on a guess.
-  const settled = begun || ((links || query.isError) && (shalas.data || shalas.isError));
+  // Both lists decide between the list and "nobody yet": neither is drawn on a guess. So does
+  // who can be picked, the first time, so the main row doesn't move once drawn.
+  const [drawn, setDrawn] = useState(false);
+  const settled =
+    begun ||
+    drawn ||
+    ((links || query.isError) &&
+      (shalas.data || shalas.isError) &&
+      !choices.some((c) => c.isPending));
+  if (settled && !drawn) setDrawn(true);
   const nobody =
     !begun &&
     links?.teachers.length === 0 &&
@@ -170,90 +205,135 @@ function Root({
     asked.length === 0 &&
     waiting === 0 &&
     shalas.data?.length === 0;
-  // The first row present is the main one (spec §3). UI-06 stage 4B slice 3: "🤝 Pick a
-  // teacher" (QA) comes first and takes it when it shows.
-  const main = mine.length > 0 ? "schedule" : students > 0 ? "students" : null;
+  // The first row present is the main one (spec §3): "🤝 Pick a teacher" (QA) when it shows.
+  const main =
+    picks.length > 0 ? "pick" : mine.length > 0 ? "schedule" : students > 0 ? "students" : null;
   return (
-    <main className="screen shala-tab" aria-busy={settled ? undefined : true}>
-      <Localized id="tab-shala">
-        <h1 ref={headingRef} tabIndex={-1} />
-      </Localized>
-      {query.isError && (
-        <Localized id="links-load-failed">
-          <p className="hint" role="alert" />
+    <>
+      <main
+        className="screen shala-tab"
+        hidden={asking !== null}
+        aria-busy={settled ? undefined : true}
+      >
+        <Localized id="tab-shala">
+          <h1 ref={headingRef} tabIndex={-1} />
         </Localized>
-      )}
-      {nobody && (
-        <Localized id="shala-empty">
-          <p className="hint" />
-        </Localized>
-      )}
-      {settled && (
-        <>
-          {/* UI-06 stage 4B slice 3: the result line of an ask or a withdraw (§3 row 1) goes
-              here, above the waiting block. */}
-          {answering && <Waiting />}
-          {/* UI-06 stage 4B slice 3: "🤝 Pick a teacher" (§3 row 3, QA) goes here. */}
-          {mine.length > 0 && (
-            <Door
-              label={l10n.getString("my-schedule-open")}
-              main={main === "schedule"}
-              onOpen={onSchedule}
-            />
-          )}
-          {mine.map((s) => (
-            <Door
-              key={s.id}
-              label={l10n.getString("shala-title", { shala: s.name })}
-              onOpen={() => {
-                onShala(s.id);
-              }}
-            />
-          ))}
-          {links && (links.teachers.length > 0 || asked.length > 0) && (
-            <Teachers teachers={links.teachers} asked={asked} locale={locale} onFeed={onFeed} />
-          )}
-          {/* QD: one row; the names, their week and Remove are on My students. */}
-          {students > 0 && (
-            <Door
-              label={l10n.getString("link-students-open")}
-              main={main === "students"}
-              onOpen={onStudents}
-            />
-          )}
-          <Group
-            intent={intent}
-            hasStudents={students > 0}
-            onCreated={onShala}
-            onListing={onListing}
+        {query.isError && (
+          <Localized id="links-load-failed">
+            <p className="hint" role="alert" />
+          </Localized>
+        )}
+        {nobody && (
+          <Localized id="shala-empty">
+            <p className="hint" />
+          </Localized>
+        )}
+        {settled && (
+          <>
+            {said && <SaidLine said={said} />}
+            {answering && <Waiting />}
+            {picks.map((s, n) => (
+              <Door
+                key={s.id}
+                label={l10n.getString("request-open")}
+                sub={studentOf.length >= 2 ? s.name : undefined}
+                main={main === "pick" && n === 0}
+                onOpen={() => {
+                  pick(s);
+                }}
+              />
+            ))}
+            {mine.length > 0 && (
+              <Door
+                label={l10n.getString("my-schedule-open")}
+                main={main === "schedule"}
+                onOpen={onSchedule}
+              />
+            )}
+            {mine.map((s) => (
+              <Door
+                key={s.id}
+                label={l10n.getString("shala-title", { shala: s.name })}
+                onOpen={() => {
+                  onShala(s.id);
+                }}
+              />
+            ))}
+            {links && (links.teachers.length > 0 || asked.length > 0) && (
+              <Teachers
+                teachers={links.teachers}
+                asked={asked}
+                locale={locale}
+                onFeed={onFeed}
+                onWithdrawn={() => {
+                  setSaid({ text: l10n.getString("request-withdrawn") });
+                }}
+              />
+            )}
+            {/* QD: one row; the names, their week and Remove are on My students. */}
+            {students > 0 && (
+              <Door
+                label={l10n.getString("link-students-open")}
+                main={main === "students"}
+                onOpen={onStudents}
+              />
+            )}
+            <Group intent={intent} onCreated={onShala} onListing={onListing} />
+          </>
+        )}
+      </main>
+      {asking && (
+        <Suspense fallback={<main className="screen" aria-busy="true" />}>
+          <AskTeacher
+            shala={asking}
+            onDone={(line) => {
+              if (line) opener.current = null; // the line takes the focus
+              setAsking(null);
+              if (line) setSaid(line);
+            }}
           />
-        </>
+        </Suspense>
       )}
-    </main>
+    </>
   );
 }
 
 /** A row of the list that opens a place. The main one is the filled button (as the setup
- * list's due step); the others are plain rows. */
+ * list's due step); the others are plain rows. `sub`: a quiet second line, read as the row's
+ * description (which shala a "Pick a teacher" is for). */
 function Door({
   label,
+  sub,
   main = false,
   onOpen,
 }: {
   label: string;
+  sub?: string | undefined;
   main?: boolean;
   onOpen: () => void;
 }) {
+  const id = useId();
   return (
     <button
       type="button"
       className={main ? "btn" : "row-button"}
+      aria-labelledby={sub ? `${id}l` : undefined}
+      aria-describedby={sub ? `${id}s` : undefined}
       onClick={() => {
         haptics.selection();
         onOpen();
       }}
     >
-      {label}
+      {sub ? (
+        <>
+          <span id={`${id}l`}>{label}</span>
+          <span id={`${id}s`} className="door-sub">
+            {sub}
+          </span>
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }
@@ -263,12 +343,10 @@ function Door({
  * place, one at a time (the form ready to type); a start opens one of them. */
 function Group({
   intent,
-  hasStudents,
   onCreated,
   onListing,
 }: {
   intent: Intent | null;
-  hasStudents: boolean;
   onCreated: (id: string) => void;
   onListing: () => void;
 }) {
@@ -285,7 +363,7 @@ function Group({
       </Localized>
       <section className="card list">
         <Row
-          label={l10n.getString(hasStudents ? "links-invite" : "shala-start-invite")}
+          label={l10n.getString("shala-start-invite")}
           expanded={open === "invite"}
           onClick={toggle("invite")}
         />
@@ -385,17 +463,18 @@ function Teachers({
   asked,
   locale,
   onFeed,
+  onWithdrawn,
 }: {
   teachers: LinkedTeacher[];
   asked: AskedTeacher[];
   locale: Locale;
   onFeed: () => void;
+  onWithdrawn: () => void;
 }) {
   const { l10n } = useLocalization();
   const name = useName();
   const makeMain = useMakeMainTeacher();
   const remove = useRemoveTeacher();
-  const withdraw = useWithdrawRequest();
   const several = teachers.length >= 2;
   const main = teachers.find((t) => t.primary);
 
@@ -412,17 +491,6 @@ function Teachers({
     if (!ok) return;
     haptics.impact("light");
     remove.mutate(teacher.id);
-  };
-
-  const confirmWithdraw = async (teacher: AskedTeacher) => {
-    const ok = await confirmDestructive(
-      l10n.getString("request-withdraw-ask", { name: short(name(teacher.name)) }),
-      l10n.getString("request-withdraw-yes"),
-      l10n.getString("delete-cancel"),
-    );
-    if (!ok) return;
-    haptics.impact("light");
-    withdraw.mutate(teacher.teacher_id);
   };
 
   return (
@@ -469,33 +537,12 @@ function Teachers({
           {teacher.listing && <ListingLine mark={teacher.listing} locale={locale} />}
         </Fragment>
       ))}
-      {/* ID-07: a teacher I asked in a shala. The line is the same whatever the teacher did:
-          the name, the shala and Withdraw, with no state, date or count. */}
-      {asked.map((teacher) => (
-        <Fragment key={teacher.teacher_id}>
-          <div className="link-person">
-            <span>{name(teacher.name)}</span>
-            <Localized id="request-withdraw">
-              <button
-                type="button"
-                className="link"
-                disabled={withdraw.isPending}
-                onClick={() => {
-                  void confirmWithdraw(teacher);
-                }}
-              />
-            </Localized>
-          </div>
-          <p className="hint small asked-line">
-            {l10n.getString("request-waiting-line", { shala: teacher.shala.name })}
-          </p>
-        </Fragment>
-      ))}
-      {withdraw.isError && (
-        <Localized id="settings-save-failed">
-          <p className="hint" role="alert" />
-        </Localized>
-      )}
+      {/* ID-07: a teacher I asked in a shala, in the bot's words: the name and Withdraw, the
+          same whatever the teacher did (no state, date or count). */}
+      <AskedLines
+        asked={asked.map((a) => ({ id: a.teacher_id, name: a.name }))}
+        onWithdrawn={onWithdrawn}
+      />
       {teachers.length > 0 && (
         <Localized id="ann-list">
           <button

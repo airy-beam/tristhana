@@ -158,6 +158,15 @@ let accountLocale: "en" | "ru" = "en";
 let mine: unknown[] = [];
 let requests: () => Waiting[] = () => [];
 let listing: unknown = { status: "none", available: false };
+/** UI-06 stage 4B: who I can pick in each shala (`GET /shalas/{id}/teacher-choices`), and what
+ * an ask comes to. A shala not listed answers as an older API would. */
+interface Choices {
+  offer: { id: string; name: string | null }[];
+  waiting: { id: string; name: string | null }[];
+}
+let choices: Record<string, Choices> = {};
+const choice = (id: string, name: string | null) => ({ id, name });
+const ASK = "/api/v1/me/teacher-requests";
 
 function background(path: string): unknown {
   // The device-timezone reply is the account too, and replaces it outside UTC.
@@ -211,6 +220,9 @@ function stubApi(links: () => LinksBody, answer: Answer = () => undefined): Requ
         return json({ ...body, waiting: body.waiting ?? requests().length });
       }
       if (path === "/api/v1/me/shalas") return json(mine); // SC-01
+      const picking = /^\/api\/v1\/shalas\/([^/]+)\/teacher-choices$/.exec(path);
+      if (picking?.[1]) return json(choices[picking[1]] ?? {});
+      if (path === ASK && request.method === "POST") return json({ result: "created" });
       if (path === "/api/v1/me/directory-listing") return json(listing);
       if (path === "/api/v1/me/invite") return json({ url: URL_1, qr: QR_1 });
       if (path === REQUESTS) {
@@ -253,6 +265,7 @@ beforeAll(async () => {
     import("./ShalaScreen"),
     import("../teachers/Students"),
     import("../announcements/Announcements"),
+    import("../teachers/AskTeacher"),
   ]);
 }, 60_000);
 
@@ -275,6 +288,7 @@ beforeEach(() => {
   mine = [];
   requests = () => [];
   listing = { status: "none", available: false };
+  choices = {};
   confirmDestructive.mockReset();
   confirmDestructive.mockResolvedValue(false);
   confirmAction.mockReset();
@@ -530,13 +544,14 @@ test("with 0 students the group's invite row is the quiet start", async () => {
   expect(screen.queryByRole("button", { name: "I teach: invite students" })).toBeNull();
 });
 
-test("with students the group's invite row is the plain invite", async () => {
+// UI-06 stage 4B: the group's rows read alike, with no icon, whoever reads them.
+test("with students the group's invite row is the same quiet start", async () => {
   stubApi(() => ({ teachers: [], students: [student(SHIVA, "Shiva")] }));
 
   await openScreen();
 
-  await screen.findByRole("button", { name: "➕ Invite students" });
-  expect(screen.queryByRole("button", { name: "Invite students" })).toBeNull();
+  await screen.findByRole("button", { name: "Invite students" });
+  expect(screen.queryByRole("button", { name: "➕ Invite students" })).toBeNull();
 });
 
 /** With nobody on the lists, the quiet "Invite students" row opens the invite under it. */
@@ -673,16 +688,17 @@ test("two long names still fit Telegram's 256-character popup", async () => {
 describe("a teacher I asked", () => {
   const WAITING: LinksBody = { teachers: [lena()], students: [], asked: [asked(ANNA, "Anna")] };
   const reads = (text: string) => (found: string) => plain(found) === text;
+  const withdrawAnna = (name: string) => plain(name) === "Withdraw: Anna…";
 
-  test("has a waiting line with the name and the shala", async () => {
+  // UI-06 stage 4B: the bot's words, with the name (spec §9); the shala is no longer named.
+  test("has a waiting line with the name, in the bot's words", async () => {
     stubApi(() => WAITING);
 
     await openScreen();
 
-    const line = await screen.findByText(reads("⏳ Waiting for an answer (Mysore Room)"));
+    const line = await screen.findByText(reads("⏳ Waiting for an answer: Anna"));
     expect(line.closest(".card")).toBe(screen.getByText("Лена").closest(".card"));
-    expect(screen.getByText("Anna")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Withdraw…" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: withdrawAnna })).toBeInTheDocument();
     // Not a teacher on the list: no ⭐, and the one Remove is Лена's.
     expect(screen.getAllByRole("button", { name: "Remove…" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "⭐ Make main" })).toBeNull();
@@ -693,8 +709,10 @@ describe("a teacher I asked", () => {
 
     await openScreen();
 
-    await screen.findByText(reads("⏳ Waiting for an answer (Mysore Room)"));
-    expect(pageText()).toContain("(no name)");
+    await screen.findByText(reads("⏳ Waiting for an answer: (no name)"));
+    expect(
+      screen.getByRole("button", { name: (n) => plain(n) === "Withdraw: (no name)…" }),
+    ).toBeInTheDocument();
     expect(pageText()).not.toContain("Nobody here yet");
   });
 
@@ -705,10 +723,10 @@ describe("a teacher I asked", () => {
 
     await screen.findByText("Лена");
     expect(pageText()).not.toContain("Waiting");
-    expect(screen.queryByRole("button", { name: "Withdraw…" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Withdraw/ })).toBeNull();
   });
 
-  test("tells nothing but the name and the shala: no state, date or count", async () => {
+  test("tells nothing but the name: no state, date or count", async () => {
     stubApi(() => ({
       teachers: [],
       students: [],
@@ -717,16 +735,14 @@ describe("a teacher I asked", () => {
 
     await openScreen();
 
-    await screen.findByText("Boris");
-    const card = screen.getByText("Anna").closest(".card");
+    const line = await screen.findByText(reads("⏳ Waiting for an answer: Boris"));
+    const card = line.closest(".card");
     const text = plain(card?.textContent);
     const lines = [
-      "Anna",
-      "Withdraw…",
-      "⏳ Waiting for an answer (Mysore Room)",
-      "Boris",
-      "Withdraw…",
-      "⏳ Waiting for an answer (Mysore Room)",
+      "⏳ Waiting for an answer: Anna",
+      "Withdraw: Anna…",
+      "⏳ Waiting for an answer: Boris",
+      "Withdraw: Boris…",
     ];
     expect(text).toBe(lines.join(""));
     expect(text).not.toMatch(/\d/);
@@ -737,7 +753,7 @@ describe("a teacher I asked", () => {
     const seen = stubApi(() => WAITING);
     await openScreen();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Withdraw…" }));
+    fireEvent.click(await screen.findByRole("button", { name: withdrawAnna }));
 
     await waitFor(() => {
       expect(confirmDestructive).toHaveBeenCalledOnce();
@@ -753,7 +769,7 @@ describe("a teacher I asked", () => {
     expect(pageText()).toContain("Anna");
   });
 
-  test("Withdraw: confirming deletes the request, and the line goes", async () => {
+  test("Withdraw: confirming deletes the request, the line goes, and says so", async () => {
     confirmDestructive.mockResolvedValue(true);
     let withdrawn = false;
     const seen = stubApi(
@@ -766,15 +782,18 @@ describe("a teacher I asked", () => {
     );
     await openScreen();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Withdraw…" }));
+    fireEvent.click(await screen.findByRole("button", { name: withdrawAnna }));
 
-    await waitFor(() => {
-      expect(screen.queryByText("Anna")).not.toBeInTheDocument();
-    });
+    const said = await screen.findByRole("status");
+    expect(plain(said.textContent)).toBe("Request withdrawn.");
+    expect(pageText()).not.toContain("Anna");
     expect(calls(seen, "DELETE", `/api/v1/me/teacher-requests/${ANNA}`)).toHaveLength(1);
     expect(seen.filter((r) => r.method === "DELETE")).toHaveLength(1);
     expect(pageText()).not.toContain("Waiting");
     expect(pageText()).toContain("Лена"); // the teacher on the list is untouched
+    // The line sits on top of the list, before everything else.
+    const root = screen.getByRole("heading", { level: 1, name: "🏛 Shala" }).closest("main");
+    expect(root?.children[1]).toBe(said);
   });
 
   test("a failed Withdraw says so and keeps the line", async () => {
@@ -785,20 +804,26 @@ describe("a teacher I asked", () => {
     );
     await openScreen();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Withdraw…" }));
+    fireEvent.click(await screen.findByRole("button", { name: withdrawAnna }));
 
     const line = await screen.findByRole("alert");
     expect(plain(line.textContent)).toBe("Couldn't save. Try again in a moment.");
-    expect(screen.getByRole("button", { name: "Withdraw…" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: withdrawAnna })).toBeEnabled();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
-  test("the screen offers no way to ask a teacher: that stays in the bot", async () => {
-    stubApi(() => WAITING);
+  // Turned round in UI-06 stage 4B (QA): asking is in the app now, but the tab offers it only
+  // to someone with no teacher who waits for none; the shala's card still offers it.
+  test("someone who asked or has a teacher gets no Pick row, and nothing is read for one", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "student")];
+    choices = { [SHALA]: { offer: [choice(BORIS, "Boris")], waiting: [] } };
+    const seen = stubApi(() => WAITING);
 
     await openScreen();
 
-    await screen.findByText("Anna");
-    expect(screen.queryByRole("button", { name: /Ask a teacher|Pick/ })).toBeNull();
+    await screen.findByText(reads("⏳ Waiting for an answer: Anna"));
+    expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
+    expect(calls(seen, "GET", `/api/v1/shalas/${SHALA}/teacher-choices`)).toHaveLength(0);
   });
 
   test("Russian, and two long names still fit Telegram's popup", async () => {
@@ -806,8 +831,8 @@ describe("a teacher I asked", () => {
     stubApi(() => ({ teachers: [], students: [], asked: [asked(ANNA, long)] }));
     await openScreen("ru");
 
-    await screen.findByText(reads("⏳ Ждём ответа (Mysore Room)"));
-    fireEvent.click(screen.getByRole("button", { name: "Отозвать…" }));
+    await screen.findByText(reads(`⏳ Ждём ответа: ${long}`));
+    fireEvent.click(screen.getByRole("button", { name: (n) => plain(n) === `Отозвать: ${long}…` }));
 
     await waitFor(() => {
       expect(confirmDestructive).toHaveBeenCalledOnce();
@@ -816,6 +841,171 @@ describe("a teacher I asked", () => {
     expect(plain(message)).toMatch(/^Отозвать запрос: Я+…\? Сообщений никто не получит\. /);
     expect(message.length).toBeLessThanOrEqual(256);
     expect(ok).toBe("Отозвать");
+  });
+});
+
+// UI-06 stage 4B (spec §3 row 3, §4, QA, QE): a student of a shala with no teacher and nothing
+// asked has "🤝 Pick a teacher" first; it opens the picker as a layer, and the result stays on
+// the tab as one line, with the new waiting line under it.
+describe("picking a teacher from the tab", () => {
+  const NOBODY: LinksBody = { teachers: [], students: [] };
+  const ANNA_HERE: Choices = { offer: [choice(ANNA, "Anna")], waiting: [] };
+  const pickRow = () => screen.findByRole("button", { name: "🤝 Pick a teacher" });
+  const outline = () => {
+    const root = screen.getByRole("heading", { level: 1, name: "🏛 Shala" }).closest("main");
+    return [...(root?.children ?? [])].map((part) => {
+      const text = plain(part.textContent);
+      if (part.matches("button.btn")) return `▶ ${text}`;
+      if (part.matches("section.teachers")) return "[teachers]";
+      if (part.matches("section.list, h1")) return part.tagName.toLowerCase();
+      return text;
+    });
+  };
+
+  test("a student of one shala with no teacher: Pick a teacher leads", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "student")];
+    choices = { [SHALA]: ANNA_HERE };
+    const seen = stubApi(() => NOBODY);
+    await openScreen();
+
+    expect(await pickRow()).toHaveClass("btn");
+    expect(outline()).toEqual([
+      "h1",
+      "▶ 🤝 Pick a teacher",
+      "🗓 My schedule",
+      "🏛 Mysore Room",
+      "For teachers and shalas",
+      "section",
+    ]);
+    expect(screen.getByRole("button", { name: "🗓 My schedule" })).not.toHaveClass("btn");
+    expect(calls(seen, "GET", `/api/v1/shalas/${SHALA}/teacher-choices`)).toHaveLength(1);
+  });
+
+  test("nobody to pick: no row, and My schedule leads", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "student")];
+    choices = { [SHALA]: { offer: [], waiting: [] } };
+    stubApi(() => NOBODY);
+    await openScreen();
+
+    expect(await screen.findByRole("button", { name: "🗓 My schedule" })).toHaveClass("btn");
+    expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
+  });
+
+  test("a student of several: a row per shala with someone to pick, each naming its shala", async () => {
+    const THIRD = "00000000-0000-0000-0000-0000000000c4";
+    mine = [
+      shalaOf(SHALA, "Mysore Room", "student"),
+      shalaOf(OTHER, "Ashtanga Almaty", "student"),
+      shalaOf(THIRD, "Led Hall", "student"),
+    ];
+    choices = { [SHALA]: ANNA_HERE, [THIRD]: { offer: [choice(BORIS, "Boris")], waiting: [] } };
+    stubApi(() => NOBODY);
+    await openScreen();
+
+    const rows = await screen.findAllByRole("button", { name: "🤝 Pick a teacher" });
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveClass("btn");
+    expect(rows[1]).not.toHaveClass("btn");
+    expect(rows[0]).toHaveAccessibleDescription("Mysore Room");
+    expect(rows[1]).toHaveAccessibleDescription("Led Hall");
+  });
+
+  test("staff and teachers' own shalas read nothing", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "staff", true)];
+    const seen = stubApi(() => NOBODY);
+    await openScreen();
+
+    await screen.findByRole("button", { name: "🗓 My schedule" });
+    expect(seen.filter((r) => new URL(r.url).pathname.endsWith("/teacher-choices"))).toEqual([]);
+  });
+
+  test("Pick opens the picker over the tab; a name asks, and the tab says so on top", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "student")];
+    let sent = false;
+    choices = { [SHALA]: ANNA_HERE };
+    const seen = stubApi(
+      () => (sent ? { ...NOBODY, asked: [asked(ANNA, "Anna")] } : NOBODY),
+      (request) => {
+        if (request.method !== "POST" || new URL(request.url).pathname !== ASK) return undefined;
+        sent = true;
+        choices = { [SHALA]: { offer: [], waiting: [choice(ANNA, "Anna")] } };
+        return json({ result: "created" });
+      },
+    );
+    await openScreen();
+
+    fireEvent.click(await pickRow());
+
+    const heading = await screen.findByRole("heading", { level: 1, name: /Mysore Room/ });
+    expect(heading).toHaveFocus();
+    expect(screen.queryByRole("heading", { level: 1, name: "🏛 Shala" })).toBeNull(); // hidden
+    await screen.findByText((t) => plain(t) === "Is Anna your teacher?");
+    fireEvent.click(screen.getByRole("button", { name: "✅ Yes" }));
+
+    const said = await screen.findByRole("status");
+    expect(plain(said.textContent)).toBe(
+      "✉️ Request sent to Anna. Nothing is shown until they confirm.",
+    );
+    expect(said).toHaveFocus();
+    expect(screen.getByRole("heading", { level: 1, name: "🏛 Shala" })).toBeVisible();
+    await screen.findByText((t) => plain(t) === "⏳ Waiting for an answer: Anna");
+    expect(outline()).toEqual([
+      "h1",
+      "✉️ Request sent to Anna. Nothing is shown until they confirm.",
+      "▶ 🗓 My schedule",
+      "🏛 Mysore Room",
+      "[teachers]",
+      "For teachers and shalas",
+      "section",
+    ]);
+    expect(calls(seen, "POST", ASK)).toHaveLength(1);
+  });
+
+  test("Not now: back on the tab as it was, the focus on the row, nothing sent", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "student")];
+    choices = { [SHALA]: ANNA_HERE };
+    const seen = stubApi(() => NOBODY);
+    await openScreen();
+    const row = await pickRow();
+    row.focus();
+
+    fireEvent.click(row);
+    fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
+
+    expect(await pickRow()).toHaveFocus();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(calls(seen, "POST", ASK)).toHaveLength(0);
+  });
+
+  test("404 (left the shala meanwhile): a short line on the tab, and my shalas are read again", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "student")];
+    choices = { [SHALA]: ANNA_HERE };
+    const seen = stubApi(
+      () => NOBODY,
+      (request) =>
+        request.method === "POST" && new URL(request.url).pathname === ASK
+          ? json({ code: "not_found" }, 404)
+          : undefined,
+    );
+    await openScreen();
+    fireEvent.click(await pickRow());
+
+    fireEvent.click(await screen.findByRole("button", { name: "✅ Yes" }));
+
+    const line = await screen.findByRole("alert");
+    expect(plain(line.textContent)).toBe("Couldn't load the shala. Try again in a moment.");
+    await waitFor(() => {
+      expect(calls(seen, "GET", "/api/v1/me/shalas")).toHaveLength(2);
+    });
+  });
+
+  test("Russian: the row in the bot's words", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "student")];
+    choices = { [SHALA]: ANNA_HERE };
+    stubApi(() => NOBODY);
+    await openScreen("ru");
+
+    expect(await screen.findByRole("button", { name: "🤝 Выбрать учителя" })).toHaveClass("btn");
   });
 });
 
@@ -915,7 +1105,7 @@ describe("one list in a fixed order", () => {
       "heading",
       "▶ 👥 My students",
       "For teachers and shalas:",
-      ["➕ Invite students", "Shala and classes"],
+      ["Invite students", "Shala and classes"],
     ]);
   });
 
@@ -931,7 +1121,7 @@ describe("one list in a fixed order", () => {
       "🏛 Mysore Room",
       "👥 My students",
       "For teachers and shalas:",
-      ["➕ Invite students", "Shala and classes"],
+      ["Invite students", "Shala and classes"],
     ]);
   });
 
@@ -951,7 +1141,7 @@ describe("one list in a fixed order", () => {
       "[teachers]",
       "👥 My students",
       "For teachers and shalas:",
-      ["➕ Invite students", "Shala and classes"],
+      ["Invite students", "Shala and classes"],
     ]);
   });
 
@@ -1054,7 +1244,7 @@ describe("the group: For teachers and shalas", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open the invite" }));
 
     expect(await screen.findByRole("img", { name: "QR code for your invite link" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "➕ Invite students" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Invite students" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
