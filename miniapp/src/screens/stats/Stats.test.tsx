@@ -104,6 +104,10 @@ let question: { weekday: number; reminders_on: boolean } | null = null;
 let logged: unknown[] = [];
 /** A year whose answer waits until the test lets it go. */
 let held: { year: number; release: () => void } | null = null;
+/** A year the server cannot give (offline, as far as the app can tell). */
+let failing: number | null = null;
+/** The query cache of the screen under test: a test can ask it to read again. */
+let queries: QueryClient;
 
 function stubApi(data: StatsData = stats()): Request[] {
   const seen: Request[] = [];
@@ -115,6 +119,7 @@ function stubApi(data: StatsData = stats()): Request[] {
       if (url.pathname === "/api/v1/me/stats") {
         const year = url.searchParams.get("year");
         if (!year) return json(data);
+        if (failing === Number(year)) return new Response("{}", { status: 503 });
         const answer = json(otherYear(data, Number(year)));
         if (held?.year !== Number(year)) return answer;
         return new Promise<Response>((resolve) => {
@@ -169,6 +174,7 @@ function renderStats(
   props: { onAsanas?: () => void; onDayOff?: () => void } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  queries = client;
   return render(
     <QueryClientProvider client={client}>
       <L10nProvider locale={locale}>
@@ -210,6 +216,7 @@ afterEach(() => {
   question = null;
   logged = [];
   held = null;
+  failing = null;
 });
 
 describe("the month comes first (UI-06 stage 3)", () => {
@@ -297,6 +304,55 @@ describe("the month comes first (UI-06 stage 3)", () => {
 
     expect(previous()).toBeDisabled();
     expect(next()).toBeDisabled();
+  });
+
+  // Review: offline, the title stayed "January 2026" while the pager stood on December 2025,
+  // with › enabled and every further tap looking dead.
+  it("a year that fails to load puts the pager back on the month shown, and says so", async () => {
+    failing = 2025;
+    const seen = stubApi(january());
+    renderStats();
+    await month("January 2026");
+
+    fireEvent.click(previous());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load your stats");
+    expect(screen.getByRole("heading", { level: 2, name: "January 2026" })).toBeVisible();
+    expect(next()).toBeDisabled(); // January 2026 is the current month again
+    expect(previous()).toBeEnabled();
+    expect(await day("Jan 3:")).toBeEnabled();
+
+    // The next tap asks again, and this time the year arrives.
+    failing = null;
+    fireEvent.click(previous());
+
+    expect(await month("December 2025")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(statsRequests(seen)).toEqual([null, "2025", "2025"]);
+  });
+
+  // The arrow that reaches an end is disabled: the focus must not be left on it.
+  it("says the new month politely, and moves the focus to its name at either end", async () => {
+    stubApi(stats({ first_year: 2026 }));
+    renderStats();
+    expect(await month("October 2026")).toHaveAttribute("aria-live", "polite");
+
+    previous().focus();
+    fireEvent.click(previous());
+    expect(await month("September 2026")).not.toHaveFocus(); // not an end: the arrow keeps it
+    expect(previous()).toHaveFocus();
+
+    next().focus();
+    fireEvent.click(next()); // October is the current month: › is disabled now
+    const october = await month("October 2026");
+    expect(next()).toBeDisabled();
+    expect(october).toHaveFocus();
+
+    previous().focus();
+    for (let i = 0; i < 9; i++) fireEvent.click(previous()); // down to January 2026
+    const january2026 = await month("January 2026");
+    expect(previous()).toBeDisabled();
+    expect(january2026).toHaveFocus();
   });
 
   it("names the arrows in Russian", async () => {
@@ -471,7 +527,7 @@ describe("one number, the rest folded", () => {
       screen.getByText(byText("⏱ 1 h 30 min in total · about 90 min per practice")),
     ).toBeInTheDocument();
     expect(screen.getByText(byText("Most in a row this year: 12"))).toBeInTheDocument();
-    expect(screen.getByText(/Days you haven't logged are left out/)).toBeInTheDocument();
+    expect(screen.getByText(/Days with nothing logged are left out/)).toBeInTheDocument();
     // The number is said once: not again inside.
     expect(screen.getAllByText(byText("1 practice"))).toHaveLength(1);
   });
@@ -496,11 +552,59 @@ describe("one number, the rest folded", () => {
     stubApi(s);
     renderStats();
     await month("October 2026");
+
+    // No bold "0 practices": a quiet line in its place.
+    const line = screen.getByText(byText("Rest is part of practice too."));
+    expect(line).toHaveClass("hint");
+    expect(document.querySelector(".total")).toBeNull();
+    expect(screen.queryByText(/0 practices/)).toBeNull();
     fireEvent.click(fold());
 
-    expect(screen.getByText("🌱 No practice", { selector: ".counts span" })).toBeInTheDocument();
-    expect(screen.queryByText(/ of /)).toBeNull();
-    expect(screen.queryByText(/Days you haven't logged/)).toBeNull(); // nothing to explain
+    expect(
+      screen.getByText("🌱 No practice", { selector: ".counts span" }).parentElement,
+    ).toHaveTextContent(/2$/);
+    expect(screen.queryByText(/\d of \d/)).toBeNull();
+    expect(screen.queryByText(/Days with nothing logged/)).toBeNull(); // nothing to explain
+  });
+
+  // A sum, not a rename: with the device switch off 🌸 is counted with rest.
+  it("counts 🌸 with rest in the fold while the switch is off, and apart with it on", async () => {
+    const s = stats();
+    s.months[9] = {
+      ...(s.months[9] as StatsSummary),
+      rest: { ...EMPTY.rest, rest: 2, ladies: 1 },
+    };
+    stubApi(s);
+    renderStats();
+    await month("October 2026");
+    fireEvent.click(fold());
+
+    expect(screen.getByText("😌 Rest day").parentElement).toHaveTextContent(/3$/);
+    expect(screen.queryByText(/🌸/)).toBeNull();
+
+    act(() => {
+      saveShowLadies(true);
+    });
+    expect(screen.getByText("😌 Rest day").parentElement).toHaveTextContent(/2$/);
+    expect(screen.getByText("🌸 Ladies' holiday").parentElement).toHaveTextContent(/1$/);
+  });
+
+  it("closes the fold when the month changes", async () => {
+    const s = stats();
+    s.months[8] = { ...EMPTY, practiced: 3, possible: 3, unspecified: 3 };
+    stubApi(s);
+    renderStats();
+    await month("October 2026");
+    fireEvent.click(fold());
+    expect(fold()).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(previous());
+
+    await month("September 2026");
+    expect(fold()).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(next());
+    await month("October 2026");
+    expect(fold()).toHaveAttribute("aria-expanded", "false"); // not reopened on the way back
   });
 
   it("says an empty month is empty, with no fold and nothing to share", async () => {
@@ -510,7 +614,9 @@ describe("one number, the rest folded", () => {
 
     fireEvent.click(previous());
 
-    expect(await screen.findByText(byText("Nothing logged this month yet."))).toBeInTheDocument();
+    expect(
+      await screen.findByText(byText("Tap a day to add practice or rest.")),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "The month in numbers" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Share/ })).toBeNull();
   });
@@ -522,25 +628,40 @@ describe("one number, the rest folded", () => {
     renderStats();
 
     expect(await screen.findByText(byText("🌿 5 practices in a row"))).toBeInTheDocument();
-    expect(screen.getByText(byText("16 days not logged: tap a day to add it"))).toBeInTheDocument();
+    // No count of what is not logged: only where to tap.
+    expect(screen.getByText(byText("Tap a day to add or change it."))).toBeInTheDocument();
+    expect(screen.queryByText(/not logged/)).toBeNull();
 
     fireEvent.click(previous());
 
     expect(await screen.findByText(byText("3 practices"))).toBeInTheDocument();
     expect(screen.queryByText(/in a row/)).toBeNull();
-    expect(screen.queryByText(/not logged/)).toBeNull();
+    expect(screen.queryByText(/Tap a day/)).toBeNull();
   });
 
-  it("shows no run under two, and invites to fill in an empty current month", async () => {
+  it("shows no run under two, and invites once to fill in an empty current month", async () => {
     const s = stats();
     s.months[9] = { ...EMPTY, unlogged: 18 };
     stubApi(s);
     renderStats();
 
     expect(
-      await screen.findByText(byText("18 days not logged: tap a day to add it")),
+      await screen.findByText(byText("Tap a day to add practice or rest.")),
     ).toBeInTheDocument();
+    expect(screen.getAllByText(/Tap a day/)).toHaveLength(1); // not said twice
     expect(screen.queryByText(/in a row$/)).toBeNull(); // the current run is 1
+  });
+
+  it("is in Russian for a month of rest only", async () => {
+    const s = stats();
+    s.months[9] = { ...EMPTY, rest: { ...EMPTY.rest, rest: 3 }, unlogged: 15 };
+    stubApi(s);
+    renderStats("ru");
+
+    expect(await screen.findByText(byText("Отдых тоже часть практики."))).toBeInTheDocument();
+    expect(
+      screen.getByText(byText("Нажми на день, чтобы отметить или изменить.")),
+    ).toBeInTheDocument();
   });
 
   it("leaves 'Most in a row this year' out of another year's month", async () => {
@@ -649,6 +770,69 @@ describe("the day card under the month", () => {
 
     await month("September 2026");
     expect(screen.queryByRole("region", { name: (n) => plain(n).includes("Oct 16") })).toBeNull();
+  });
+
+  it("stays closed on the way back to its month", async () => {
+    stubApi();
+    renderStats();
+    fireEvent.click(await day("Oct 16"));
+    await screen.findByRole("region", { name: (n) => plain(n).includes("Oct 16") });
+
+    fireEvent.click(previous());
+    await month("September 2026");
+    fireEvent.click(next());
+
+    await month("October 2026");
+    expect(screen.queryByRole("region", { name: (n) => plain(n).includes("Oct 16") })).toBeNull();
+  });
+
+  // Review: January 2026, ‹, then "Jan 3" before 2025 arrived left a "Jan 3" card under the
+  // December 2025 grid.
+  it("cannot be opened on the month that stays while the other year loads", async () => {
+    held = { year: 2025, release: () => undefined };
+    const seen = stubApi(january());
+    renderStats();
+    await month("January 2026");
+    const jan3 = await day("Jan 3:");
+    expect(jan3).toBeEnabled();
+
+    fireEvent.click(previous());
+    await vi.waitFor(() => {
+      expect(statsRequests(seen)).toEqual([null, "2025"]);
+    });
+    expect(jan3).toBeDisabled();
+    fireEvent.click(jan3);
+    act(() => {
+      held?.release();
+    });
+
+    expect(await month("December 2025")).toBeInTheDocument();
+    expect(document.querySelector(".daylog")).toBeNull(); // no "Jan 3" card under December
+    expect(seen.some((r) => new URL(r.url).pathname === "/api/v1/me/days")).toBe(false);
+    expect(await day("Dec 3:")).toBeEnabled();
+  });
+
+  it("closes when the server's today moves the tab to a new month", async () => {
+    const s = stats();
+    stubApi(s);
+    renderStats();
+    fireEvent.click(await day("Oct 16"));
+    await screen.findByRole("region", { name: (n) => plain(n).includes("Oct 16") });
+    fireEvent.click(fold());
+
+    // Midnight passed in the account's zone; the next read says so.
+    s.today = "2026-11-01";
+    s.cells = [...s.cells, ...Array.from({ length: 13 }, () => "none" as const)];
+    await act(() => queries.invalidateQueries());
+
+    expect(await month("November 2026")).toBeInTheDocument();
+    expect(document.querySelector(".daylog")).toBeNull(); // no "Oct 16" card under November
+    expect(next()).toBeDisabled();
+    expect(await day("Nov 1:")).toHaveAttribute("aria-current", "date");
+    fireEvent.click(previous());
+    await month("October 2026");
+    expect(document.querySelector(".daylog")).toBeNull();
+    expect(fold()).toHaveAttribute("aria-expanded", "false");
   });
 
   // QB: the device switch is about the calendar. The card of a day tells its owner the truth,
@@ -990,7 +1174,7 @@ describe("Stats auto-rest and the day-off question (PR-09)", () => {
     expect(
       await screen.findByRole("button", { name: (n) => plain(n).startsWith("Sat, Oct 3:") }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Nothing logged this month yet/)).toBeInTheDocument();
+    expect(screen.getByText("Tap a day to add practice or rest.")).toBeInTheDocument();
   });
 });
 
@@ -1018,8 +1202,11 @@ describe("Share cards (ST-07)", () => {
     stubApi(s);
     renderStats();
 
-    expect(await screen.findByText(byText("0 practices"))).toBeInTheDocument();
+    expect(await screen.findByText(byText("Rest is part of practice too."))).toBeInTheDocument();
+    expect(screen.queryByText(/0 practices/)).toBeNull();
     expect(screen.queryByRole("button", { name: /^Share/ })).toBeNull();
+    // Something is logged, so the month also says where to tap.
+    expect(screen.getByText(byText("Tap a day to add or change it."))).toBeInTheDocument();
   });
 });
 

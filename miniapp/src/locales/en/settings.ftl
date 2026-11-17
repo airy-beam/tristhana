@@ -36,4 +36,6 @@ settings-quiet-off-line = 🔕 No quiet hours · { $n ->
 # Reminders: the place, once, for every time on the page (ADR-0044). $zone = "Almaty".
 settings-times-place = 🕐 Times: { $zone }
 settings-log-title = Your log
+# Reminders: the heading of the moon reminders' card.
+remind-moon-title = 🌙 Moon reminders
 settings-privacy-open = 🔒 What others see

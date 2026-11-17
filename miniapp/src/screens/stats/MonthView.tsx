@@ -14,6 +14,8 @@ interface Props {
   showLadies: boolean;
   weekdays: string[];
   dateLabel: (day: string) => string;
+  /** While another year loads: this month stays to be looked at, and no day can be opened. */
+  frozen?: boolean | undefined;
   /** A tap on a day up to today, with the day's button (the focus returns to it). */
   onPick: (day: string, from: HTMLElement) => void;
 }
@@ -29,6 +31,7 @@ export function MonthView({
   showLadies,
   weekdays,
   dateLabel,
+  frozen,
   onPick,
 }: Props) {
   const { l10n } = useLocalization();
@@ -72,7 +75,7 @@ export function MonthView({
             key={day}
             type="button"
             className={classes.filter(Boolean).join(" ")}
-            disabled={future}
+            disabled={future || frozen}
             aria-label={label}
             aria-current={day === stats.today ? "date" : undefined}
             onClick={(event) => {

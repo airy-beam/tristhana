@@ -26,7 +26,7 @@ const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")
  * time on the page is named once, at the top (ADR-0044); while no zone is known that line
  * says so, and the times wait. It reads the notification settings, and my teachers and
  * shalas for the announcements switch. */
-export default function Reminders({ me, onBack }: PageProps) {
+export default function Reminders({ me, onBack, onOpen }: PageProps) {
   const settings = useNotificationSettings().data;
   const zone = me.timezone;
   return (
@@ -40,9 +40,23 @@ export default function Reminders({ me, onBack }: PageProps) {
           <p className="hint" />
         </Localized>
       ) : (
-        <Localized id="moon-zone-needed-app">
-          <p className="hint" />
-        </Localized>
+        <>
+          <Localized id="moon-zone-needed-app">
+            <p className="hint" />
+          </Localized>
+          {/* The city sets the zone: the way there, so the line is no dead end. */}
+          {onOpen && (
+            <Localized id="settings-city">
+              <button
+                type="button"
+                className="link tap"
+                onClick={() => {
+                  onOpen("city");
+                }}
+              />
+            </Localized>
+          )}
+        </>
       )}
       <PracticeReminderCard zone={zone} />
       {settings && zone && <MoonReminders settings={settings} />}
@@ -82,7 +96,7 @@ function MoonReminders({ settings }: { settings: NotificationSettings }) {
   const offsets = settings.moon.offsets;
   return (
     <section className="card" aria-labelledby="moon-remind-title">
-      <Localized id="status-moon">
+      <Localized id="remind-moon-title">
         <h2 id="moon-remind-title" />
       </Localized>
       <Chips
@@ -131,10 +145,10 @@ function Quiet({ settings }: { settings: NotificationSettings }) {
   };
   const from = none ? "22:00" : start;
   const until = none ? "07:00" : end;
+  // The row is the bot's summary line itself: "Quiet hours" is said once, open or closed.
   return (
     <More
-      label={l10n.getString("settings-quiet")}
-      summary={
+      label={
         none
           ? l10n.getString("settings-quiet-off-line", { n: settings.daily_cap })
           : l10n.getString("settings-quiet-line", { start, end, n: settings.daily_cap })
@@ -145,59 +159,61 @@ function Quiet({ settings }: { settings: NotificationSettings }) {
         setOpen(!open);
       }}
     >
-      <Field label={l10n.getString("settings-quiet-from")}>
-        <Select
-          value={none ? "" : start}
-          onChange={(e) => {
-            setQuiet(e.target.value, until);
-          }}
-        >
-          <option value="" disabled />
-          {HOURS.map((h) => (
-            <option key={h} value={h} disabled={conflict(h, until)}>
-              {h}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label={l10n.getString("settings-quiet-to")}>
-        <Select
-          value={none ? "" : end}
-          onChange={(e) => {
-            setQuiet(from, e.target.value);
-          }}
-        >
-          <option value="" disabled />
-          {HOURS.map((h) => (
-            <option key={h} value={h} disabled={conflict(from, h)}>
-              {h}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <div className="switch">
-        <Check
-          label={l10n.getString("settings-quiet-off")}
-          checked={none}
-          onChange={(e) => {
-            if (e.target.checked) setQuiet("00:00", "00:00");
-            else tap({ quiet: null }); // back to the default 22:00–07:00
+      <div role="group" aria-label={l10n.getString("settings-quiet")}>
+        <Field label={l10n.getString("settings-quiet-from")}>
+          <Select
+            value={none ? "" : start}
+            onChange={(e) => {
+              setQuiet(e.target.value, until);
+            }}
+          >
+            <option value="" disabled />
+            {HOURS.map((h) => (
+              <option key={h} value={h} disabled={conflict(h, until)}>
+                {h}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={l10n.getString("settings-quiet-to")}>
+          <Select
+            value={none ? "" : end}
+            onChange={(e) => {
+              setQuiet(from, e.target.value);
+            }}
+          >
+            <option value="" disabled />
+            {HOURS.map((h) => (
+              <option key={h} value={h} disabled={conflict(from, h)}>
+                {h}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <div className="switch">
+          <Check
+            label={l10n.getString("settings-quiet-off")}
+            checked={none}
+            onChange={(e) => {
+              if (e.target.checked) setQuiet("00:00", "00:00");
+              else tap({ quiet: null }); // back to the default 22:00–07:00
+            }}
+          />
+          {conflict(start, end) && (
+            <Localized id="settings-quiet-conflict">
+              <p className="field-hint" />
+            </Localized>
+          )}
+        </div>
+        <Chips
+          label={l10n.getString("settings-cap", { n: settings.daily_cap })}
+          options={CAPS.map((n) => ({ value: n, label: String(n) }))}
+          value={settings.daily_cap}
+          onPick={(n) => {
+            tap({ daily_cap: n });
           }}
         />
-        {conflict(start, end) && (
-          <Localized id="settings-quiet-conflict">
-            <p className="field-hint" />
-          </Localized>
-        )}
       </div>
-      <Chips
-        label={l10n.getString("settings-cap", { n: settings.daily_cap })}
-        options={CAPS.map((n) => ({ value: n, label: String(n) }))}
-        value={settings.daily_cap}
-        onPick={(n) => {
-          tap({ daily_cap: n });
-        }}
-      />
       <SaveFailed when={failed} />
     </More>
   );

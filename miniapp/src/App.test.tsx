@@ -552,13 +552,13 @@ describe("Settings: the gear and Telegram's ⋯ item are one route", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "😌 Set your weekly day off" }));
 
-    expect(await heading("Day off")).toHaveFocus();
-    expect(screen.getByRole("group", { name: "Day off" })).toBeInTheDocument();
+    expect(await heading("😌 Day off")).toHaveFocus();
+    expect(screen.getByRole("group", { name: "😌 Day off" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull(); // not the rows
     back();
 
     expect(await practice()).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { level: 1, name: "Day off" })).toBeNull();
+    expect(screen.queryByRole("heading", { level: 1, name: "😌 Day off" })).toBeNull();
     expect(sdk.backShown).toBe(false);
   });
 });
@@ -617,7 +617,7 @@ describe("Settings keeps what it was opened over", () => {
     const stats = seen.filter((r) => new URL(r.url).pathname === "/api/v1/me/stats").length;
 
     fireEvent.click(link);
-    await heading("Day off");
+    await heading("😌 Day off");
     back();
 
     expect(await practice()).toBeVisible();
@@ -901,6 +901,26 @@ describe("Today: one next step, each leading to its place", () => {
     expect(sdk.backShown).toBe(false);
   });
 
+  // Review: the line about the zone was a dead end. My city is one tap away, and from there
+  // Back goes to Settings' five rows (the person is in Settings now), then to Today.
+  test("with no zone yet, Reminders leads to My city; Back goes to the rows, then to Today", async () => {
+    nextSteps = [{ kind: "reminder", shala_id: null }];
+    await launch();
+    await today();
+    fireEvent.click(await screen.findByRole("button", { name: "Yes, remind me" }));
+    await heading("🔔 Reminders");
+
+    fireEvent.click(screen.getByRole("button", { name: "🏙 My city" }));
+
+    expect(await heading("🏙 My city")).toHaveFocus();
+    back();
+    expect(await settings()).toHaveFocus();
+    expect(screen.getByRole("button", { name: "More…" })).toBeVisible();
+    back();
+    expect(await today()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
+  });
+
   test("with a zone, the reminder step turns the reminder on right there, in one tap", async () => {
     account = { ...ME, timezone: "Asia/Almaty" };
     nextSteps = [{ kind: "reminder", shala_id: null }];
@@ -1160,7 +1180,10 @@ describe("opened by a bot button (?open=…)", () => {
     menuSettings(); // ⋯ Settings is the same route: no second screen
     back();
 
-    expect(await today()).toBeVisible();
+    const home = await today();
+    expect(home).toBeVisible();
+    // Nothing had the focus before Settings (the app opened on it): Today's heading takes it.
+    expect(home).toHaveFocus();
     expect(current()).toEqual(["📝 Today"]);
     expect(sdk.backShown).toBe(false);
   });
@@ -1187,6 +1210,70 @@ describe("opened by a bot button (?open=…)", () => {
       expect(sdk.backShown).toBe(false);
     },
   );
+});
+
+describe("a Settings page whose chunk is slow or fails (UI-06 stage 3, review)", () => {
+  afterEach(() => {
+    vi.doUnmock("./screens/settings/pages/Language");
+  });
+
+  test("Back while the page is still loading returns to the five rows, not out of Settings", async () => {
+    let arrive: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      arrive = resolve;
+    });
+    vi.doMock("./screens/settings/pages/Language", async () => {
+      await gate;
+      return { default: () => <h1>Loaded late</h1> };
+    });
+    await launch();
+    await today();
+    fireEvent.click(gear());
+    await settings();
+
+    fireEvent.click(screen.getByRole("button", { name: /^🗣 Language/ }));
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull(); // the fallback
+    back();
+
+    expect(await settings()).toBeVisible();
+    expect(screen.getByRole("button", { name: /^🗣 Language/ })).toHaveFocus();
+    expect(sdk.backShown).toBe(true); // still in Settings
+    back();
+
+    expect(await today()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
+    arrive?.();
+  });
+
+  test("a page that fails to load leaves the five rows usable, with the retry line", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined); // React reports the caught error
+    vi.doMock("./screens/settings/pages/Language", () => {
+      throw new Error("Failed to fetch dynamically imported module");
+    });
+    await launch();
+    await today();
+    fireEvent.click(gear());
+    await settings();
+
+    fireEvent.click(screen.getByRole("button", { name: /^🗣 Language/ }));
+
+    expect(
+      await screen.findByText("Couldn't load this. Check your connection and try again."),
+    ).toBeVisible();
+    expect(await settings()).toBeVisible(); // the rows, not a screen of its own
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(sdk.backShown).toBe(true);
+    // Another row opens its page, and the line goes.
+    fireEvent.click(screen.getByRole("button", { name: "More…" }));
+    expect(await heading("⚙️ More settings")).toBeVisible();
+    back();
+    expect(await settings()).toBeVisible();
+    expect(screen.queryByText(/Couldn't load this/)).toBeNull();
+    back();
+
+    expect(await today()).toBeInTheDocument();
+    vi.mocked(console.error).mockRestore();
+  });
 });
 
 describe("a chunk that fails to load", () => {

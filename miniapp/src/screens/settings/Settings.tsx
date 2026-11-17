@@ -1,8 +1,9 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { Suspense, useCallback, useEffect, useRef, useState, type Ref } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { Me } from "../../api/client";
 import { guideUrl } from "../../guide";
+import { ChunkGuard } from "../../shell/ChunkGuard";
 import { lazyRetry } from "../../shell/lazyRetry";
 import type { SettingsFocus } from "../../shell/nav";
 import { backButtonAvailable, haptics, openLink, useBackButton } from "../../telegram";
@@ -73,7 +74,7 @@ interface Props {
    * (UI-06). Back from that page closes Settings: the person returns to where they were. */
   focus?: SettingsFocus | undefined;
   /** The shell focuses the heading when Settings opens. */
-  headingRef?: Ref<HTMLHeadingElement> | undefined;
+  headingRef?: ((element: HTMLHeadingElement | null) => void) | undefined;
 }
 
 /** Settings (ID-06, UI-06 stage 3): the bot's five rows, each carrying its value, and a quiet
@@ -81,32 +82,73 @@ interface Props {
  * opens a short page that reads what it shows. Pushed by the gear and by Telegram's ⋯ item.
  * Loaded lazily, so Today stays light. */
 export default function Settings({ me, onBack, focus, headingRef }: Props) {
-  useBackButton(onBack);
   const { l10n } = useLocalization();
   const [page, setPage] = useState<PageName | null>(focus ?? null);
+  // The page `focus` opened: Back there closes Settings (the person returns to where they
+  // were). Any other page, also one reached from that page, goes back to the five rows.
+  const [direct, setDirect] = useState(focus !== undefined);
+  // A page whose chunk did not load: the rows say so and stay usable.
+  const [failed, setFailed] = useState(false);
   // By the time a row is tapped its page is usually there.
   useEffect(() => {
     for (const load of Object.values(LOAD)) load().catch(() => undefined);
   }, []);
 
   // The rows stay mounted (hidden) under a page: Back finds them as they were left.
-  const left = useRef<{ top: number; focus: Element } | null>(null);
+  const left = useRef<{ top: number; focus: Element | null } | null>(null);
+  const title = useRef<HTMLHeadingElement | null>(null);
+  const titleRef = useCallback(
+    (element: HTMLHeadingElement | null) => {
+      title.current = element;
+      // Opened on a page, that page's heading takes the focus, not this hidden one.
+      if (focus) return;
+      headingRef?.(element);
+    },
+    [focus, headingRef],
+  );
+  const show = (name: PageName) => {
+    setFailed(false);
+    setDirect(false);
+    setPage(name);
+    window.scrollTo({ top: 0 });
+  };
   const open = (name: PageName, from: Element) => {
     haptics.selection();
     left.current = { top: window.scrollY, focus: from };
-    setPage(name);
-    window.scrollTo({ top: 0 });
+    show(name);
+  };
+  // From one page to another (Reminders without a zone → My city): Back from there returns
+  // to the rows, to the row that opened the first page, else to the heading.
+  const openFromPage = (name: PageName) => {
+    haptics.selection();
+    left.current ??= { top: 0, focus: null };
+    show(name);
   };
   const close = useCallback(() => {
     setPage(null);
   }, []);
-  useEffect(() => {
+  const failPage = useCallback(() => {
+    setFailed(true);
+    setPage(null);
+  }, []);
+  // Settings owns the Back layer of its pages, so Back works while a page's chunk still
+  // loads. A field that has the focus is blurred first: it saves on blur (the name).
+  const back = () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    if (page && !direct) close();
+    else onBack();
+  };
+  useBackButton(back);
+  // Before the frame is painted: the rows come back where they were, with no jump.
+  useLayoutEffect(() => {
     const was = left.current;
     if (page || !was) return;
     left.current = null;
     window.scrollTo({ top: was.top });
     // The row that was tapped takes the focus back (a tap focuses nothing on iOS).
-    if (was.focus instanceof HTMLElement) was.focus.focus({ preventScroll: true });
+    const to =
+      was.focus instanceof HTMLElement && was.focus.isConnected ? was.focus : title.current;
+    to?.focus({ preventScroll: true });
   }, [page]);
 
   const language = l10n.getString(
@@ -116,9 +158,11 @@ export default function Settings({ me, onBack, focus, headingRef }: Props) {
   return (
     <>
       {Page && (
-        <Suspense fallback={<main className="screen" aria-busy="true" />}>
-          <Page me={me} onBack={focus ? onBack : close} />
-        </Suspense>
+        <ChunkGuard key={page} onFail={failPage}>
+          <Suspense fallback={<main className="screen" aria-busy="true" />}>
+            <Page me={me} onBack={back} onOpen={openFromPage} />
+          </Suspense>
+        </ChunkGuard>
       )}
       <main className="screen settings" hidden={page !== null}>
         {!backButtonAvailable() && (
@@ -127,9 +171,13 @@ export default function Settings({ me, onBack, focus, headingRef }: Props) {
           </Localized>
         )}
         <Localized id="settings-title">
-          {/* Opened on a page, that page's heading takes the focus, not this hidden one. */}
-          <h1 ref={focus ? undefined : headingRef} tabIndex={-1} />
+          <h1 ref={titleRef} tabIndex={-1} />
         </Localized>
+        {failed && (
+          <Localized id="chunk-failed">
+            <p className="status" role="alert" />
+          </Localized>
+        )}
         <div className="card list">
           {ROWS.map((name) => {
             const [id, vars = {}] = lineOf(name, me, language);

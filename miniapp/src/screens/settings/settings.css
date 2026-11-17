@@ -43,6 +43,11 @@
   opacity: 0.4;
 }
 
+/* A fold's row wraps like the rows do (the quiet hours' row is a whole sentence). */
+.settings .more .lrow-title {
+  white-space: normal;
+}
+
 /* Two folds one under the other share the hairline between them. */
 .settings .more + .more {
   margin-top: -16px;

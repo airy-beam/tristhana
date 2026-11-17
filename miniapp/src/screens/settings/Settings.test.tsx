@@ -70,6 +70,7 @@ const json = (body: unknown) =>
 
 let dayOffFails = false;
 let meFails = false;
+let settingsFail = false;
 let teachers: unknown[] = [];
 let settings: NotificationSettings = SETTINGS;
 let feed: unknown = {};
@@ -85,7 +86,17 @@ function stubApi(): Request[] {
         if (meFails) return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
         return json({ ...ME, ...(await request.clone().json()) });
       }
-      if (request.method === "PATCH") return json(settings);
+      if (request.method === "PATCH") {
+        if (settingsFail)
+          return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
+        return json(settings);
+      }
+      if (request.method === "POST" && path.startsWith("/api/v1/me/rest-periods/")) {
+        // The pause is over: the next read of the settings says so too.
+        const practice = { ...settings.practice, paused_start: null, paused_until: null };
+        settings = { ...settings, practice };
+        return json({ period: null });
+      }
       if (path === "/api/v1/me/day-off") {
         if (dayOffFails)
           return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
@@ -164,9 +175,9 @@ async function open(me: Me, rowText: string, heading: string, locale?: Locale): 
   await title(heading);
   return mounted;
 }
-const openLanguage = (me: Me = ME) => open(me, "🗣 Language", "Language");
+const openLanguage = (me: Me = ME) => open(me, "🗣 Language", "🗣 Language");
 const openCity = (me: Me = ME) => open(me, me.home_city ? "🏙 My city" : "🕐 My time", "🏙 My city");
-const openDayOff = (me: Me = ME) => open(me, "😌", "Day off");
+const openDayOff = (me: Me = ME) => open(me, "😌", "😌 Day off");
 const openReminders = (me: Me = ME) => open(me, "🔔 Reminders", "🔔 Reminders");
 const openMore = (me: Me = ME) => open(me, "More…", "⚙️ More settings");
 
@@ -225,6 +236,7 @@ afterEach(() => {
   tg.back = true;
   dayOffFails = false;
   meFails = false;
+  settingsFail = false;
   teachers = [];
   settings = SETTINGS;
   feed = {};
@@ -354,7 +366,7 @@ describe("a page is a layer over the rows", () => {
   });
 
   it.each([
-    ["day-off", "Day off"],
+    ["day-off", "😌 Day off"],
     ["remind", "🔔 Reminders"],
   ] as const)("focus=%s opens its page, and Back there closes Settings", async (focus, heading) => {
     tg.back = false;
@@ -383,12 +395,87 @@ describe("a page is a layer over the rows", () => {
   });
 });
 
+describe("leaving a page", () => {
+  // Review: a name typed and then Back, with the field still focused, was lost (it saves on
+  // blur, and a page that unmounts blurs nothing).
+  it("saves a typed name on Back while the field has the focus, once", async () => {
+    tg.back = false;
+    const seen = stubApi();
+    await openMore();
+    const name = screen.getByRole("textbox", { name: "Name" });
+    name.focus();
+    fireEvent.change(name, { target: { value: "Anna" } });
+    expect(name).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    await title("Settings");
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ display_name: "Anna" }]);
+    await act(async () => {
+      await new Promise((done) => setTimeout(done, 20));
+    });
+    expect(asked(seen).filter((r) => r === "PATCH /api/v1/me")).toHaveLength(1); // not twice
+  });
+
+  it("saves nothing on Back when the name was not changed", async () => {
+    tg.back = false;
+    const seen = stubApi();
+    await openMore();
+    screen.getByRole("textbox", { name: "Name" }).focus();
+
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    await title("Settings");
+    expect(asked(seen).filter((r) => r.startsWith("PATCH"))).toEqual([]);
+  });
+});
+
+describe("a language switched while Settings is open", () => {
+  /** As the app does: the language of the screen follows the account. */
+  function mountLive(me: Me) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["me"], me);
+    function Live() {
+      const now = useMe().data ?? me;
+      return (
+        <L10nProvider locale={now.locale}>
+          <Settings me={now} onBack={vi.fn()} />
+        </L10nProvider>
+      );
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <Live />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("re-reads the page's heading and choices, then the five rows", async () => {
+    tg.back = false;
+    stubApi();
+    mountLive({ ...ME, home_city: ALMATY, day_off: [7] });
+    fireEvent.click(row("🗣 Language"));
+    await title("🗣 Language");
+
+    fireEvent.click(screen.getByRole("button", { name: "Русский" }));
+
+    expect(await title("🗣 Язык")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Как в Telegram" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "‹ Назад" }));
+
+    expect(await title("Настройки")).toBeInTheDocument();
+    const five = rows().filter((r) => !r.startsWith("‹")); // not the back link
+    expect(five.slice(3)).toEqual(["🔔 Напоминания", "Ещё…", "📖 Справка"]);
+    expect(five[0]).toMatch(/^🗣 Язык: /);
+  });
+});
+
 describe("Language", () => {
   it("is three choices, one per row, with the chosen one marked", async () => {
     stubApi();
     await openLanguage();
 
-    const group = screen.getByRole("group", { name: "Language" });
+    const group = screen.getByRole("group", { name: "🗣 Language" });
     expect(
       within(group)
         .getAllByRole("button")
@@ -617,12 +704,15 @@ describe("Day off (PR-09)", () => {
   it("starts with nothing pressed and takes up to two days off", async () => {
     const seen = stubApi();
     await openDayOff({ ...ME, day_off: null });
-    const group = screen.getByRole("group", { name: "Day off" });
+    const group = screen.getByRole("group", { name: "😌 Day off" });
     const chip = (name: string) =>
       within(group).getByRole("button", { name: (n) => plain(n) === name });
     expect(within(group).getAllByRole("button")).toHaveLength(8); // seven days and "no fixed"
     expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
-    expect(screen.getByText(/Past weeks show them too/)).toBeInTheDocument();
+    // Nothing chosen yet: no sentence about a change.
+    expect(plain(screen.getByText(/Pick one or two/).textContent)).toBe(
+      "Pick one or two. They show as rest and get no practice reminders.",
+    );
 
     fireEvent.click(chip("Sun"));
     await vi.waitFor(() => {
@@ -645,7 +735,7 @@ describe("Day off (PR-09)", () => {
     await openDayOff({ ...ME, day_off: [7] });
 
     expect(plain(screen.getByText(/Pick one or two/).textContent)).toBe(
-      "Pick one or two. They show as rest, and practice reminders skip them. A change applies from today.",
+      "Pick one or two. They show as rest and get no practice reminders. A change applies from today.",
     );
   });
 
@@ -668,7 +758,7 @@ describe("Day off (PR-09)", () => {
     dayOffFails = true;
     stubApi();
     await openDayOff({ ...ME, day_off: null });
-    const group = screen.getByRole("group", { name: "Day off" });
+    const group = screen.getByRole("group", { name: "😌 Day off" });
     fireEvent.click(within(group).getByRole("button", { name: "No fixed day off" }));
 
     expect(await screen.findAllByText("Couldn't save. Try again in a moment.")).not.toHaveLength(0);
@@ -677,6 +767,9 @@ describe("Day off (PR-09)", () => {
 });
 
 describe("Reminders", () => {
+  /** The quiet-hours fold: its row is the summary line. */
+  const quietFold = () => screen.findByRole("button", { name: (n) => plain(n).startsWith("🔕 ") });
+
   it("names the place of its times once, at the top (ADR-0044)", async () => {
     stubApi();
     await openReminders({ ...ME, home_city: ASTANA });
@@ -697,7 +790,7 @@ describe("Reminders", () => {
     expect(toggle).toBeChecked();
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
       "🧘 Practice reminder",
-      "🌙 Moon day",
+      "🌙 Moon reminders", // its own heading, not the day card's "🌙 Moon day"
     ]);
     expect(
       screen.getByText(
@@ -731,7 +824,7 @@ describe("Reminders", () => {
     ]);
     fireEvent.click(within(before).getByRole("button", { name: (n) => plain(n) === "3 days" }));
     // 19:00 is the moon reminder's own time; 21:00 is free, 07:00 would fall in quiet hours.
-    const moon = screen.getByRole("region", { name: "🌙 Moon day" });
+    const moon = screen.getByRole("region", { name: "🌙 Moon reminders" });
     expect(within(moon).getByRole("button", { name: "19:00" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -748,14 +841,20 @@ describe("Reminders", () => {
   it("keeps quiet hours and the daily limit in a fold that says what is set", async () => {
     const seen = stubApi();
     await openReminders();
-    const fold = await screen.findByRole("button", { name: "Quiet hours" });
+    const fold = await quietFold();
 
     expect(fold).toHaveAttribute("aria-expanded", "false");
-    expect(plain(fold.textContent)).toBe(
-      "Quiet hours🔕 Quiet hours 22:00–07:00 · at most 3 messages a day",
-    );
+    // The row is the summary itself: the words "Quiet hours" are said once.
+    expect(plain(fold.textContent)).toBe("🔕 Quiet hours 22:00–07:00 · at most 3 messages a day");
+    expect(fold).toHaveAccessibleName(/^🔕 /);
     expect(screen.queryByRole("combobox")).toBeNull();
     fireEvent.click(fold);
+
+    // Open, the row still says what is set; its fields are a group named "Quiet hours".
+    expect(plain(fold.textContent)).toBe("🔕 Quiet hours 22:00–07:00 · at most 3 messages a day");
+    expect(screen.getByRole("group", { name: "Quiet hours" })).toContainElement(
+      screen.getByRole("combobox", { name: "Quiet from" }),
+    );
 
     // It won't let quiet hours swallow an active reminder.
     const from = screen.getByRole("combobox", { name: "Quiet from" });
@@ -780,9 +879,9 @@ describe("Reminders", () => {
     settings = { ...SETTINGS, quiet: { start: "00:00:00", end: "00:00:00" }, daily_cap: 1 };
     stubApi();
     await openReminders();
-    const fold = await screen.findByRole("button", { name: "Quiet hours" });
+    const fold = await quietFold();
 
-    expect(plain(fold.textContent)).toBe("Quiet hours🔕 No quiet hours · at most 1 message a day");
+    expect(plain(fold.textContent)).toBe("🔕 No quiet hours · at most 1 message a day");
     fireEvent.click(fold);
     expect(screen.getByRole("checkbox", { name: "No quiet hours" })).toBeChecked();
   });
@@ -798,7 +897,196 @@ describe("Reminders", () => {
     expect(
       screen.queryByRole("button", { name: (name) => /^\d+ days?$/.test(plain(name)) }),
     ).toBeNull();
-    expect(screen.queryByRole("button", { name: "Quiet hours" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /quiet hours/i })).toBeNull();
+  });
+
+  // Review: the line used to be a dead end. The city sets the zone, so the way there is here.
+  it("offers My city under that line; Back from there returns to the five rows", async () => {
+    tg.back = false;
+    stubApi();
+    const { onBack } = await open({ ...ME, timezone: null }, "🔔 Reminders", "🔔 Reminders");
+    const line = screen.getByText(/once your time zone is known/);
+
+    const city = screen.getByRole("button", { name: "🏙 My city" });
+    expect(line.compareDocumentPosition(city) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    fireEvent.click(city);
+
+    expect(await title("🏙 My city")).toHaveFocus();
+    expect(screen.queryByRole("heading", { level: 1, name: "🔔 Reminders" })).toBeNull();
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    expect(await title("Settings")).toBeVisible();
+    expect(rows().filter((r) => !r.startsWith("‹"))).toHaveLength(6); // not the back link
+    expect(row("🔔 Reminders")).toHaveFocus(); // the row that opened the first page
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it("offers My city on Reminders opened from Today too; Back then goes to the rows", async () => {
+    tg.back = false;
+    stubApi();
+    const { onBack } = mount({ ...ME, timezone: null }, { focus: "remind" });
+    await title("🔔 Reminders");
+
+    fireEvent.click(screen.getByRole("button", { name: "🏙 My city" }));
+    await title("🏙 My city");
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    // Not out of Settings: the rows, with the heading focused (no row was tapped).
+    expect(await title("Settings")).toHaveFocus();
+    expect(onBack).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it("has no My city button once the zone is known", async () => {
+    stubApi();
+    await openReminders();
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+    expect(screen.queryByRole("button", { name: "🏙 My city" })).toBeNull();
+  });
+
+  it.each([
+    // 20:00–08:00 crosses midnight: 21:00 and 07:00 are inside, 19:00 and 12:00 are not.
+    ["a range crossing midnight", "20:00:00", "08:00:00", ["07:00", "21:00"], ["20:00", "21:00"]],
+    // 09:00–13:00: the end is not inside.
+    ["a range within the day", "09:00:00", "13:00:00", ["12:00"], ["09:00", "10:00", "12:00"]],
+  ] as const)(
+    "disables a time chip that falls in quiet hours: %s",
+    async (_name, start, end, moonOff, practiceOff) => {
+      settings = {
+        ...SETTINGS,
+        quiet: { start, end },
+        moon: { offsets: [1], at: "19:00:00" },
+        practice: { on: true, at: "18:00:00", days: [1, 2, 3, 4, 5, 7] },
+      };
+      stubApi();
+      await openReminders();
+      const disabled = (region: HTMLElement) =>
+        within(region)
+          .getAllByRole("button", { name: /^\d\d:00$/ })
+          .filter((b) => (b as HTMLButtonElement).disabled)
+          .map((b) => b.textContent);
+
+      const moon = await screen.findByRole("region", { name: "🌙 Moon reminders" });
+      expect(disabled(moon)).toEqual(moonOff);
+      expect(disabled(screen.getByRole("region", { name: "🧘 Practice reminder" }))).toEqual(
+        practiceOff,
+      );
+    },
+  );
+
+  it("says the reminder is paused through a date, and Resume ends the pause", async () => {
+    settings = {
+      ...SETTINGS,
+      practice: {
+        ...SETTINGS.practice,
+        paused_start: "2026-10-17",
+        paused_until: "2026-10-21",
+      },
+    };
+    const seen = stubApi();
+    await openReminders();
+
+    expect(
+      await screen.findByText((t) => /^⏸ Paused through .*21/.test(plain(t))),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "▶️ Resume now" }));
+
+    await vi.waitFor(() => {
+      expect(asked(seen)).toContain("POST /api/v1/me/rest-periods/2026-10-17/end");
+    });
+    // At once: the line and its button go.
+    expect(screen.queryByText(/Paused through/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "▶️ Resume now" })).toBeNull();
+  });
+
+  it("has no pause line without a pause", async () => {
+    stubApi();
+    await openReminders();
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+    expect(screen.queryByText(/Paused through/)).toBeNull();
+  });
+
+  describe("a save that fails rolls back and says so", () => {
+    const FAILED = "Couldn't save. Try again in a moment.";
+
+    it("a chip: the practice time", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const practice = await screen.findByRole("region", { name: "🧘 Practice reminder" });
+
+      fireEvent.click(within(practice).getByRole("button", { name: "18:00" }));
+
+      expect(await within(practice).findByRole("alert")).toHaveTextContent(FAILED);
+      expect(within(practice).getByRole("button", { name: "20:00" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(within(practice).getByRole("button", { name: "18:00" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    it("a chip of several: the moon reminders' days before", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const moon = await screen.findByRole("region", { name: "🌙 Moon reminders" });
+      const three = () => within(moon).getByRole("button", { name: (n) => plain(n) === "3 days" });
+
+      fireEvent.click(three());
+
+      expect(await within(moon).findByRole("alert")).toHaveTextContent(FAILED);
+      expect(three()).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("a switch: the practice reminder", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const toggle = await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+      fireEvent.click(toggle);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(FAILED);
+      expect(toggle).toBeChecked();
+    });
+
+    it("a list: quiet hours", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      fireEvent.click(await quietFold());
+      const from = screen.getByRole("combobox", { name: "Quiet from" });
+
+      fireEvent.change(from, { target: { value: "21:00" } });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(FAILED);
+      expect(from).toHaveValue("22:00");
+      expect(plain((await quietFold()).textContent)).toBe(
+        "🔕 Quiet hours 22:00–07:00 · at most 3 messages a day",
+      );
+    });
+
+    it("the announcements switch", async () => {
+      teachers = [{ id: "t1", name: "Anna", primary: true, primary_chosen: false, linked_at: "x" }];
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const toggle = await screen.findByRole("checkbox", {
+        name: "📣 Announcements from teachers and shalas",
+      });
+
+      fireEvent.click(toggle);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(FAILED);
+      expect(toggle).toBeChecked();
+    });
   });
 
   it("has the NT-03 announcements switch once there is a teacher, off = false, on = null", async () => {
@@ -930,8 +1218,8 @@ describe("More", () => {
   });
 });
 
-describe("Show 🌸 on my calendar (the device switch, QB)", () => {
-  const toggle = () => screen.getByRole("checkbox", { name: "Show 🌸 on my calendar" });
+describe("Show 🌸 in My practice (the device switch, QB)", () => {
+  const toggle = () => screen.getByRole("checkbox", { name: "Show 🌸 in My practice" });
 
   it("lives in More only, is off until chosen, and the Practice tab follows it at once", async () => {
     stubApi();
@@ -1016,7 +1304,7 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
     await openMore(shown);
     fireEvent.click(toggle());
 
-    expect(screen.getByRole("checkbox", { name: "Show 🌸 on my calendar" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Show 🌸 in My practice" })).not.toBeChecked();
     expect(localStorage.getItem("stats.showLadies")).not.toBe("1");
   });
 });

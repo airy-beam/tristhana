@@ -504,8 +504,13 @@ describe("the Practice tab's copy", () => {
     expect(format(ru, "stats-more")).toBe("Месяц в цифрах");
     expect(format(en, "stats-legend-label")).toBe("What the marks mean");
     expect(format(ru, "stats-legend-label")).toBe("Что означают отметки");
-    expect(format(en, "stats-show-ladies")).toBe("Show 🌸 on my calendar");
-    expect(format(ru, "stats-show-ladies")).toBe("Показывать 🌸 в календаре");
+    expect(format(en, "stats-show-ladies")).toBe("Show 🌸 in My practice");
+    expect(format(ru, "stats-show-ladies")).toBe("Показывать 🌸 в «Моей практике»");
+    expect(format(en, "stats-month-rest")).toBe("Rest is part of practice too.");
+    expect(format(ru, "stats-month-rest")).toBe("Отдых тоже часть практики.");
+    // No count: only where to tap.
+    expect(format(en, "stats-unlogged")).toBe("Tap a day to add or change it.");
+    expect(format(ru, "stats-unlogged")).toBe("Нажми на день, чтобы отметить или изменить.");
     expect(format(en, "stats-show-ladies-hint")).toBe(
       "On this phone only. While it's off, these days look like rest.",
     );
@@ -597,16 +602,24 @@ describe("Settings' copy", () => {
     expect(format(ru, "settings-times-place", { zone: "Алматы" })).toBe("🕐 Время: Алматы");
   });
 
-  it("says in two short sentences what a day off does, then when it applies", () => {
+  it("says in two short sentences what a day off does; when it applies only once one is set", () => {
     expect(format(en, "settings-day-off-hint", { first: "yes" })).toBe(
-      "Pick one or two. They show as rest, and practice reminders skip them. Past weeks show them too.",
+      "Pick one or two. They show as rest and get no practice reminders.",
     );
     expect(format(en, "settings-day-off-hint", { first: "no" })).toBe(
-      "Pick one or two. They show as rest, and practice reminders skip them. A change applies from today.",
+      "Pick one or two. They show as rest and get no practice reminders. A change applies from today.",
+    );
+    expect(format(ru, "settings-day-off-hint", { first: "yes" })).toBe(
+      "Выбери один или два. Они отмечаются как отдых, и напоминания о практике в эти дни не приходят.",
     );
     expect(format(ru, "settings-day-off-hint", { first: "no" })).toBe(
-      "Отметь один или два. Они отмечаются как отдых, и напоминания о практике в эти дни не приходят. Изменение действует с сегодняшнего дня.",
+      "Выбери один или два. Они отмечаются как отдых, и напоминания о практике в эти дни не приходят. Изменение действует с сегодняшнего дня.",
     );
+  });
+
+  it("heads the moon reminders with their own words", () => {
+    expect(format(en, "remind-moon-title")).toBe("🌙 Moon reminders");
+    expect(format(ru, "remind-moon-title")).toBe("🌙 Лунные напоминания");
   });
 
   it("reads as written", () => {

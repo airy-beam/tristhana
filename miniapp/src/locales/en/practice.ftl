@@ -5,6 +5,8 @@ stats-month-prev = ‹
 stats-month-next = ›
     .aria-label = Next month
 stats-more = The month in numbers
+# In place of the month's number when rest (or "No practice") is logged and no practice.
+stats-month-rest = Rest is part of practice too.
 # The row that opens the year; $year is text ("2026"), $n the year's practices.
 stats-year-open = { $n ->
         [0] 📅 { $year } · the whole year

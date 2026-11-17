@@ -286,7 +286,7 @@ describe("PracticeReminderCard", () => {
     expect(await screen.findByRole("button", { name: "10:00", pressed: true })).toBeInTheDocument();
     expect(toggle).toBeChecked();
     // The page names the place of its times once, above the card (ADR-0044): not here again.
-    expect(screen.getByRole("group", { name: "Send at" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Time" })).toBeInTheDocument();
     expect(screen.queryByText(/Almaty/)).toBeNull();
   });
 

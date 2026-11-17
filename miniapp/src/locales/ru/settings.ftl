@@ -36,4 +36,6 @@ settings-quiet-off-line = 🔕 Без тихих часов · { $n ->
 # Напоминания: место названо один раз для всех времён на странице (ADR-0044). $zone = «Алматы».
 settings-times-place = 🕐 Время: { $zone }
 settings-log-title = Твой журнал
+# Reminders: the heading of the moon reminders' card.
+remind-moon-title = 🌙 Лунные напоминания
 settings-privacy-open = 🔒 Что видят другие

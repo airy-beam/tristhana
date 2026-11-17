@@ -5,6 +5,8 @@ stats-month-prev = ‹
 stats-month-next = ›
     .aria-label = Следующий месяц
 stats-more = Месяц в цифрах
+# Вместо числа практик, когда в месяце отмечен отдых (или «Без практики»), а практик нет.
+stats-month-rest = Отдых тоже часть практики.
 # The row that opens the year; $year is text ("2026"), $n the year's practices.
 stats-year-open = { $n ->
         [0] 📅 { $year } · весь год
