@@ -1,18 +1,28 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
-import type { City, Me, NotificationSettings } from "../../api/client";
+import { useMe, type City, type Me, type NotificationSettings } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
+import type { SettingsFocus } from "../../shell/nav";
+import { useShowLadies } from "../stats/cells";
 import Settings from "./Settings";
 import { TravelPrompt } from "./TravelPrompt";
+
+// UI-06 stage 3 (spec §4, §10): Settings is the bot's five rows, each carrying its value, and
+// five short pages. The rows are drawn from the cached account and ask the server nothing; a
+// page reads what it shows. Every control of the former one long screen is found on its page.
+
+const tg = vi.hoisted(() => ({ back: true }));
 
 vi.mock("../../telegram", () => ({
   rawInitData: vi.fn(() => "user=%7B%7D&hash=abc"),
   haptics: { impact: vi.fn(), notify: vi.fn(), selection: vi.fn() },
   openLink: vi.fn(),
+  confirmDestructive: vi.fn(() => Promise.resolve(false)),
   useBackButton: vi.fn(),
-  backButtonAvailable: vi.fn(() => true),
+  // Without Telegram's own Back a screen draws a "‹ Back" link: the tests' way to go back.
+  backButtonAvailable: vi.fn(() => tg.back),
 }));
 
 const ME: Me = {
@@ -24,12 +34,18 @@ const ME: Me = {
   locale_from_telegram: true,
   hide_ladies: false,
   offer_check_in: true, // WH-01 part 2
-  home_city_chosen: true, // MD-04: no nudge in these tests
+  home_city_chosen: true,
 };
 const ALMATY: City = {
   slug: "almaty",
   name_en: "Almaty",
   name_ru: "Алматы",
+  timezone: "Asia/Almaty",
+};
+const ASTANA: City = {
+  slug: "astana",
+  name_en: "Astana",
+  name_ru: "Астана",
   timezone: "Asia/Almaty",
 };
 const SOCHI: City = { slug: "sochi", name_en: "Sochi", name_ru: "Сочи", timezone: "Europe/Moscow" };
@@ -54,7 +70,10 @@ const json = (body: unknown) =>
 
 let dayOffFails = false;
 let meFails = false;
+let settingsFail = false;
 let teachers: unknown[] = [];
+let settings: NotificationSettings = SETTINGS;
+let feed: unknown = {};
 
 function stubApi(): Request[] {
   const seen: Request[] = [];
@@ -67,7 +86,17 @@ function stubApi(): Request[] {
         if (meFails) return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
         return json({ ...ME, ...(await request.clone().json()) });
       }
-      if (request.method === "PATCH") return json(SETTINGS);
+      if (request.method === "PATCH") {
+        if (settingsFail)
+          return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
+        return json(settings);
+      }
+      if (request.method === "POST" && path.startsWith("/api/v1/me/rest-periods/")) {
+        // The pause is over: the next read of the settings says so too.
+        const practice = { ...settings.practice, paused_start: null, paused_until: null };
+        settings = { ...settings, practice };
+        return json({ period: null });
+      }
       if (path === "/api/v1/me/day-off") {
         if (dayOffFails)
           return new Response(JSON.stringify({ code: "unavailable" }), { status: 503 });
@@ -79,7 +108,7 @@ function stubApi(): Request[] {
       }
       if (path === "/api/v1/me") return json({ ...ME, day_off: null });
       if (path === "/api/v1/moon/cities") return json(CITIES);
-      if (path === "/api/v1/me/notification-settings") return json(SETTINGS);
+      if (path === "/api/v1/me/notification-settings") return json(settings);
       if (path === "/api/v1/me/moon-days") {
         return json({
           location: { slug: "mysuru", explicit: false },
@@ -89,6 +118,7 @@ function stubApi(): Request[] {
       }
       if (path === "/api/v1/me/links") return json({ teachers, students: [] });
       if (path === "/api/v1/me/shalas") return json([]); // SC-01
+      if (path === "/api/v1/me/calendar-feed") return json(feed); // SC-06
       return json({});
     }),
   );
@@ -104,7 +134,52 @@ function renderWith(node: React.ReactNode, locale: Locale = "en") {
   );
 }
 
-const plain = (text: string) => text.replace(/[⁨⁩]/g, "");
+const plain = (text: string | null | undefined) => (text ?? "").replace(/[⁨⁩]/g, "");
+
+interface Mounted {
+  client: QueryClient;
+  onBack: ReturnType<typeof vi.fn<() => void>>;
+}
+
+/** Settings as the shell shows it: over the cached account, which a save updates at once. */
+function mount(me: Me, options: { locale?: Locale; focus?: SettingsFocus } = {}): Mounted {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(["me"], me);
+  const onBack = vi.fn<() => void>();
+  function Live() {
+    return <Settings me={useMe().data ?? me} onBack={onBack} focus={options.focus} />;
+  }
+  render(
+    <QueryClientProvider client={client}>
+      <L10nProvider locale={options.locale ?? me.locale}>
+        <Live />
+      </L10nProvider>
+    </QueryClientProvider>,
+  );
+  return { client, onBack };
+}
+
+const title = (name: string) => screen.findByRole("heading", { level: 1, name });
+/** The rows of the first screen, top to bottom, as they read. */
+const rows = () =>
+  within(screen.getByRole("main"))
+    .getAllByRole("button")
+    .map((b) => plain(b.textContent));
+const row = (text: string) =>
+  screen.getByRole("button", { name: (name) => plain(name).startsWith(text) });
+
+/** Opens a page by its row and waits for its heading. */
+async function open(me: Me, rowText: string, heading: string, locale?: Locale): Promise<Mounted> {
+  const mounted = mount(me, locale ? { locale } : {});
+  fireEvent.click(row(rowText));
+  await title(heading);
+  return mounted;
+}
+const openLanguage = (me: Me = ME) => open(me, "🗣 Language", "🗣 Language");
+const openCity = (me: Me = ME) => open(me, me.home_city ? "🏙 My city" : "🕐 My time", "🏙 My city");
+const openDayOff = (me: Me = ME) => open(me, "😌", "😌 Day off");
+const openReminders = (me: Me = ME) => open(me, "🔔 Reminders", "🔔 Reminders");
+const openMore = (me: Me = ME) => open(me, "More…", "⚙️ More settings");
 
 async function bodies(seen: Request[], method: string, path: string): Promise<unknown[]> {
   await vi.waitFor(() => {
@@ -116,6 +191,7 @@ async function bodies(seen: Request[], method: string, path: string): Promise<un
       .map((r) => r.clone().json() as Promise<unknown>),
   );
 }
+const asked = (seen: Request[]) => seen.map((r) => `${r.method} ${new URL(r.url).pathname}`);
 
 function deviceZoneIs(zone: string) {
   const Real = Intl.DateTimeFormat;
@@ -133,152 +209,302 @@ function deviceZoneIs(zone: string) {
   );
 }
 
+// The rows prefetch their five pages; loading them once here keeps every test's first open
+// quick (the transform cache outlives a test).
+beforeAll(async () => {
+  await Promise.all([
+    import("./pages/Language"),
+    import("./pages/City"),
+    import("./pages/DayOff"),
+    import("./pages/Reminders"),
+    import("./pages/More"),
+  ]);
+}, 60_000);
+
+/** The page's scroll (jsdom has none). */
+const scrollTo = vi.fn();
+
+beforeEach(() => {
+  scrollTo.mockClear();
+  vi.stubGlobal("scrollTo", scrollTo);
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   localStorage.clear();
+  tg.back = true;
+  dayOffFails = false;
+  meFails = false;
+  settingsFail = false;
+  teachers = [];
+  settings = SETTINGS;
+  feed = {};
 });
 
-describe("Settings", () => {
-  it("has the NT-03 announcements switch once there is a teacher, off = false, on = null", async () => {
-    teachers = [{ id: "t1", name: "Anna", primary: true, primary_chosen: false, linked_at: "x" }];
+describe("the first screen: the bot's five rows, each with its value", () => {
+  it("is five rows and a quiet Guide, drawn from the account without asking the server", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    mount({ ...ME, home_city: ALMATY, day_off: [7] });
 
-    const toggle = await screen.findByRole("checkbox", {
-      name: "📣 Announcements from teachers and shalas",
+    expect(await title("Settings")).toBeInTheDocument();
+    expect(rows()).toEqual([
+      "🗣 Language: As in Telegram",
+      "🏙 My city: Almaty", // my own city: no offset (ADR-0044)
+      "😌 Day off: Sunday",
+      "🔔 Reminders",
+      "More…",
+      "📖 Guide",
+    ]);
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await act(async () => {
+      await new Promise((done) => setTimeout(done, 20));
     });
-    expect(toggle).toBeChecked();
-    fireEvent.click(toggle);
-    expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toContainEqual({
-      announcements: false,
-    });
-    teachers = [];
+    expect(asked(seen)).toEqual([]);
   });
 
-  it("has no announcements switch with no teacher or shala", async () => {
+  it("asks only once a page opens, and only what that page shows", async () => {
+    const seen = stubApi();
+    await openReminders();
+
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+    expect([...new Set(asked(seen))].sort()).toEqual([
+      "GET /api/v1/me/links",
+      "GET /api/v1/me/notification-settings",
+      "GET /api/v1/me/shalas",
+    ]);
+  });
+
+  it.each([
+    ["Telegram's language", { locale_from_telegram: true }, "🗣 Language: As in Telegram"],
+    ["a chosen language", { locale_from_telegram: false }, "🗣 Language: English"],
+    ["a city", { home_city: ASTANA }, "🏙 My city: Astana"],
+    ["no city yet", { home_city_chosen: false }, "🏙 My city? 🕐 Almaty (UTC+5)"],
+    ["a city that isn't listed", { home_city_chosen: true }, "🕐 My time: Almaty (UTC+5)"],
+    ["no clock yet", { timezone: null, home_city_chosen: false }, "🏙 My city? 🕐 not known yet"],
+    ["one day off", { day_off: [6] }, "😌 Day off: Saturday"],
+    ["two days off", { day_off: [7, 6] }, "😌 Days off: Saturday, Sunday"],
+    ["no fixed day off", { day_off: [] }, "😌 No fixed day off"],
+    ["a day off not chosen", { day_off: null }, "😌 Day off: not chosen"],
+  ] as [string, Partial<Me>, string][])("says %s on its row", (_name, patch, text) => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
-    await screen.findByRole("button", { name: "📖 Guide" });
-    expect(
-      screen.queryByRole("checkbox", { name: "📣 Announcements from teachers and shalas" }),
-    ).not.toBeInTheDocument();
+    mount({ ...ME, ...patch });
+
+    expect(rows()).toContain(text);
+    expect(rows()).toHaveLength(6);
+  });
+
+  it("reads the same in Russian, in the bot's words", () => {
+    stubApi();
+    mount({
+      ...ME,
+      locale: "ru",
+      locale_from_telegram: false,
+      home_city: ALMATY,
+      day_off: [6, 7],
+    });
+
+    expect(rows()).toEqual([
+      "🗣 Язык: Русский",
+      "🏙 Мой город: Алматы",
+      "😌 Выходные: суббота, воскресенье",
+      "🔔 Напоминания",
+      "Ещё…",
+      "📖 Справка",
+    ]);
   });
 
   // UI-06 stage 2: the tour is retired (Q332), and teachers, students and shalas are the
-  // Shala tab (Q300). Neither has a row here any more.
-  it("has no quick tour row and no Teachers and students row", async () => {
+  // Shala tab (Q300). Neither has a row here.
+  it("has no quick tour row and no Teachers and students row", () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
-    await screen.findByRole("button", { name: "📖 Guide" });
+    mount(ME);
 
     expect(screen.queryByRole("button", { name: /tour/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /Teachers and students/ })).toBeNull();
-  });
-
-  it("opens scrolled to the practice reminder when asked (UI-06)", async () => {
-    stubApi();
-    const scrolled = vi.fn();
-    Element.prototype.scrollIntoView = scrolled;
-    renderWith(<Settings me={ME} onBack={vi.fn()} focus="remind" />);
-
-    // The card mounts once its settings have loaded; the scroll waits for it, and runs once.
-    await waitFor(() => {
-      expect(scrolled).toHaveBeenCalledOnce();
-    });
-    expect(scrolled.mock.contexts[0]).toBe(document.getElementById("remind"));
-    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 
   it.each([
     ["en", "📖 Guide", "https://tristhana.app/"],
     ["ru", "📖 Справка", "https://tristhana.app/ru/"],
   ] as const)(
-    "opens the guide in the person's language from a row above Privacy (UI-05, %s)",
+    "opens the guide in the person's language from the last row (UI-05, %s)",
     async (locale, label, url) => {
       stubApi();
       const { openLink } = await import("../../telegram");
-      renderWith(<Settings me={{ ...ME, locale }} onBack={vi.fn()} />, locale);
-      fireEvent.click(await screen.findByRole("button", { name: label }));
+      mount({ ...ME, locale });
+
+      expect(rows().at(-1)).toBe(label);
+      fireEvent.click(screen.getByRole("button", { name: label }));
       expect(openLink).toHaveBeenLastCalledWith(url);
     },
   );
+});
 
-  it("saves a name on blur, and blank goes back to the Telegram name", async () => {
+describe("a page is a layer over the rows", () => {
+  it("takes the place of the rows and the focus; Back returns to the row that opened it", async () => {
+    tg.back = false; // the pages draw their own "‹ Back"
+    stubApi();
+    const { onBack } = mount(ME);
+    const opener = row("🔔 Reminders");
+
+    fireEvent.click(opener);
+
+    expect(await title("🔔 Reminders")).toHaveFocus();
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
+    expect(opener).not.toBeVisible(); // hidden, not gone
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    expect(await title("Settings")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "🔔 Reminders" })).toBeNull();
+    expect(opener).toHaveFocus();
+    expect(onBack).not.toHaveBeenCalled(); // Settings stays open
+  });
+
+  it.each([
+    ["day-off", "😌 Day off"],
+    ["remind", "🔔 Reminders"],
+  ] as const)("focus=%s opens its page, and Back there closes Settings", async (focus, heading) => {
+    tg.back = false;
+    stubApi();
+    const { onBack } = mount(ME, { focus });
+
+    expect(await title(heading)).toHaveFocus();
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    expect(onBack).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
+  });
+
+  it("a saved value shows on its row as soon as the page closes", async () => {
+    tg.back = false;
+    stubApi();
+    await openDayOff({ ...ME, day_off: null });
+
+    fireEvent.click(screen.getByRole("button", { name: (n) => plain(n) === "Sun" }));
+    await screen.findByRole("button", { name: (n) => plain(n) === "Sun", pressed: true });
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    await title("Settings");
+    expect(rows()).toContain("😌 Day off: Sunday");
+  });
+});
+
+describe("leaving a page", () => {
+  // Review: a name typed and then Back, with the field still focused, was lost (it saves on
+  // blur, and a page that unmounts blurs nothing).
+  it("saves a typed name on Back while the field has the focus, once", async () => {
+    tg.back = false;
     const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
-    const name = await screen.findByRole("textbox", { name: "Name" });
-    expect(name).toHaveAttribute("placeholder", "Ash");
+    await openMore();
+    const name = screen.getByRole("textbox", { name: "Name" });
+    name.focus();
+    fireEvent.change(name, { target: { value: "Anna" } });
+    expect(name).toHaveFocus();
 
-    fireEvent.change(name, { target: { value: "  Anna 🧘 " } });
-    fireEvent.blur(name);
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
 
-    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ display_name: "Anna 🧘" }]);
+    await title("Settings");
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ display_name: "Anna" }]);
+    await act(async () => {
+      await new Promise((done) => setTimeout(done, 20));
+    });
+    expect(asked(seen).filter((r) => r === "PATCH /api/v1/me")).toHaveLength(1); // not twice
+  });
+
+  it("saves nothing on Back when the name was not changed", async () => {
+    tg.back = false;
+    const seen = stubApi();
+    await openMore();
+    screen.getByRole("textbox", { name: "Name" }).focus();
+
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    await title("Settings");
+    expect(asked(seen).filter((r) => r.startsWith("PATCH"))).toEqual([]);
+  });
+});
+
+describe("a language switched while Settings is open", () => {
+  /** As the app does: the language of the screen follows the account. */
+  function mountLive(me: Me) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["me"], me);
+    function Live() {
+      const now = useMe().data ?? me;
+      return (
+        <L10nProvider locale={now.locale}>
+          <Settings me={now} onBack={vi.fn()} />
+        </L10nProvider>
+      );
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <Live />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("re-reads the page's heading and choices, then the five rows", async () => {
+    tg.back = false;
+    stubApi();
+    mountLive({ ...ME, home_city: ALMATY, day_off: [7] });
+    fireEvent.click(row("🗣 Language"));
+    await title("🗣 Language");
+
+    fireEvent.click(screen.getByRole("button", { name: "Русский" }));
+
+    expect(await title("🗣 Язык")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Как в Telegram" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "‹ Назад" }));
+
+    expect(await title("Настройки")).toBeInTheDocument();
+    const five = rows().filter((r) => !r.startsWith("‹")); // not the back link
+    expect(five.slice(3)).toEqual(["🔔 Напоминания", "Ещё…", "📖 Справка"]);
+    expect(five[0]).toMatch(/^🗣 Язык: /);
+  });
+});
+
+describe("Language", () => {
+  it("is three choices, one per row, with the chosen one marked", async () => {
+    stubApi();
+    await openLanguage();
+
+    const group = screen.getByRole("group", { name: "🗣 Language" });
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((b) => [b.textContent, b.getAttribute("aria-pressed")]),
+    ).toEqual([
+      ["As in Telegram", "true"],
+      ["English", "false"],
+      ["Русский", "false"],
+    ]);
   });
 
   it("switches the language and back to Telegram's", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, locale_from_telegram: false }} onBack={vi.fn()} />);
+    await openLanguage({ ...ME, locale_from_telegram: false });
 
-    expect(
-      await screen.findByRole("button", { name: "English", pressed: true }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "English", pressed: true })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "As in Telegram" }));
 
     expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ locale: null }]);
   });
 
-  it("lists every city, plus 'not listed' that offers the phone's time or UTC", async () => {
-    deviceZoneIs("Asia/Bangkok");
-    const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
-    const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
-    expect([...select.querySelectorAll("option")].map((o) => o.value)).toEqual([
-      "",
-      "almaty",
-      "bangkok",
-      "moscow",
-      "mysuru",
-      "sochi",
-      "-",
-    ]);
-    expect(screen.queryByRole("button", { name: /Use my phone's time/ })).not.toBeInTheDocument();
-
-    fireEvent.change(select, { target: { value: "-" } });
-    expect(select).toHaveValue("-"); // stays on "not listed" while the chips are shown
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: (n) => plain(n).startsWith("Use my phone's time: Bangkok (UTC+7)"),
-      }),
-    );
-
-    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([
-      { home_city: null, timezone: "Asia/Bangkok" },
-    ]);
-  });
-
-  it("won't let quiet hours swallow an active reminder, and sets the cap", async () => {
-    const seen = stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
-
-    const from = await screen.findByRole("combobox", { name: "Quiet from" });
-    const option = (h: string) => from.querySelector(`option[value="${h}"]`) as HTMLOptionElement;
-    expect(option("19:00").disabled).toBe(true); // 19:00 moon and 20:00 practice
-    expect(option("21:00").disabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "2" }));
-
-    expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toEqual([
-      { daily_cap: 2 },
-    ]);
-  });
-
-  it("explains privacy and shares the 🌸 switch with Stats", async () => {
+  it("says so when the save fails", async () => {
+    meFails = true;
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    await openLanguage();
 
-    expect(await screen.findByText(/stored encrypted/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" }));
-    expect(localStorage.getItem("stats.showLadies")).toBe("1");
+    fireEvent.click(screen.getByRole("button", { name: "Русский" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't save");
   });
 });
 
@@ -370,36 +596,56 @@ describe("TravelPrompt", () => {
 });
 
 describe("My city (MD-04)", () => {
-  afterEach(() => {
-    meFails = false;
+  const select = () => screen.findByRole("combobox", { name: "Which city do you live in?" });
+
+  it("lists every city, plus 'not listed' that offers the phone's time or UTC", async () => {
+    deviceZoneIs("Asia/Bangkok");
+    const seen = stubApi();
+    await openCity({ ...ME, home_city: ALMATY });
+    const cities = await select();
+    expect([...cities.querySelectorAll("option")].map((o) => o.value)).toEqual([
+      "",
+      "almaty",
+      "bangkok",
+      "moscow",
+      "mysuru",
+      "sochi",
+      "-",
+    ]);
+    expect(screen.queryByRole("button", { name: /Use my phone's time/ })).not.toBeInTheDocument();
+
+    fireEvent.change(cities, { target: { value: "-" } });
+    expect(cities).toHaveValue("-"); // stays on "not listed" while the chips are shown
+    expect(screen.getByRole("button", { name: "UTC (no daylight saving)" })).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: (n) => plain(n).startsWith("Use my phone's time: Bangkok (UTC+7)"),
+      }),
+    );
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([
+      { home_city: null, timezone: "Asia/Bangkok" },
+    ]);
   });
 
   it("marks the stored city, not another one in its zone, and saves the slug", async () => {
     const seen = stubApi();
-    renderWith(
-      <Settings me={{ ...ME, timezone: "Europe/Moscow", home_city: SOCHI }} onBack={vi.fn()} />,
-    );
-    const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
+    await openCity({ ...ME, timezone: "Europe/Moscow", home_city: SOCHI });
+    const cities = await select();
 
-    expect(select).toHaveValue("sochi"); // the bug: Moscow used to be marked
-    fireEvent.change(select, { target: { value: "moscow" } });
+    expect(cities).toHaveValue("sochi"); // the bug: Moscow used to be marked
+    fireEvent.change(cities, { target: { value: "moscow" } });
 
     expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ home_city: "moscow" }]);
   });
 
   it("labels the time with the city's name", async () => {
     stubApi();
-    const astana: City = {
-      slug: "astana",
-      name_en: "Astana",
-      name_ru: "Астана",
-      timezone: "Asia/Almaty",
-    };
-    renderWith(<Settings me={{ ...ME, home_city: astana }} onBack={vi.fn()} />);
+    await openCity({ ...ME, home_city: ASTANA });
 
     // My own city: its name, no offset (ADR-0044).
     expect(
-      await screen.findByText(
+      screen.getByText(
         (_, el) => el?.tagName === "P" && /^\d\d:\d\d Astana$/.test(plain(el.textContent)),
       ),
     ).toBeInTheDocument();
@@ -407,89 +653,66 @@ describe("My city (MD-04)", () => {
 
   it("says what the clock is, offset and all, while no city is chosen", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
+    await openCity();
 
     expect(
-      await screen.findByText(
+      screen.getByText(
         (_, el) =>
           el?.tagName === "P" && /^\d\d:\d\d Almaty \(UTC\+5\)$/.test(plain(el.textContent)),
       ),
     ).toBeInTheDocument();
   });
 
-  it("nudges once: Not now answers it and keeps the zone", async () => {
+  // The nudge and its "Not now" are gone (UI-06 stage 3): the row asks, as in the bot.
+  it("has no nudge: the row asks, and picking a city answers", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, home_city_chosen: false }} onBack={vi.fn()} />);
+    const unanswered = { ...ME, home_city_chosen: false };
+    await open(unanswered, "🏙 My city? 🕐 Almaty (UTC+5)", "🏙 My city");
+    const cities = await select();
 
-    expect(
-      await screen.findByText("Pick your city if you like: times will then show its name."),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(screen.queryByText(/Pick your city if you like/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Not now" })).toBeNull();
+    expect(cities).toHaveValue(""); // nothing chosen, and "not listed" is not assumed
+    fireEvent.change(cities, { target: { value: "almaty" } });
 
-    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ home_city: null }]);
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ home_city: "almaty" }]);
   });
 
-  it("has no nudge once answered", async () => {
+  it("explains the clock, and credits the map where the location is talked about", async () => {
     stubApi();
-    renderWith(<Settings me={ME} onBack={vi.fn()} />);
-    await screen.findByRole("combobox", { name: "Which city do you live in?" });
+    await openCity();
 
-    expect(
-      screen.queryByText("Pick your city if you like: times will then show its name."),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText(/Reminders and times follow your city's clock/)).toBeInTheDocument();
+    expect(screen.getByText(/© OpenStreetMap contributors \(ODbL\)/)).toBeInTheDocument();
   });
 
   it("shows the old city again when the save fails", async () => {
     meFails = true;
     stubApi();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    client.setQueryData(["me"], { ...ME, home_city: SOCHI, timezone: "Europe/Moscow" });
-    client.setQueryData(["moon-cities"], CITIES);
-    function Live() {
-      const me = client.getQueryData<Me>(["me"]) ?? ME;
-      return <Settings me={me} onBack={vi.fn()} />;
-    }
-    render(
-      <QueryClientProvider client={client}>
-        <L10nProvider locale="en">
-          <Live />
-        </L10nProvider>
-      </QueryClientProvider>,
-    );
-    const select = await screen.findByRole("combobox", { name: "Which city do you live in?" });
+    const { client } = await openCity({ ...ME, home_city: SOCHI, timezone: "Europe/Moscow" });
+    const cities = await select();
 
-    fireEvent.change(select, { target: { value: "almaty" } });
+    fireEvent.change(cities, { target: { value: "almaty" } });
 
     expect(await screen.findAllByRole("alert")).not.toHaveLength(0);
     expect(client.getQueryData<Me>(["me"])?.home_city?.slug).toBe("sochi");
-  });
-
-  it("offers 'Same as my city' first in the moon calendar picker", async () => {
-    const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, home_city: ALMATY }} onBack={vi.fn()} />);
-    const select = await screen.findByRole("combobox", { name: "City for the calendar" });
-
-    const first = select.querySelector("option");
-    expect(first?.textContent && plain(first.textContent)).toBe("Same as my city (Almaty)");
-    fireEvent.change(select, { target: { value: "almaty" } });
-
-    expect(await bodies(seen, "PUT", "/api/v1/me/moon-location")).toEqual([{ slug: "almaty" }]);
+    expect(cities).toHaveValue("sochi");
   });
 });
 
 describe("Day off (PR-09)", () => {
-  afterEach(() => {
-    dayOffFails = false;
-  });
-
   it("starts with nothing pressed and takes up to two days off", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
-    const group = await screen.findByRole("group", { name: "Day off" });
+    await openDayOff({ ...ME, day_off: null });
+    const group = screen.getByRole("group", { name: "😌 Day off" });
     const chip = (name: string) =>
       within(group).getByRole("button", { name: (n) => plain(n) === name });
+    expect(within(group).getAllByRole("button")).toHaveLength(8); // seven days and "no fixed"
     expect(within(group).queryAllByRole("button", { pressed: true })).toHaveLength(0);
-    expect(screen.getByText(/Past weeks show them too/)).toBeInTheDocument();
+    // Nothing chosen yet: no sentence about a change.
+    expect(plain(screen.getByText(/Pick one or two/).textContent)).toBe(
+      "Pick one or two. They show as rest and get no practice reminders.",
+    );
 
     fireEvent.click(chip("Sun"));
     await vi.waitFor(() => {
@@ -507,11 +730,35 @@ describe("Day off (PR-09)", () => {
     ]);
   });
 
+  it("says in two short sentences what a day off does", async () => {
+    stubApi();
+    await openDayOff({ ...ME, day_off: [7] });
+
+    expect(plain(screen.getByText(/Pick one or two/).textContent)).toBe(
+      "Pick one or two. They show as rest and get no practice reminders. A change applies from today.",
+    );
+  });
+
+  it("takes 'No fixed day off'", async () => {
+    const seen = stubApi();
+    await openDayOff({ ...ME, day_off: [7] });
+
+    fireEvent.click(screen.getByRole("button", { name: "No fixed day off" }));
+
+    expect(await bodies(seen, "PUT", "/api/v1/me/day-off")).toEqual([{ day_off: [] }]);
+    await vi.waitFor(() => {
+      expect(screen.getByRole("button", { name: "No fixed day off" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+  });
+
   it("rolls back when the save fails", async () => {
     dayOffFails = true;
     stubApi();
-    renderWith(<Settings me={{ ...ME, day_off: null }} onBack={vi.fn()} />);
-    const group = await screen.findByRole("group", { name: "Day off" });
+    await openDayOff({ ...ME, day_off: null });
+    const group = screen.getByRole("group", { name: "😌 Day off" });
     fireEvent.click(within(group).getByRole("button", { name: "No fixed day off" }));
 
     expect(await screen.findAllByText("Couldn't save. Try again in a moment.")).not.toHaveLength(0);
@@ -519,26 +766,513 @@ describe("Day off (PR-09)", () => {
   });
 });
 
-describe("Hide the 🌸 button (WH-01 part 2)", () => {
-  afterEach(() => {
-    meFails = false;
+describe("Reminders", () => {
+  /** The quiet-hours fold: its row is the summary line. */
+  const quietFold = () => screen.findByRole("button", { name: (n) => plain(n).startsWith("🔕 ") });
+
+  it("names the place of its times once, at the top (ADR-0044)", async () => {
+    stubApi();
+    await openReminders({ ...ME, home_city: ASTANA });
+    await screen.findByRole("button", { name: "20:00", pressed: true });
+
+    // My own zone: the place, no offset; no other line on the page repeats it.
+    expect(
+      screen.getAllByText((_, el) => /Astana/.test(el?.textContent ?? "") && el?.tagName === "P"),
+    ).toHaveLength(1);
+    expect(plain(screen.getByText(/^🕐 Times:/).textContent)).toBe("🕐 Times: Astana");
   });
 
+  it("has the practice reminder first: a switch, the time, the days it comes on", async () => {
+    const seen = stubApi();
+    await openReminders();
+
+    const toggle = await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+    expect(toggle).toBeChecked();
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "🧘 Practice reminder",
+      "🌙 Moon reminders", // its own heading, not the day card's "🌙 Moon day"
+    ]);
+    expect(
+      screen.getByText(
+        (t) =>
+          plain(t) ===
+          "On your practice days: Mon, Tue, Wed, Thu, Fri, Sun. Change them under Day off.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "18:00" }));
+    fireEvent.click(toggle);
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toEqual([
+      { practice: { at: "18:00:00" } },
+      { practice: { on: false } },
+    ]);
+  });
+
+  it("has the moon reminders: days before and the time, a tap sends only what was tapped", async () => {
+    const seen = stubApi();
+    await openReminders();
+    const before = await screen.findByRole("group", { name: "Remind me before" });
+
+    expect(
+      within(before)
+        .getAllByRole("button")
+        .map((b) => [plain(b.textContent), b.getAttribute("aria-pressed")]),
+    ).toEqual([
+      ["7 days", "true"],
+      ["3 days", "false"],
+      ["1 day", "true"],
+    ]);
+    fireEvent.click(within(before).getByRole("button", { name: (n) => plain(n) === "3 days" }));
+    // 19:00 is the moon reminder's own time; 21:00 is free, 07:00 would fall in quiet hours.
+    const moon = screen.getByRole("region", { name: "🌙 Moon reminders" });
+    expect(within(moon).getByRole("button", { name: "19:00" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(moon).getByRole("button", { name: "07:00" })).toBeEnabled(); // quiet ends at 07:00
+    fireEvent.click(within(moon).getByRole("button", { name: "21:00" }));
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toEqual([
+      { moon: { offsets: [1, 7, 3] } },
+      { moon: { at: "21:00:00" } },
+    ]);
+  });
+
+  it("keeps quiet hours and the daily limit in a fold that says what is set", async () => {
+    const seen = stubApi();
+    await openReminders();
+    const fold = await quietFold();
+
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    // The row is the summary itself: the words "Quiet hours" are said once.
+    expect(plain(fold.textContent)).toBe("🔕 Quiet hours 22:00–07:00 · at most 3 messages a day");
+    expect(fold).toHaveAccessibleName(/^🔕 /);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    fireEvent.click(fold);
+
+    // Open, the row still says what is set; its fields are a group named "Quiet hours".
+    expect(plain(fold.textContent)).toBe("🔕 Quiet hours 22:00–07:00 · at most 3 messages a day");
+    expect(screen.getByRole("group", { name: "Quiet hours" })).toContainElement(
+      screen.getByRole("combobox", { name: "Quiet from" }),
+    );
+
+    // It won't let quiet hours swallow an active reminder.
+    const from = screen.getByRole("combobox", { name: "Quiet from" });
+    const option = (h: string) => from.querySelector(`option[value="${h}"]`) as HTMLOptionElement;
+    expect(from).toHaveValue("22:00");
+    expect(screen.getByRole("combobox", { name: "Quiet until" })).toHaveValue("07:00");
+    expect(option("19:00").disabled).toBe(true); // 19:00 moon and 20:00 practice
+    expect(option("21:00").disabled).toBe(false);
+    fireEvent.change(from, { target: { value: "21:00" } });
+    const cap = screen.getByRole("group", { name: (n) => plain(n) === "At most 3 messages a day" });
+    fireEvent.click(within(cap).getByRole("button", { name: "2" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "No quiet hours" }));
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toEqual([
+      { quiet: { start: "21:00:00", end: "07:00:00" } },
+      { daily_cap: 2 },
+      { quiet: { start: "00:00:00", end: "00:00:00" } },
+    ]);
+  });
+
+  it("says 'No quiet hours' on the closed fold when there are none", async () => {
+    settings = { ...SETTINGS, quiet: { start: "00:00:00", end: "00:00:00" }, daily_cap: 1 };
+    stubApi();
+    await openReminders();
+    const fold = await quietFold();
+
+    expect(plain(fold.textContent)).toBe("🔕 No quiet hours · at most 1 message a day");
+    fireEvent.click(fold);
+    expect(screen.getByRole("checkbox", { name: "No quiet hours" })).toBeChecked();
+  });
+
+  it("says once that reminders wait for a time zone, and shows no times", async () => {
+    stubApi();
+    await open({ ...ME, timezone: null }, "🔔 Reminders", "🔔 Reminders");
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+    expect(screen.getAllByText(/once your time zone is known/)).toHaveLength(1);
+    expect(screen.queryByText(/^🕐 Times:/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /^\d\d:00$/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: (name) => /^\d+ days?$/.test(plain(name)) }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /quiet hours/i })).toBeNull();
+  });
+
+  // Review: the line used to be a dead end. The city sets the zone, so the way there is here.
+  it("offers My city under that line; Back from there returns to the five rows", async () => {
+    tg.back = false;
+    stubApi();
+    const { onBack } = await open({ ...ME, timezone: null }, "🔔 Reminders", "🔔 Reminders");
+    const line = screen.getByText(/once your time zone is known/);
+
+    const city = screen.getByRole("button", { name: "🏙 My city" });
+    expect(line.compareDocumentPosition(city) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    fireEvent.click(city);
+
+    expect(await title("🏙 My city")).toHaveFocus();
+    expect(screen.queryByRole("heading", { level: 1, name: "🔔 Reminders" })).toBeNull();
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    expect(await title("Settings")).toBeVisible();
+    expect(rows().filter((r) => !r.startsWith("‹"))).toHaveLength(6); // not the back link
+    expect(row("🔔 Reminders")).toHaveFocus(); // the row that opened the first page
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it("offers My city on Reminders opened from Today too; Back then goes to the rows", async () => {
+    tg.back = false;
+    stubApi();
+    const { onBack } = mount({ ...ME, timezone: null }, { focus: "remind" });
+    await title("🔔 Reminders");
+
+    fireEvent.click(screen.getByRole("button", { name: "🏙 My city" }));
+    await title("🏙 My city");
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+
+    // Not out of Settings: the rows, with the heading focused (no row was tapped).
+    expect(await title("Settings")).toHaveFocus();
+    expect(onBack).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "‹ Back" }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it("has no My city button once the zone is known", async () => {
+    stubApi();
+    await openReminders();
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+    expect(screen.queryByRole("button", { name: "🏙 My city" })).toBeNull();
+  });
+
+  it.each([
+    // 20:00–08:00 crosses midnight: 21:00 and 07:00 are inside, 19:00 and 12:00 are not.
+    ["a range crossing midnight", "20:00:00", "08:00:00", ["07:00", "21:00"], ["20:00", "21:00"]],
+    // 09:00–13:00: the end is not inside.
+    ["a range within the day", "09:00:00", "13:00:00", ["12:00"], ["09:00", "10:00", "12:00"]],
+  ] as const)(
+    "disables a time chip that falls in quiet hours: %s",
+    async (_name, start, end, moonOff, practiceOff) => {
+      settings = {
+        ...SETTINGS,
+        quiet: { start, end },
+        moon: { offsets: [1], at: "19:00:00" },
+        practice: { on: true, at: "18:00:00", days: [1, 2, 3, 4, 5, 7] },
+      };
+      stubApi();
+      await openReminders();
+      const disabled = (region: HTMLElement) =>
+        within(region)
+          .getAllByRole("button", { name: /^\d\d:00$/ })
+          .filter((b) => (b as HTMLButtonElement).disabled)
+          .map((b) => b.textContent);
+
+      const moon = await screen.findByRole("region", { name: "🌙 Moon reminders" });
+      expect(disabled(moon)).toEqual(moonOff);
+      expect(disabled(screen.getByRole("region", { name: "🧘 Practice reminder" }))).toEqual(
+        practiceOff,
+      );
+    },
+  );
+
+  it("says the reminder is paused through a date, and Resume ends the pause", async () => {
+    settings = {
+      ...SETTINGS,
+      practice: {
+        ...SETTINGS.practice,
+        paused_start: "2026-10-17",
+        paused_until: "2026-10-21",
+      },
+    };
+    const seen = stubApi();
+    await openReminders();
+
+    expect(
+      await screen.findByText((t) => /^⏸ Paused through .*21/.test(plain(t))),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "▶️ Resume now" }));
+
+    await vi.waitFor(() => {
+      expect(asked(seen)).toContain("POST /api/v1/me/rest-periods/2026-10-17/end");
+    });
+    // At once: the line and its button go.
+    expect(screen.queryByText(/Paused through/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "▶️ Resume now" })).toBeNull();
+  });
+
+  it("has no pause line without a pause", async () => {
+    stubApi();
+    await openReminders();
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+    expect(screen.queryByText(/Paused through/)).toBeNull();
+  });
+
+  describe("a save that fails rolls back and says so", () => {
+    const FAILED = "Couldn't save. Try again in a moment.";
+
+    it("a chip: the practice time", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const practice = await screen.findByRole("region", { name: "🧘 Practice reminder" });
+
+      fireEvent.click(within(practice).getByRole("button", { name: "18:00" }));
+
+      expect(await within(practice).findByRole("alert")).toHaveTextContent(FAILED);
+      expect(within(practice).getByRole("button", { name: "20:00" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(within(practice).getByRole("button", { name: "18:00" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    it("a chip of several: the moon reminders' days before", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const moon = await screen.findByRole("region", { name: "🌙 Moon reminders" });
+      const three = () => within(moon).getByRole("button", { name: (n) => plain(n) === "3 days" });
+
+      fireEvent.click(three());
+
+      expect(await within(moon).findByRole("alert")).toHaveTextContent(FAILED);
+      expect(three()).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("a switch: the practice reminder", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const toggle = await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+      fireEvent.click(toggle);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(FAILED);
+      expect(toggle).toBeChecked();
+    });
+
+    it("a list: quiet hours", async () => {
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      fireEvent.click(await quietFold());
+      const from = screen.getByRole("combobox", { name: "Quiet from" });
+
+      fireEvent.change(from, { target: { value: "21:00" } });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(FAILED);
+      expect(from).toHaveValue("22:00");
+      expect(plain((await quietFold()).textContent)).toBe(
+        "🔕 Quiet hours 22:00–07:00 · at most 3 messages a day",
+      );
+    });
+
+    it("the announcements switch", async () => {
+      teachers = [{ id: "t1", name: "Anna", primary: true, primary_chosen: false, linked_at: "x" }];
+      settingsFail = true;
+      stubApi();
+      await openReminders();
+      const toggle = await screen.findByRole("checkbox", {
+        name: "📣 Announcements from teachers and shalas",
+      });
+
+      fireEvent.click(toggle);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(FAILED);
+      expect(toggle).toBeChecked();
+    });
+  });
+
+  it("has the NT-03 announcements switch once there is a teacher, off = false, on = null", async () => {
+    teachers = [{ id: "t1", name: "Anna", primary: true, primary_chosen: false, linked_at: "x" }];
+    const seen = stubApi();
+    await openReminders();
+
+    const toggle = await screen.findByRole("checkbox", {
+      name: "📣 Announcements from teachers and shalas",
+    });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toContainEqual({
+      announcements: false,
+    });
+    fireEvent.click(toggle);
+    await vi.waitFor(async () => {
+      expect(await bodies(seen, "PATCH", "/api/v1/me/notification-settings")).toEqual([
+        { announcements: false },
+        { announcements: null },
+      ]);
+    });
+    expect(toggle).toBeChecked();
+  });
+
+  it("has no announcements switch with no teacher or shala", async () => {
+    stubApi();
+    await openReminders();
+    await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
+
+    expect(
+      screen.queryByRole("checkbox", { name: "📣 Announcements from teachers and shalas" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("More", () => {
+  it("has the name as its first field, then Your log and Privacy", async () => {
+    stubApi();
+    await openMore();
+    await screen.findByRole("combobox");
+
+    const main = screen.getByRole("main");
+    expect(main.querySelector("input, select, button")).toBe(
+      screen.getByRole("textbox", { name: "Name" }),
+    );
+    expect(
+      within(main)
+        .getAllByRole("heading")
+        .map((h) => h.textContent),
+    ).toEqual(["⚙️ More settings", "Your log", "Privacy", "📦 My data"]);
+  });
+
+  it("saves a name on blur, and blank goes back to the Telegram name", async () => {
+    const seen = stubApi();
+    await openMore();
+    const name = screen.getByRole("textbox", { name: "Name" });
+    expect(name).toHaveAttribute("placeholder", "Ash");
+    expect(name).toHaveAccessibleDescription(/Leave it empty to use your Telegram name/);
+
+    fireEvent.change(name, { target: { value: "  Anna 🧘 " } });
+    fireEvent.blur(name);
+
+    expect(await bodies(seen, "PATCH", "/api/v1/me")).toEqual([{ display_name: "Anna 🧘" }]);
+  });
+
+  it("offers 'Same as my city' first in the moon calendar picker, with where the city comes from", async () => {
+    const seen = stubApi();
+    await openMore({ ...ME, home_city: ALMATY });
+    const select = await screen.findByRole("combobox", {
+      name: (n) => plain(n) === "🌙 Moon days · 📍 Mysuru",
+    });
+
+    const first = select.querySelector("option");
+    expect(first?.textContent && plain(first.textContent)).toBe("Same as my city (Almaty)");
+    expect(screen.queryByText(/lunar day at sunrise/)).toBeNull(); // that note is on the Moon screen
+    fireEvent.change(select, { target: { value: "almaty" } });
+
+    expect(await bodies(seen, "PUT", "/api/v1/me/moon-location")).toEqual([{ slug: "almaty" }]);
+  });
+
+  it("keeps what others see in a closed fold: the two privacy texts", async () => {
+    stubApi();
+    await openMore();
+    const fold = screen.getByRole("button", { name: "🔒 What others see" });
+
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/stored encrypted/)).toBeNull();
+    fireEvent.click(fold);
+
+    expect(screen.getByText(/stored encrypted/)).toBeInTheDocument();
+    expect(screen.getByText(/^Your log is yours\./)).toBeInTheDocument();
+    expect(screen.queryByText(/OpenStreetMap/)).toBeNull(); // on the My city page
+  });
+
+  it("keeps the calendar subscription in a fold, absent when the server offers no links", async () => {
+    feed = { on: false, available: true, url: null, google_url: null, subscribe_url: null };
+    const seen = stubApi();
+    await openMore();
+    const fold = await screen.findByRole("button", { name: "📅 Add to calendar" });
+
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "📅 Create my link" })).toBeNull();
+    fireEvent.click(fold);
+    fireEvent.click(screen.getByRole("button", { name: "📅 Create my link" }));
+
+    await vi.waitFor(() => {
+      expect(asked(seen)).toContain("POST /api/v1/me/calendar-feed");
+    });
+    await screen.findByRole("button", { name: "📅 Create my link" }); // settled
+  });
+
+  it("has no calendar fold when the server offers no links", async () => {
+    stubApi();
+    await openMore();
+    await screen.findByRole("combobox");
+
+    expect(screen.queryByRole("button", { name: "📅 Add to calendar" })).toBeNull();
+  });
+
+  it("ends with My data: download and delete", async () => {
+    stubApi();
+    await openMore();
+
+    const data = screen.getByRole("region", { name: "📦 My data" });
+    expect(within(data).getByRole("button", { name: "⬇️ Download my data" })).toBeInTheDocument();
+    expect(within(data).getByRole("button", { name: /Delete/ })).toBeInTheDocument();
+    expect(screen.getByRole("main").lastElementChild).toBe(data);
+  });
+});
+
+describe("Show 🌸 in My practice (the device switch, QB)", () => {
+  const toggle = () => screen.getByRole("checkbox", { name: "Show 🌸 in My practice" });
+
+  it("lives in More only, is off until chosen, and the Practice tab follows it at once", async () => {
+    stubApi();
+    function Probe() {
+      return <output>{useShowLadies() ? "marked" : "rest"}</output>;
+    }
+    render(<Probe />);
+    mount(ME);
+    expect(screen.queryByRole("checkbox")).toBeNull(); // not on the first screen
+    fireEvent.click(row("More…"));
+    await title("⚙️ More settings");
+
+    expect(toggle()).not.toBeChecked();
+    expect(toggle()).toHaveAccessibleDescription(
+      "On this phone only. While it's off, these days look like rest.",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("rest");
+    fireEvent.click(toggle());
+
+    expect(toggle()).toBeChecked();
+    expect(localStorage.getItem("stats.showLadies")).toBe("1");
+    expect(screen.getByRole("status")).toHaveTextContent("marked");
+  });
+
+  it("reads the stored choice, and sends nothing to the server", async () => {
+    localStorage.setItem("stats.showLadies", "1");
+    const seen = stubApi();
+    await openMore();
+
+    expect(toggle()).toBeChecked();
+    fireEvent.click(toggle());
+
+    expect(localStorage.getItem("stats.showLadies")).toBe("0");
+    expect(seen.filter((r) => r.method !== "GET")).toEqual([]);
+  });
+});
+
+describe("Hide the 🌸 button (WH-01 part 2)", () => {
   const shown = { ...ME, hide_ladies: false } as Me;
   const toggle = () =>
-    screen.findByRole("checkbox", {
+    screen.getByRole("checkbox", {
       name: (n) => plain(n) === "Show the 🌸 Ladies' holiday button",
     });
 
   it("is on by default, explains itself, and saves at once", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} />);
+    await openMore(shown);
 
-    const box = await toggle();
+    const box = toggle();
     expect(box).toBeChecked();
-    expect(
-      screen.getByText("In the bot and here. Days you already logged stay as they are."),
-    ).toBeInTheDocument();
+    expect(box).toHaveAccessibleDescription(
+      "In the bot and here. Days you already logged stay as they are.",
+    );
     fireEvent.click(box);
 
     expect(box).not.toBeChecked(); // optimistic
@@ -547,16 +1281,16 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("reads the stored choice", async () => {
     stubApi();
-    renderWith(<Settings me={{ ...ME, hide_ladies: true }} onBack={vi.fn()} />);
+    await openMore({ ...ME, hide_ladies: true });
 
-    expect(await toggle()).not.toBeChecked();
+    expect(toggle()).not.toBeChecked();
   });
 
   it("rolls back when the save fails", async () => {
     meFails = true;
     stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} />);
-    const box = await toggle();
+    await openMore(shown);
+    const box = toggle();
 
     fireEvent.click(box);
 
@@ -567,34 +1301,28 @@ describe("Hide the 🌸 button (WH-01 part 2)", () => {
 
   it("is separate from the device-only 🌸 days switch", async () => {
     stubApi();
-    renderWith(<Settings me={shown} onBack={vi.fn()} />);
-    fireEvent.click(await toggle());
+    await openMore(shown);
+    fireEvent.click(toggle());
 
-    expect(screen.getByRole("checkbox", { name: "Show 🌸 days on this device" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Show 🌸 in My practice" })).not.toBeChecked();
     expect(localStorage.getItem("stats.showLadies")).not.toBe("1");
   });
 });
 
 describe("Show “How do you feel?” after practice (PR-06, Q313)", () => {
-  afterEach(() => {
-    meFails = false;
-  });
-
   const offered = { ...ME, offer_check_in: true } as Me;
   const toggle = () =>
-    screen.findByRole("checkbox", { name: "Show “How do you feel?” after practice" });
+    screen.getByRole("checkbox", { name: "Show “How do you feel?” after practice" });
 
   it("is on by default, explains itself, and saves at once", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} />);
+    await openMore(offered);
 
-    const box = await toggle();
+    const box = toggle();
     expect(box).toBeChecked();
-    expect(
-      screen.getByText(
-        "Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.",
-      ),
-    ).toBeInTheDocument();
+    expect(box).toHaveAccessibleDescription(
+      "Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.",
+    );
     fireEvent.click(box);
 
     expect(box).not.toBeChecked(); // optimistic
@@ -603,9 +1331,9 @@ describe("Show “How do you feel?” after practice (PR-06, Q313)", () => {
 
   it("reads the stored choice and turns it back on", async () => {
     const seen = stubApi();
-    renderWith(<Settings me={{ ...offered, offer_check_in: false }} onBack={vi.fn()} />);
+    await openMore({ ...offered, offer_check_in: false });
 
-    const box = await toggle();
+    const box = toggle();
     expect(box).not.toBeChecked();
     fireEvent.click(box);
 
@@ -615,8 +1343,8 @@ describe("Show “How do you feel?” after practice (PR-06, Q313)", () => {
   it("rolls back when the save fails", async () => {
     meFails = true;
     stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} />);
-    const box = await toggle();
+    await openMore(offered);
+    const box = toggle();
 
     fireEvent.click(box);
 
@@ -627,12 +1355,10 @@ describe("Show “How do you feel?” after practice (PR-06, Q313)", () => {
 
   it("is in Russian too", async () => {
     stubApi();
-    renderWith(<Settings me={offered} onBack={vi.fn()} />, "ru");
+    await open({ ...offered, locale: "ru" }, "Ещё…", "⚙️ Ещё настройки");
 
     expect(
-      await screen.findByRole("checkbox", {
-        name: "Показывать «Как самочувствие?» после практики",
-      }),
+      screen.getByRole("checkbox", { name: "Показывать «Как самочувствие?» после практики" }),
     ).toBeChecked();
   });
 });

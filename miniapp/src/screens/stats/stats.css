@@ -1,0 +1,245 @@
+/* The Practice tab (ST-01..03, UI-06 stage 3): one month, and the year behind a row. Loaded
+   with the tab's chunk, never with the first one. Three fills and a ring (ADR-0020): practice,
+   rest, "No practice"; the moon is a ring on the date, never a fill. A day nothing is logged on
+   is a plain number. Theme tokens, and two pastels that keep dark numbers in the dark theme. */
+.stats {
+  --rest: #9ccfb4;
+  --sand: #ead9b5;
+  --on-pastel: #1f2328;
+}
+
+/* ‹ November 2026 › */
+.stats .pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.stats .pager h1,
+.stats .pager h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+.stats .pager h2:focus {
+  outline: none;
+}
+.stats .pager .link {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  font-size: 1.4em;
+}
+.stats .pager .link:disabled {
+  opacity: 0.3;
+}
+
+/* The month: seven columns, weeks from Monday. */
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin: 8px 0;
+}
+/* A narrow phone: the grid takes a little of the card's padding, so a day stays 36px wide. */
+@media (max-width: 350px) {
+  .month-grid {
+    gap: 3px;
+    margin-inline: -8px;
+  }
+}
+.month-grid .weekday {
+  text-align: center;
+  font-size: 0.75em;
+  color: var(--c-hint);
+}
+.day {
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text);
+  font: inherit;
+}
+.day.future {
+  color: var(--c-hint);
+}
+.day.today {
+  outline: 2px solid var(--c-text);
+}
+.day:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+/* The three fills, the same in the month, the year and the legend. */
+.day.practiced,
+.swatch.practiced {
+  background: var(--c-accent);
+  color: var(--c-accent-text);
+}
+.cell.practiced {
+  fill: var(--c-accent);
+}
+.day.rest,
+.swatch.rest {
+  background: var(--rest);
+  color: var(--on-pastel);
+}
+.cell.rest {
+  fill: var(--rest);
+}
+.day.skipped,
+.swatch.skipped {
+  background: var(--sand);
+  color: var(--on-pastel);
+}
+.cell.skipped {
+  fill: var(--sand);
+}
+
+/* A moon day: a ring round the number, in the number's colour, over any fill. */
+.day.moon-marker::after {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  height: calc(100% - 4px);
+  aspect-ratio: 1;
+  border: 1.5px solid;
+  border-radius: 50%;
+  opacity: 0.75;
+  transform: translateX(-50%);
+  content: "";
+}
+.day.future.moon-marker::after {
+  color: var(--c-text);
+}
+/* Shown only with the device switch on (Settings): the day keeps the rest fill. */
+.day.flower::before {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 9px;
+  line-height: 1;
+  content: "🌸";
+}
+
+/* The card of an opened day is a part of the month's card, between hairlines: the full
+   width, so its one line ("🌸 Ladies' holiday", Change) fits at 320px as it does on Today. */
+.month .daylog {
+  margin: 12px 0;
+  padding: 12px 0;
+  border-block: 1px solid var(--c-line);
+  border-radius: 0;
+}
+
+/* What the marks mean: four items. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8em;
+  color: var(--c-hint);
+}
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.swatch.ring {
+  border: 1.5px solid var(--c-text);
+  border-radius: 50%;
+  opacity: 0.75;
+}
+
+/* The one number, with Share on its right. */
+.stats .total {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.stats .card-head .hint {
+  margin: 0;
+}
+.stats .month > p {
+  margin: 8px 0 0;
+}
+
+/* "The month in numbers": the last thing in the card, closed. */
+.stats .more {
+  margin: 12px 0 calc(var(--space) * -1 + 4px);
+  border-bottom: 0;
+}
+.stats .more-body:not(:empty) {
+  padding: 0 0 12px;
+}
+.stats .more-body p {
+  margin: 8px 0 0;
+}
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 4px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.counts li {
+  display: flex;
+  gap: 6px;
+}
+
+/* The year: twelve small months, three to a row; a tap opens that month. */
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 4px;
+  margin: 12px 0;
+}
+.mini-month {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 4px 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--c-hint);
+  font: inherit;
+  font-size: 0.75em;
+}
+.mini-month[aria-current] {
+  border-color: var(--c-accent);
+  color: var(--c-text);
+}
+.mini-month:disabled {
+  opacity: 0.5;
+}
+/* A day with nothing on it, past or to come: a faint square, so the month keeps its shape. */
+.cell {
+  fill: color-mix(in srgb, var(--c-hint) 16%, transparent);
+}
+.moon-ring {
+  fill: none;
+  stroke: var(--c-text);
+  stroke-width: 1.2;
+  opacity: 0.75;
+}

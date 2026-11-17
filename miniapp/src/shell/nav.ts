@@ -4,6 +4,7 @@
 export type Tab = "today" | "practice" | "shala";
 export const TABS: readonly Tab[] = ["today", "practice", "shala"];
 
+/** The Settings page to open straight away: Day off, Reminders (UI-06 stage 3). */
 export type SettingsFocus = "day-off" | "remind";
 
 /** A screen pushed over a tab. Telegram's Back pops it. */
@@ -80,6 +81,8 @@ export function launchNav(search: string): Nav {
     }
     case "listing":
       return { tab: "shala", stack: [{ name: "listing" }], start: null };
+    case "settings": // the bot's "⚙️ More in the app" (UI-06 stage 3)
+      return { tab: "today", stack: [{ name: "settings" }], start: null };
     default:
       return { tab: "today", stack: [], start: null };
   }

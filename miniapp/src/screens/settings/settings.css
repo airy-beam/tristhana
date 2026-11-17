@@ -1,0 +1,55 @@
+/* UI-06 stage 3: Settings. A row's label carries its value and wraps (never an ellipsis); on a
+   page of choices the chosen row has a tick where a row has its chevron. Theme tokens only;
+   loaded with the Settings chunk. */
+.srow {
+  justify-content: space-between;
+  overflow-wrap: anywhere;
+}
+
+.srow[aria-pressed]::after {
+  content: none;
+}
+
+.srow[aria-pressed="true"]::after {
+  width: auto;
+  height: auto;
+  border: 0;
+  color: var(--c-accent);
+  font-weight: 600;
+  opacity: 1;
+  transform: none;
+  content: "✓";
+}
+
+/* The quiet last row: the guide. */
+.settings .guide {
+  min-height: 44px;
+  margin: 0;
+  padding: 0 var(--space);
+}
+
+/* A switch with the line that explains it. */
+.switch {
+  margin: 0 0 16px;
+}
+
+.settings .card > .field:last-child,
+.switch:last-child {
+  margin-bottom: 0;
+}
+
+/* A choice that can't be taken now (a third day off, a time inside quiet hours). */
+.settings .chip:disabled {
+  opacity: 0.4;
+}
+
+/* A fold's row wraps like the rows do (the quiet hours' row is a whole sentence). */
+.settings .more .lrow-title {
+  white-space: normal;
+}
+
+/* Two folds one under the other share the hairline between them. */
+.settings .more + .more {
+  margin-top: -16px;
+  border-top: 0;
+}

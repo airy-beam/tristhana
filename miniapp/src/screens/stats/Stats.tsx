@@ -5,91 +5,182 @@ import {
   useMe,
   useMoonCities,
   useNotificationSettings,
-  useStats,
   type Stats as StatsData,
   type StatsSummary,
 } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { lazyRetry } from "../../shell/lazyRetry";
 import { haptics } from "../../telegram";
+import { More } from "../../ui/More";
 import { cityName } from "../cityName";
 import { DayOffQuestion } from "../DayOffQuestion";
-import { autoDays, loadShowLadies, moonDates, parse, saveShowLadies } from "./cells";
-import { DayEditor } from "./DayEditor";
-import { Heatmap } from "./Heatmap";
 import { ShareButton } from "../share/ShareButton";
+import {
+  autoDays,
+  monthAt,
+  monthIndex,
+  monthOf,
+  moonDates,
+  parse,
+  useShowLadies,
+  type Month,
+} from "./cells";
+import { DayEditor } from "./DayEditor";
+import { Legend } from "./Legend";
 import { MonthView } from "./MonthView";
+import { useKeptStats } from "./useKeptStats";
+
+import "./practiceCopy";
+import "./stats.css";
 
 // GM-02: its own chunk (with its copy), so My practice doesn't pay for it.
 const Badges = lazyRetry(() => import("../badges/Badges"));
 // ST-05: likewise.
 const Trends = lazyRetry(() => import("../trends/Trends"));
+// UI-06 stage 3: the year's twelve months, behind their row.
+const Year = lazyRetry(() => import("./Year"));
+
+type Over = "badges" | "trends" | "year";
 
 interface Props {
   locale: Locale;
   zone: string | null;
-  /** My asanas (PR-08), the first row. */
+  /** My asanas (PR-08), the first row under the month. */
   onAsanas: () => void;
-  /** Settings, scrolled to the day off (the stats question's "Other…" and link). */
+  /** Settings, at the day off (the stats question's "Other…" and link). */
   onDayOff: () => void;
   /** The shell focuses the heading after a tab switch. */
   headingRef?: Ref<HTMLHeadingElement> | undefined;
 }
 
-/** The Practice tab's root (UI-06): My asanas, consistency, the year heatmap, a month calendar
- * and its summary (ST-01..03). A root registers no Back layer; its inner layers (Badges,
- * Check-ins, the day editor) do. Loaded lazily, so Today stays light. */
+/** The Practice tab's root (UI-06 stage 3): one month (its calendar, four marks, one number,
+ * the rest folded), then the rows: My asanas, the year, Badges, Check-ins (ST-01..03). A root
+ * registers no Back layer; its inner layers (the year, Badges, Check-ins, the day card) do.
+ * Loaded lazily, so Today stays light. */
 export default function Stats({ locale, zone, onAsanas, onDayOff, headingRef }: Props) {
-  const [year, setYear] = useState<number | undefined>(undefined);
-  // Badges and Check-ins over time open over My practice, which stays mounted (hidden): Back
-  // returns to the same month, editor and scroll position.
-  const [over, setOver] = useState<"badges" | "trends" | null>(null);
-  const scroll = useRef<number | null>(null);
-  const open = useCallback((screen: "badges" | "trends") => {
-    scroll.current = window.scrollY;
+  // The month asked for; null is the current one, by the server's today.
+  const [want, setWant] = useState<Month | null>(null);
+  // A step whose year did not load: the pager is back on the month shown, and the line stays.
+  const [stuck, setStuck] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  // The year, Badges and Check-ins over time open over My practice, which stays mounted
+  // (hidden): Back returns to the same month, day card and scroll position.
+  const [over, setOver] = useState<Over | null>(null);
+  const left = useRef<{ top: number; focus: Element | null } | null>(null);
+  // `from` is the row that was tapped: the focus returns to it (a tap focuses nothing on iOS).
+  const open = useCallback((screen: Over, from: Element) => {
+    haptics.selection();
+    left.current = { top: window.scrollY, focus: from };
     setOver(screen);
     window.scrollTo({ top: 0 });
   }, []);
-  const openBadges = useCallback(() => {
-    open("badges");
-  }, [open]);
-  const openTrends = useCallback(() => {
-    open("trends");
-  }, [open]);
   const closeOver = useCallback(() => {
     setOver(null);
   }, []);
   useEffect(() => {
-    if (over || scroll.current === null) return;
-    window.scrollTo({ top: scroll.current });
-    scroll.current = null;
+    const was = left.current;
+    if (over || !was) return;
+    left.current = null;
+    window.scrollTo({ top: was.top });
+    if (was.focus instanceof HTMLElement && was.focus.isConnected) {
+      was.focus.focus({ preventScroll: true });
+    }
   }, [over]);
-  const query = useStats(year);
-  const stats = query.data;
-  const pick = (y: number) => {
-    // The current year is cached as "current": going back to it needs no refetch.
-    setYear(stats && y === Number(stats.today.slice(0, 4)) ? undefined : y);
-  };
+
+  const { stats, failed } = useKeptStats(want ? want.year : null);
+  const now = stats && monthOf(stats.today);
+  const at = want ?? now;
+  // The month on screen. While the year asked for loads, the year before it stays, on its
+  // first or last month.
+  const shown: Month | undefined = stats &&
+    at && {
+      year: stats.year,
+      month: stats.year === at.year ? at.month : stats.year > at.year ? 0 : 11,
+    };
+  // The year asked for did not come: the pager returns to the month on screen, so its arrows
+  // and the title agree, and the next tap asks again.
+  if (failed && want && shown && want.year !== shown.year) {
+    setWant(shown);
+    setStuck(true);
+  }
+  // The open day and the open fold belong to the month on screen: when it changes for any
+  // reason (the pager, a month picked in the year, the server's today moving on), both close.
+  const key = shown ? monthIndex(shown) : null;
+  const [last, setLast] = useState(key);
+  if (key !== last) {
+    setLast(key);
+    setEditing(null);
+    setMore(false);
+  }
+  const show = useCallback((month: Month) => {
+    setWant(month);
+    setStuck(false);
+    setEditing(null);
+  }, []);
+  // A month picked in the year: the layer closes on it, at the top, where the month is.
+  const pick = useCallback(
+    (month: Month) => {
+      show(month);
+      left.current = { top: 0, focus: document.getElementById("month-title") };
+      setOver(null);
+    },
+    [show],
+  );
+
   return (
     <>
       {over && (
         <Suspense fallback={<main className="screen" aria-busy="true" />}>
           {over === "badges" ? (
             <Badges locale={locale} onBack={closeOver} />
-          ) : (
+          ) : over === "trends" ? (
             <Trends locale={locale} onBack={closeOver} />
+          ) : (
+            stats &&
+            shown && (
+              <Year
+                locale={locale}
+                shown={shown}
+                today={stats.today}
+                first={stats.first_year ?? monthOf(stats.today).year}
+                onPick={pick}
+                onBack={closeOver}
+              />
+            )
           )}
         </Suspense>
       )}
       <main
         className="screen stats"
         hidden={over !== null}
-        aria-busy={!stats && !query.isError ? true : undefined}
+        aria-busy={!stats && !failed ? true : undefined}
       >
         <Localized id="stats-title">
           <h1 ref={headingRef} tabIndex={-1} />
         </Localized>
-        {/* Above the data, so it is there while stats load and when they fail. */}
+        {(failed || stuck) && (
+          <Localized id="stats-load-failed">
+            <p className="status" role="alert" />
+          </Localized>
+        )}
+        {stats && at && shown && (
+          <MonthCard
+            stats={stats}
+            at={at}
+            month={shown.month}
+            // Only a day of the month on screen has its card here.
+            editing={editing && monthIndex(monthOf(editing)) === key ? editing : null}
+            more={more}
+            locale={locale}
+            zone={zone}
+            onMonth={show}
+            onEdit={setEditing}
+            onMore={setMore}
+            onDayOff={onDayOff}
+          />
+        )}
+        {/* Outside the loaded part: the rows are there while stats load and when they fail. */}
         <Localized id="progression-open">
           <button
             type="button"
@@ -100,59 +191,83 @@ export default function Stats({ locale, zone, onAsanas, onDayOff, headingRef }: 
             }}
           />
         </Localized>
-        {query.isError ? (
-          <Localized id="stats-load-failed">
-            <p className="status" role="alert" />
-          </Localized>
-        ) : (
-          stats && (
-            <Loaded
-              key={stats.year}
-              stats={stats}
-              locale={locale}
-              zone={zone}
-              onYear={pick}
-              onDayOff={onDayOff}
-              onBadges={openBadges}
-              onTrends={openTrends}
+        {stats && (
+          <Localized
+            id="stats-year-open"
+            vars={{ year: String(stats.year), n: stats.year_total.practiced }}
+          >
+            <button
+              type="button"
+              className="row-button"
+              onClick={(event) => {
+                open("year", event.currentTarget);
+              }}
             />
-          )
+          </Localized>
         )}
+        <Localized id="badges-open">
+          <button
+            type="button"
+            className="row-button"
+            onClick={(event) => {
+              open("badges", event.currentTarget);
+            }}
+          />
+        </Localized>
+        <Localized id="trends-open">
+          <button
+            type="button"
+            className="row-button"
+            onClick={(event) => {
+              open("trends", event.currentTarget);
+            }}
+          />
+        </Localized>
       </main>
     </>
   );
 }
 
-function Loaded({
+/** One month: ‹ November 2026 ›, the calendar, the day card of an opened day, the legend, one
+ * number (or a quiet line when there is no practice to count); on the current month what is in
+ * a row and where to tap; the rest in a fold. */
+function MonthCard({
   stats,
+  at,
+  month,
+  editing,
+  more,
   locale,
   zone,
-  onYear,
+  onMonth,
+  onEdit,
+  onMore,
   onDayOff,
-  onBadges,
-  onTrends,
 }: {
   stats: StatsData;
+  /** The pager's month. While its year loads, `stats` is still the year before it. */
+  at: Month;
+  /** The month of `stats.year` on screen. */
+  month: number;
+  editing: string | null;
+  more: boolean;
   locale: Locale;
   zone: string | null;
-  onYear: (year: number) => void;
+  onMonth: (month: Month) => void;
+  onEdit: (day: string | null) => void;
+  onMore: (open: boolean) => void;
   onDayOff: () => void;
-  onBadges: () => void;
-  onTrends: () => void;
 }) {
   const { l10n } = useLocalization();
   const cities = useMoonCities().data;
-  const currentYear = Number(stats.today.slice(0, 4));
-  const isCurrent = stats.year === currentYear;
-  const [month, setMonth] = useState(isCurrent ? Number(stats.today.slice(5, 7)) - 1 : 11);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [showLadies, setShowLadies] = useState(loadShowLadies);
+  const showLadies = useShowLadies();
+  const unset = useMe().data?.day_off === null;
+  const opener = useRef<HTMLElement | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const moon = useMemo(() => moonDates(stats), [stats]);
   const auto = useMemo(() => autoDays(stats), [stats]);
-
   const fmt = useMemo(
     () => ({
-      month: new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }),
       monthYear: new Intl.DateTimeFormat(locale, {
         month: "long",
         year: "numeric",
@@ -168,10 +283,6 @@ function Loaded({
     }),
     [locale],
   );
-  const monthName = useCallback(
-    (m: number) => fmt.month.format(Date.UTC(stats.year, m, 1)),
-    [fmt, stats.year],
-  );
   const dateLabel = useCallback((day: string) => fmt.day.format(parse(day)), [fmt]);
   // 2024-01-01 was a Monday.
   const weekdays = Array.from({ length: 7 }, (_, i) =>
@@ -182,167 +293,149 @@ function Loaded({
     stats.moon.location,
     locale,
   );
+
+  // "Today" and the current month are the server's, never the device's.
+  const now = monthOf(stats.today);
+  const thisYear = stats.year === now.year;
+  // The year asked for is still loading: the month that stays is not the pager's, so its days
+  // wait (a day tapped now would open under the month that arrives).
+  const waiting = stats.year !== at.year;
+  const current = thisYear && month === now.month;
   const summary = stats.months[month] as StatsSummary;
-  const first = stats.first_year ?? currentYear;
+  const title = fmt.monthYear.format(Date.UTC(stats.year, month, 1));
+  // From January of the first year with anything logged to the current month.
+  const first = (stats.first_year ?? now.year) * 12;
+  const end = monthIndex(now);
+  const step = (by: number, arrow: HTMLElement) => {
+    haptics.selection();
+    const to = monthIndex(at) + by;
+    // The arrow that reaches an end is disabled next: the focus moves to the month's name
+    // rather than staying on a dead button.
+    if ((by < 0 ? to <= first : to >= end) && document.activeElement === arrow) {
+      heading.current?.focus({ preventScroll: true });
+    }
+    onMonth(monthAt(to));
+  };
+  // Auto-rest counts as rest, but a month with only auto days is still "empty".
+  const logged =
+    summary.practiced +
+    summary.skipped +
+    Object.values(summary.rest).reduce((a, b) => a + b, 0) -
+    summary.auto;
+  const moonDay = editing ? stats.moon.days.find((d) => d.date === editing) : undefined;
 
   return (
-    <>
-      {isCurrent && <Consistency stats={stats} onDayOff={onDayOff} />}
-
-      <section className="card" aria-labelledby="year-title">
-        <div className="pager">
-          <Localized id="stats-prev" attrs={{ "aria-label": true }}>
-            <button
-              type="button"
-              className="link"
-              disabled={stats.year <= first}
-              onClick={() => {
-                haptics.selection();
-                onYear(stats.year - 1);
-              }}
-            />
-          </Localized>
-          <h2 id="year-title">{stats.year}</h2>
-          <Localized id="stats-next" attrs={{ "aria-label": true }}>
-            <button
-              type="button"
-              className="link"
-              disabled={isCurrent}
-              onClick={() => {
-                haptics.selection();
-                onYear(stats.year + 1);
-              }}
-            />
-          </Localized>
-        </div>
-        <div className="card-head">
-          <Localized
-            id="stats-year-total"
-            vars={{ n: stats.year_total.practiced, year: String(stats.year) }}
-          >
-            <p className="hint" />
-          </Localized>
-          {stats.year_total.practiced > 0 && (
-            <ShareButton
-              subject={{ kind: "year", year: stats.year }}
-              label={l10n.getString("share-entry", { entry: String(stats.year) })}
-            />
-          )}
-        </div>
-        <Heatmap
-          stats={stats}
-          moon={moon}
-          auto={auto}
-          city={city}
-          showLadies={showLadies}
-          month={month}
-          onMonth={(m) => {
-            haptics.selection();
-            setMonth(m);
+    <section className="card month" aria-labelledby="month-title">
+      <div className="pager">
+        <Localized id="stats-month-prev" attrs={{ "aria-label": true }}>
+          <button
+            type="button"
+            className="link"
+            disabled={monthIndex(at) <= first}
+            onClick={(event) => {
+              step(-1, event.currentTarget);
+            }}
+          />
+        </Localized>
+        {/* Polite: a step says the month it reached. */}
+        <h2 id="month-title" ref={heading} tabIndex={-1} aria-live="polite">
+          {title}
+        </h2>
+        <Localized id="stats-month-next" attrs={{ "aria-label": true }}>
+          <button
+            type="button"
+            className="link"
+            disabled={monthIndex(at) >= end}
+            onClick={(event) => {
+              step(1, event.currentTarget);
+            }}
+          />
+        </Localized>
+      </div>
+      <MonthView
+        stats={stats}
+        month={month}
+        moon={moon}
+        auto={auto}
+        city={city}
+        showLadies={showLadies}
+        weekdays={weekdays}
+        dateLabel={dateLabel}
+        frozen={waiting}
+        onPick={(day, from) => {
+          haptics.selection();
+          opener.current = from;
+          onEdit(day);
+        }}
+      />
+      {editing && (
+        // Another day is another card: it comes into view and takes the focus anew.
+        <DayEditor
+          key={editing}
+          date={editing}
+          label={dateLabel(editing)}
+          zone={zone}
+          locale={locale}
+          onClose={() => {
+            onEdit(null);
+            // Back to the day that was tapped.
+            if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
           }}
-          monthName={monthName}
-          dateLabel={dateLabel}
-        />
-        <Legend city={city} showLadies={showLadies} />
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={showLadies}
-            onChange={(e) => {
-              setShowLadies(e.target.checked);
-              saveShowLadies(e.target.checked);
-            }}
-          />
-          <Localized id="stats-show-ladies">
-            <span />
-          </Localized>
-        </label>
-      </section>
-
-      <section className="card" aria-labelledby="month-title">
-        <div className="card-head">
-          <h2 id="month-title" tabIndex={-1}>
-            {fmt.monthYear.format(Date.UTC(stats.year, month, 1))}
-          </h2>
-          {summary.practiced > 0 && (
-            <ShareButton
-              subject={{ kind: "month", year: stats.year, month: month + 1 }}
-              label={l10n.getString("share-entry", {
-                entry: fmt.monthYear.format(Date.UTC(stats.year, month, 1)),
-              })}
-            />
+        >
+          {moonDay && (
+            <Localized id="stats-day-moon" vars={{ phase: moonDay.phase, city }}>
+              <p className="hint" />
+            </Localized>
           )}
-        </div>
-        <MonthView
-          stats={stats}
-          month={month}
-          moon={moon}
-          auto={auto}
-          city={city}
-          showLadies={showLadies}
-          weekdays={weekdays}
-          dateLabel={dateLabel}
-          onPick={setEditing}
-        />
-        {editing && (
-          <DayEditor
-            date={editing}
-            label={dateLabel(editing)}
-            zone={zone}
-            locale={locale}
-            showLadies={showLadies}
-            onClose={() => {
-              setEditing(null);
-            }}
+        </DayEditor>
+      )}
+      <Legend />
+      {summary.practiced > 0 ? (
+        <div className="card-head">
+          <Localized id="stats-month-practices" vars={{ n: summary.practiced }}>
+            <p className="total" />
+          </Localized>
+          <ShareButton
+            subject={{ kind: "month", year: stats.year, month: month + 1 }}
+            label={l10n.getString("share-entry", { entry: title })}
           />
-        )}
-        <MonthSummary
-          summary={summary}
-          showLadies={showLadies}
-          current={isCurrent && month === Number(stats.today.slice(5, 7)) - 1}
-        />
-      </section>
-
-      <Localized id="badges-open">
-        <button type="button" className="row-button" onClick={onBadges} />
-      </Localized>
-      <Localized id="trends-open">
-        <button type="button" className="row-button" onClick={onTrends} />
-      </Localized>
-    </>
-  );
-}
-
-function Consistency({ stats, onDayOff }: { stats: StatsData; onDayOff: () => void }) {
-  const month = stats.months[Number(stats.today.slice(5, 7)) - 1] as StatsSummary;
-  const current = stats.runs.current ?? 0;
-  const unset = useMe().data?.day_off === null;
-  return (
-    <section className="card">
-      {month.practiced === 0 ? null : month.skipped > 0 ? (
-        <Localized id="stats-consistency" vars={{ x: month.practiced, y: month.possible }}>
-          <p />
-        </Localized>
+        </div>
       ) : (
-        <Localized id="stats-consistency-count" vars={{ n: month.practiced }}>
-          <p />
-        </Localized>
-      )}
-      {current >= 2 && (
-        <Localized id="stats-run-current" vars={{ n: current }}>
-          <p />
-        </Localized>
-      )}
-      {stats.runs.longest >= 2 && (
-        <Localized id="stats-run-longest" vars={{ n: stats.runs.longest }}>
+        // No practice to count: never a bold zero. Nothing logged at all invites a tap; rest
+        // (or "No practice") gets a quiet word.
+        <Localized id={logged === 0 ? "stats-month-empty" : "stats-month-rest"}>
           <p className="hint" />
         </Localized>
       )}
-      <Localized id="stats-consistency-hint">
-        <p className="hint small" />
-      </Localized>
+      {current && (stats.runs.current ?? 0) >= 2 && (
+        <Localized id="stats-run-current" vars={{ n: stats.runs.current ?? 0 }}>
+          <p />
+        </Localized>
+      )}
+      {/* Not beside the empty month's own invitation to tap. */}
+      {current && logged > 0 && summary.unlogged > 0 && (
+        <Localized id="stats-unlogged">
+          <p className="hint" />
+        </Localized>
+      )}
       {/* PR-09: asked once; afterwards (or when it can't be asked) a quiet link. */}
-      {unset && <DayOffLink onDayOff={onDayOff} />}
+      {current && unset && <DayOffLink onDayOff={onDayOff} />}
+      {logged > 0 && (
+        <More
+          label={l10n.getString("stats-more")}
+          open={more}
+          onToggle={() => {
+            haptics.selection();
+            onMore(!more);
+          }}
+        >
+          <MonthNumbers
+            summary={summary}
+            showLadies={showLadies}
+            longest={thisYear ? stats.runs.longest : 0}
+          />
+        </More>
+      )}
     </section>
   );
 }
@@ -357,58 +450,19 @@ function DayOffLink({ onDayOff }: { onDayOff: () => void }) {
   );
 }
 
-const LEGEND = ["practiced", "rest", "moon", "auto", "away", "skipped", "none"] as const;
-
-function Legend({ city, showLadies }: { city: string; showLadies: boolean }) {
-  const items: string[] = [...LEGEND];
-  if (showLadies) items.splice(3, 0, "ladies");
-  return (
-    <ul className="legend">
-      {items.map((k) => (
-        <li key={k}>
-          <span className={`swatch ${k}`} aria-hidden="true" />
-          <Localized id={k === "ladies" ? "status-ladies" : `stats-legend-${k}`}>
-            <span />
-          </Localized>
-        </li>
-      ))}
-      <li>
-        <span className="swatch ring" aria-hidden="true" />
-        <Localized id="stats-legend-moon-marker" vars={{ city }}>
-          <span />
-        </Localized>
-      </li>
-    </ul>
-  );
-}
-
-function MonthSummary({
+/** "The month in numbers": rest by kind, where, online, by series, time; then the two counts
+ * that need a word of explanation, with it. "X of Y" exists only once the person chose "No
+ * practice" themselves, and never at zero. */
+function MonthNumbers({
   summary: s,
   showLadies,
-  current,
+  longest,
 }: {
   summary: StatsSummary;
   showLadies: boolean;
-  current: boolean;
+  /** The most in a row this year; 0 for a month of another year. */
+  longest: number;
 }) {
-  // Auto-rest counts as rest below, but a month with only auto days is still "empty".
-  const logged =
-    s.practiced + s.skipped + Object.values(s.rest).reduce((a, b) => a + b, 0) - s.auto;
-  const unmarked = current && s.unlogged > 0 && (
-    <Localized id="stats-unlogged" vars={{ n: s.unlogged }}>
-      <p className="hint" />
-    </Localized>
-  );
-  if (logged === 0) {
-    return (
-      <>
-        <Localized id="stats-month-empty">
-          <p className="hint" />
-        </Localized>
-        {unmarked}
-      </>
-    );
-  }
   // 🌸 merges into rest unless shown on this device.
   const rest = { ...s.rest };
   if (!showLadies) {
@@ -420,11 +474,9 @@ function MonthSummary({
   );
   const contexts = (["mysore", "led", "private", "self"] as const).filter((k) => s.contexts[k] > 0);
   const avg = s.duration.count ? Math.round(s.duration.total_min / s.duration.count) : 0;
+  const ofDays = s.practiced > 0 && s.skipped > 0;
   return (
-    <div className="summary">
-      <Localized id="stats-month-practices" vars={{ n: s.practiced }}>
-        <p />
-      </Localized>
+    <>
       {(restRows.length > 0 || s.skipped > 0) && (
         <ul className="counts">
           {restRows.map((k) => (
@@ -507,7 +559,21 @@ function MonthSummary({
           <p className="hint" />
         </Localized>
       )}
-      {unmarked}
-    </div>
+      {ofDays && (
+        <Localized id="stats-consistency" vars={{ x: s.practiced, y: s.possible }}>
+          <p />
+        </Localized>
+      )}
+      {longest >= 2 && (
+        <Localized id="stats-run-longest" vars={{ n: longest }}>
+          <p className="hint" />
+        </Localized>
+      )}
+      {(ofDays || longest >= 2) && (
+        <Localized id="stats-consistency-hint">
+          <p className="hint small" />
+        </Localized>
+      )}
+    </>
   );
 }

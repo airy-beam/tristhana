@@ -42,7 +42,17 @@ shots:
   - {name: bot-remind, kind: bot, as: student, say: /help, tap: [help-reminder], features: [PR-10, NT-01]}
   # Today as the demo student has it: a practice with details, and the one next step.
   - {name: app-next-step, kind: app, as: student, full: true, features: [UI-06, PR-10]}
-  - {name: app-my-practice, kind: app, as: student, click: [tab-practice], full: true, features: [ST-01, ST-02, ST-03]}
+  # UI-06 stage 3: the Practice tab is one month, with the rows under it. The demo student's
+  # browser keeps the 🌸 switch off (Settings → More), as a new phone does: no shot turns it on,
+  # because the browser's storage is shared by every shot of a language.
+  - {name: app-my-practice, kind: app, as: student, click: [tab-practice], full: true, features: [ST-01, ST-02, ST-03, UI-06]}
+  # A day open under the grid: this month's first moon day up to today, whose card has the
+  # moon line; in the first days of a month that has had none yet, today. She only looks.
+  - {name: app-practice-day, kind: app, as: student, click: [tab-practice, "css=.month-grid .day.moon-marker:not(:disabled), .month-grid .day.today"], features: [ST-01, UI-06]}
+  # The year layer. Its row's label carries the year and a count ("📅 2026 · 143 practices"),
+  # so the step names it by its place: the second row under the month, after "My asanas"
+  # (once the stats are in: until then the row is not there and the second one is Badges).
+  - {name: app-practice-year, kind: app, as: student, click: [tab-practice, "css=main.stats:not([aria-busy]) > .row-button >> nth=1"], full: true, features: [ST-02, UI-06]}
   - {name: app-badges, kind: app, as: student, click: [tab-practice, badges-open], features: [GM-02]}
   - {name: app-trends, kind: app, as: student, click: [tab-practice, trends-open], full: true, features: [ST-05]}
   - {name: bot-asanas, kind: bot, as: student, say: /help, tap: [help-asanas], features: [PR-08]}
@@ -60,7 +70,11 @@ shots:
   - {name: app-schedule, kind: app, as: student, click: [tab-shala, my-schedule-open], features: [SC-03]}
   - {name: bot-settings, kind: bot, as: student, say: /settings, features: [ID-06]}
   - {name: bot-help, kind: bot, as: student, say: /help, features: [UI-06, UI-01]}
-  - {name: app-settings, kind: app, as: student, click: [settings-open], features: [ID-06]}
+  # UI-06 stage 3: the app's Settings is the bot's five rows; "Reminders" and "More…" are two
+  # of its pages. The first three rows carry their values, so no step could name them by key.
+  - {name: app-settings, kind: app, as: student, click: [settings-open], features: [ID-06, UI-06]}
+  - {name: app-settings-reminders, kind: app, as: student, click: [settings-open, settings-reminders-button], full: true, features: [NT-01, NT-02, PR-10, UI-06]}
+  - {name: app-settings-more, kind: app, as: student, click: [settings-open, settings-more-button], full: true, features: [ID-06, WH-01, ST-09, UI-06]}
   - {name: bot-my-data, kind: bot, as: student, say: /settings, tap: [settings-more-button, settings-data-button], features: [ST-09]}
 
   # For teachers

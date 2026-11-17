@@ -12,7 +12,7 @@ When you log a day you can choose :ftl[status-rest], or tap :ftl[today-other] fo
 
 ## Your weekly day off
 
-1. Open :ftl[menu-open] → :ftl[menu-settings] and tap the day off row (😌).
+1. Open :ftl[menu-open] → :ftl[menu-settings] and tap the day off row (😌). In the app it is the same row behind the gear.
 2. Pick one or two days. The other days are your practice days.
 
 From then on your day off shows as rest by itself, and practice reminders skip it. If you practiced on a day off, just log it: what you log always wins.
@@ -42,8 +42,9 @@ When you log :ftl[status-sick], :ftl[status-travel] or :ftl[status-ladies] for t
 ## 🌸 Ladies' holiday
 
 - Only you see it. It is stored encrypted, and your teacher and everyone else see an ordinary rest day.
-- In your own stats it is shown as rest too, unless you switch on :ftl[stats-show-ladies] on your phone.
-- Don't need the button? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-ladies-hide] removes it from the bot and the app.
+- On your own calendar in the app it looks like rest too. The gear → :ftl[settings-more-button] → :ftl[stats-show-ladies] adds a small 🌸 to those days, on this phone only.
+- The card of a day you open always shows what you logged, so you can log an earlier 🌸 day from the month.
+- Don't need the button? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-ladies-hide] removes it from the bot and the app. In the app the switch is :ftl[settings-ladies-button], in the same place.
 
 ## Next
 

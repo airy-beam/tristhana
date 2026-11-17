@@ -121,6 +121,20 @@ describe("Chips", () => {
     expect(screen.getByRole("button", { name: "Wednesday" })).toHaveTextContent("Wed");
   });
 
+  it("can hold back one choice while the others stay", () => {
+    const onPick = vi.fn();
+    const times = [
+      { value: "07:00", label: "07:00" },
+      { value: "23:00", label: "23:00", disabled: true }, // inside quiet hours
+    ];
+    render(<Chips label="Send at" options={times} value="07:00" onPick={onPick} />);
+
+    expect(screen.getByRole("button", { name: "23:00" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "07:00" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "23:00" }));
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it("carries its error as the group's description", () => {
     render(
       <Chips label="Repeats on" options={[]} value={[]} onPick={vi.fn()} error="Choose a day" />,

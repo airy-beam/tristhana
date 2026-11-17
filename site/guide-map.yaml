@@ -76,6 +76,7 @@ SC-05:
 SC-06:
   - students/my-shala
 ST-01:
+  - students/log-practice
   - students/my-practice
 ST-02:
   - students/my-practice
@@ -103,8 +104,11 @@ UI-05:
   - reference/whats-new
 UI-06:
   - reference/commands
+  - reference/whats-new
   - start/bot-and-app
   - start/first-steps
+  - students/my-practice
+  - students/settings
 WH-01:
   - students/rest-and-moon-days
 WH-02:

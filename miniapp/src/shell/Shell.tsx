@@ -120,6 +120,9 @@ export function Shell({ me, firstName }: Props) {
       window.scrollTo({ top: 0 });
       switched.current = true;
     }
+    // Settings the app opened on (`?open=settings`): nothing had the focus before it, so the
+    // heading of what is under it takes it.
+    else left.current ??= { top: 0, focus: null };
     dispatch({ type: "pop" });
   }, [covered]);
 

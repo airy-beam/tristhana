@@ -1,25 +1,27 @@
 ---
 title: "My practice: calendar, month, badges"
-description: "Your year at a glance, a summary of each month, quiet badges, and cards you can share if you feel like it."
-features: [ST-01, ST-02, ST-03, GM-01, GM-02, ST-07, ST-05]
+description: "Your month at a glance, the year one tap away, quiet badges, and cards you can share if you feel like it."
+features: [ST-01, ST-02, ST-03, GM-01, GM-02, ST-07, ST-05, UI-06]
 ---
 
-Your year at a glance, a summary of each month, quiet badges, and cards you can share if you feel like it.
+Your month at a glance, the year one tap away, quiet badges, and cards you can share if you feel like it.
 
 ## Open it
 
-Open the app and tap the :ftl[tab-practice] tab.
+Open the app and tap the :ftl[tab-practice] tab. It opens on this month. The arrows next to the month's name lead to other months.
 
-![The Practice tab: My asanas, the year, the month and the summary](../../../assets/shots/en/app-my-practice.webp)
+![The Practice tab: this month's calendar with its four marks, the month's practices, and the rows under it](../../../assets/shots/en/app-my-practice.webp)
 
 ## What you see
 
-- **The year.** Twelve small months. A filled square is a practice; softer colours are rest, moon days, illness or travel. A ring marks a full or new moon.
-- **This month in words.** For example, practice on 9 of 10 days. The second number counts only the days you logged as practice or :ftl[status-skipped]. Rest and days you didn't log are left out.
-- **In a row.** How many practices came one after another. Rest, moon days, illness and travel don't reset it.
-- **The month.** A calendar, then a summary: practices, where you practiced, which series, total time.
+- **Four marks:** :ftl[stats-legend-practiced], :ftl[stats-legend-rest], :ftl[status-moon] (a ring around the date) and :ftl[status-skipped]. A day with nothing logged is just a number.
+- **One line under the calendar:** the month's practices. In a month of rest it says :ftl[stats-month-rest] The current month also shows how many practices came in a row.
+- :ftl[stats-more] opens the rest: rest by kind, where you practiced, which series and the total time.
+- **The year** is the row under :ftl[progression-open]: twelve small months with the same marks. Tap a month to open it.
 
-Tap a day in the month calendar to log it or change it.
+![The year: twelve small months, the year's total and the same four marks](../../../assets/shots/en/app-practice-year.webp)
+
+Tap a day to log it or change it: see [Log a practice](../log-practice/).
 
 ## Badges
 
@@ -37,12 +39,14 @@ The screen shows your numbers and draws no conclusions from them. Averages appea
 
 ## Share a card
 
-:ftl[share-open] next to the year or the month makes a picture for a story or a post. You can share it to a story, save it, or send it to your own chat. The card shows your practice days and nothing else: no name, no notes, no reasons for rest.
+:ftl[share-open] next to the month's practices or the year's total makes a picture for a story or a post. You can share it to a story, save it, or send it to your own chat. The card shows your practice days and nothing else: no name, no notes, no reasons for rest.
 
 ## Good to know
 
 - At 100, 365 and 1000 practices the bot says a quiet thank-you. Nobody is compared with anyone.
-- 🌸 days look like rest here unless you choose to show them on your phone.
+- Rest of any kind doesn't reset the practices in a row.
+- With a :ftl[status-skipped] day in the month, :ftl[stats-more] also says, for example, :ftl[stats-consistency]{x=9 y=10}. Rest and empty days are left out of it.
+- 🌸 days look like rest on the calendar. To mark them there, see [Rest days, moon days and 🌸](../rest-and-moon-days/).
 
 ## Next
 

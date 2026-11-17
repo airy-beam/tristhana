@@ -16,7 +16,7 @@ features: [PR-06, PR-07]
 
 Всё по желанию. Для прошлого дня практики выбери этот день, нажми :ftl[status-practiced], а потом :ftl[practice-done]: там та же кнопка.
 
-Кнопка не нужна? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-checkin-off].
+Кнопка не нужна? :ftl[menu-settings] → :ftl[settings-more-button] → :ftl[settings-checkin-off]. В приложении: шестерёнка → :ftl[settings-more-button], и выключи :ftl[settings-checkin].
 
 ## Дневник
 

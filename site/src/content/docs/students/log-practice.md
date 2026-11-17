@@ -1,7 +1,7 @@
 ---
 title: "Log a practice"
 description: "Log today, yesterday or any earlier day, and add as much detail as you like: where, how far, how long."
-features: [PR-01, PR-02, PR-03, PR-04, PR-05]
+features: [PR-01, PR-02, PR-03, PR-04, PR-05, ST-01]
 ---
 
 Log today, yesterday or any earlier day, and add as much detail as you like: where, how far, how long.
@@ -38,7 +38,9 @@ In the app the card folds into one line that says what you logged, and these are
 ## Log an earlier day
 
 - **In the bot:** tap :ftl[log-another-day] under a saved day, or :ftl[menu-help] → :ftl[help-earlier-day]. Pick the day. :ftl[log-earlier] goes further back.
-- **In the app:** open the :ftl[tab-practice] tab, tap a day in the month calendar and choose how it went.
+- **In the app:** open the :ftl[tab-practice] tab and tap a day in the month's calendar, up to today. Its card opens right under the calendar, the same card as on the :ftl[tab-today] tab. On a moon day it also says whether the moon is full or new, and for which city.
+
+![A day opened under the month's calendar](../../../assets/shots/en/app-practice-day.webp)
 
 ## Change or clear a day
 

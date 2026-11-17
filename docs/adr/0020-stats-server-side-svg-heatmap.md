@@ -1,6 +1,7 @@
 # ADR-0020: Practice stats computed server-side in the domain; heatmap drawn as plain SVG (no ECharts)
 - Status: accepted
 - Amended by ADR-0031 (2026-11-07): `public_status` isn't enough for teachers, who get a two-state view and no stats.
+- Amended by UI-06 stage 3 (2026-11-17, `docs/specs/UI-06-stage-3-practice-settings.md`, Q346): the Mini App draws three fills and a marker (practice, rest, no practice; a ring for a moon day) with a four-item legend, opens on one month, and shows the year behind one row. The API and the domain rules are unchanged.
 - Date: 2026-10-19
 ## Context
 ST-01..03 add a year heatmap, a month summary and consistency/run metrics to the Mini App. The rules are domain rules: rest-like days are transparent, "No practice" ends a run quietly, unlogged days never count against anyone (Q18), and ladies' holiday must be projected to "rest" for anyone but the owner. The same numbers will later appear in the bot, in teacher views (ST-06), on share cards (ST-07) and in milestones (GM-01). `04 Architecture` planned Apache ECharts (lazy-loaded) for the heatmap. The Mini App's initial JS is 110.6 of 150 KB gzip, and NF-09 asks for a fast first load on 4G, including Russian networks.

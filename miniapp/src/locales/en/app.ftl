@@ -137,7 +137,6 @@ today-moon-fact =
     }
 moon-none = No moon days in the next two months yet: the calendar is being prepared.
 moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
-moon-city = City for the calendar
 # MD-04: the person's own city, when it isn't the followed one.
 moon-same-as-city = Same as my city ({ $city })
 moon-home-fyi = ℹ In 📍 { $city } it falls on { $date }
@@ -171,8 +170,7 @@ moon-teacher-shared =
 ## Practice reminder (PR-10). { $d } is an ISO weekday (1 = Monday).
 remind-card-title = 🧘 Practice reminder
 remind-switch = 🔔 Ask me once a day
-remind-explain-app = Once a day I'll ask in the bot how it went, with one-tap buttons. Not on moon days, days you've already logged, or while a pause is on.
-remind-time-label = Time · { $zone }
+remind-explain-app = I'll ask in the bot: practice or rest? Not on moon days or days you've already logged.
 remind-weekday = { $d ->
         [1] Mon
         [2] Tue
@@ -191,27 +189,18 @@ stats-year-total = { $n ->
         [one] { $n } practice in { $year }
        *[other] { $n } practices in { $year }
     }
-stats-consistency = This month: practice on { $x } of { $y } days
-stats-consistency-count = { $n ->
-        [0] This month: no practice yet
-        [one] This month: { $n } practice
-       *[other] This month: { $n } practices
-    }
+stats-consistency = Practice on { $x } of { $y } days
 # Shown only from 2, but kept plural-safe.
 stats-run-current = { $n ->
         [one] 🌿 { $n } practice in a row
        *[other] 🌿 { $n } practices in a row
     }
 stats-run-longest = Most in a row this year: { $n }
-stats-consistency-hint = Days you haven't logged are left out. Rest, moon, sick and travel days don't reset the count: rest is part of the practice.
+stats-consistency-hint = Rest of any kind doesn't reset the count: it's part of practice. Days with nothing logged are left out.
 stats-legend-practiced = Practice
 stats-legend-rest = Rest
-stats-legend-moon = 🌙 Moon day (rest)
-stats-legend-away = Sick or traveling
-stats-legend-skipped = No practice
 stats-legend-none = Not logged
-stats-legend-moon-marker = Full or new moon · 📍 { $city }
-stats-show-ladies = Show 🌸 days on this device
+stats-show-ladies = Show 🌸 in My practice
 stats-cell-label = { $date }: { $status }{ $moon ->
         [yes] , full or new moon
        *[no] {""}
@@ -237,11 +226,8 @@ stats-duration = ⏱ { $th ->
            *[other] { $th } h { $tm } min
         }
     } in total · about { $avg } min per practice
-stats-unlogged = { $n ->
-        [one] { $n } day not logged: tap a day to add it
-       *[other] { $n } days not logged: tap a day to add it
-    }
-stats-month-empty = Nothing logged this month yet.
+stats-unlogged = Tap a day to add or change it.
+stats-month-empty = Tap a day to add practice or rest.
 stats-load-failed = Couldn't load your stats. Try again in a moment.
 stats-editor-done = Done
 stats-prev = ‹
@@ -256,7 +242,7 @@ settings-open = ⚙️
 settings-title = Settings
 settings-name = Name
 settings-name-hint = How I greet you, and the name your teachers and students see here. Leave it empty to use your Telegram name.
-settings-language = Language
+settings-language = 🗣 Language
 language-auto = As in Telegram
 language-en = English
 language-ru = Русский
@@ -264,8 +250,6 @@ language-ru = Русский
 settings-city = 🏙 My city
 settings-zone-now = { $time } { $zone }
 settings-zone-unset = Not set yet. Reminders start once it's set.
-settings-city-nudge = Pick your city if you like: times will then show its name.
-settings-city-not-now = Not now
 settings-city-pick = Which city do you live in?
 settings-city-unlisted-option = My city isn't listed
 settings-city-use-device = Use my phone's time: { $zone }
@@ -274,7 +258,7 @@ settings-zone-hint = Reminders and times follow your city's clock. Days you've a
 zone-travel = Your phone is on { $device } time. Reminders use { $current }.
 zone-travel-switch = Switch to { $city }
 zone-travel-keep = Keep { $city }
-settings-moon-time = Send at
+settings-moon-time = Time
 settings-quiet = Quiet hours
 settings-quiet-from = Quiet from
 settings-quiet-to = Quiet until
@@ -292,11 +276,12 @@ settings-privacy-location = 📍 A location you send the bot is used only to fin
 settings-save-failed = Couldn't save. Try again in a moment.
 
 ## Weekly day off and auto-rest (PR-09). { $d } is an ISO weekday (1 = Monday).
-settings-day-off = Day off
-settings-day-off-hint = Pick one or two; the other days are your practice days. Days off show as rest in your log and stats, and practice reminders come on practice days only. { $first ->
-        [yes] Past weeks show them too.
-       *[no] A change applies from today; earlier weeks stay as they were.
-    } If a day goes differently, just log it. With no fixed day off, reminders come every day except moon days.
+settings-day-off = 😌 Day off
+# Nothing chosen yet ($first = yes): no third sentence. It speaks of a change, so it waits for one.
+settings-day-off-hint = Pick one or two. They show as rest and get no practice reminders.{ $first ->
+        [yes] {""}
+       *[no] {" "}A change applies from today.
+    }
 day-off-none = No fixed day off
 remind-days-follow = On your practice days: { $days }. Change them under Day off.
 remind-every-day = every day
@@ -334,7 +319,6 @@ day-off-ask-instead = { $d ->
     }
 day-off-ask-other = Other…
 day-off-ask-later = Not now
-stats-legend-auto = Day off or moon day (not logged)
 stats-cell-auto = { $date }: { $kind ->
         [moon] 🌙 moon day (📍 { $city })
        *[day_off] 😌 day off

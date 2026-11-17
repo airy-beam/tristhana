@@ -11,23 +11,27 @@ interface Props {
   stats: Stats;
   moon: Set<string>;
   auto: Map<string, AutoDay>;
-  /** The followed city, named in auto moon days. */
+  /** The followed city, named in an unlogged moon day. */
   city: string;
-  showLadies: boolean;
-  month: number;
+  /** The month the Practice tab shows, when it is in this year. */
+  shown: number | undefined;
+  /** The last month that can be opened: the current one in the current year. */
+  last: number;
   onMonth: (month: number) => void;
   monthName: (month: number) => string;
   dateLabel: (day: string) => string;
 }
 
-/** 12 mini-months in a 3 × 4 grid (fits a 360 px phone); tapping one opens it below. */
+/** 12 mini-months in a 3 × 4 grid (fits a 320 px phone), in the month's three fills and the
+ * moon ring; tapping one opens it. A ladies' holiday is rest here, whatever the device switch
+ * says: the year never marks it. */
 export function Heatmap({
   stats,
   moon,
   auto,
   city,
-  showLadies,
-  month,
+  shown,
+  last,
   onMonth,
   monthName,
   dateLabel,
@@ -44,7 +48,8 @@ export function Heatmap({
             key={m}
             type="button"
             className="mini-month"
-            aria-pressed={m === month}
+            disabled={m > last}
+            aria-current={m === shown ? "true" : undefined}
             aria-label={monthName(m)}
             onClick={() => {
               onMonth(m);
@@ -66,8 +71,7 @@ export function Heatmap({
                 const x = (slot % 7) * STEP;
                 const y = Math.floor(slot / 7) * STEP;
                 const rest = cell === "none" ? auto.get(day) : undefined;
-                const kind =
-                  cell === undefined ? "future" : rest ? "auto" : kindOf(cell, showLadies);
+                const kind = cell === undefined ? "none" : kindOf(cell, rest !== undefined);
                 const title =
                   cell === undefined
                     ? null
@@ -75,12 +79,19 @@ export function Heatmap({
                       ? l10n.getString("stats-cell-auto", autoArgs(rest, dateLabel(day), city))
                       : l10n.getString("stats-cell-label", {
                           date: dateLabel(day),
-                          status: l10n.getString(labelKey(cell, showLadies)),
+                          status: l10n.getString(labelKey(cell, false)),
                           moon: moon.has(day) ? "yes" : "no",
                         });
                 return (
                   <g key={day}>
-                    <rect x={x} y={y} width={SIZE} height={SIZE} rx={2} className={`cell ${kind}`}>
+                    <rect
+                      x={x}
+                      y={y}
+                      width={SIZE}
+                      height={SIZE}
+                      rx={2}
+                      className={kind === "none" ? "cell" : `cell ${kind}`}
+                    >
                       {title && <title>{title}</title>}
                     </rect>
                     {moon.has(day) && (

@@ -423,7 +423,6 @@ describe("Hide the 🌸 chip", () => {
         label="Sun, Oct 25"
         zone="Asia/Almaty"
         locale="en"
-        showLadies
         onClose={() => undefined}
       />,
     );
@@ -444,7 +443,6 @@ describe("DayEditor: rest periods", () => {
         label="Sun, Oct 25"
         zone="Asia/Almaty"
         locale="en"
-        showLadies={false}
         onClose={() => undefined}
       />,
     );
@@ -474,7 +472,6 @@ describe("DayEditor: rest periods", () => {
         label="Sun, Oct 25"
         zone="Asia/Almaty"
         locale="en"
-        showLadies={false}
         onClose={() => undefined}
       />,
     );
@@ -537,7 +534,10 @@ describe("Review fixes", () => {
     cut,
   });
 
-  it("names a cut 🌸 pause as rest while 🌸 days are hidden on this device", async () => {
+  // UI-06 stage 3 (QB): the device switch is about the calendar; the day card tells its owner
+  // the truth, as Today and the bot do.
+  it("names a cut 🌸 pause as 🌸 to its owner, also while the calendar hides 🌸 days", async () => {
+    localStorage.setItem("stats.showLadies", "0");
     stubApi({ saved: cutSaved({ start: "2026-10-24", end: LATER, kind: "ladies" }) });
     renderWith(
       <DayEditor
@@ -545,7 +545,6 @@ describe("Review fixes", () => {
         label="Sun, Oct 25"
         zone="Asia/Almaty"
         locale="en"
-        showLadies={false}
         onClose={() => undefined}
       />,
     );
@@ -553,8 +552,8 @@ describe("Review fixes", () => {
     fireEvent.click(await button("🧘 Practiced"));
 
     const line = await screen.findByText(/no longer show as/);
-    expect(plain(line.textContent)).toContain("😌 Rest day");
-    expect(line.textContent).not.toContain("🌸");
+    expect(plain(line.textContent)).toContain("🌸 Ladies' holiday");
+    expect(line.textContent).not.toContain("Rest day");
   });
 
   it("offers no Keep for a pause whose kind can't be read", async () => {
@@ -565,7 +564,6 @@ describe("Review fixes", () => {
         label="Sun, Oct 25"
         zone="Asia/Almaty"
         locale="en"
-        showLadies
         onClose={() => undefined}
       />,
     );

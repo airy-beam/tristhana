@@ -43,6 +43,15 @@ describe("launchNav: where a bot button's ?open=… lands (the values are a cont
       start: null,
     });
   });
+
+  // UI-06 stage 3 (QF): the bot's "⚙️ More in the app".
+  test("settings opens Settings over Today, so Back lands on Today", () => {
+    const nav = launchNav("?open=settings");
+
+    expect(nav).toEqual({ tab: "today", stack: [{ name: "settings" }], start: null });
+    expect(navigate(nav, { type: "pop" })).toEqual(root("today"));
+    expect(navigate(nav, { type: "settings" })).toBe(nav); // ⋯ Settings doesn't stack a second
+  });
 });
 
 describe("navigate", () => {

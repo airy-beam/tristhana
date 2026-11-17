@@ -47,9 +47,6 @@ interface Props {
   /** The account's IANA zone (null until the device reported it). */
   zone: string | null;
   locale: Locale;
-  /** The device switch of the day editor: when off, a ladies' holiday shows (and stays) as
-   * rest here too. */
-  showLadies?: boolean;
   /** The day editor: Done closes it, and an unlogged day can get a note too. */
   onDone?: (() => void) | undefined;
   /** Lines under the heading (Today's moon line). */
@@ -57,9 +54,11 @@ interface Props {
 }
 
 /** The one day card (UI-06), for today and for any earlier day, as the bot's Today and day
- * editor. An unanswered day shows three choices. A logged day folds them into one line that
- * states it, with "Change" (the choices again, and Clear); under it the entries are list rows.
- * Nothing opens by itself: details, the check-in and the note each wait for their own tap. */
+ * editor. It shows its owner the day as it was logged, a ladies' holiday too (the calendar's
+ * device switch is about the calendar only). An unanswered day shows three choices. A logged
+ * day folds them into one line that states it, with "Change" (the choices again, and Clear);
+ * under it the entries are list rows. Nothing opens by itself: details, the check-in and the
+ * note each wait for their own tap. */
 export function DayLog({ id, title, days, failed, onDone, children, ...day }: Props) {
   const done = onDone && (
     <Localized id="stats-editor-done">
@@ -72,7 +71,10 @@ export function DayLog({ id, title, days, failed, onDone, children, ...day }: Pr
       aria-labelledby={id}
       aria-busy={days || failed ? undefined : true}
     >
-      <h2 id={id}>{title}</h2>
+      {/* The day editor's heading takes the focus when a tap opens it. */}
+      <h2 id={id} tabIndex={onDone ? -1 : undefined}>
+        {title}
+      </h2>
       {days && children}
       {/* Another day starts clean: no answer, open reasons or note carried over. */}
       {days ? (
@@ -97,7 +99,6 @@ function Day({
   days,
   zone,
   locale,
-  showLadies = true,
   done,
 }: Omit<Props, "title" | "children" | "days" | "failed" | "onDone"> & {
   days: Days;
@@ -117,16 +118,15 @@ function Day({
   const logged = days.days.find((d) => d.date === date);
   // Auto-rest is a line, never a pressed choice: logging anything replaces it (PR-09).
   const auto = logged ? undefined : days.auto.find((a) => a.date === date);
-  const stored = logged?.status ?? null;
-  const current = !showLadies && stored === "ladies" ? "rest" : stored;
+  const current = logged?.status ?? null;
   const period = periodOn(days, date);
   // "Hide the 🌸 button" (WH-01) keeps it on a day that shows as 🌸.
-  const ladies = showLadies && !(hideLadies && (current ?? period?.kind) !== "ladies");
+  const ladies = !(hideLadies && (current ?? period?.kind) !== "ladies");
   const note = days.notes.find((n) => n.date === date);
   // The note entry: on a logged day, where a note exists, and always in the day editor. Once
   // shown it stays while the card is open, so clearing the day never drops a note being typed.
   const [noted, setNoted] = useState(false);
-  if (!noted && (stored !== null || note !== undefined || done)) setNoted(true);
+  if (!noted && (current !== null || note !== undefined || done)) setNoted(true);
   // "Change" on a logged day: the three choices again, with Clear.
   const [changing, setChanging] = useState(false);
 
@@ -161,9 +161,8 @@ function Day({
           period={period}
           day={date}
           today={today}
-          logged={stored !== null}
+          logged={current !== null}
           practiceOn={days.practice_on}
-          showLadies={showLadies}
         />
       )}
       {current === null ? (
@@ -232,7 +231,6 @@ function Day({
         <PauseOffer
           saved={after}
           today={today}
-          showLadies={showLadies}
           onDone={() => {
             setAfter(null);
           }}

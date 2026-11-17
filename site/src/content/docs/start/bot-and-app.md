@@ -25,10 +25,10 @@ You don't need to type commands. :ftl[menu-open] is the last button under today'
 It opens inside Telegram: tap the button next to the message field, or :ftl[menu-open] → :ftl[menu-practice] in the bot. It has three tabs at the bottom:
 
 - :ftl[tab-today]: log the day in one tap, and see your class and the next moon day;
-- :ftl[tab-practice]: your year and each month, earlier days, badges, check-ins over time and your asanas;
+- :ftl[tab-practice]: this month's calendar, earlier days, your year, badges, check-ins over time and your asanas;
 - :ftl[tab-shala]: your teachers, your students and your shalas, with the schedule and announcements.
 
-The gear :ftl[settings-open] in the top corner opens the settings: your name, city, day off, reminders and quiet hours.
+The gear :ftl[settings-open] in the top corner opens the settings: the same five rows as in the bot, from language to :ftl[settings-more-button].
 
 ![The app's Today tab: three choices for today, today's class, the next moon day, and the three tabs at the bottom](../../../assets/shots/en/app-home.webp)
 

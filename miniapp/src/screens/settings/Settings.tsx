@@ -1,770 +1,210 @@
 import { Localized, useLocalization } from "@fluent/react";
-import { useEffect, useRef, useState, type Ref } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import {
-  useLinks,
-  useMyShalas,
-  useMe,
-  useMoonCities,
-  useMoonDays,
-  useNotificationSettings,
-  usePatchMe,
-  usePatchNotificationSettings,
-  useSetDayOff,
-  useSetMoonLocation,
-  type City as CityOut,
-  type Me,
-  type MePatch,
-  type NotificationSettings,
-} from "../../api/client";
-import type { Locale } from "../../i18n/negotiate";
+import type { Me } from "../../api/client";
 import { guideUrl } from "../../guide";
+import { ChunkGuard } from "../../shell/ChunkGuard";
+import { lazyRetry } from "../../shell/lazyRetry";
 import type { SettingsFocus } from "../../shell/nav";
 import { backButtonAvailable, haptics, openLink, useBackButton } from "../../telegram";
-import { cityName } from "../cityName";
-import { MoonSource } from "../moon/MoonScreen";
-import { inQuiet, PracticeReminderCard } from "../PracticeReminderCard";
-import { loadShowLadies, saveShowLadies } from "../stats/cells";
-import { MyData } from "./MyData";
-import { deviceZone, labelOf, placeFor } from "./zones";
-import CalendarFeedCard from "../shalas/CalendarFeedCard";
+import { labelOf, placeFor } from "./zones";
 
-const OFFSETS = [7, 3, 1] as const;
-const MOON_TIMES = ["07:00", "12:00", "19:00", "21:00"] as const;
-const CAPS = [1, 2, 3, 5] as const;
-const UNLISTED = "-"; // the select's "My city isn't listed" (never a slug)
-const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
+import "./settingsCopy";
+import "./settings.css";
+
+// Each page is its own chunk (UI-06 stage 3): the five rows need none of them to show.
+const LOAD = {
+  language: () => import("./pages/Language"),
+  city: () => import("./pages/City"),
+  "day-off": () => import("./pages/DayOff"),
+  remind: () => import("./pages/Reminders"),
+  more: () => import("./pages/More"),
+};
+type PageName = keyof typeof LOAD;
+const PAGES = {
+  language: lazyRetry(LOAD.language),
+  city: lazyRetry(LOAD.city),
+  "day-off": lazyRetry(LOAD["day-off"]),
+  remind: lazyRetry(LOAD.remind),
+  more: lazyRetry(LOAD.more),
+};
+/** The bot's five rows, in the bot's order. */
+const ROWS = Object.keys(LOAD) as PageName[];
+
+type Line = [id: string, vars?: Record<string, string | number>];
+
+/** A row's label with its value, as the bot's `/settings` builds it (same keys, same text). */
+function lineOf(page: PageName, me: Me, language: string): Line {
+  switch (page) {
+    case "language":
+      return ["settings-language-line", { language }];
+    case "city": {
+      const zone = me.timezone;
+      if (!zone) return ["settings-city-no-zone-line"];
+      // My own city: its name, no offset (ADR-0044).
+      if (me.home_city) {
+        const place = placeFor(me.home_city, zone, me.locale);
+        return ["settings-city-line", { zone: labelOf(zone, place, zone) }];
+      }
+      // No city: the row says what the clock is, so the offset is the information.
+      return [
+        me.home_city_chosen ? "settings-city-unlisted-line" : "settings-city-unset-line",
+        { zone: labelOf(zone) },
+      ];
+    }
+    case "day-off": {
+      if (!me.day_off) return ["settings-day-off-unset-line"];
+      const [d, e] = [...me.day_off].sort((a, b) => a - b);
+      if (d === undefined) return ["settings-day-off-none-line"];
+      return e === undefined
+        ? ["settings-day-off-line", { d }]
+        : ["settings-days-off-line", { d, e }];
+    }
+    case "remind":
+      return ["settings-reminders-button"];
+    case "more":
+      return ["settings-more-button"];
+  }
+}
 
 interface Props {
   me: Me;
   onBack: () => void;
-  /** Open scrolled to a section: the stats "Set your weekly day off" link, or the practice
-   * reminder (UI-06). */
+  /** Open on a page: the stats "Set your weekly day off" link, or the practice reminder
+   * (UI-06). Back from that page closes Settings: the person returns to where they were. */
   focus?: SettingsFocus | undefined;
   /** The shell focuses the heading when Settings opens. */
-  headingRef?: Ref<HTMLHeadingElement> | undefined;
+  headingRef?: ((element: HTMLHeadingElement | null) => void) | undefined;
 }
 
-/** Everything in one place (ID-06): profile, time zone, moon days, reminders, privacy.
- * Pushed by the gear and by Telegram's ⋯ item (UI-06). Loaded lazily, so Today stays light. */
+/** Settings (ID-06, UI-06 stage 3): the bot's five rows, each carrying its value, and a quiet
+ * Guide row. Drawn from the account already loaded, so it asks the server nothing; each row
+ * opens a short page that reads what it shows. Pushed by the gear and by Telegram's ⋯ item.
+ * Loaded lazily, so Today stays light. */
 export default function Settings({ me, onBack, focus, headingRef }: Props) {
-  useBackButton(onBack);
-  // Once, when the section is there: the reminder card mounts after its settings load.
-  const loaded = useNotificationSettings().isSuccess;
-  const scrolled = useRef(false);
+  const { l10n } = useLocalization();
+  const [page, setPage] = useState<PageName | null>(focus ?? null);
+  // The page `focus` opened: Back there closes Settings (the person returns to where they
+  // were). Any other page, also one reached from that page, goes back to the five rows.
+  const [direct, setDirect] = useState(focus !== undefined);
+  // A page whose chunk did not load: the rows say so and stay usable.
+  const [failed, setFailed] = useState(false);
+  // By the time a row is tapped its page is usually there.
   useEffect(() => {
-    if (!focus || scrolled.current) return;
-    const section = document.getElementById(focus);
-    if (!section) return;
-    scrolled.current = true;
-    section.scrollIntoView({ block: "start" });
-  }, [focus, loaded]);
-  return (
-    <main className="screen settings">
-      {!backButtonAvailable() && (
-        <Localized id="stats-back">
-          <button type="button" className="link" onClick={onBack} />
-        </Localized>
-      )}
-      <Localized id="settings-title">
-        <h1 ref={headingRef} tabIndex={-1} />
-      </Localized>
-      <Profile me={me} />
-      <City me={me} />
-      <DayOff me={me} />
-      <Moon locale={me.locale} zone={me.timezone} home={me.home_city} />
-      <PracticeReminderCard
-        zone={me.timezone}
-        place={placeFor(me.home_city, me.timezone, me.locale)}
-      />
-      <Quiet zone={me.timezone} />
-      <AnnouncementsSwitch />
-      <CalendarFeedCard locale={me.locale} />
-      <Localized id="guide-open">
-        <button
-          type="button"
-          className="row-button"
-          onClick={() => {
-            haptics.selection();
-            openLink(guideUrl(me.locale));
-          }}
-        />
-      </Localized>
-      <Privacy me={me} />
-      <MyData />
-    </main>
-  );
-}
+    for (const load of Object.values(LOAD)) load().catch(() => undefined);
+  }, []);
 
-function Profile({ me }: { me: Me }) {
-  const patch = usePatchMe();
-  const custom = me.name_from_telegram ? "" : (me.display_name ?? "");
-  const [name, setName] = useState(custom);
-  const save = () => {
-    if (name.trim() === custom.trim()) return;
-    patch.mutate({ display_name: name.trim() || null });
+  // The rows stay mounted (hidden) under a page: Back finds them as they were left.
+  const left = useRef<{ top: number; focus: Element | null } | null>(null);
+  const title = useRef<HTMLHeadingElement | null>(null);
+  const titleRef = useCallback(
+    (element: HTMLHeadingElement | null) => {
+      title.current = element;
+      // Opened on a page, that page's heading takes the focus, not this hidden one.
+      if (focus) return;
+      headingRef?.(element);
+    },
+    [focus, headingRef],
+  );
+  const show = (name: PageName) => {
+    setFailed(false);
+    setDirect(false);
+    setPage(name);
+    window.scrollTo({ top: 0 });
   };
-  const current = me.locale_from_telegram ? null : me.locale;
-  const languages: [Locale | null, string][] = [
-    [null, "language-auto"],
-    ["en", "language-en"],
-    ["ru", "language-ru"],
-  ];
-  return (
-    <section className="card">
-      <label className="label">
-        <Localized id="settings-name">
-          <span />
-        </Localized>
-        <input
-          type="text"
-          maxLength={64}
-          value={name}
-          placeholder={me.name_from_telegram ? (me.display_name ?? "") : ""}
-          onChange={(e) => {
-            setName(e.target.value);
-          }}
-          onBlur={save}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-          }}
-        />
-      </label>
-      <Localized id="settings-name-hint">
-        <p className="hint small" />
-      </Localized>
-      <Localized id="settings-language">
-        <p className="label" id="language-label" />
-      </Localized>
-      <div className="chips" role="group" aria-labelledby="language-label">
-        {languages.map(([code, key]) => (
-          <Localized key={key} id={key}>
-            <button
-              type="button"
-              className="chip"
-              aria-pressed={code === current}
-              onClick={() => {
-                haptics.impact("light");
-                patch.mutate({ locale: code });
-              }}
-            />
-          </Localized>
-        ))}
-      </div>
-      {patch.isError && (
-        <Localized id="settings-save-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      )}
-    </section>
-  );
-}
-
-/** "🏙 My city" (MD-04, ADR-0029): a listed city sets its zone; otherwise the phone's zone
- * or UTC, with no city. */
-function City({ me }: { me: Me }) {
-  const cities = useMoonCities().data;
-  const patch = usePatchMe();
-  const device = deviceZone();
-  const ru = me.locale === "ru";
-  const [unlisted, setUnlisted] = useState(false);
-  const listed = me.home_city?.slug;
-  const showUnlisted = unlisted || (me.home_city_chosen && !listed);
-  // My own city: its name, no offset (ADR-0044). Without one the line says what the clock
-  // is, so the offset is the information.
-  const place = placeFor(me.home_city, me.timezone, me.locale);
-  const now = (zone: string) =>
-    new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zone }).format(
-      new Date(),
-    );
-  const save = (body: MePatch) => {
-    haptics.impact("light");
-    patch.mutate(body, {
-      onError: () => {
-        haptics.notify("error");
-      },
-    });
+  const open = (name: PageName, from: Element) => {
+    haptics.selection();
+    left.current = { top: window.scrollY, focus: from };
+    show(name);
   };
-  return (
-    <section className="card">
-      <Localized id="settings-city">
-        <h2 />
-      </Localized>
-      {me.timezone ? (
-        <Localized
-          id="settings-zone-now"
-          vars={{
-            time: now(me.timezone),
-            zone: labelOf(me.timezone, place, place ? me.timezone : null),
-          }}
-        >
-          <p />
-        </Localized>
-      ) : (
-        <Localized id="settings-zone-unset">
-          <p className="hint" />
-        </Localized>
-      )}
-      {!me.home_city_chosen && (
-        <div className="nudge">
-          <Localized id="settings-city-nudge">
-            <p />
-          </Localized>
-          <Localized id="settings-city-not-now">
-            <button
-              type="button"
-              className="chip"
-              onClick={() => {
-                save({ home_city: null });
-              }}
-            />
-          </Localized>
-        </div>
-      )}
-      {cities && (
-        <label className="label">
-          <Localized id="settings-city-pick">
-            <span />
-          </Localized>
-          {/* Every listed city (Almaty and Astana share a zone, but each is its own). */}
-          <select
-            value={showUnlisted ? UNLISTED : (listed ?? "")}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (value === UNLISTED) {
-                setUnlisted(true);
-                return;
-              }
-              setUnlisted(false);
-              save({ home_city: value });
-            }}
-          >
-            <option value="" disabled />
-            {[...cities]
-              .sort((a, b) =>
-                (ru ? a.name_ru : a.name_en).localeCompare(ru ? b.name_ru : b.name_en, me.locale),
-              )
-              .map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {ru ? c.name_ru : c.name_en}
-                </option>
-              ))}
-            <Localized id="settings-city-unlisted-option">
-              <option value={UNLISTED} />
-            </Localized>
-          </select>
-        </label>
-      )}
-      {showUnlisted && (
-        <div className="chips">
-          {device && (
-            <Localized id="settings-city-use-device" vars={{ zone: labelOf(device) }}>
-              <button
-                type="button"
-                className="chip"
-                aria-pressed={!listed && me.timezone === device}
-                onClick={() => {
-                  save({ home_city: null, timezone: device });
-                }}
-              />
-            </Localized>
-          )}
-          <Localized id="settings-zone-utc">
-            <button
-              type="button"
-              className="chip"
-              aria-pressed={me.timezone === "UTC"}
-              onClick={() => {
-                save({ home_city: null, timezone: "UTC" });
-              }}
-            />
-          </Localized>
-        </div>
-      )}
-      <Localized id="settings-zone-hint">
-        <p className="hint small" />
-      </Localized>
-      {patch.isError && (
-        <Localized id="settings-save-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      )}
-    </section>
-  );
-}
-
-const FOLLOW = "-teacher"; // never a city slug
-const FOLLOW_SHALA = "-shala"; // SC-01
-
-function Moon({
-  locale,
-  zone,
-  home,
-}: {
-  locale: Locale;
-  zone: string | null;
-  home: CityOut | null | undefined;
-}) {
-  const moon = useMoonDays().data;
-  const cities = useMoonCities().data;
-  const settings = useNotificationSettings().data;
-  const setLocation = useSetMoonLocation();
-  const save = usePatchNotificationSettings();
-  const { l10n } = useLocalization();
-  const main = useLinks().data?.teachers.find((t) => t.primary);
-  const firstShala = useMyShalas().data?.[0];
-  if (!moon) return null;
-  const slug = moon.location.slug;
-  // MD-02: the select's value for "Follow my teacher" (sent as null), shown only with a
-  // main teacher; selected while the city comes from them or following was chosen.
-  const following = !!main && (moon.location.source === "teacher" || moon.location.follow_chosen);
-  // SC-01: "Follow my shala", shown only with a shala; selected while the city comes from it.
-  const shala = moon.location.shala ?? firstShala;
-  const onShala = moon.location.source === "shala";
-  const city = cityName(
-    cities?.find((c) => c.slug === slug),
-    slug,
-    locale,
-  );
-  const tap = (body: Parameters<typeof save.mutate>[0]) => {
-    haptics.impact("light");
-    save.mutate(body, {
-      onError: () => {
-        haptics.notify("error");
-      },
-    });
+  // From one page to another (Reminders without a zone → My city): Back from there returns
+  // to the rows, to the row that opened the first page, else to the heading.
+  const openFromPage = (name: PageName) => {
+    haptics.selection();
+    left.current ??= { top: 0, focus: null };
+    show(name);
   };
+  const close = useCallback(() => {
+    setPage(null);
+  }, []);
+  const failPage = useCallback(() => {
+    setFailed(true);
+    setPage(null);
+  }, []);
+  // Settings owns the Back layer of its pages, so Back works while a page's chunk still
+  // loads. A field that has the focus is blurred first: it saves on blur (the name).
+  const back = () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    if (page && !direct) close();
+    else onBack();
+  };
+  useBackButton(back);
+  // Before the frame is painted: the rows come back where they were, with no jump.
+  useLayoutEffect(() => {
+    const was = left.current;
+    if (page || !was) return;
+    left.current = null;
+    window.scrollTo({ top: was.top });
+    // The row that was tapped takes the focus back (a tap focuses nothing on iOS).
+    const to =
+      was.focus instanceof HTMLElement && was.focus.isConnected ? was.focus : title.current;
+    to?.focus({ preventScroll: true });
+  }, [page]);
+
+  const language = l10n.getString(
+    me.locale_from_telegram ? "language-auto" : `language-${me.locale}`,
+  );
+  const Page = page && PAGES[page];
   return (
-    <section className="card">
-      <Localized id="moon-title" vars={{ city }}>
-        <h2 />
-      </Localized>
-      {cities && (
-        <label className="label">
-          <Localized id="moon-city">
-            <span />
-          </Localized>
-          <select
-            value={following ? FOLLOW : onShala ? FOLLOW_SHALA : slug}
-            onChange={(e) => {
-              haptics.impact("light");
-              const value = e.target.value;
-              setLocation.mutate(
-                value === FOLLOW ? null : value === FOLLOW_SHALA ? { follow: "shala" } : value,
-              );
-            }}
-          >
-            {main && (
-              <option value={FOLLOW}>
-                {l10n.getString("moon-follow-teacher", {
-                  name: main.name ?? l10n.getString("link-no-name"),
-                })}
-              </option>
-            )}
-            {shala && (
-              <option value={FOLLOW_SHALA}>
-                {l10n.getString("moon-follow-shala", { shala: shala.name })}
-              </option>
-            )}
-            {/* MD-04: stores the slug (a snapshot); a later trip never moves the calendar. */}
-            {home && home.slug !== slug && (
-              <Localized id="moon-same-as-city" vars={{ city: cityName(home, home.slug, locale) }}>
-                <option value={home.slug} />
-              </Localized>
-            )}
-            {cities.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {cityName(c, c.slug, locale)}
-              </option>
-            ))}
-          </select>
-        </label>
+    <>
+      {Page && (
+        <ChunkGuard key={page} onFail={failPage}>
+          <Suspense fallback={<main className="screen" aria-busy="true" />}>
+            <Page me={me} onBack={back} onOpen={openFromPage} />
+          </Suspense>
+        </ChunkGuard>
       )}
-      <MoonSource
-        location={moon.location}
-        city={city}
-        fallback={cityName(cities?.[0], "mysuru", locale)}
-      />
-      <Localized id="moon-calc-note" vars={{ city }}>
-        <p className="hint small" />
-      </Localized>
-      <Localized id="moon-reminders-label">
-        <p className="label" id="moon-offsets-label" />
-      </Localized>
-      {zone && settings ? (
-        <>
-          <div className="chips" role="group" aria-labelledby="moon-offsets-label">
-            {OFFSETS.map((k) => {
-              const on = settings.moon.offsets.includes(k);
-              return (
-                <Localized key={k} id="moon-offset" vars={{ n: k }}>
-                  <button
-                    type="button"
-                    className="chip"
-                    aria-pressed={on}
-                    onClick={() => {
-                      const offsets = on
-                        ? settings.moon.offsets.filter((o) => o !== k)
-                        : [...settings.moon.offsets, k];
-                      tap({ moon: { offsets } });
-                    }}
-                  />
-                </Localized>
-              );
-            })}
-          </div>
-          <Localized id="settings-moon-time">
-            <p className="label" id="moon-time-label" />
+      <main className="screen settings" hidden={page !== null}>
+        {!backButtonAvailable() && (
+          <Localized id="stats-back">
+            <button type="button" className="link" onClick={onBack} />
           </Localized>
-          <div className="chips" role="group" aria-labelledby="moon-time-label">
-            {MOON_TIMES.map((t) => {
-              const blocked = quietContains(settings, t);
-              return (
+        )}
+        <Localized id="settings-title">
+          <h1 ref={titleRef} tabIndex={-1} />
+        </Localized>
+        {failed && (
+          <Localized id="chunk-failed">
+            <p className="status" role="alert" />
+          </Localized>
+        )}
+        <div className="card list">
+          {ROWS.map((name) => {
+            const [id, vars = {}] = lineOf(name, me, language);
+            return (
+              <Localized key={name} id={id} vars={vars}>
                 <button
-                  key={t}
                   type="button"
-                  className="chip"
-                  aria-pressed={settings.moon.at.startsWith(t)}
-                  disabled={blocked}
-                  onClick={() => {
-                    tap({ moon: { at: `${t}:00` } });
+                  className="lrow srow"
+                  onClick={(event) => {
+                    open(name, event.currentTarget);
                   }}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      ) : (
-        <Localized id="moon-zone-needed-app">
-          <p className="hint" />
-        </Localized>
-      )}
-      {(save.isError || setLocation.isError) && (
-        <Localized id="moon-save-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      )}
-    </section>
-  );
-}
-
-/** As the server's QuietHours.contains (shared with the practice card). */
-const contains = (start: string, end: string, at: string) => inQuiet({ start, end }, at);
-
-function quietContains(settings: NotificationSettings, at: string): boolean {
-  return contains(settings.quiet.start, settings.quiet.end, at);
-}
-
-/** Times of the reminders that are on: quiet hours may not swallow them. */
-function activeTimes(settings: NotificationSettings): string[] {
-  const out: string[] = [];
-  if (settings.moon.offsets.length) out.push(settings.moon.at);
-  if (settings.practice.on) out.push(settings.practice.at);
-  return out;
-}
-
-/** NT-03 (Q167): one switch for every teacher's and shala's announcements in the bot; each
- * source also has its own mute. Shown once there is a teacher or a shala to hear from. */
-function AnnouncementsSwitch() {
-  const settings = useNotificationSettings().data;
-  const links = useLinks().data;
-  const shalas = useMyShalas().data;
-  const save = usePatchNotificationSettings();
-  const [on, setOn] = useState<boolean | null>(null);
-  if (!settings) return null;
-  if (!links?.teachers.length && !shalas?.length) return null;
-  const checked = on ?? settings.announcements;
-  return (
-    <section className="card">
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => {
-            const value = e.target.checked;
-            haptics.impact("light");
-            setOn(value); // optimistic
-            save.mutate(
-              { announcements: value ? null : false }, // null: back to the default (on)
-              {
-                onError: () => {
-                  setOn(!value);
-                  haptics.notify("error");
-                },
-              },
+                />
+              </Localized>
             );
-          }}
-        />
-        <Localized id="settings-announcements">
-          <span />
-        </Localized>
-      </label>
-      {save.isError && (
-        <Localized id="settings-save-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      )}
-    </section>
-  );
-}
-
-function Quiet({ zone }: { zone: string | null }) {
-  const { l10n } = useLocalization();
-  const settings = useNotificationSettings().data;
-  const save = usePatchNotificationSettings();
-  if (!zone || !settings) return null;
-  const { start, end } = settings.quiet;
-  const none = start === end;
-  const times = activeTimes(settings);
-  const swallows = (s: string, e: string) => times.find((t) => contains(s, e, t));
-  const setQuiet = (s: string, e: string) => {
-    haptics.impact("light");
-    save.mutate({ quiet: { start: `${s}:00`, end: `${e}:00` } });
-  };
-  const conflict = (s: string, e: string) => swallows(`${s}:00`, `${e}:00`);
-  return (
-    <section className="card">
-      <Localized id="settings-quiet">
-        <h2 />
-      </Localized>
-      <div className="row">
-        <select
-          aria-label={l10n.getString("settings-quiet-from")}
-          value={none ? "" : start.slice(0, 5)}
-          onChange={(e) => {
-            setQuiet(e.target.value, none ? "07:00" : end.slice(0, 5));
-          }}
-        >
-          <option value="" disabled />
-          {HOURS.map((h) => (
-            <option
-              key={h}
-              value={h}
-              disabled={Boolean(conflict(h, none ? "07:00" : end.slice(0, 5)))}
-            >
-              {h}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label={l10n.getString("settings-quiet-to")}
-          value={none ? "" : end.slice(0, 5)}
-          onChange={(e) => {
-            setQuiet(none ? "22:00" : start.slice(0, 5), e.target.value);
-          }}
-        >
-          <option value="" disabled />
-          {HOURS.map((h) => (
-            <option
-              key={h}
-              value={h}
-              disabled={Boolean(conflict(none ? "22:00" : start.slice(0, 5), h))}
-            >
-              {h}
-            </option>
-          ))}
-        </select>
-      </div>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={none}
-          onChange={(e) => {
-            if (e.target.checked) setQuiet("00:00", "00:00");
-            else save.mutate({ quiet: null }); // back to the default 22:00–07:00
-          }}
-        />
-        <Localized id="settings-quiet-off">
-          <span />
-        </Localized>
-      </label>
-      {times.some((t) => contains(start, end, t)) && (
-        <Localized id="settings-quiet-conflict">
-          <p className="hint" />
-        </Localized>
-      )}
-      <Localized id="settings-cap" vars={{ n: settings.daily_cap }}>
-        <p className="label" id="cap-label" />
-      </Localized>
-      <div className="chips" role="group" aria-labelledby="cap-label">
-        {CAPS.map((n) => (
-          <button
-            key={n}
-            type="button"
-            className="chip"
-            aria-pressed={settings.daily_cap === n}
-            onClick={() => {
-              haptics.impact("light");
-              save.mutate({ daily_cap: n });
-            }}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      {save.isError && (
-        <Localized id="settings-save-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      )}
-    </section>
-  );
-}
-
-const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
-
-const MAX_DAYS_OFF = 2; // as the server's domain limit
-
-/** The days off (PR-09): the one day setting. Pressed = a day off (at most two; a third
- * waits until one is unpressed); the other days are the practice days, and practice
- * reminders come on them. Nothing pressed until chosen. */
-function DayOff({ me }: { me: Me }) {
-  const setDayOff = useSetDayOff();
-  // The cached account, so a tap shows at once (the prop updates with it in the app).
-  const current = (useMe().data ?? me).day_off ?? null;
-  const choose = (days: number[]) => {
-    haptics.impact("light");
-    setDayOff.mutate(days, {
-      onError: () => {
-        haptics.notify("error");
-      },
-    });
-  };
-  return (
-    <section className="card" id="day-off" aria-labelledby="day-off-title">
-      <Localized id="settings-day-off">
-        <h2 id="day-off-title" />
-      </Localized>
-      <div className="chips" role="group" aria-labelledby="day-off-title">
-        {WEEKDAYS.map((d) => {
-          const off = current?.includes(d) ?? false;
-          const full = !off && (current?.length ?? 0) >= MAX_DAYS_OFF;
-          return (
-            <Localized key={d} id="remind-weekday" vars={{ d }}>
-              <button
-                type="button"
-                className="chip"
-                aria-pressed={off}
-                disabled={full}
-                onClick={() => {
-                  const days = current ?? [];
-                  choose(off ? days.filter((x) => x !== d) : [...days, d].sort((a, b) => a - b));
-                }}
-              />
-            </Localized>
-          );
-        })}
-        <Localized id="day-off-none">
+          })}
+        </div>
+        <Localized id="guide-open">
           <button
             type="button"
-            className="chip"
-            aria-pressed={current?.length === 0}
+            className="link guide"
             onClick={() => {
-              choose([]);
+              haptics.selection();
+              openLink(guideUrl(me.locale));
             }}
           />
         </Localized>
-      </div>
-      <Localized id="settings-day-off-hint" vars={{ first: current === null ? "yes" : "no" }}>
-        <p className="hint small" />
-      </Localized>
-      {setDayOff.isError && (
-        <Localized id="settings-save-failed">
-          <p className="status" role="alert" />
-        </Localized>
-      )}
-    </section>
-  );
-}
-
-function Privacy({ me }: { me: Me }) {
-  const [showLadies, setShowLadies] = useState(loadShowLadies);
-  // "Hide the 🌸 button" (WH-01): one account setting for the bot and the app.
-  const [button, setButton] = useState(!me.hide_ladies);
-  // "Offer a check-in after practice" (PR-06): one account setting for the bot and the app.
-  const [offer, setOffer] = useState(me.offer_check_in);
-  const patch = usePatchMe();
-  return (
-    <section className="card">
-      <Localized id="settings-privacy">
-        <h2 />
-      </Localized>
-      <Localized id="settings-privacy-ladies">
-        <p className="hint" />
-      </Localized>
-      <Localized id="settings-privacy-sharing">
-        <p className="hint" />
-      </Localized>
-      <Localized id="settings-privacy-location">
-        <p className="hint small" />
-      </Localized>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={showLadies}
-          onChange={(e) => {
-            setShowLadies(e.target.checked);
-            saveShowLadies(e.target.checked);
-          }}
-        />
-        <Localized id="stats-show-ladies">
-          <span />
-        </Localized>
-      </label>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={button}
-          onChange={(e) => {
-            const shown = e.target.checked;
-            haptics.impact("light");
-            setButton(shown); // optimistic
-            patch.mutate(
-              { hide_ladies: !shown },
-              {
-                onError: () => {
-                  setButton(!shown);
-                  haptics.notify("error");
-                },
-              },
-            );
-          }}
-        />
-        <Localized id="settings-ladies-button">
-          <span />
-        </Localized>
-      </label>
-      <Localized id="settings-ladies-button-hint">
-        <p className="hint small" />
-      </Localized>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={offer}
-          onChange={(e) => {
-            const offered = e.target.checked;
-            haptics.impact("light");
-            setOffer(offered); // optimistic
-            patch.mutate(
-              { offer_check_in: offered },
-              {
-                onError: () => {
-                  setOffer(!offered);
-                  haptics.notify("error");
-                },
-              },
-            );
-          }}
-        />
-        <Localized id="settings-checkin">
-          <span />
-        </Localized>
-      </label>
-      <Localized id="settings-checkin-hint">
-        <p className="hint small" />
-      </Localized>
-    </section>
+      </main>
+    </>
   );
 }

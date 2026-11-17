@@ -13,11 +13,11 @@ What is private, what a teacher sees, how to download everything you logged, and
 - Check-ins, diary notes, badges and the reason for a rest day are never shown to anyone.
 - A teacher you add sees your name, practice or rest from the day you add them, your practice length and your last asana, and a short note if nothing shows for a while. A shala sees your name and your class attendance marks.
 
-More detail: [My teacher](../my-teacher/) and [Privacy in plain words](../../reference/privacy/).
+More detail: [My teacher](../my-teacher/) and [Privacy in plain words](../../reference/privacy/). The app says it in short under the gear → :ftl[settings-more-button] → :ftl[settings-privacy-open].
 
 ## Download your data
 
-1. Open :ftl[menu-open] → :ftl[menu-settings] → :ftl[settings-more-button] and tap :ftl[settings-data-button].
+1. Open :ftl[menu-open] → :ftl[menu-settings] → :ftl[settings-more-button] and tap :ftl[settings-data-button]. In the app: the gear → :ftl[settings-more-button], the last card.
 2. Tap :ftl[export-button]{from=bot}.
 
 ![The My data screen in the bot](../../../assets/shots/en/bot-my-data.webp)
