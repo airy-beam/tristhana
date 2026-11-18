@@ -25,12 +25,14 @@ from tristhana.domain.teacher_requests import (
     AskState,
     Closing,
     RequestCaps,
+    RequestConsent,
     RequestState,
     answerable,
     ask_state,
     closing_due,
     counts_as_asked,
     exported_state,
+    grants_quiet_note,
     kept,
     request_key,
     waiting_for_student,
@@ -346,3 +348,24 @@ def test_an_approval_moves_a_students_city_only_through_the_main_shala_or_follow
         (FOLLOW_TEACHER, "student", True),
         (FOLLOW_TEACHER, "staff", True),
     }
+
+
+# The consent a request names (ADR-0049)
+
+
+def test_the_first_request_consent_grants_the_quiet_note() -> None:
+    """Both layers of `request-consent` name the note, and `request-1` is what they promise."""
+    assert RequestConsent.FIRST.value == "request-1"
+    assert grants_quiet_note(RequestConsent.FIRST) is True
+
+
+@pytest.mark.parametrize("consent", list(RequestConsent))
+def test_every_request_consent_is_mapped(consent: RequestConsent) -> None:
+    """A new value is a new set of promises: it must say what it grants, never fall through."""
+    assert isinstance(grants_quiet_note(consent), bool)
+
+
+def test_a_consent_is_named_by_its_value_and_nothing_else() -> None:
+    assert RequestConsent("request-1") is RequestConsent.FIRST
+    with pytest.raises(ValueError, match="request-0"):
+        RequestConsent("request-0")

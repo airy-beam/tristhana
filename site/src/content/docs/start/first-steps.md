@@ -30,7 +30,7 @@ _Pictures of the bot are drawn from its real messages._
 
 - :ftl[tab-today]: log the day in one tap.
 - :ftl[tab-practice]: this month's calendar, your year and your asanas.
-- :ftl[tab-shala]: your teacher, your students and your shala.
+- :ftl[tab-shala]: your shala, your teacher and your students, with what there is to do first.
 
 ## Next
 

@@ -72,9 +72,14 @@ function locate(page, step, locale, shot) {
   if (step.startsWith("css=")) return page.locator(step.slice(4)).first();
   const to = target(step, locale, "app");
   if ("index" in to) throw new Error(`${shot}: "#n" steps are for bot shots`);
+  // A name from the cast is a button that carries it ("🏛 Morning Mysore", "🧘 Maya"), not
+  // the same name printed as a line: the teacher's waiting list names the shala under each
+  // person, above the shala's own row (UI-06 stage 4B).
   const control = to.name
     ? page.getByRole("button", { name: to.name, exact: true })
-    : page.getByText(to.text, { exact: to.exact });
+    : step.startsWith("=")
+      ? page.getByRole("button", { name: to.text })
+      : page.getByText(to.text, { exact: to.exact });
   return control.first();
 }
 

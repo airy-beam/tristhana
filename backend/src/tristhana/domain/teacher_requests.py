@@ -65,6 +65,24 @@ class Closing(StrEnum):
     NO_ANSWER = "no_answer"
 
 
+class RequestConsent(StrEnum):
+    """ADR-0049: the consent the student's tap gave, named by the client that showed it (the
+    app's ask, the bot's `h1:ta`). A value names a set of promises, not a wording: a change of
+    promises is a new value, and an old one keeps its grants while an old client may send it.
+    The client never sends a flag; `grants_quiet_note` says what each value grants."""
+
+    FIRST = "request-1"  # `request-consent` and `request-consent-short`, both naming the note
+
+
+# ADR-0031: `quiet_note_agreed` is set only by a consent whose text names the note.
+_GRANTS_QUIET_NOTE: dict[RequestConsent, bool] = {RequestConsent.FIRST: True}
+
+
+def grants_quiet_note(consent: RequestConsent) -> bool:
+    """Whether a request given under `consent` stores `quiet_note_agreed`."""
+    return _GRANTS_QUIET_NOTE[consent]
+
+
 _OPEN = frozenset({RequestState.WAITING, RequestState.DECLINED})
 
 

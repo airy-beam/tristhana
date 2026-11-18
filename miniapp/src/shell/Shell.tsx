@@ -25,7 +25,7 @@ import { TabBar } from "./TabBar";
 
 // Today is in the first chunk; the other tabs and every pushed screen are their own chunks.
 const Stats = lazyRetry(() => import("../screens/stats/Stats"));
-const Links = lazyRetry(() => import("../screens/settings/Links"));
+const ShalaTab = lazyRetry(() => import("../screens/shalas/ShalaTab"));
 const Settings = lazyRetry(() => import("../screens/settings/Settings"));
 const Progression = lazyRetry(() => import("../screens/progression/Progression"));
 const MoonScreen = lazyRetry(() => import("../screens/moon/MoonScreen"));
@@ -194,7 +194,7 @@ export function Shell({ me, firstName }: Props) {
     );
   } else {
     shown = (
-      <Links
+      <ShalaTab
         start={nav.start}
         headingRef={heading}
         onSchedule={() => {
@@ -279,11 +279,7 @@ function Pushed({
       return <Students locale={me.locale} onBack={onBack} />;
     case "announce":
       return (
-        <Announcements
-          mode={{ view: "compose", shala: screen.shala }}
-          locale={me.locale}
-          onBack={onBack}
-        />
+        <Announcements mode={{ view: "compose", shala: null }} locale={me.locale} onBack={onBack} />
       );
     case "listing":
       return <DirectoryListing locale={me.locale} onBack={onBack} />;

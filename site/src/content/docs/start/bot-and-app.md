@@ -26,7 +26,7 @@ It opens inside Telegram: tap the button next to the message field, or :ftl[menu
 
 - :ftl[tab-today]: log the day in one tap, and see your class and the next moon day;
 - :ftl[tab-practice]: this month's calendar, earlier days, your year, badges, check-ins over time and your asanas;
-- :ftl[tab-shala]: your teachers, your students and your shalas, with the schedule and announcements.
+- :ftl[tab-shala]: your shalas and their schedule, your teachers and your students. What there is to do comes first, like picking a teacher or answering students who picked you.
 
 The gear :ftl[settings-open] in the top corner opens the settings: the same five rows as in the bot, from language to :ftl[settings-more-button].
 

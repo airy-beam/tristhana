@@ -8,6 +8,9 @@ New things in Tristhana, newest first.
 
 ## November 2026
 
+- **What there is to do comes first** on the :ftl[tab-shala] tab: :ftl[request-open]{from=app} if you have no teacher yet, or, if you teach, the people waiting for your answer. Your students are one row, :ftl[link-students-open]{from=app}.
+- **Pick your teacher in the app too**, in the same words as the bot, on the :ftl[tab-shala] tab or the shala's card. :ftl[request-withdraw-short] takes a request back.
+- **:ftl[ann-announce] on a shala's card in the bot** opens that shala in the app, with the form on top.
 - **The Practice tab opens on one month.** Four marks: :ftl[stats-legend-practiced], :ftl[stats-legend-rest], :ftl[status-moon] and :ftl[status-skipped]. Tap a day to open it right there. The year is one row down.
 - **Settings in the app are the bot's five rows**: what is set shows right on the row. Quiet hours are under :ftl[settings-reminders-button]; your name and your data are under :ftl[settings-more-button].
 - **:ftl[settings-open-app]** in the bot now opens the app's settings.

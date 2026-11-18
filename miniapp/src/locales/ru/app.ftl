@@ -579,7 +579,6 @@ day-label =
 ## Шалы (SC-01, ADR-0033). Названия шал и имена — как есть, без склонения.
 moon-source-shala = 🏛 Как в шале: { $shala }. Можно выбрать другой город.
 moon-follow-shala = 🏛 Как в шале ({ $shala })
-links-shalas-title = 🏛 Шалы
 shala-create = 🏛 Создать шалу
 shala-name-label = Название
 shala-city-label = Город
@@ -777,7 +776,6 @@ shala-empty = Здесь пока никого нет. Чтобы добавит
 shala-starts-title = Учителям и шалам
 shala-start-invite = Пригласить учеников
 shala-start-shala = Шала и занятия
-links-empty = Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют. Журнал практики работает и так.
 links-no-students = Учеников в списке нет.
 links-primary-hint = ⭐ — твой основной учитель. Поменять можно в любой момент.
 links-main-chosen = ⭐ Основной учитель: { $name }

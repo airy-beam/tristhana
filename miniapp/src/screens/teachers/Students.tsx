@@ -25,7 +25,6 @@ import {
 import { lengthText } from "../practiceText";
 import { get, isStanding, stopLabel } from "../progression/progressionText";
 import { lazyRetry } from "../../shell/lazyRetry";
-import { Waiting } from "./Waiting";
 
 interface Props {
   locale: Locale;
@@ -33,7 +32,8 @@ interface Props {
 }
 
 /** "👥 My students" (ST-06): name and today's mark in the list, the 7 days on the card only, so
- * no side-by-side week can read as a "who hasn't practiced" list (Q78). Loaded lazily. */
+ * no side-by-side week can read as a "who hasn't practiced" list (Q78). The people waiting for
+ * my answer are on the Shala tab (UI-06 stage 4B, QC), not here. Loaded lazily. */
 const Announcements = lazyRetry(() => import("../announcements/Announcements"));
 
 export default function Students({ locale, onBack }: Props) {
@@ -101,7 +101,6 @@ function List({
           <h1 />
         </Localized>
       )}
-      <Waiting />
       <Localized id="students-days-note">
         <p className="hint" />
       </Localized>

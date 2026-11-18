@@ -21,18 +21,24 @@ describe("launchNav: where a bot button's ?open=… lands (the values are a cont
     expect(launchNav("?open=new-shala")).toEqual({ tab: "shala", stack: [], start: "create" });
   });
 
-  test("announce opens the composer over the Shala tab, for that shala", () => {
-    expect(launchNav(`?open=announce&shala=${SHALA}`)).toEqual({
-      tab: "shala",
-      stack: [{ name: "announce", shala: SHALA }],
-      start: null,
-    });
+  // UI-06 stage 4B (QF): the bot's "📣 Announce" from a shala opens that shala's card with the
+  // message form over it, so Back finds the card (and its announcements).
+  test("announce from a shala opens that shala's card with the message form", () => {
+    const nav = launchNav(`?open=announce&shala=${SHALA}`);
+
+    expect(nav).toEqual({ tab: "shala", stack: [], start: `announce:${SHALA}` });
+    expect(navigate(nav, { type: "pop" })).toBe(nav); // the card is the root's own layer
   });
 
   test.each(["?open=announce", "?open=announce&shala=", "?open=announce&shala=1%20OR%201"])(
-    "announce without a real shala id composes with none: %s",
+    "announce without a real shala id composes for all my students over the tab: %s",
     (search) => {
-      expect(launchNav(search).stack).toEqual([{ name: "announce", shala: null }]);
+      expect(launchNav(search)).toEqual({
+        tab: "shala",
+        stack: [{ name: "announce" }],
+        start: null,
+      });
+      expect(navigate(launchNav(search), { type: "pop" })).toEqual(root("shala"));
     },
   );
 
@@ -93,6 +99,9 @@ describe("navigate", () => {
     expect(navigate(root("today"), { type: "tab", tab: "shala", start: `shala:${SHALA}` })).toEqual(
       { tab: "shala", stack: [], start: `shala:${SHALA}` },
     );
+    expect(
+      navigate(root("today"), { type: "tab", tab: "shala", start: `announce:${SHALA}` }),
+    ).toEqual({ tab: "shala", stack: [], start: `announce:${SHALA}` });
   });
 
   test("a start is used once: leaving the root drops it", () => {

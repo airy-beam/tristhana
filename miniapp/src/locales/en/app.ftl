@@ -568,7 +568,6 @@ day-label =
 ## Shalas (SC-01, ADR-0033). Shala and people names are plain text.
 moon-source-shala = 🏛 Same as your shala, { $shala }. You can choose another city.
 moon-follow-shala = 🏛 Follow my shala ({ $shala })
-links-shalas-title = 🏛 Shalas
 shala-create = 🏛 Create a shala
 shala-name-label = Name
 shala-city-label = City
@@ -756,7 +755,6 @@ shala-empty = Nobody here yet. To add a teacher or join a shala, open the link t
 shala-starts-title = For teachers and shalas
 shala-start-invite = Invite students
 shala-start-shala = Shala and classes
-links-empty = No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.
 links-no-students = No students on your list.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }

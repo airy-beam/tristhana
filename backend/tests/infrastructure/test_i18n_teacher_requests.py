@@ -260,7 +260,7 @@ ITEMS: dict[str, tuple[str, ...]] = {
         "diary notes",
         "the reason for a rest",
         "stay private",
-        "any time in /teachers",
+        "any time",  # QB, ADR-0049: no surface named, so the app can show it too
         "No one gets a message.",
     ),
     "ru": (
@@ -275,7 +275,7 @@ ITEMS: dict[str, tuple[str, ...]] = {
         "заметки",
         "причина отдыха",
         "остаются личными",
-        "в любой момент в /teachers",
+        "в любой момент",  # QB, ADR-0049
         "Сообщений никто не получит.",
     ),
 }
@@ -341,7 +341,8 @@ def test_the_request_consent_keeps_the_invite_consents_rights_and_ends_with_thre
     assert until == _text(locale, "request-until-yes")  # the short screen's own line
     assert re.search("from today|с сегодняшнего", today)
     assert re.search("withdraw|отозвать", withdraw)  # before the yes
-    assert "/teachers" in withdraw  # and after it: remove
+    assert re.search("remove|Убрать", withdraw)  # and after it: remove
+    assert "/teachers" not in text  # QB: no bot place, so the app can show the same text
     assert not set(full[:-3]) & {until, today, withdraw}
     assert "Анна" not in text  # no name: "the teacher you pick"
 
@@ -365,14 +366,25 @@ def test_the_short_request_consent_says_nothing_the_full_text_does_not(locale: s
 
 
 @pytest.mark.parametrize("locale", LOCALES)
+def test_the_request_consents_name_no_bot_place_and_the_invite_consent_keeps_its_own(
+    locale: str,
+) -> None:
+    """QB, ADR-0049: the app shows the bot's request texts, so they name no surface. The
+    personal link's consent is bot-only and keeps its wording until stage 5."""
+    for key in ("request-consent-short", "request-consent"):
+        assert "/teachers" not in _text(locale, key), key
+    assert "/teachers" in _text(locale, "invite-consent")
+
+
+@pytest.mark.parametrize("locale", LOCALES)
 def test_both_layers_name_the_quiet_note_the_tap_agrees_to(locale: str) -> None:
-    """ADR-0031: `h1:ta` stores `quiet_note_agreed`, so every screen that carries it must
-    name the note."""
-    from tristhana.bots.telegram.teacher_requests import QUIET_NOTE_AGREED
+    """ADR-0031, ADR-0049: the bot's `h1:ta` and the app's ask both name `request-1`, which
+    grants `quiet_note_agreed`, so both layers of the text it stands for must name the note."""
+    from tristhana.domain.teacher_requests import RequestConsent, grants_quiet_note
 
     note = ITEMS[locale][5]
 
-    assert QUIET_NOTE_AGREED is True
+    assert grants_quiet_note(RequestConsent.FIRST) is True
     assert note in _text(locale, "request-consent")
     assert note in _text(locale, "request-consent-short")
 

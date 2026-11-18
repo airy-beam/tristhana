@@ -1,7 +1,7 @@
 ---
 title: "My teacher"
 description: "Connect with your teacher by their link or through your shala, and see exactly what they can and can't see."
-features: [ID-04, MD-02, NT-03, ID-07]
+features: [ID-04, MD-02, NT-03, ID-07, UI-06]
 ---
 
 Connect with your teacher by their link or through your shala, and see exactly what they can and can't see.
@@ -18,16 +18,18 @@ Accept only if you know the person: anyone can type any name.
 
 ## Pick your teacher at your shala
 
-No link from your teacher? If they teach at your shala, you can pick them in the bot.
+No link from your teacher? If they teach at your shala, you can pick them in the app or in the bot.
 
-1. Open :ftl[menu-open] → :ftl[menu-teacher] and tap your shala.
-2. Tap :ftl[request-open], then your teacher's name. :ftl[consent-details] has the full text of what they would see.
-3. Your teacher confirms. Until then the shala's card says :ftl[request-waiting-line]{from=bot name=Arjun}.
+1. In the app, open the :ftl[tab-shala] tab and tap :ftl[request-open]{from=app}: while you have no teacher, it is the first row. It is also on your shala's card, in the app and in the bot (:ftl[menu-open] → :ftl[menu-teacher] → your shala).
+2. Tap your teacher's name. The screen says in short what they would see, and :ftl[consent-details] has the full text.
+3. Your teacher confirms. Until then, the :ftl[tab-shala] tab and the shala's card say :ftl[request-waiting-line]{from=app name=Arjun}.
+
+![Picking a teacher in the app: the question, what the teacher would see, and the shala's teachers](../../../assets/shots/en/app-ask-teacher.webp)
 
 - Nothing from your log is shown until your teacher confirms. They get one message with your name.
 - When they confirm, the bot tells you. They see your days from the day you asked.
 - No answer after 7 days? The bot tells you, once. Ask them in class, or tap :ftl[request-pick-another].
-- To take a request back, tap :ftl[request-withdraw]{from=bot name=Arjun} on the shala's card, or :ftl[request-withdraw]{from=app} on the :ftl[tab-shala] tab in the app. Nobody gets a message.
+- To take a request back, tap :ftl[request-withdraw-short] under that line. Nobody gets a message.
 - You can ask up to three teachers in a week, and the same teacher again in about a month.
 - Pick only a teacher you know.
 
@@ -53,7 +55,7 @@ The bot asks the same question right after you join a shala: see [My shala](../m
 
 ![The list of teachers and shalas in the bot](../../../assets/shots/en/bot-teachers.webp)
 
-![The Shala tab in the app: My schedule, Announcements, your teacher and your shala](../../../assets/shots/en/app-shala-tab.webp)
+![The Shala tab in the app: My schedule, your shala, your teacher with Announcements, and the rows for teachers and shalas](../../../assets/shots/en/app-shala-tab.webp)
 
 - You can have several teachers. ⭐ marks your main one. If you haven't chosen a city yourself, your moon days follow the city they chose. If your main teacher teaches at your shala, the shala's calendar comes first.
 - Tap a name, then :ftl[links-remove]{from=bot} to take them off your list. Nobody gets a message.

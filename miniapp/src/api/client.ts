@@ -1075,6 +1075,11 @@ export type AskedTeacher = components["schemas"]["AskedTeacherOut"];
 export type StudentRequest = components["schemas"]["StudentRequestOut"];
 export type StudentRequests = components["schemas"]["StudentRequestsOut"];
 export type ApprovedAll = components["schemas"]["ApprovedAllOut"];
+// UI-06 stage 4B: asking a teacher from the app (ADR-0049). Types only, as above.
+export type TeacherChoices = components["schemas"]["TeacherChoicesOut"];
+export type TeacherChoice = components["schemas"]["TeacherChoiceOut"];
+export type AskBody = components["schemas"]["AskIn"];
+export type AskResult = components["schemas"]["AskResultName"];
 
 export const LINKS_KEY = ["links"];
 

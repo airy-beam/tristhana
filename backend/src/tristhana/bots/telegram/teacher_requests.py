@@ -34,7 +34,7 @@ from tristhana.bots.telegram.screens import Screen, button
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
 from tristhana.domain.teacher_links import shown_name
-from tristhana.domain.teacher_requests import AskState
+from tristhana.domain.teacher_requests import AskState, RequestConsent
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.shalas import ShalaScreens
@@ -42,11 +42,6 @@ if TYPE_CHECKING:
     from tristhana.bots.telegram.teacher_links import LinkScreens
 
 PAGE = 10
-# ADR-0031: the request stores the quiet-note consent of the screen that was tapped, and the
-# approval copies it. Both layers of `request-consent` name the note and share one confirm,
-# `h1:ta`, so that tap always agrees to it (pinned in `test_i18n_teacher_requests.py`). A
-# later consent item gets a new callback letter, never a new meaning for this one.
-QUIET_NOTE_AGREED = True
 
 # What the student's tap came to, as one line above Today. No line says or implies a "no".
 _ASKED: dict[AskState, str] = {
@@ -232,8 +227,12 @@ class RequestScreens:
         """`h1:ta`, the consent tap: Today with one line on top, whatever it came to."""
         locale = principal.account.locale
         try:
+            # ADR-0031, ADR-0049: both layers of `request-consent` share this one confirm,
+            # which names the consent they show (the app's ask names the same value); the
+            # domain says what it grants. A later set of promises gets a new value and a new
+            # callback letter, never a new meaning for this one.
             asked = await self._r.ask.execute(
-                principal, shala, teacher, quiet_note_agreed=QUIET_NOTE_AGREED
+                principal, shala, teacher, consent=RequestConsent.FIRST
             )
         except NotFound:  # left the shala since the screen was drawn
             return await self._links.overview(principal)

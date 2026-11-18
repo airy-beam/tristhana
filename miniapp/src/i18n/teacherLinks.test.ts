@@ -6,7 +6,6 @@ import { LOCALES } from "./negotiate";
 
 const KEYS = [
   "tab-shala",
-  "links-empty",
   "links-no-students",
   "links-primary-hint",
   "links-main-chosen",

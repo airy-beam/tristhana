@@ -1,11 +1,20 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { FluentBundle, FluentResource } from "@fluent/bundle";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkGuide, directivesIn, guideMap, stalePages } from "./check.mjs";
 import { guideDirectives } from "./directives.mjs";
-import { LabelError, createLabels, hiddenCommands, localeOfPath, menuCommands } from "./labels.mjs";
+import {
+  LOCALES,
+  LabelError,
+  SOURCES,
+  createLabels,
+  hiddenCommands,
+  localeOfPath,
+  menuCommands,
+} from "./labels.mjs";
 
 /** @type {string} */
 let root;
@@ -159,6 +168,128 @@ describe("words in step: the Settings rows read the same in the app and the bot"
         const bot = real.label(locale, key, args, "bot");
         expect(real.label(locale, key, args, "app"), `${key} (${locale})`).toBe(bot);
         expect(bot).not.toBe("");
+      }
+    }
+  });
+});
+
+// UI-06 stage 4B, ADR-0049: a student asks a teacher from the Mini App, and the consent they give
+// there is the bot's text. The app carries copies of the bot's messages under the same keys: the
+// question, both consent layers and the result lines (`ask.ftl`), and the request lines of both
+// sides (`requests.ftl`). Each copy must be the bot's message, byte for byte, so there is one
+// consent record (ADR-0045's item table runs on `bot.ftl`). Consent texts are several lines, so
+// this reads the bundles itself rather than through `label`, which takes one-line labels only.
+describe("words in step: the request and consent messages are the bot's (ADR-0049)", () => {
+  const NAMES = [{ name: "Anna" }, { name: "Лена Петрова-Водкина" }];
+  const ME = [{ me: " (Ash)" }, { me: "" }];
+  const COUNTS = ["1", "2", "3", "5", "21"].map((count) => ({ count }));
+  const NONE = [{}];
+  /** @type {Record<string, [string, Record<string, string>[]][]>} */
+  const COPIED = {
+    "ask.ftl": [
+      ["request-ask", NONE],
+      ["request-ask-one", NAMES],
+      ["request-yes", NONE],
+      ["request-consent-short", ME],
+      ["request-until-yes", NONE],
+      ["request-know-them", NONE],
+      ["request-consent", ME],
+      ["consent-details", NONE],
+      ["consent-short-back", NONE],
+      ["invite-decline", NONE],
+      ["request-asked", NAMES],
+      ["request-waiting", NAMES],
+      ["request-recent", NAMES],
+      ["request-too-many", NONE],
+      ["request-full", NONE],
+      ["invite-already", NAMES],
+    ],
+    "requests.ftl": [
+      ["request-open", NONE],
+      ["request-nobody", NONE],
+      ["request-withdrawn", NONE],
+      ["request-waiting-line", NAMES],
+      ["request-withdraw", NAMES],
+      ["request-withdraw-ask", NAMES],
+      ["request-withdraw-yes", NONE],
+      ["request-waiting-open", COUNTS],
+      ["request-list-empty", NONE],
+      ["request-list-hint", NONE],
+      ["request-yes-mine", NONE],
+      ["request-not-mine", NONE],
+      ["request-declined", NAMES],
+      ["request-undo", NONE],
+      ["request-gone", NONE],
+      ["request-list-full", NONE],
+      ["request-all", COUNTS],
+      ["request-all-ask", COUNTS],
+      ["request-all-yes", NONE],
+      ["request-all-done", COUNTS],
+      ["link-student-joined", NAMES],
+    ],
+  };
+  /** The app's own messages in `requests.ftl`: the bot has no such line. `request-withdraw-short`
+   * is the app's Withdraw beside a line that already names the teacher; the bot's button keeps
+   * `request-withdraw`, with the name. */
+  const APP_ONLY = ["request-load-failed", "request-withdraw-short", "request-teachers-title"];
+
+  /** Each message of a raw `.ftl` source, as written (its id line and indented lines). */
+  const sources = (/** @type {string} */ text) => {
+    /** @type {Record<string, string>} */
+    const out = {};
+    let current = "";
+    for (const line of text.split("\n")) {
+      const start = /^([a-z][a-z0-9-]*)\s*=/.exec(line);
+      if (start) out[(current = start[1])] = line;
+      else if (current && /^\s/.test(line)) out[current] += `\n${line}`;
+      else current = "";
+    }
+    return out;
+  };
+  const read = (/** @type {string} */ path) => readFileSync(path, "utf8");
+  const bot = (/** @type {string} */ locale) => read(join(SOURCES.bot, locale, "bot.ftl"));
+  const app = (/** @type {string} */ locale, /** @type {string} */ file) =>
+    read(join(SOURCES.app, locale, file));
+  const format = (
+    /** @type {string} */ text,
+    /** @type {string} */ locale,
+    /** @type {string} */ key,
+    /** @type {Record<string, string>} */ args,
+  ) => {
+    const bundle = new FluentBundle(locale, { useIsolating: false });
+    bundle.addResource(new FluentResource(text));
+    const message = bundle.getMessage(key);
+    if (!message?.value) throw new Error(`no "${key}" (${locale})`);
+    /** @type {Error[]} */
+    const errors = [];
+    const values = Object.fromEntries(
+      Object.entries(args).map(([n, v]) => [n, /^\d+$/.test(v) ? Number(v) : v]),
+    );
+    const out = bundle.formatPattern(message.value, values, errors);
+    if (errors.length) throw new Error(`"${key}" (${locale}): ${errors[0].message}`);
+    return out;
+  };
+
+  it.each(Object.keys(COPIED))("%s copies every message it has, and only those", (file) => {
+    for (const locale of LOCALES) {
+      const ids = Object.keys(sources(app(locale, file))).filter((id) => !APP_ONLY.includes(id));
+      expect(ids.sort(), `${file} (${locale})`).toEqual(COPIED[file].map(([k]) => k).sort());
+    }
+  });
+
+  /** @type {[string, string, Record<string, string>[]][]} */
+  const EACH = Object.entries(COPIED).flatMap(([file, keys]) =>
+    keys.map(([k, c]) => /** @type {[string, string, Record<string, string>[]]} */ ([file, k, c])),
+  );
+  it.each(EACH)("%s: %s", (file, key, cases) => {
+    for (const locale of LOCALES) {
+      const theirs = sources(bot(locale))[key];
+      const ours = sources(app(locale, file))[key];
+      expect(ours, `${key} (${locale}) as written`).toBe(theirs);
+      for (const args of cases) {
+        const said = format(bot(locale), locale, key, args);
+        expect(format(app(locale, file), locale, key, args), `${key} (${locale})`).toBe(said);
+        expect(said).not.toBe("");
       }
     }
   });
