@@ -156,6 +156,11 @@ describe("compose", () => {
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     expect(screen.getByText(/Name the day and time/)).toBeInTheDocument();
     expect(screen.queryByText(/students and staff/)).not.toBeInTheDocument();
+    // The shared form fields: each labelled, the text described by its counter and hint.
+    expect(screen.getByLabelText("Text")).toBe(box());
+    expect(box()).toHaveAccessibleDescription(/1001 \/ 1000.*Name the day and time/);
+    expect(box()).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("combobox", { name: "Pin it in the app" })).toHaveValue("0");
   });
 
   it("asks first, sends with the pin, then clears", async () => {

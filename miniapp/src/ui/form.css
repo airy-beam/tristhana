@@ -43,6 +43,12 @@ input.control {
   appearance: none;
 }
 
+textarea.control {
+  min-height: 132px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
 /* A number with its unit beside it: "105 min". */
 .control-unit {
   display: flex;
