@@ -225,7 +225,7 @@ def test_done_shows_the_button_on_any_day_and_the_details_never_do(
     details = _tap(client, f"p1:o:{_ymd(day)}")
     done = _tap(client, f"p1:v:{_ymd(day)}")
 
-    assert "Practice done 🙏" in saved["text"]
+    assert "🧘 Practiced\n🙏" in saved["text"]
     assert _no_entry(saved)  # the three buttons after 🧘 ask nothing else
     assert _no_entry(details)
     assert _entry(done, day)

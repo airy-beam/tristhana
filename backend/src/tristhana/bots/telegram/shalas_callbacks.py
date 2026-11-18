@@ -11,6 +11,7 @@ h1:c:<s>  h1:m:<s>:<page>  h1:v:<s>:<acct>             card, students page, stud
 h1:i:<s>  h1:q:<s>  h1:w:<s>  h1:wy:<s>                join link, QR, new link ask, new link
 h1:e:<s>  h1:e:<s>:<t|a|o|m>                           staff link: pick a role, create one
 h1:u:<s>:<acct>  h1:x:<s>:<acct>  h1:k:<s>  h1:ky:<s>  remove ask, remove, leave ask, leave
+h1:mo:<s>                                              Q373 (a): the card's other actions (More…)
 h1:t:<s>  h1:td:<s>  h1:tn:<s>                         ID-07: "who is your teacher here?", its
                                                        full text, not now (the card)
 h1:ta:<s>:<acct>                                       the consent tap: ask this teacher
@@ -32,9 +33,9 @@ from tristhana.domain.locale import LOCALES, Locale
 from tristhana.domain.shalas import ShalaRole, parse_shala_invite
 
 PREFIX = "h1"
-type OnShala = Literal["c", "i", "q", "w", "wy", "e", "k", "ky", "t", "td", "tn"]
+type OnShala = Literal["c", "i", "q", "w", "wy", "e", "k", "ky", "t", "td", "tn", "mo"]
 type OnMember = Literal["v", "u", "x", "ta", "tw", "tx"]
-_ON_SHALA = ("c", "i", "q", "w", "wy", "e", "k", "ky", "t", "td", "tn")
+_ON_SHALA = ("c", "i", "q", "w", "wy", "e", "k", "ky", "t", "td", "tn", "mo")
 _ON_MEMBER = ("v", "u", "x", "ta", "tw", "tx")
 _SHORT = re.compile(r"[A-Za-z0-9_-]{22}")
 ROLE_CODES: dict[str, ShalaRole] = {

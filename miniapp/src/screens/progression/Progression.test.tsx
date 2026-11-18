@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import type { Catalog, Progression as ProgressionValue } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
@@ -303,6 +303,44 @@ test("Telegram's Back closes the Change form and stays on the screen", async () 
 
   expect(screen.queryByLabelText("Last asana")).not.toBeInTheDocument();
   expect(onBack).not.toHaveBeenCalled();
+});
+
+test("the date sits with the new-asana marks; Change is a row of its own (Q367 a)", async () => {
+  stubApi();
+  renderWith(<Progression locale="en" onBack={vi.fn()} />);
+
+  const next = await screen.findByRole("button", { name: "🎉 New asana: Bhujapidasana" });
+  const group = next.closest('[role="group"].new-asana-group');
+  if (!(group instanceof HTMLElement)) throw new Error("no new-asana group");
+  expect(within(group).getByLabelText("Date")).toBeInTheDocument();
+  expect(within(group).getByLabelText("🎉 Another new asana…")).toBeInTheDocument();
+  expect(within(group).getByRole("button", { name: "🎉 Drop-backs" })).toBeInTheDocument();
+  expect(within(group).queryByRole("button", { name: "✏️ Change" })).toBeNull();
+
+  const change = screen.getByRole("button", { name: "✏️ Change" });
+  expect(group.contains(change)).toBe(false);
+  // Change comes after the group, never between a label and its field.
+  expect(group.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test("a new asana takes the picked date; Change sets where the practice ends now", async () => {
+  const seen = stubApi({
+    post: { progression: AT_NAVASANA, event: AT_NAVASANA.events[0], celebrations: [] },
+  });
+  renderWith(<Progression locale="en" onBack={vi.fn()} />);
+
+  fireEvent.change(await screen.findByLabelText("Date"), { target: { value: "2026-10-25" } });
+  fireEvent.click(screen.getByRole("button", { name: "🎉 New asana: Bhujapidasana" }));
+  await waitFor(() => {
+    expect(posts(seen)[0]).toMatchObject({ kind: "given", occurred_on: "2026-10-25" });
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "✏️ Change" }));
+  fireEvent.change(screen.getByLabelText("Last asana"), { target: { value: "kurmasana" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => {
+    expect(posts(seen)[1]).toMatchObject({ kind: "set", last: "kurmasana", occurred_on: null });
+  });
 });
 
 test("PracticeDetails asks after a length past the last asana; Yes celebrates", async () => {

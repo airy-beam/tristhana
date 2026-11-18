@@ -110,7 +110,8 @@ function Body({
     change.mutate(
       {
         ...body,
-        occurred_on: day && day !== today ? day : null,
+        // The date belongs to the new-asana group; Change sets where the practice ends now.
+        occurred_on: body.kind !== "set" && day && day !== today ? day : null,
         expected_event_id: progression.last_event_id,
       },
       {
@@ -186,62 +187,77 @@ function Body({
         ) : (
           <Current catalog={catalog} progression={progression} locale={locale} />
         )}
-        {progression.set && progression.next && (
-          <button
-            type="button"
-            className="row-button"
-            disabled={busy}
-            onClick={() => {
-              if (progression.next) send({ kind: "given", ...progression.next });
-            }}
-          >
-            {get(l10n, "progression-new", {
-              asana: stopLabel(catalog, progression.next, locale),
-            })}
-          </button>
-        )}
-        {progression.set && progression.later.length > 1 && (
-          <Field label={get(l10n, "progression-new-other")}>
-            <Select
-              value=""
-              disabled={busy}
-              onChange={(e) => {
-                const target = progression.later[Number(e.target.value)];
-                if (target) send({ kind: "given", ...target });
-              }}
-            >
-              <option value="" disabled />
-              {progression.later.slice(1).map((p, i) => (
-                <option key={`${p.series ?? ""}:${p.last ?? ""}`} value={i + 1}>
-                  {stopLabel(catalog, p, locale)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
         {progression.set && (
-          <div className="chips" role="group">
-            {catalog.milestone_items.map((item) => {
-              const given = progression.items.includes(item.key);
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  className="chip"
-                  aria-pressed={given}
+          // Q367 (a): marking a new asana is one group, its date with it; Change is apart.
+          <div className="details new-asana-group" role="group">
+            {today && (
+              <Field label={get(l10n, "progression-date")}>
+                <DateInput
+                  value={day}
+                  max={today}
+                  min="2000-01-01"
+                  onChange={(e) => {
+                    setDay(e.target.value || today);
+                  }}
+                />
+              </Field>
+            )}
+            {progression.next && (
+              <button
+                type="button"
+                className="row-button"
+                disabled={busy}
+                onClick={() => {
+                  if (progression.next) send({ kind: "given", ...progression.next });
+                }}
+              >
+                {get(l10n, "progression-new", {
+                  asana: stopLabel(catalog, progression.next, locale),
+                })}
+              </button>
+            )}
+            {progression.later.length > 1 && (
+              <Field label={get(l10n, "progression-new-other")}>
+                <Select
+                  value=""
                   disabled={busy}
-                  onClick={() => {
-                    send({ kind: given ? "item_removed" : "item_given", item: item.key });
+                  onChange={(e) => {
+                    const target = progression.later[Number(e.target.value)];
+                    if (target) send({ kind: "given", ...target });
                   }}
                 >
-                  {given
-                    ? itemLabel(l10n, catalog, item.key, locale)
-                    : get(l10n, "progression-item-new", {
-                        item: itemLabel(l10n, catalog, item.key, locale),
-                      })}
-                </button>
-              );
-            })}
+                  <option value="" disabled />
+                  {progression.later.slice(1).map((p, i) => (
+                    <option key={`${p.series ?? ""}:${p.last ?? ""}`} value={i + 1}>
+                      {stopLabel(catalog, p, locale)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            <div className="chips" role="group">
+              {catalog.milestone_items.map((item) => {
+                const given = progression.items.includes(item.key);
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className="chip"
+                    aria-pressed={given}
+                    disabled={busy}
+                    onClick={() => {
+                      send({ kind: given ? "item_removed" : "item_given", item: item.key });
+                    }}
+                  >
+                    {given
+                      ? itemLabel(l10n, catalog, item.key, locale)
+                      : get(l10n, "progression-item-new", {
+                          item: itemLabel(l10n, catalog, item.key, locale),
+                        })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
         {editing ? (
@@ -262,27 +278,17 @@ function Body({
             }
           />
         ) : (
-          <Localized id="progression-change">
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setEditing(true);
-              }}
-            />
-          </Localized>
-        )}
-        {today && (
-          <Field label={get(l10n, "progression-date")}>
-            <DateInput
-              value={day}
-              max={today}
-              min="2000-01-01"
-              onChange={(e) => {
-                setDay(e.target.value || today);
-              }}
-            />
-          </Field>
+          <div className="details">
+            <Localized id="progression-change">
+              <button
+                type="button"
+                className="link"
+                onClick={() => {
+                  setEditing(true);
+                }}
+              />
+            </Localized>
+          </div>
         )}
       </section>
       {progression.events.length > 0 && (

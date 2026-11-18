@@ -156,6 +156,19 @@ def can_view_private_classes(actor: Membership | None) -> bool:
     return actor is not None and actor.staff
 
 
+def main_shala_seat(account: Account) -> Membership | None:
+    """The caller's seat at their main shala as the account load carries it (Q373), so a
+    screen can choose its rows by a policy here without another read. None: no main shala."""
+    shala = account.shala
+    if shala is None:
+        return None
+    roles = frozenset(ShalaRole(r) for r in shala.roles if r in _ROLE_VALUES)
+    return Membership(shala.id, shala.owner, roles, not shala.staff)
+
+
+_ROLE_VALUES = frozenset(r.value for r in ShalaRole)
+
+
 def can_manage_schedule(actor: Membership | None) -> bool:
     """Classes, exceptions, closures and swaps (Q118); the day off and the moon policy stay
     with `can_edit_shala`."""

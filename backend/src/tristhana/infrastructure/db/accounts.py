@@ -99,9 +99,10 @@ _STAFF_AT = shala_staff.alias("staff_at")
 _TEACHER_AT = shala_staff.alias("teacher_at")
 _STUDENT_OF = shala_student.alias("student_of")
 _SHALA = shala.alias("main_shala")
+_OWNED = shala.alias("owned_by")
 
 
-def _shala_json(staff: Any, teacher_on_staff: Any) -> Any:
+def _shala_json(staff: Any, teacher_on_staff: Any, owner: Any, roles: Any, owns_any: Any) -> Any:
     return func.jsonb_build_object(
         "id",
         _SHALA.c.id,
@@ -115,11 +116,28 @@ def _shala_json(staff: Any, teacher_on_staff: Any) -> Any:
         staff,
         "teacher_on_staff",
         teacher_on_staff,
+        "owner",
+        owner,
+        "roles",
+        roles,
+        "owns",
+        owns_any,
     )
 
 
+# Q373: the seat at the main shala, and whether the person owns any shala (one probe of
+# `shala_owner_id_idx`, on the staff branch only: an owner is always on their shala's staff).
+# Correlated to the outer `account` explicitly: two levels down, auto-correlation would let
+# the EXISTS read `account` as a FROM of its own (any owner of any shala).
+_OWNS_ANY = exists().where(_OWNED.c.owner_id == account.c.id).correlate(account)
+
+
 _AS_STAFF = (
-    select(_shala_json(true(), false()))
+    select(
+        _shala_json(
+            true(), false(), _SHALA.c.owner_id == account.c.id, _STAFF_AT.c.roles, _OWNS_ANY
+        )
+    )
     .select_from(_STAFF_AT.join(_SHALA, _SHALA.c.id == _STAFF_AT.c.shala_id))
     .where(_STAFF_AT.c.account_id == account.c.id)
     .order_by(_STAFF_AT.c.created_at, _SHALA.c.id)
@@ -132,7 +150,7 @@ _TEACHER_ON_STAFF = exists().where(
     _TEACHER_AT.c.account_id == _main_teacher_of(_TEACHER.c.id),
 )
 _AS_STUDENT = (
-    select(_shala_json(false(), _TEACHER_ON_STAFF))
+    select(_shala_json(false(), _TEACHER_ON_STAFF, false(), null(), false()))
     .select_from(_STUDENT_OF.join(_SHALA, _SHALA.c.id == _STUDENT_OF.c.shala_id))
     .where(_STUDENT_OF.c.account_id == account.c.id)
     .order_by(_TEACHER_ON_STAFF.desc(), _STUDENT_OF.c.created_at, _SHALA.c.id)
@@ -457,6 +475,9 @@ def to_shala(found: dict[str, Any] | None) -> ShalaMoon | None:
         found["staff"],
         found["teacher_on_staff"],
         found.get("city"),
+        owner=bool(found.get("owner")),
+        roles=frozenset(found.get("roles") or ()),
+        owns_any=bool(found.get("owns")),
     )
 
 

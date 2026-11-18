@@ -117,7 +117,7 @@ def test_practiced_shows_two_buttons_without_a_previous_practice(client: TestCli
     body = _tap(client, f"d1:s:{d}:p")
 
     assert body["text"].startswith("✓ Today, ")
-    assert "Practice done 🙏" in body["text"]
+    assert "🧘 Practiced\n🙏" in body["text"]
     assert "Add details? Optional" not in body["text"]  # the buttons say it
     assert _rows(body) == [["📝 Add details"], ["✓ Done"], CITY]  # nothing to copy yet
     assert [b["callback_data"] for b in _buttons(body)] == [
@@ -196,7 +196,7 @@ def test_add_details_opens_the_details_screen(
 
     body = _tap(client, _data(saved, "📝 Add details"))
 
-    assert "Practice done 🙏" in body["text"]
+    assert "🧘 Practiced\n🙏" in body["text"]
     assert body["text"].endswith("Add details? Optional, one tap is enough.")
     assert "Last time" not in body["text"]
     assert _rows(body) == [

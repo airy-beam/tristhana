@@ -41,7 +41,7 @@ On the card, depending on your role:
 - :ftl[shala-students]{n=12}: the shala's students;
 - :ftl[shala-invite-students]: the link that lets students join the shala.
 
-Later the card is under :ftl[menu-open] → :ftl[menu-teacher] → the shala, or :ftl[menu-help] → :ftl[help-shala-classes]. In the app, open the :ftl[tab-shala] tab and tap the shala.
+Later the card is under :ftl[menu-open] → :ftl[menu-teacher] → the shala, or, if your role changes the schedule, :ftl[menu-help] → :ftl[help-shala-classes]. In the app, open the :ftl[tab-shala] tab and tap the shala.
 
 ## Your week
 
@@ -60,7 +60,7 @@ Your moon days now follow the shala's, unless you chose your own city, or to fol
 
 ## Leave
 
-On the shala's card, tap :ftl[shala-leave] and then :ftl[shala-leave-yes]. Nobody gets a message, and your log stays as it is. With the :ftl[shala-role]{role=teacher} role, the question adds: :ftl[shala-leave-own-students]
+On the shala's card, tap :ftl[shala-leave] (a manager finds it under :ftl[shala-more-button]) and then :ftl[shala-leave-yes]. Nobody gets a message, and your log stays as it is. With the :ftl[shala-role]{role=teacher} role, the question adds: :ftl[shala-leave-own-students]
 
 ## Good to know
 

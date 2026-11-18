@@ -125,7 +125,10 @@ class TeacherMoon:
 class ShalaMoon:
     """The main shala (SC-01): its moon city (`moon_city`, else its city; maybe since removed
     from the list), whether the person is staff there, and whether their main teacher is.
-    `city` is the shala's own city: the fallback when its moon city was removed (Q111)."""
+    `city` is the shala's own city: the fallback when its moon city was removed (Q111).
+    For a staff row also the person's seat there, `owner` and `roles` (`ShalaRole` values),
+    and `owns_any`: whether they own a shala, this one or another (Q373: Help's "Shala
+    classes" and Today's shala step read them without another statement)."""
 
     id: UUID
     name: str
@@ -133,6 +136,9 @@ class ShalaMoon:
     staff: bool
     teacher_on_staff: bool
     city: str | None = None
+    owner: bool = False
+    roles: frozenset[str] = frozenset()
+    owns_any: bool = False
 
 
 @dataclass(frozen=True, slots=True)

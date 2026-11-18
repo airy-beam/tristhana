@@ -1035,3 +1035,17 @@ def test_ru_my_data_copy_is_gender_neutral() -> None:
             assert not stripped.endswith("(а)"), (key, word)  # noqa: RUF001
         assert "ты удалил" not in value, key
         assert "ты скачал" not in value, key
+
+
+@pytest.mark.parametrize(
+    ("locale", "day", "label"),
+    [
+        ("en", "Today, Wed, Nov 18", "🧘 Practiced"),
+        ("ru", "Сегодня, 18 ноября", "🧘 Практика"),
+    ],
+)
+def test_the_practiced_reply_does_not_repeat_the_status(locale: str, day: str, label: str) -> None:
+    # Q367 (b): the status line already says 🧘; the second line is only the bow.
+    text = FluentTranslator().t(locale, "log-saved", day=day, label=label, status="practiced")  # type: ignore[arg-type]
+
+    assert text == f"✓ {day}: {label}\n🙏"

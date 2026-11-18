@@ -23,7 +23,7 @@ from aiogram.types import (
     WebAppInfo,
 )
 
-from tristhana.application.policies import Principal
+from tristhana.application.policies import Principal, can_manage_schedule, main_shala_seat
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.teacher_links import LinkUseCases
 from tristhana.bots.telegram import classes_callbacks as ccb
@@ -237,7 +237,9 @@ class HomeScreens:
             [self._button(locale, "help-join", tcb.plain("o"))],
         ]
         shala = principal.account.shala
-        if shala is not None and shala.staff:  # UI-06 stage 6 (C17): the card, its Classes
+        # UI-06 stage 6 (C17): the card, its Classes; Q373 (d): only for a seat that may
+        # manage the schedule there, read from the account (no extra statement).
+        if shala is not None and can_manage_schedule(main_shala_seat(principal.account)):
             rows.append(
                 [self._button(locale, "help-shala-classes", shalas_cb.on_shala("c", shala.id))]
             )
