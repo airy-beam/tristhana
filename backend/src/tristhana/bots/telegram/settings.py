@@ -109,10 +109,17 @@ def register_settings(
         location = message.location
         if location is None or location.live_period or message.from_user is None:
             return None
-        text = await screens.zone_from_location(
+        found = await screens.zone_from_location(
             Principal(account), location.latitude, location.longitude, message.from_user
         )
-        return None if text is None else message.answer(text, reply_markup=ReplyKeyboardRemove())
+        if found is None:
+            return None
+        text, saved = found
+        # The line takes the location keyboard away (only a new message can), then Settings
+        # follows with its rows, the city one tap away (UI-06 stage 6, C13).
+        await message.answer(text, reply_markup=ReplyKeyboardRemove())
+        screen = screens.view(Principal(saved))
+        return message.answer(screen.text, reply_markup=screen.markup)
 
 
 class SettingsScreens:
@@ -156,8 +163,9 @@ class SettingsScreens:
             case "utc":
                 patch = ProfilePatch(timezone="UTC", home_city=None)
                 return await self._profile(principal, patch, client)
-            case "not_now":  # the retired city nudge, on an old message (UI-06 §5)
-                return await self._profile(principal, ProfilePatch(home_city=NOT_NOW), client)
+            case "not_now":  # "Not now" under the city question (B7), and the retired nudge
+                patch = ProfilePatch(home_city=NOT_NOW)
+                return await self._profile(principal, patch, client, lead="settings-city-later")
             case "unlisted":  # sent as a new message by the handler
                 return None
             case "day_off_pick":
@@ -180,13 +188,17 @@ class SettingsScreens:
                 return self.more(Principal(account))
 
     async def _profile(
-        self, principal: Principal, patch: ProfilePatch, client: ExternalProfile
+        self,
+        principal: Principal,
+        patch: ProfilePatch,
+        client: ExternalProfile,
+        lead: str | None = None,
     ) -> Screen:
         try:
             account = await self._s.profile.execute(principal, patch, client)
         except (UnknownCity, InvalidTimezone):  # stale or forged
-            return self.view(principal)
-        return self.view(Principal(account))
+            return self.view(principal, lead)
+        return self.view(Principal(account), lead)
 
     async def location_prompt(self, principal: Principal) -> tuple[str, ReplyKeyboardMarkup]:
         """ "My city isn't listed": ask for a location once (the zone comes from it)."""
@@ -201,17 +213,18 @@ class SettingsScreens:
 
     async def zone_from_location(
         self, principal: Principal, lat: float, lon: float, user: User
-    ) -> str | None:
-        """The reply to a shared location; None when this bot doesn't take locations."""
+    ) -> tuple[str, Account] | None:
+        """The line answering a shared location, and the account as it now is; None when
+        this bot doesn't take locations."""
         if self._s.zone_from_location is None:
             return None
         locale = principal.account.locale
         saved = await self._s.zone_from_location.execute(principal, lat, lon, client_profile(user))
         if saved is None or saved.timezone is None:
-            return self._t.t(locale, "settings-location-unknown")
+            return self._t.t(locale, "settings-location-unknown"), saved or principal.account
         today, _ = self._s.today(Principal(saved))
         zone = self._zone_label(saved.locale, saved.timezone, today, None)
-        return self._t.t(saved.locale, "settings-location-zone", zone=zone)
+        return self._t.t(saved.locale, "settings-location-zone", zone=zone), saved
 
     def day_off(self, principal: Principal) -> Screen:
         locale = principal.account.locale
@@ -227,8 +240,10 @@ class SettingsScreens:
     def _back(self, locale: Locale) -> list[InlineKeyboardButton]:
         return [button(self._t, locale, "log-back", _data(action="view"))]
 
-    def view(self, principal: Principal) -> Screen:
-        """G0: five rows, each label carrying its value, from the loaded account alone."""
+    def view(self, principal: Principal, lead: str | None = None) -> Screen:
+        """G0: five rows, each label carrying its value, from the loaded account alone.
+        `lead`: a key for one line on top ("Not now" on the city question says the city
+        stays here)."""
         account = principal.account
         locale = account.locale
         today, _ = self._s.today(principal)
@@ -259,9 +274,9 @@ class SettingsScreens:
             [button(self._t, locale, "settings-more-button", _data(action="more"))],
             menu_row(self._t, locale),
         ]
-        return Screen(
-            self._t.t(locale, "settings-title"), InlineKeyboardMarkup(inline_keyboard=rows)
-        )
+        title = self._t.t(locale, "settings-title")
+        text = f"{self._t.t(locale, lead)}\n\n{title}" if lead else title
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     def languages(self, principal: Principal) -> Screen:
         """G1: the three choices, ✓ on the current one."""

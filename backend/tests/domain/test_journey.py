@@ -8,7 +8,7 @@ from uuid import UUID
 
 import pytest
 
-from tristhana.domain.accounts import Account
+from tristhana.domain.accounts import NOT_LISTED, Account
 from tristhana.domain.days import DayStatus
 from tristhana.domain.journey import (
     INVITE_FRESH_DAYS,
@@ -18,6 +18,7 @@ from tristhana.domain.journey import (
     NextStep,
     OwnedShala,
     Step,
+    asks_for_city,
     front_door,
     menu_for,
     next_steps,
@@ -36,7 +37,7 @@ STUDENT_OF = ShalaMoon(UUID(int=20), "Ashtanga Almaty", "almaty", False, False)
 STAFF_AT = ShalaMoon(UUID(int=21), "Ashtanga Almaty", "almaty", True, False)
 
 M = MenuItem
-BASE = (M.TODAY, M.PRACTICE, M.MOON, M.TEACHER, M.SETTINGS, M.HELP)
+BASE = (M.TODAY, M.PRACTICE, M.ASANAS, M.MOON, M.TEACHER, M.SETTINGS, M.HELP)
 
 
 # The front door
@@ -77,8 +78,8 @@ def test_a_logged_day_skips_the_front_door() -> None:
 
 def test_the_order_is_the_enums_order() -> None:
     assert list(MenuItem) == [
-        M.TODAY, M.PRACTICE, M.MOON, M.CLASSES, M.TEACHER, M.STUDENTS, M.SETTINGS, M.HELP,
-        M.TEACH,
+        M.TODAY, M.PRACTICE, M.ASANAS, M.MOON, M.CLASSES, M.TEACHER, M.STUDENTS, M.SETTINGS,
+        M.HELP, M.TEACH,
     ]  # fmt: skip
 
 
@@ -93,28 +94,37 @@ def test_a_student_with_a_teacher_has_the_same_menu() -> None:
 def test_a_shala_student_gets_classes_and_keeps_the_quiet_row() -> None:
     """Q310: joining a shala as a student does not hide "For teachers and shalas"."""
     assert menu_for(replace(NOBODY, shala=STUDENT_OF)) == (
-        M.TODAY, M.PRACTICE, M.MOON, M.CLASSES, M.TEACHER, M.SETTINGS, M.HELP, M.TEACH,
+        M.TODAY, M.PRACTICE, M.ASANAS, M.MOON, M.CLASSES, M.TEACHER, M.SETTINGS, M.HELP,
+        M.TEACH,
     )  # fmt: skip
 
 
 def test_a_teacher_gets_my_students_and_no_quiet_row() -> None:
     assert menu_for(replace(NOBODY, teaches=True)) == (
-        M.TODAY, M.PRACTICE, M.MOON, M.TEACHER, M.STUDENTS, M.SETTINGS, M.HELP,
+        M.TODAY, M.PRACTICE, M.ASANAS, M.MOON, M.TEACHER, M.STUDENTS, M.SETTINGS, M.HELP,
     )  # fmt: skip
 
 
 def test_staff_without_students_get_classes_and_keep_the_quiet_row() -> None:
     # A teacher on a shala's staff with no students yet still needs the way to the first invite.
     assert menu_for(replace(NOBODY, shala=STAFF_AT)) == (
-        M.TODAY, M.PRACTICE, M.MOON, M.CLASSES, M.TEACHER, M.SETTINGS, M.HELP, M.TEACH,
+        M.TODAY, M.PRACTICE, M.ASANAS, M.MOON, M.CLASSES, M.TEACHER, M.SETTINGS, M.HELP,
+        M.TEACH,
     )  # fmt: skip
 
 
-def test_a_teacher_on_staff_gets_all_eight_rows() -> None:
+def test_a_teacher_on_staff_gets_all_nine_rows() -> None:
     both = replace(NOBODY, teaches=True, shala=STAFF_AT)
 
     assert menu_for(both) == tuple(m for m in MenuItem if m is not M.TEACH)
-    assert len(menu_for(both)) == 8
+    assert len(menu_for(both)) == 9
+
+
+def test_my_asanas_follows_my_practice_for_everyone() -> None:
+    """UI-06 stage 6 (C9): My asanas was only under Help."""
+    for account in (NOBODY, replace(NOBODY, teaches=True, shala=STAFF_AT)):
+        menu = list(menu_for(account))
+        assert menu.index(M.ASANAS) == menu.index(M.PRACTICE) + 1
 
 
 def test_a_teacher_who_is_a_student_of_a_shala_has_no_quiet_row() -> None:
@@ -125,7 +135,7 @@ def test_a_teacher_who_is_a_student_of_a_shala_has_no_quiet_row() -> None:
 @pytest.mark.parametrize("teacher", [None, ANNA])
 @pytest.mark.parametrize("shala", [None, STUDENT_OF, STAFF_AT])
 @pytest.mark.parametrize("welcomed", [False, True])
-def test_at_most_eight_rows_plus_the_quiet_one_in_the_fixed_order(
+def test_at_most_nine_rows_in_the_fixed_order(
     teaches: bool, teacher: TeacherMoon | None, shala: ShalaMoon | None, welcomed: bool
 ) -> None:
     account = replace(NOBODY, teaches=teaches, main_teacher=teacher, shala=shala, welcomed=welcomed)
@@ -135,7 +145,7 @@ def test_at_most_eight_rows_plus_the_quiet_one_in_the_fixed_order(
     order = list(MenuItem)
     assert sorted(menu, key=order.index) == list(menu)
     assert len(set(menu)) == len(menu)
-    assert len([m for m in menu if m is not M.TEACH]) <= 8
+    assert len(list(menu)) <= 9
     assert set(BASE) <= set(menu)
     assert (M.TEACH in menu) == (not teaches)
     assert (M.TEACH in menu) != (M.STUDENTS in menu)
@@ -398,3 +408,25 @@ def test_steps_are_unique_in_the_fixed_order_and_name_only_owned_shalas(
     if not has_days:
         assert N.REMINDER not in found
         assert N.POSITION not in found
+
+
+# The city question after a save (UI-06 stage 6, B7)
+
+
+def test_the_city_is_asked_while_neither_a_zone_nor_a_city_is_known() -> None:
+    assert asks_for_city(replace(NOBODY, timezone=None, home_city=None)) is True
+
+
+@pytest.mark.parametrize(
+    ("timezone", "home_city"),
+    [
+        ("Asia/Almaty", None),  # a zone from the app or a location
+        (None, NOT_LISTED),  # "Not now", or "my city isn't listed"
+        ("Asia/Almaty", "almaty"),  # a city (it sets the zone)
+    ],
+    ids=["zone", "not-listed", "city"],
+)
+def test_a_zone_or_any_city_answer_ends_the_question(
+    timezone: str | None, home_city: str | None
+) -> None:
+    assert asks_for_city(replace(NOBODY, timezone=timezone, home_city=home_city)) is False

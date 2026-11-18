@@ -149,7 +149,7 @@ describe("DayEditor: the three-choice card", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Mar 1" })).toBeInTheDocument();
     expect(await screen.findByText("Practice or rest? Both go in your log.")).toBeInTheDocument();
     // An earlier day can get a note before it is logged; nothing to clear yet.
-    expect(controls()).toEqual(["🧘 Practiced", "😌 Rest day", "Other…", "📓 Add a note", "Done"]);
+    expect(controls()).toEqual(["🧘 Practiced", "😌 Rest day", "Other…", "📓 Note", "Done"]);
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
     expect(onClose).toHaveBeenCalledOnce();
@@ -165,7 +165,7 @@ describe("DayEditor: the three-choice card", () => {
     expect(change).toHaveAccessibleDescription("😌 Rest day"); // the day's one line
     expect(screen.queryByText(/In your log/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Practice or rest/)).not.toBeInTheDocument();
-    expect(controls()).toEqual(["Change", "📓 Add a note", "Done"]);
+    expect(controls()).toEqual(["Change", "📓 Note", "Done"]);
 
     fireEvent.click(change);
 
@@ -175,7 +175,7 @@ describe("DayEditor: the three-choice card", () => {
       "😌 Rest day",
       "Other…",
       "Clear",
-      "📓 Add a note",
+      "📓 Note",
       "Done",
     ]);
     expect(screen.getByRole("button", { name: "😌 Rest day" })).toHaveAttribute(

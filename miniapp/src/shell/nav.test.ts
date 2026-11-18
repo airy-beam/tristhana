@@ -50,6 +50,42 @@ describe("launchNav: where a bot button's ?open=… lands (the values are a cont
     });
   });
 
+  // UI-06 stage 6 (spec §2): the bot's shala card, its week and My schedule open the app where
+  // the work is. The card is the root's own layer: Back from it finds the Shala root.
+  test.each([
+    ["shala", "shala"],
+    ["class", "class"],
+    ["edit-shala", "edit"],
+  ])("%s with a shala opens that shala's card (%s)", (open, start) => {
+    const nav = launchNav(`?open=${open}&shala=${SHALA}`);
+
+    expect(nav).toEqual({ tab: "shala", stack: [], start: `${start}:${SHALA}` });
+    expect(navigate(nav, { type: "pop" })).toBe(nav);
+  });
+
+  test.each([
+    "?open=shala",
+    "?open=shala&shala=",
+    "?open=shala&shala=not-a-uuid",
+    "?open=class",
+    `?open=class&shala=${SHALA}x`,
+    "?open=edit-shala&shala=1%20OR%201",
+  ])("a shala target without a real shala id opens the Shala root: %s", (search) => {
+    expect(launchNav(search)).toEqual(root("shala"));
+  });
+
+  test("schedule opens My schedule over the Shala tab, so Back lands on the Shala root", () => {
+    const nav = launchNav("?open=schedule");
+
+    expect(nav).toEqual({ tab: "shala", stack: [{ name: "schedule" }], start: null });
+    expect(navigate(nav, { type: "pop" })).toEqual(root("shala"));
+  });
+
+  test("an id in another case is still a uuid", () => {
+    const upper = SHALA.toUpperCase();
+    expect(launchNav(`?open=shala&shala=${upper}`).start).toBe(`shala:${upper}`);
+  });
+
   // UI-06 stage 3 (QF): the bot's "⚙️ More in the app".
   test("settings opens Settings over Today, so Back lands on Today", () => {
     const nav = launchNav("?open=settings");

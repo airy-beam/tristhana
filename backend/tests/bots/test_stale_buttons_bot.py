@@ -180,11 +180,13 @@ async def _seed_for(w: World, data: str) -> None:
     practiced = (frozen.DAY, DayLog(frozen.DAY, DayStatus.PRACTICED))
     under_practice = (("r1", "y"), ("r1", "n"), ("g1", "n"))
     asked_on_day = data.startswith("g1:g:") and data.endswith(f":{D}")  # "Yes, new" on P
+    note_on_done = prefix == "n1" and data.endswith(":v")  # 📓 Note on the done summary V
     if (
         prefix in ("p1", "k1")
         or (prefix, letter) in under_practice
         or data.endswith(":k")
         or asked_on_day
+        or note_on_done
     ):
         w.storage.day_repo.rows[(w.me, practiced[0])] = (practiced[1], None)
     if (prefix, letter) == ("g1", "g"):
@@ -201,6 +203,10 @@ async def _seed_for(w: World, data: str) -> None:
     if (prefix, letter) in (("h1", "a"), ("h1", "b"), ("h1", "l")):
         # ... and a shala's to someone who is not in it yet.
         del w.storage.shalas.staff[(frozen.SHALA, w.me)]
+    if (prefix, letter) == ("h1", "ls") and frozen.SHALA in w.storage.shalas.shalas:
+        # The staff consent's language row (stage 6): not in the shala yet, the link open.
+        del w.storage.shalas.staff[(frozen.SHALA, w.me)]
+        w.storage.shalas.add_invite(frozen.SHALA, frozen.SHALA_CODE, ShalaRole.ASSISTANT)
     if (prefix, letter) == ("h1", "b"):
         w.storage.shalas.add_invite(frozen.SHALA, frozen.SHALA_CODE, ShalaRole.ASSISTANT)
     if (prefix, letter) == ("a1", "k"):
@@ -222,7 +228,7 @@ AFTER_PRACTICED = f"p1:v:{D}"  # the buttons after 🧘 (P0): ✓ Done
 DETAILS = f"p1:c:{D}:"  # the details (P1): the class types
 DONE = (f"p1:o:{D}", "w1:m")  # the done screen (V): 📝 Details and the Menu
 CHECK_IN = f"k1:e:{D}:"  # the check-in screen: the energy chips
-REMINDER = "r1:t:"  # the practice reminder: the send times
+REMINDER = "r1:a:"  # the practice reminder: the send times ("remind me at", stage 6 C10)
 SETTINGS = "s1:lp"
 MOON = ("m1:c:0", "w1:m")
 SHALA_CARD = "h1:k:"  # a shala's card: Leave…
@@ -643,10 +649,100 @@ def test_pick_another_under_an_old_no_answer_note_opens_that_shalas_question(w: 
     assert T.t("en", "request-ask") in text or T.t("en", "request-ask-one", name="Boris") in text
 
 
+# UI-06 stage 6: new data on old prefixes, (in the full world, in the bare one). Today's
+# choices carry `d1:n` (ADR-0051): on the list's own day they save as `d1:s` does; from an
+# earlier day's Today they ask which day, with both dates as `d1:s` and Back to Today. The done
+# summary's 📓 Note is `n1:…:v`, and its Back returns there.
+YESTERDAY = f"{frozen.DAY - timedelta(days=1):%Y%m%d}"
+WHICH_DAY = (f"d1:s:{D}:p", f"d1:s:{YESTERDAY}:p", "w1:n")
+STAGE6: dict[str, tuple[str | tuple[str, ...], str | tuple[str, ...]]] = {
+    f"d1:n:{D}:p": (AFTER_PRACTICED, AFTER_PRACTICED),
+    f"d1:n:{D}:r": (SAVED, SAVED),
+    f"d1:n:{D}:k": (SAVED, SAVED),
+    f"d1:n:{YESTERDAY}:p": (WHICH_DAY, WHICH_DAY),
+    f"n1:o:{D}:v": (f"n1:w:{D}:v", f"n1:w:{D}:v"),
+    f"n1:b:{D}:v": (DONE, DONE),
+    # C4: the staff consent's language row (`h1:l` stays the join consent's): the consent
+    # again with its own confirm, or Today with the invalid line once the link is gone.
+    f"h1:ls:ru:{frozen.SHALA_CODE}": (f"h1:b:{frozen.SHALA_CODE}", TODAY),
+    # C10: the reminder screen's time chips save the time and turn it on (`r1:t` keeps its
+    # meaning under older screens: the time only).
+    "r1:a:1000": (REMINDER, REMINDER),
+}
+
+
+def test_the_stage_6_data_is_new() -> None:
+    assert not set(STAGE6) & set(frozen.PRE_UI06_CALLBACKS)  # new data, no old meaning
+
+
+@pytest.mark.parametrize("world", ["w", "bare"])
+@pytest.mark.parametrize("data", STAGE6)
+async def test_the_data_stage_6_added_gets_a_screen(
+    world: str, data: str, request: pytest.FixtureRequest
+) -> None:
+    w: World = request.getfixturevalue(world)
+    await _seed_for(w, data)
+
+    _assert_screen(w, data, {data: STAGE6[data][world == "bare"]})
+
+    assert len(data.encode()) <= 64
+
+
+@pytest.mark.parametrize("world", ["w", "bare"])
+def test_a_tap_on_yesterdays_today_asks_which_day_and_saves_nothing(
+    world: str, request: pytest.FixtureRequest
+) -> None:
+    w: World = request.getfixturevalue(world)
+    logged = dict(w.storage.day_repo.rows)
+
+    text = _assert_screen(w, f"d1:n:{YESTERDAY}:p", {"d1": WHICH_DAY})
+
+    assert text.strip() == T.t("en", "today-which-day", label=T.t("en", "status-practiced"))
+    assert w.storage.day_repo.rows == logged
+
+
+def test_the_same_tap_a_day_later_asks_and_the_answer_saves_its_own_date(w: World) -> None:
+    """The list's own Today (`d1:n` on the 15th), tapped on the 16th."""
+    w.later(days=1)
+
+    asked = _tap(w, f"d1:n:{D}:r")
+    rows = asked["reply_markup"]["inline_keyboard"]
+    answer = _tap(w, rows[1][0]["callback_data"])  # the date the message was drawn for
+
+    assert [len(row) for row in rows] == [1, 1, 1]  # one date per row, then Back
+    assert [row[0]["callback_data"] for row in rows] == [
+        f"d1:s:{frozen.DAY + timedelta(days=1):%Y%m%d}:r",
+        f"d1:s:{D}:r",
+        "w1:n",
+    ]
+    assert answer["text"].startswith("✓ Yesterday, Sun, Nov 15")
+    assert w.storage.day_repo.rows[(w.me, frozen.DAY)][0].status is DayStatus.REST
+
+
 def _taps(body: Any) -> dict[str, str]:
     """Label → callback data of a reply's buttons (URL and Mini App buttons left out)."""
     rows = body["reply_markup"]["inline_keyboard"]
     return {b["text"]: b["callback_data"] for row in rows for b in row if "callback_data" in b}
+
+
+# The taps that only show a screen: never a save, remove, leave, rotate or consent. The way
+# back test follows these one tap further. An entry ending in ":" is a prefix, else exact.
+_SHOWS = (
+    *("w1:n", "w1:h", "w1:o", "w1:s:"),  # Today, Help, For teachers, Shala and classes
+    *("d1:w:", "d1:o:", "d1:r:"),  # Another day (the week), a day's editor, Other…
+    *("c1:w:", "c1:m:", "c1:f:s"),  # a shala's week, My schedule, the calendar link
+    *("h1:c:", "h1:m:"),  # a shala's card (with its Classes), its students
+    *("t1:o", "t1:s:", "t1:c:", "t1:v:"),  # Teacher and shala, My students, the cards
+    *("s1:v", "s1:lp", "s1:r", "s1:m", "s1:cp:", "s1:o"),  # Settings and its inner screens
+    *("m1:v", "m1:r", "m1:c:"),  # Moon days, its reminders, its city picker
+    *("g1:o", "g1:a:", "g1:c"),  # My asanas, the series picker, ✏️ Change
+    *("r1:v", "r1:dp"),  # the practice reminder, its day off picker
+    "b1:l:",  # an announcements feed
+)
+
+
+def _shows(data: str) -> bool:
+    return any(data.startswith(s) if s.endswith(":") else data == s for s in _SHOWS)
 
 
 @pytest.mark.parametrize("world", ["w", "bare"])
@@ -655,22 +751,40 @@ def test_every_screen_the_menu_and_help_open_has_a_way_back(
     world: str, hub: str, request: pytest.FixtureRequest
 ) -> None:
     """UI-06 §2: `[☰ Menu]` is the last row of every top-level screen, and inner screens
-    keep Back; nothing a person opens from the Menu or from Help is a dead end."""
+    keep Back; nothing a person opens from the Menu or from Help is a dead end. Two taps
+    deep (stage 6, B8): Today's 📅 Another day, the calendar link, a shala's card."""
     w: World = request.getfixturevalue(world)
-    back = {T.t("en", "log-back"), T.t("en", "today-back")}
+    # Back, or a row naming the screen it returns to (⚙️ Settings, 🧘 Practice reminder).
+    keys = ("log-back", "today-back", "settings-link", "remind-practice-link")
+    back = {T.t("en", key) for key in keys}
     opened = _taps(_tap(w, hub))
     assert len(opened) >= 5, opened
 
-    dead_ends = [
-        f"{label} ({data})"
-        for label, data in opened.items()
-        if data != "w1:m"  # the Menu itself is where the row leads
-        and (screen := _taps(_tap(w, data)))
-        and "w1:m" not in screen.values()
-        and not back & set(screen)
-    ]
+    seen: set[str] = {hub, "w1:m"}  # the Menu itself is where the row leads
+    dead_ends: list[str] = []
+    level = {data: label for label, data in opened.items() if data not in seen}
+    for depth in (1, 2):
+        seen |= set(level)
+        following: dict[str, str] = {}
+        for data, label in level.items():
+            screen = _taps(_tap(w, data))
+            if screen and "w1:m" not in screen.values() and not back & set(screen):
+                dead_ends.append(f"{label} ({data})")
+            if depth == 1:
+                following |= {
+                    inner_data: f"{label} → {inner}"
+                    for inner, inner_data in screen.items()
+                    if inner_data not in seen and _shows(inner_data)
+                }
+        level = following
+    reached = seen
 
     assert dead_ends == []
+    assert any(d.startswith("d1:w:") for d in reached)  # Today's 📅 Another day
+    if world == "w":  # the shala's card: Teacher and shala, or Help's 🗓 Shala classes
+        assert any(d.startswith("h1:c:") for d in reached)
+    if world == "w" and hub == "w1:m":  # the calendar link, from My schedule or Moon days
+        assert "c1:f:s" in reached
 
 
 def test_the_world_is_on_the_lists_own_day(w: World) -> None:

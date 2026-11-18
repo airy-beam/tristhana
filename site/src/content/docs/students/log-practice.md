@@ -1,7 +1,7 @@
 ---
 title: "Log a practice"
 description: "Log today, yesterday or any earlier day, and add as much detail as you like: where, how far, how long."
-features: [PR-01, PR-02, PR-03, PR-04, PR-05, ST-01]
+features: [PR-01, PR-02, PR-03, PR-04, PR-05, ST-01, UI-06]
 ---
 
 Log today, yesterday or any earlier day, and add as much detail as you like: where, how far, how long.
@@ -13,6 +13,8 @@ Log today, yesterday or any earlier day, and add as much detail as you like: whe
 1. Tap :ftl[menu-open] → :ftl[menu-today].
 2. Tap how the day went: :ftl[status-practiced], :ftl[status-rest], or :ftl[today-other] for a moon day and everything else.
 3. After a practice, tap :ftl[practice-done]. The bot shows what it saved.
+
+Tapped a Today message from an earlier day? The bot asks which day it is for, today or that message's date, and saves nothing until you choose.
 
 ### In the app
 
@@ -33,11 +35,11 @@ The steps above are enough. If you'd like more, tap :ftl[practice-add-details] r
 
 In the app the card folds into one line that says what you logged, and these are rows under it. Nothing opens until you tap it.
 
-![Today in the app after a practice: one line that says Practiced, with Change, then Same as last time, Add details, How do you feel? and Add a note as rows](../../../assets/shots/en/app-today.webp)
+![Today in the app after a practice: one line that says Practiced, with Change, then Same as last time, Add details, How do you feel? and Note as rows](../../../assets/shots/en/app-today.webp)
 
 ## Log an earlier day
 
-- **In the bot:** tap :ftl[log-another-day] under a saved day, or :ftl[menu-help] → :ftl[help-earlier-day]. Pick the day. :ftl[log-earlier] goes further back.
+- **In the bot:** tap :ftl[log-another-day] on Today, next to :ftl[menu-open], or under a saved day. Pick the day. :ftl[log-earlier] goes further back. :ftl[menu-help] → :ftl[help-earlier-day] leads there too.
 - **In the app:** open the :ftl[tab-practice] tab and tap a day in the month's calendar, up to today. Its card opens right under the calendar, the same card as on the :ftl[tab-today] tab. On a moon day it also says whether the moon is full or new, and for which city.
 
 ![A day opened under the month's calendar](../../../assets/shots/en/app-practice-day.webp)
@@ -51,7 +53,7 @@ Under a saved day, tap :ftl[log-change]. Then pick another status, or tap :ftl[l
 - A short practice counts. Sun salutations, standing and finishing are a practice.
 - :ftl[status-skipped] is an honest answer, not a mark against you. Days you don't log aren't counted anywhere.
 - One practice per day.
-- If dates look a day off, open the app once so the bot learns your city's time.
+- If dates look a day off, choose your city in :ftl[menu-settings]: the bot then knows your clock.
 
 ## Next
 

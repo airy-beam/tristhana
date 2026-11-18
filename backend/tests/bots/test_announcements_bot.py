@@ -371,6 +371,21 @@ def test_announce_by_policy(
         assert found[0]["web_app"]["url"] == f"{APP}?open=announce&shala={shala}"
 
 
+def test_my_students_announce_names_its_audience(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """UI-06 stage 6 (C20): "Announce to my students" on My students, "… to the shala" on a
+    card; the first opens the compose screen with no shala."""
+    me = _start(client, storage)
+    storage.teacher_links.add(person(storage, "2001", "Zoe").id, me.id)
+
+    body = _tap(client, "t1:s:0")
+
+    [found] = [b for b in _buttons(body) if b["text"] == T.t("en", "ann-announce-students")]
+    assert found["web_app"]["url"] == f"{APP}?open=announce"
+    assert T.t("en", "ann-announce") not in _texts(body)
+
+
 def test_long_items_are_never_cut_and_the_pin_card_has_no_preview(
     client: TestClient, storage: InMemoryStorage
 ) -> None:

@@ -1,8 +1,8 @@
 ## ID-05: the directory listing form (lazy: loads with screens/settings/DirectoryListing).
 ## The line itself (listing-mark, listing-level, listing-about) is in app.ftl.
 listing-intro = If your name is in the Sharath Yoga Centre teachers directory, I can show that to your students next to your name. A person checks it by hand, so it can take a few days. Many experienced teachers are not in this directory, and everything here works the same without the line.
-listing-pending = Sent: «{ $listed }». A person will look it up by hand.
-listing-not-found = I couldn't confirm the entry «{ $listed }» for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
+listing-pending = Sent: “{ $listed }”. A person will look it up by hand.
+listing-not-found = I couldn't confirm the entry “{ $listed }” for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
 listing-field-name = Name, exactly as in the directory
 listing-shown-hint = Students will see this name in the line.
 listing-field-region = Country or region, as in the directory

@@ -8,6 +8,8 @@ badges-group-asanas = Асаны
 badges-new = Новое
 badges-at-start = С начала журнала
 badges-empty = Значки появляются здесь сами, пока ты ведёшь журнал.
+# Under the badges: a row opens what the badge is for (UI-06 stage 6, polish).
+badges-tap-hint = Нажми на значок, чтобы узнать, за что он.
 badges-note = Значки видны лишь тебе, учителям — нет.
 badges-load-failed = Не получилось загрузить значки. Попробуй чуть позже.
 

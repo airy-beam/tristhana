@@ -99,7 +99,7 @@ def test_help_and_typed_text(bot_client: TestClient) -> None:
     assert helped["reply_markup"]["inline_keyboard"][-1] == [
         {"text": "☰ Меню", "callback_data": "w1:m"}
     ]
-    assert other["text"].startswith("I can't answer messages yet")
+    assert other["text"].startswith("I understand buttons, not typed messages.")
     assert other["text"].endswith("☰ Menu")
     assert other["reply_markup"]["inline_keyboard"][0] == [
         {"text": "📝 Today", "callback_data": "w1:n"}

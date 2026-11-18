@@ -2,10 +2,12 @@ import { Localized, useLocalization } from "@fluent/react";
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import { ApiError, useCreateShala, useMe, useMoonCities } from "../../api/client";
+import { GUIDE_PAGE } from "../../guide";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
 import { Field, Select, TextInput } from "../../ui/controls";
 import { cityName } from "../cityName";
+import { GuideLink } from "../GuideLink";
 
 const NAME_MAX = 64;
 
@@ -95,6 +97,7 @@ export default function CreateShala({ onDone, focus }: Props) {
           <p className="hint" role="alert" />
         </Localized>
       )}
+      <GuideLink locale={locale} page={GUIDE_PAGE.createShala} />
     </form>
   );
 }

@@ -19,6 +19,8 @@ trends-scale-icon = { $scale ->
     }
 # Above the mood strip: the ends of its axis (energy and effort reuse checkin-energy / checkin-effort).
 trends-mood-ends = 💭 Mood: 1 😔 → 5 😊
+# Above the strips: what the numbers mean (UI-06 stage 6, polish).
+trends-scale-ends = 1 low · 5 high
 trends-moon-full = 🌕 Near full moon
 trends-moon-new = 🌑 Near new moon
 trends-moon-other = Other days

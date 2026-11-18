@@ -25,6 +25,7 @@ const telegram = vi.hoisted(() => ({
   back: vi.fn() as () => void,
   confirmDestructive: vi.fn<(message: string, ok: string, cancel: string) => Promise<boolean>>(),
   confirmAction: vi.fn<(message: string, ok: string, cancel: string) => Promise<boolean>>(),
+  openLink: vi.fn<(url: string) => void>(),
 }));
 const { confirmDestructive, confirmAction } = telegram;
 
@@ -36,6 +37,7 @@ vi.mock("../../telegram", () => ({
   },
   useBackShown: vi.fn(() => false),
   backButtonAvailable: vi.fn(() => true),
+  openLink: telegram.openLink,
   markReady: vi.fn(),
   useMainButton: vi.fn(),
   useSettingsButton: (open: () => void) => {
@@ -415,6 +417,8 @@ describe("the list", () => {
     expect(plain(practiced.textContent)).toBe("🧘 Anna");
     expect(plain(blank.textContent)).toBe("Dmitry");
     expect(plain(rest.textContent)).toBe("😌 Maria");
+    // C20 (UI-06 stage 6): the announcement is named by its audience.
+    expect(screen.getByRole("button", { name: "📣 Announce to my students" })).toBeVisible();
   });
 
   test("marks have labels from the status words", async () => {
@@ -425,6 +429,18 @@ describe("the list", () => {
     await screen.findByRole("button", { name: /Maria/ });
     expect(screen.getAllByLabelText("🧘 Practiced")).toHaveLength(1);
     expect(screen.getAllByLabelText("😌 Rest day")).toHaveLength(1);
+  });
+
+  test("ends with the guide's page on inviting students", async () => {
+    stubApi();
+
+    await openList();
+    await screen.findByRole("button", { name: /Maria/ });
+    fireEvent.click(screen.getByRole("button", { name: "📖 Guide" }));
+
+    expect(telegram.openLink).toHaveBeenLastCalledWith(
+      "https://tristhana.app/teachers/invite-students/",
+    );
   });
 
   test("has the title and the local time note", async () => {
@@ -508,7 +524,41 @@ describe("the list", () => {
 
     fireEvent.click(entry);
 
-    await screen.findByText("No students on your list.");
+    // C6 (UI-06 stage 6): what to do next, and my own invite one tap away.
+    await screen.findByText((t) => plain(t) === "No students yet. Send them your link.");
+    fireEvent.click(screen.getByRole("button", { name: "➕ Invite my students" }));
+    await screen.findByRole("button", { name: "Invite my students", expanded: true });
+  });
+
+  test("an empty list tells a shala's teacher that its students can pick them", async () => {
+    let rows = ROWS;
+    const mine = [
+      {
+        id: ROOM.id,
+        name: ROOM.name,
+        city: "almaty",
+        online: false,
+        side: "staff",
+        owner: false,
+        roles: ["teacher"],
+      },
+    ];
+    stubApi({
+      rows: () => rows,
+      answer: (request) =>
+        new URL(request.url).pathname === "/api/v1/me/shalas" ? json(mine) : undefined,
+    });
+    await renderApp();
+    const entry = await homeRow();
+    rows = [];
+
+    fireEvent.click(entry);
+
+    await screen.findByText(
+      (t) =>
+        plain(t) ===
+        "No students yet. Send them your link; students of your shala can also pick you as their teacher.",
+    );
   });
 
   test("a failed load says so instead of an empty screen", async () => {

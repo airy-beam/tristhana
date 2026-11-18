@@ -312,7 +312,7 @@ describe("the way in", () => {
 
     await openLinks();
     const row = await screen.findByRole("button", { name: "SYC directory listing" });
-    const invite = screen.getByRole("button", { name: "Invite students" });
+    const invite = screen.getByRole("button", { name: "Invite my students" });
     expect(invite.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     fireEvent.click(row);
@@ -333,7 +333,7 @@ describe("the way in", () => {
     const group = row.closest("section") as HTMLElement;
     expect(
       [...group.querySelectorAll("button")].map((b) => b.textContent.replace(/[⁨⁩]/g, "")),
-    ).toEqual(["Invite students", "Shala and classes", "SYC directory listing"]);
+    ).toEqual(["Invite my students", "Shala and classes", "SYC directory listing"]);
     expect(screen.getByText(/Nobody here yet/)).toBeInTheDocument();
   });
 
@@ -348,7 +348,7 @@ describe("the way in", () => {
     await waitFor(() => {
       expect(calls(seen, "GET")).toHaveLength(1);
     });
-    await screen.findByRole("button", { name: "Invite students" });
+    await screen.findByRole("button", { name: "Invite my students" });
 
     expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -388,7 +388,7 @@ describe("the way in", () => {
     await waitFor(() => {
       expect(calls(seen, "GET")).toHaveLength(1);
     });
-    await screen.findByRole("button", { name: "Invite students" });
+    await screen.findByRole("button", { name: "Invite my students" });
 
     expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -474,7 +474,7 @@ describe("the form", () => {
     type(NOTE, "annayoga.example");
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    await screen.findByText(says("Sent: «Anna Petrova». A person will look it up by hand."));
+    await screen.findByText(says("Sent: “Anna Petrova”. A person will look it up by hand."));
     expect(await sent(seen)).toEqual([
       {
         name_as_listed: "Anna Petrova",
@@ -496,7 +496,7 @@ describe("the form", () => {
     type(REGION, "Kazakhstan");
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    await screen.findByText(says(/^Sent: «Anna Petrova»/));
+    await screen.findByText(says(/^Sent: “Anna Petrova”/));
     expect(await sent(seen)).toEqual([
       { name_as_listed: "Anna Petrova", region: "Kazakhstan", declared_level: null, note: null },
     ]);
@@ -584,7 +584,7 @@ describe("the form", () => {
       telegram.main?.press();
     });
 
-    await screen.findByText(says(/^Sent: «Anna Petrova»/));
+    await screen.findByText(says(/^Sent: “Anna Petrova”/));
     expect(calls(seen, "PUT")).toHaveLength(1);
   });
 });
@@ -606,7 +606,7 @@ describe("status views", () => {
 
     await openListing();
 
-    await screen.findByText(says("Sent: «Anna Petrova». A person will look it up by hand."));
+    await screen.findByText(says("Sent: “Anna Petrova”. A person will look it up by hand."));
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove…" })).toBeInTheDocument();
     expect(screen.queryByLabelText(NAME)).toBeNull();
@@ -625,7 +625,7 @@ describe("status views", () => {
     type(NAME, "Anna V. Petrova");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText(says("Sent: «Anna V. Petrova». A person will look it up by hand."));
+    await screen.findByText(says("Sent: “Anna V. Petrova”. A person will look it up by hand."));
     expect(confirmAction).not.toHaveBeenCalled();
     expect(calls(seen, "PUT")).toHaveLength(1);
   });
@@ -693,7 +693,7 @@ describe("status views", () => {
     type(REGION, "Almaty, Kazakhstan");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText(says("Sent: «Anna Petrova». A person will look it up by hand."));
+    await screen.findByText(says("Sent: “Anna Petrova”. A person will look it up by hand."));
     expect(confirmAction).toHaveBeenCalledTimes(1);
     expect(calls(seen, "PUT")).toHaveLength(1);
     expect(pageText()).not.toContain("✔");
@@ -712,7 +712,7 @@ describe("status views", () => {
     await openListing();
 
     await screen.findByText(
-      says(/^I couldn't confirm the entry «Anna Petrova» for this account yet\./),
+      says(/^I couldn't confirm the entry “Anna Petrova” for this account yet\./),
     );
     expect(value(NAME)).toBe("Anna Petrova");
     expect(value(REGION)).toBe("Kazakhstan");
@@ -749,7 +749,7 @@ describe("status views", () => {
       expect(confirmDestructive).toHaveBeenCalledTimes(1);
     });
     expect(calls(seen, "DELETE")).toHaveLength(0);
-    expect(screen.getByText(says(/^Sent: «Anna Petrova»/))).toBeInTheDocument();
+    expect(screen.getByText(says(/^Sent: “Anna Petrova”/))).toBeInTheDocument();
   });
 
   test("RU: the status copy", async () => {

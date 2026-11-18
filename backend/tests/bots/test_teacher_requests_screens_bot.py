@@ -1229,7 +1229,9 @@ def test_my_students_shows_how_many_wait_even_when_the_list_is_empty(
     assert body["text"] == before["text"]
     assert _datas(body)[-1] == "w1:m"
     assert statements.names.count("InMemoryTeacherRequests.mine") == 1
-    assert statements.count == 2, statements.names  # the list, and the count beside it
+    # The list and the count beside it, and for shala staff my shalas, all in parallel
+    # (UI-06 stage 6, C6: whether a shala's students can pick me, said under an empty list).
+    assert statements.count == 3, statements.names
 
 
 def test_a_teachers_shala_card_shows_how_many_wait(

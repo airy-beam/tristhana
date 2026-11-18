@@ -12,6 +12,8 @@ class-form-when = When
 class-form-weekly = Regularly
 class-form-once = One date
 class-form-days = Repeats on
+# Under the weekday chips (UI-06 stage 6, B2): one class is one type at one time.
+class-form-days-hint = Pick the days this class runs at this time. A different time or type is a separate class: Mysore Mon–Fri at 06:00 and Led on Sunday at 08:00 are two. Save this one, then add the next.
 class-form-date = Date
 class-form-days-needed = Choose at least one day, or “One date”.
 class-form-day-off-warning = One of the chosen days is the shala's day off.
@@ -61,7 +63,7 @@ class-form-end-early = The last date is before the first one. Choose a later las
 class-form-end-before-applies = The last date is before the date the changes apply from. Move one of them.
 class-form-save = Save the class
 class-form-failed = Couldn't save the class. Check the times and try again.
-class-form-caps = That's the limit for this shala for now.
+class-form-caps = That's the limit for this shala for now. Only running classes count: set an end date on one you no longer hold.
 class-form-gone = This class has just changed or was removed. Here's the current schedule.
 # Back with something typed and not saved.
 class-form-discard-ask = Leave without saving this class?
@@ -92,9 +94,48 @@ ann-cancel-draft = Hi everyone. { $class } on { $day } at { $time } is cancelled
 ## The owner's setup list on a new shala.
 setup-title = Set up your shala
 setup-class = Add a class
-setup-students = Invite students
+setup-students = Invite students to the shala
 setup-staff = Invite teachers and staff
 # The quiet second line of the third step.
 setup-staff-note = Optional
 setup-staff-skip = I teach alone
 setup-done-mark = done
+
+## The shala card's Classes (UI-06 stage 6, spec §3.1): each class as it stands, a row each, for
+## those who may manage the schedule. The Schedule below is by date.
+# No 🗓 here: the Schedule's heading has it.
+shala-classes-title = Classes
+shala-classes-none = No classes yet.
+# One class: $class "Mysore" or "Led Full Primary", $days "Mon–Fri" or "Mon, Wed" (from the
+# weekday names) or a date, $start and $end "06:00", "09:30".
+shala-class-row = { $class } · { $days } · { $start }–{ $end }
+# $days for a class on all seven days.
+shala-class-every-day = every day
+# On the card after a class was saved from the form, for this visit.
+class-form-saved = ✓ Class saved.
+# The Classes' add row after a save, for this visit (before: schedule-add-class).
+class-add-another = ➕ Add another class
+
+## The shala card (UI-06 stage 6). Copies of the bot's texts (ADR-0050: a key in both reads the same).
+# C15: the card's one moon line, the policy included ($policy is shala-moon-policy-short).
+shala-moon-summary = 🌙 Moon days (📍 { $city }): { $policy }
+shala-moon-policy-short = { $p ->
+        [pranayama] pranayama, chanting and talks only
+        [open] classes as usual
+       *[closed] shala closed
+    }
+# C14: under each role in the staff invite picker and the role editor. These restate
+# `application/policies.py`; the bot's bot.ftl names the policies behind each line.
+shala-role-hint =
+    { $role ->
+        [admin] Everything except deleting the shala and managing other managers.
+        [teacher] Classes and schedule, attendance, announcements, the student list; students can pick them as their teacher.
+        [assistant] Attendance and the student list; not the schedule or announcements.
+       *[office] Classes and schedule, attendance, announcements, the student list; can remove a student from the shala; not the shala's settings or roles.
+    }
+# C3: under the shala's students, for staff who can't remove a student.
+shala-students-not-yours =
+    { $teacher ->
+        [yes] These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).
+       *[no] These are the shala's students. To have students of your own, send them your own link (➕ Invite my students).
+    }

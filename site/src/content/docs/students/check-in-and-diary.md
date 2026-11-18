@@ -1,7 +1,7 @@
 ---
 title: "How you feel, and notes"
 description: "A few taps on how the practice felt, and a private note for anything you want to remember."
-features: [PR-06, PR-07]
+features: [PR-06, PR-07, UI-06]
 ---
 
 A few taps on how the practice felt, and a private note for anything you want to remember.
@@ -22,7 +22,7 @@ Don't want the button? :ftl[menu-settings] → :ftl[settings-more-button] → :f
 
 Every day can have one private note: after a practice, on a rest day, any day.
 
-1. Under a day you have logged, tap :ftl[log-change], then :ftl[diary-button].
+1. Tap :ftl[diary-button] under a saved day. After a practice, it is on the screen that follows :ftl[practice-done]. Under a saved rest day, it is there straight away. For any other day, tap :ftl[log-change] first.
 2. Tap :ftl[diary-write] and send your note as a reply to the bot's message.
 
 ![An empty note in the bot, with a hint about what to write](../../../assets/shots/en/bot-note.webp)
@@ -35,6 +35,7 @@ In the app, tap :ftl[diary-add] on the card of a day you have logged.
 - Notes are stored encrypted.
 - A note written in the bot also stays in your Telegram chat until you delete the message there.
 - A note can be up to 2000 characters of plain text.
+- The bot reads buttons, not typed messages: text sent to the chat without :ftl[diary-write] isn't kept as a note.
 - Tristhana doesn't draw conclusions from what you write or tap. It just keeps it for you.
 
 ## Next

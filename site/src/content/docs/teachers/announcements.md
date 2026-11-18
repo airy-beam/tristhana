@@ -8,7 +8,7 @@ Send a short message to all your students: a schedule change, a workshop, a day 
 
 ## Write one
 
-1. Open your students list (in the app: :ftl[tab-shala] → :ftl[link-students-open]) and tap :ftl[ann-announce]. In the bot this button opens the form in the app.
+1. Open your students list (in the app: :ftl[tab-shala] → :ftl[link-students-open]) and tap :ftl[ann-announce-students]. In the bot this button opens the form in the app.
 2. Write the text, up to 1000 characters.
 3. If you like, pin it: :ftl[ann-pin-week] or :ftl[ann-pin-month] keeps it at the top of your students' announcements in the app.
 4. Tap :ftl[ann-send] and confirm.

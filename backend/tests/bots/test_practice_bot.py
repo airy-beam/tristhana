@@ -105,7 +105,10 @@ def _practice(storage: InMemoryStorage) -> Any:
     return practice
 
 
-# After "Practiced" (P0)
+# After "Practiced" (P0). A new account knows neither its zone nor its city, so P0 ends with
+# the city question (UI-06 stage 6, B7).
+CITY = ["🏙 Choose my city", "Not now"]
+CITY_ASK = "\n\n🏙 Which city do you live in? Your days and reminders follow its clock."
 
 
 def test_practiced_shows_two_buttons_without_a_previous_practice(client: TestClient) -> None:
@@ -116,8 +119,13 @@ def test_practiced_shows_two_buttons_without_a_previous_practice(client: TestCli
     assert body["text"].startswith("✓ Today, ")
     assert "Practice done 🙏" in body["text"]
     assert "Add details? Optional" not in body["text"]  # the buttons say it
-    assert _rows(body) == [["📝 Add details"], ["✓ Done"]]  # nothing to copy yet
-    assert [b["callback_data"] for b in _buttons(body)] == [f"p1:o:{d}", f"p1:v:{d}"]
+    assert _rows(body) == [["📝 Add details"], ["✓ Done"], CITY]  # nothing to copy yet
+    assert [b["callback_data"] for b in _buttons(body)] == [
+        f"p1:o:{d}",
+        f"p1:v:{d}",
+        "s1:cp:0",
+        "s1:n",
+    ]
 
 
 def test_practiced_shows_three_buttons_with_a_previous_practice(client: TestClient) -> None:
@@ -127,8 +135,8 @@ def test_practiced_shows_three_buttons_with_a_previous_practice(client: TestClie
 
     body = _tap(client, f"d1:s:{d}:p")
 
-    assert body["text"].endswith("Last time: 60 min")
-    assert _rows(body) == [["🔁 Same as last time"], ["📝 Add details"], ["✓ Done"]]
+    assert body["text"].endswith("Last time: 60 min" + CITY_ASK)
+    assert _rows(body) == [["🔁 Same as last time"], ["📝 Add details"], ["✓ Done"], CITY]
     assert _data(body, "🔁 Same as last time") == f"p1:s:{d}"
 
 
@@ -137,7 +145,8 @@ def test_practiced_in_russian(client: TestClient) -> None:
 
     body = _tap(client, f"d1:s:{d}:p", lang="ru")
 
-    assert _rows(body) == [["📝 Добавить детали"], ["✓ Готово"]]
+    city = ["🏙 Выбрать город", "Не сейчас"]  # noqa: RUF001
+    assert _rows(body) == [["📝 Добавить детали"], ["✓ Готово"], city]
 
 
 def test_practiced_costs_one_write_and_one_read(
@@ -166,9 +175,9 @@ def test_practiced_again_shows_the_stored_details_from_the_write_alone(
 
     body = _tap(client, f"d1:s:{d}:p")  # ✓ 🧘 in the day editor, or an old grid
 
-    assert body["text"].endswith("\n\nMysore")
+    assert body["text"].endswith("\n\nMysore" + CITY_ASK)
     assert "Last time" not in body["text"]
-    assert _rows(body) == [["📝 Details"], ["✓ Done"]]  # nothing to copy over what is there
+    assert _rows(body) == [["📝 Details"], ["✓ Done"], CITY]  # nothing to copy over it
     assert _data(body, "📝 Details") == f"p1:o:{d}"
     assert statements.names == ["InMemoryDays.upsert"]
 
@@ -195,12 +204,8 @@ def test_add_details_opens_the_details_screen(
         ["1:1", "Self-practice"],
         ["⏱ How long"],
         ["📏 How far"],
-        ["✨ How do you feel?"],
-        ["📓 Note"],
         ["✓ Done"],
-    ]  # no "same as last time", no mood row, no "Open the app"
-    assert _data(body, "✨ How do you feel?") == f"k1:o:{d}"
-    assert _data(body, "📓 Note") == f"n1:o:{d}:p"
+    ]  # no "same as last time", no mood row, no "Open the app"; ✨ and 📓 are on V (C11)
     assert statements.names == ["InMemoryDays.range_with_moon"]
 
 
@@ -218,8 +223,6 @@ def test_a_detail_tap_is_one_write_and_keeps_the_layout(
         ["1:1", "Self-practice"],
         ["🌐 Online", "⏱ How long"],
         ["📏 How far"],
-        ["✨ How do you feel?"],
-        ["📓 Note"],
         ["✓ Done", "Remove details"],
     ]
     assert statements.names == ["InMemoryPractices.save"]
@@ -421,12 +424,13 @@ def test_done_shows_the_summary_the_ways_on_and_the_menu(
     assert body["text"].endswith("🔔 Want me to ask once a day, so logging takes one tap?")
     assert _rows(body) == [
         ["✨ How do you feel?"],
+        ["📓 Note"],  # UI-06 stage 6 (C11): from the details to here
         ["📝 Details", "✏️ Change", "📅 Another day"],
         ["🔔 Yes, remind me", "No, thanks"],
         ["☰ Menu"],
     ]
     data = [b["callback_data"] for b in _buttons(body)]
-    assert data[:3] == [f"k1:o:{d}", f"p1:o:{d}", f"d1:o:{d}"]
+    assert data[:4] == [f"k1:o:{d}", f"n1:o:{d}:v", f"p1:o:{d}", f"d1:o:{d}"]
     assert data[-1] == "w1:m"
     assert statements.names == ["InMemoryDays.range_with_moon", "InMemoryNotifications.settings"]
 
@@ -442,6 +446,7 @@ def test_done_for_another_day_is_one_read_and_has_no_offer(
 
     assert _rows(body) == [
         ["✨ How do you feel?"],
+        ["📓 Note"],
         ["📝 Details", "✏️ Change", "📅 Another day"],
         ["☰ Menu"],
     ]

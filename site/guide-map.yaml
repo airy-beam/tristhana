@@ -63,6 +63,7 @@ PR-10:
   - students/reminders
 SC-01:
   - staff/create-shala
+  - staff/joined-staff
   - students/my-shala
 SC-02:
   - staff/change-class
@@ -104,16 +105,26 @@ UI-05:
   - reference/whats-new
 UI-06:
   - reference/commands
+  - reference/faq
   - reference/whats-new
   - staff/announcements
+  - staff/change-class
+  - staff/classes
   - staff/create-shala
+  - staff/joined-staff
   - start/bot-and-app
   - start/first-steps
+  - students/check-in-and-diary
+  - students/log-practice
+  - students/my-asanas
   - students/my-practice
   - students/my-shala
   - students/my-teacher
+  - students/reminders
+  - students/rest-and-moon-days
   - students/settings
   - teachers/invite-students
+  - teachers/moon-days
   - teachers/what-you-see
 WH-01:
   - students/rest-and-moon-days

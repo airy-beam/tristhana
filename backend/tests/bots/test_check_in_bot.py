@@ -210,11 +210,12 @@ def _no_entry(body: Any) -> bool:
     return _mood_row(body) is None and EDIT not in _texts(body)
 
 
-# The "How do you feel?" button on P1 (details) and V (done)
+# The "How do you feel?" button on V (done); the details (P1) keep to the practice itself
+# (UI-06 stage 6, C11) and only show what a check-in holds.
 
 
 @pytest.mark.parametrize("back", [0, 1, 2, 30])
-def test_details_and_done_show_the_button_on_any_day_and_never_the_mood_row(
+def test_done_shows_the_button_on_any_day_and_the_details_never_do(
     client: TestClient, storage: InMemoryStorage, back: int
 ) -> None:
     _me(client, storage)
@@ -226,7 +227,7 @@ def test_details_and_done_show_the_button_on_any_day_and_never_the_mood_row(
 
     assert "Practice done 🙏" in saved["text"]
     assert _no_entry(saved)  # the three buttons after 🧘 ask nothing else
-    assert _entry(details, day)
+    assert _no_entry(details)
     assert _entry(done, day)
 
 
@@ -257,7 +258,9 @@ def test_with_the_setting_off_an_existing_check_in_stays_editable(
 
     for body in (details, context, done):
         assert "🙂 · Calm" in body["text"]
-        assert _entry(body, TODAY)
+    assert _no_entry(details)
+    assert _no_entry(context)
+    assert _entry(done, TODAY)
 
 
 def test_with_a_check_in_the_summary_and_the_button(
@@ -271,7 +274,8 @@ def test_with_a_check_in_the_summary_and_the_button(
 
     for body in (details, done):
         assert "🙂 · ⚡ energy 4/5 · 🔥 effort 3/5 · Light, Calm" in body["text"]
-        assert _entry(body, TODAY)
+    assert _no_entry(details)
+    assert _entry(done, TODAY)
 
 
 @pytest.mark.parametrize("offer", [True, False])
@@ -283,12 +287,14 @@ def test_an_empty_check_in_reads_as_none(
     storage.day_repo.check_in_rows[(me.id, TODAY)] = _c()
 
     body = _tap(client, f"p1:o:{_ymd(TODAY)}")
+    done = _tap(client, f"p1:v:{_ymd(TODAY)}")
 
-    assert _entry(body, TODAY) is offer  # nothing to keep editable
+    assert _entry(done, TODAY) is offer  # nothing to keep editable
+    assert _no_entry(body)
     assert body["text"].endswith("Add details? Optional, one tap is enough.")  # no summary
 
 
-def test_the_button_stays_after_a_preset_and_a_detail_tap(
+def test_the_button_stays_off_the_details_after_a_preset_and_a_detail_tap(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     _me(client, storage)
@@ -298,8 +304,8 @@ def test_the_button_stays_after_a_preset_and_a_detail_tap(
     preset = _tap(client, f"p1:l:{d}:11:")  # Full Primary
     context = _tap(client, f"p1:c:{d}:m")
 
-    assert _entry(preset, TODAY)
-    assert _entry(context, TODAY)
+    assert _no_entry(preset)
+    assert _no_entry(context)
 
 
 def test_same_as_last_time_lands_on_the_done_screen_with_the_button(
@@ -341,7 +347,7 @@ def test_a_detail_tap_keeps_the_summary_on_an_older_day(
     body = _tap(client, f"p1:c:{_ymd(old)}:m")
 
     assert "🙂 · Calm" in body["text"]
-    assert _entry(body, old)
+    assert _no_entry(body)
 
 
 def test_a_detail_tap_with_a_check_in_shows_it_without_a_read(
@@ -354,7 +360,7 @@ def test_a_detail_tap_with_a_check_in_shows_it_without_a_read(
     body = _tap(client, f"p1:t:{_ymd(TODAY)}:90")
 
     assert "🔥 effort 2/5" in body["text"]
-    assert _entry(body, TODAY)
+    assert _no_entry(body)
     assert counter.reads == []  # the save's statement brings the check-in along
 
 
@@ -375,7 +381,7 @@ def test_kiritimati_and_honolulu_get_the_same_button_on_the_same_instant(
     clock.instant = EDGE
     _tap(client, f"d1:s:{_ymd(SUN)}:p")
 
-    body = _tap(client, f"p1:o:{_ymd(SUN)}")
+    body = _tap(client, f"p1:v:{_ymd(SUN)}")
 
     assert _entry(body, SUN)
 
@@ -389,7 +395,7 @@ def test_a_provisional_zone_changes_nothing_either(
     _tap(client, f"d1:s:{_ymd(SUN)}:p", lang="ru")
     _tap(client, f"d1:s:{_ymd(date(2026, 10, 17))}:p", lang="ru")
 
-    yesterday = _tap(client, f"p1:o:{_ymd(SUN)}", lang="ru")
+    yesterday = _tap(client, f"p1:v:{_ymd(SUN)}", lang="ru")
     before = _tap(client, f"p1:v:{_ymd(date(2026, 10, 17))}", lang="ru")
 
     for body in (yesterday, before):
@@ -619,7 +625,7 @@ def test_the_practice_screens_need_no_extra_read_and_taps_one_statement(
     opened = (list(counter.reads), list(counter.writes))
 
     assert _no_entry(saved)
-    assert _entry(details, TODAY)
+    assert _no_entry(details)
     assert _entry(done, TODAY)
     assert p0_reads == []  # UI-06: the write itself says what the day holds
     assert p1_reads == ["range_with_moon"]  # the day, with its check-in
@@ -676,8 +682,8 @@ def test_remove_details_keeps_the_check_in(client: TestClient, storage: InMemory
     body = _tap(client, f"p1:x:{d}")
 
     assert _stored(storage, me, TODAY) == _c(mood=5)
-    assert "😊" in body["text"]
-    assert _entry(body, TODAY)
+    assert "😊" in body["text"]  # the details still show what the check-in holds
+    assert _no_entry(body)
 
 
 def test_a_database_outage_answers_gently(client: TestClient, storage: InMemoryStorage) -> None:

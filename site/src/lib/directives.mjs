@@ -1,5 +1,5 @@
 // UI-05: Markdown text directives for the guides.
-//   :ftl[start-open-app]            → the real button label, in the page's language, in bold
+//   :ftl[city-ask-button]           → the real button label, in the page's language, in bold
 //   :ftl[day-label]{rel=today}      → a message with arguments
 //   :ftl[some-key]{from=app}        → when the bot and the app both have the key
 //   :cmd[moon]                      → /moon, checked against the bot's commands: the menu and

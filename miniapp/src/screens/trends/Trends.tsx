@@ -130,6 +130,10 @@ function Views({ data, locale }: { data: CheckInTrends; locale: Locale }) {
         <p className="hint" />
       </Localized>
       <Section id="trends-by-month">
+        {/* What the numbers mean, once above the strips (UI-06 stage 6, polish). */}
+        <Localized id="trends-scale-ends">
+          <p className="hint small" />
+        </Localized>
         {SCALES.map((scale) => (
           <Strip key={scale} scale={scale} months={columns.months} />
         ))}

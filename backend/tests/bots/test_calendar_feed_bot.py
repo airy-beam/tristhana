@@ -203,8 +203,8 @@ def test_off_in_english(client: TestClient, storage: InMemoryStorage) -> None:
     assert text.startswith(_t("feed-title"))
     assert _t("feed-explain") in text
     assert _t("feed-moon-only") not in text
-    assert _datas(body) == ["c1:f:n"]
-    assert [b["text"] for b in _buttons(body)] == ["📅 Create my link"]
+    assert _datas(body) == ["c1:f:n", "w1:m"]
+    assert [b["text"] for b in _buttons(body)] == ["📅 Create my link", "☰ Menu"]
     assert FEED_URL.search(body["text"]) is None
 
 
@@ -217,7 +217,7 @@ def test_off_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
     text = _flat(body["text"])
     assert text.startswith("📅 Подписка в календаре")
     assert _t("feed-explain", "ru") in text
-    assert [b["text"] for b in _buttons(body)] == ["📅 Создать ссылку"]
+    assert [b["text"] for b in _buttons(body)] == ["📅 Создать ссылку", "☰ Меню"]
 
 
 def test_without_a_shala_it_says_moon_days_alone(
@@ -228,7 +228,7 @@ def test_without_a_shala_it_says_moon_days_alone(
     body = _tap(client, "c1:f:s")
 
     assert _t("feed-moon-only") in _flat(body["text"])
-    assert _datas(body) == ["c1:f:n"]
+    assert _datas(body) == ["c1:f:n", "w1:m"]
 
 
 def test_create_posts_the_link_in_my_chat(
@@ -270,7 +270,8 @@ def test_the_on_screen_buttons(client: TestClient, storage: InMemoryStorage) -> 
     by_text = {b["text"]: b for b in _buttons(body)}
     assert by_text["Add to Google Calendar"]["url"] == google
     assert by_text["Add to Apple / Outlook"]["url"] == f"{PUBLIC}/ical/v1/{token}/subscribe"
-    assert set(_datas(body)) == {"c1:f:r", "c1:f:x"}
+    assert set(_datas(body)) == {"c1:f:r", "c1:f:x", "w1:m"}
+    assert _datas(body)[-1] == "w1:m"  # UI-06 stage 6 (B8): the Menu row closes it
     assert "c1:f:n" not in _datas(body)
     # Q161: a phone can't subscribe through Google's link, so the screen says how, and the
     # link is one tap to copy.
@@ -503,5 +504,5 @@ def test_staff_of_a_shala_see_the_same_screen(client: TestClient, storage: InMem
 
     body = _tap(client, "c1:f:s")
 
-    assert _datas(body) == ["c1:f:n"]
+    assert _datas(body) == ["c1:f:n", "w1:m"]
     assert _t("feed-moon-only") not in _flat(body["text"])

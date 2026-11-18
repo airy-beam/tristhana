@@ -16,6 +16,7 @@ import {
   useMakeMainTeacher,
   useMe,
   useMyShalas,
+  useNextSteps,
   useRemoveTeacher,
   type Invite,
   type LinkedTeacher,
@@ -49,8 +50,9 @@ interface Props {
   onSchedule: () => void;
   /** UI-06: a one-time intent. `create`: the bot's "Create a shala" (`?open=new-shala`), the
    * group's create form open with its name focused. `invite`: the group's invite open.
-   * `shala:<id>`: that shala's card open; `class:<id>`, `join:<id>` and `announce:<id>`: that
-   * card with its class form, its student invite or its message form open. */
+   * `shala:<id>`: that shala's card open; `class:<id>`, `join:<id>`, `announce:<id>` and
+   * `edit:<id>`: that card with its class form, its student invite, its message form or its
+   * edit form open. */
   start?: Start | null | undefined;
   /** The shell focuses the heading after a tab switch. */
   headingRef?: Ref<HTMLHeadingElement> | undefined;
@@ -59,7 +61,7 @@ interface Props {
 /** What a start opens in the group "For teachers and shalas". */
 type Intent = "create" | "invite";
 
-const CARD = /^(shala|class|join|announce):(.+)$/;
+const CARD = /^(shala|class|join|announce|edit):(.+)$/;
 /** The shala card a start opens, and what for. */
 function cardOf(start: Start | null): { id: string; open?: ShalaOpen } | null {
   const [, kind, id] = (start && CARD.exec(start)) ?? [];
@@ -120,6 +122,11 @@ export default function ShalaTab({ onStudents, onSchedule, start = null, heading
           open={shala.open}
           onBack={() => {
             setShala(null);
+          }}
+          onInvite={() => {
+            // C3 (UI-06 stage 6): my own invite, open in the group on this list.
+            setShala(null);
+            setIntent("invite");
           }}
         />
       </Suspense>
@@ -189,6 +196,17 @@ function Root({
   const shalas = useMyShalas();
   const mine = shalas.data ?? [];
   const students = links?.students.length ?? 0;
+  // C16 (UI-06 stage 6): while a shala I run has no class yet (Today's "add a class" step, read
+  // from the same cache), its row comes first and is the main one: its card opens with the
+  // setup list on top. Read alongside my shalas, not after them (Today reads it for everyone,
+  // so it is usually cached); only staff wait for it before the rows are drawn.
+  const staff = mine.some((s) => s.side === "staff");
+  const steps = useNextSteps();
+  const setupId = steps.data?.find(
+    (step) =>
+      step.kind === "add_class" && mine.some((s) => s.side === "staff" && s.id === step.shala_id),
+  )?.shala_id;
+  const setupShala = mine.find((s) => s.id === setupId);
   // QA: "🤝 Pick a teacher" for a student of a shala with no teacher and nothing asked, one row
   // per such shala with someone to pick. Who can be picked is read only then.
   const studentOf = mine.filter((s) => s.side === "student");
@@ -227,7 +245,8 @@ function Root({
     drawn ||
     ((links || query.isError) &&
       (shalas.data || shalas.isError) &&
-      !choices.some((c) => c.isPending));
+      !choices.some((c) => c.isPending) &&
+      (!staff || steps.data || steps.isError));
   if (settled && !drawn) setDrawn(true);
   const nobody =
     !begun &&
@@ -237,8 +256,15 @@ function Root({
     waiting === 0 &&
     shalas.data?.length === 0;
   // The first row present is the main one (spec §3): "🤝 Pick a teacher" (QA) when it shows.
-  const main =
-    picks.length > 0 ? "pick" : mine.length > 0 ? "schedule" : students > 0 ? "students" : null;
+  const main = setupShala
+    ? "setup"
+    : picks.length > 0
+      ? "pick"
+      : mine.length > 0
+        ? "schedule"
+        : students > 0
+          ? "students"
+          : null;
   return (
     <>
       <main
@@ -263,6 +289,15 @@ function Root({
           <>
             {said && <SaidLine said={said} />}
             {answering && <Waiting declined={declined} setDeclined={setDeclined} />}
+            {setupShala && (
+              <Door
+                label={l10n.getString("shala-title", { shala: setupShala.name })}
+                main
+                onOpen={() => {
+                  onShala(setupShala.id);
+                }}
+              />
+            )}
             {picks.map((s, n) => (
               <Door
                 key={s.id}
@@ -281,15 +316,17 @@ function Root({
                 onOpen={onSchedule}
               />
             )}
-            {mine.map((s) => (
-              <Door
-                key={s.id}
-                label={l10n.getString("shala-title", { shala: s.name })}
-                onOpen={() => {
-                  onShala(s.id);
-                }}
-              />
-            ))}
+            {mine
+              .filter((s) => s !== setupShala)
+              .map((s) => (
+                <Door
+                  key={s.id}
+                  label={l10n.getString("shala-title", { shala: s.name })}
+                  onOpen={() => {
+                    onShala(s.id);
+                  }}
+                />
+              ))}
             {links && (links.teachers.length > 0 || asked.length > 0) && (
               <Teachers
                 teachers={links.teachers}

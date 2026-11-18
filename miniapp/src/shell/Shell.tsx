@@ -128,7 +128,18 @@ export function Shell({ me, firstName }: Props) {
 
   let shown: ReactNode;
   if (pushed) {
-    shown = me ? <Pushed screen={pushed} me={me} onBack={pop} /> : busy;
+    shown = me ? (
+      <Pushed
+        screen={pushed}
+        me={me}
+        onBack={pop}
+        onInvite={() => {
+          toTab("shala", "invite");
+        }}
+      />
+    ) : (
+      busy
+    );
   } else if (nav.tab === "today") {
     shown = (
       <Home
@@ -263,10 +274,13 @@ function Pushed({
   screen,
   me,
   onBack,
+  onInvite,
 }: {
   screen: Exclude<Screen, { name: "settings" }>;
   me: Me;
   onBack: () => void;
+  /** My own invite on the Shala tab (UI-06 stage 6, C3 and C6). */
+  onInvite: () => void;
 }) {
   switch (screen.name) {
     case "asanas":
@@ -274,9 +288,9 @@ function Pushed({
     case "moon":
       return <MoonScreen locale={me.locale} onBack={onBack} />;
     case "schedule":
-      return <MySchedule locale={me.locale} onBack={onBack} />;
+      return <MySchedule locale={me.locale} onBack={onBack} onInvite={onInvite} />;
     case "students":
-      return <Students locale={me.locale} onBack={onBack} />;
+      return <Students locale={me.locale} onBack={onBack} onInvite={onInvite} />;
     case "announce":
       return (
         <Announcements mode={{ view: "compose", shala: null }} locale={me.locale} onBack={onBack} />

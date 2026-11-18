@@ -124,7 +124,7 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
         "students-give-unset",
         {},
         "No last asana set yet. Once they set it in My asanas, you can mark new ones here.",
-        "Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, "
+        "Последняя асана пока не указана. Когда она будет указана в разделе «Мои асаны», "
         "здесь можно будет "
         "отмечать новые.",
     ),
@@ -149,8 +149,9 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
     (
         "mark-received-undo-hint",
         {},
-        "If this doesn't match your practice, you can undo it.",
-        "Если это не совпадает с твоей практикой, отметку можно отменить.",
+        "If this doesn't match your practice, you can undo it in 🧘 My asanas (↩︎ Undo the mark).",
+        "Если это не совпадает с твоей практикой, отметку можно отменить в «🧘 Мои асаны» "
+        "(↩︎ Отменить отметку).",
     ),
     ("progression-marked-by", {"teacher": "Лена"}, "Marked by Лена", "Отметка: Лена"),
     ("progression-by-teacher", {}, "a teacher", "учитель"),

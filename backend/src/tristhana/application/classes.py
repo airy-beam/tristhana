@@ -7,6 +7,7 @@ here reads a log: a class is never a log entry.
 """
 
 import datetime as _dt
+from collections.abc import Sequence
 from dataclasses import dataclass, field, fields, replace
 from datetime import date, datetime, timedelta
 from enum import StrEnum
@@ -60,6 +61,7 @@ from tristhana.domain.classes import (
     Swap,
     check_series,
     check_swap,
+    current_classes,
     expand,
     local_date,
     rule_dates,
@@ -462,6 +464,19 @@ def _first(start: date | None, skip: int, today: date) -> date:
     if not today - BACK <= first <= today + timedelta(days=HORIZON):
         raise BadWindow(first.isoformat())
     return first
+
+
+def current_of(classes: Sequence[StoredClass], today: date) -> list[StoredClass]:
+    """The classes a shala runs from `today` (the shala's) on, in the Classes list's order:
+    `current_classes` over stored classes (UI-06 stage 6, spec §3.1; the bot's card)."""
+    by_id = {c.id: c for c in classes}
+    return [by_id[s.id] for s in current_classes((_rule(c, c.id) for c in classes), today)]
+
+
+def shala_today(cities: Cities, city: str, clock: Clock) -> date | None:
+    """The shala's own date now, or None for a city no longer on the list."""
+    found = cities.find(city)
+    return None if found is None else local_today(clock.now(), found.location.tz)
 
 
 class ListClasses:

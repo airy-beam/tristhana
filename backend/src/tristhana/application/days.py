@@ -14,6 +14,7 @@ from tristhana.domain.days import (
     DayStatus,
     check_loggable,
     check_range,
+    earliest_today,
     local_today,
     provisional_zone,
 )
@@ -91,6 +92,10 @@ class GetDays:
         """The caller's local date (no DB access), and whether their zone is known."""
         zone, known = _zone(principal)
         return local_today(self._clock.now(), zone), known
+
+    def earliest_today(self) -> date:
+        """The earliest date still "today" somewhere on Earth (no DB access; ADR-0051)."""
+        return earliest_today(self._clock.now())
 
     def home_city(self, principal: Principal) -> City | None:
         """The caller's own city for time labels (MD-04; no DB access)."""

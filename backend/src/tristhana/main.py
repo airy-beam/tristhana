@@ -328,6 +328,7 @@ class _Services:
             get=GetDays(self._storage.days, cities, clock),
             set=SetDayStatus(self._storage.days, clock, counts),
             clear=ClearDayStatus(self._storage.days),
+            steps=GetNextSteps(self._storage.accounts, clock),  # UI-06 stage 6: the bot's Today
         )
         app.state.storage = self._storage
         app.state.ensure_account = ensure
@@ -407,7 +408,7 @@ class _Services:
             cities,
             clock,
         )
-        app.state.next_steps = GetNextSteps(self._storage.accounts, clock)  # UI-06 stage 2
+        app.state.next_steps = days.steps  # UI-06 stage 2
         app.state.check_in_trends = GetCheckInTrends(  # ST-05
             self._storage.check_in_trends, cities, clock
         )

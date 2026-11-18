@@ -1,14 +1,14 @@
 ---
 title: "My asanas"
 description: "Keep track of your last asana, mark a new one when your teacher gives it, and look back at how things unfolded."
-features: [PR-08, ST-04]
+features: [PR-08, ST-04, UI-06]
 ---
 
 Keep track of your last asana, mark a new one when your teacher gives it, and look back at how things unfolded.
 
 ## Set where your practice ends
 
-1. In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-asanas]. In the app, open the :ftl[tab-practice] tab and tap :ftl[progression-open].
+1. In the bot, open :ftl[menu-open] → :ftl[menu-asanas]. In the app, open the :ftl[tab-practice] tab and tap :ftl[progression-open].
 2. The first time, pick the series and your last asana.
 
 ![My asanas in the bot: the current practice and the buttons for a new asana](../../../assets/shots/en/bot-asanas.webp)
@@ -28,7 +28,7 @@ Drop-backs, standing up from a backbend and tic-tacs have their own buttons. Mar
 
 ## When your teacher marks it
 
-A teacher on your list can mark a new asana for you. The bot tells you who did it, and you can undo it if it doesn't match.
+A teacher on your list can mark a new asana for you. The bot tells you who did it. If it doesn't match your practice, undo it here, with :ftl[progression-undo-mark]{from=bot}.
 
 ## Look back
 

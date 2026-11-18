@@ -220,7 +220,7 @@ def test_russian_plurals_on_the_chips(client: TestClient, storage: InMemoryStora
 
     assert _texts(first)[:4] == ["3 дня", "4 дня", "5 дней", "Другое число дней…"]
     assert _texts(other)[:6] == ["2 дня", "6 дней", "7 дней", "10 дней", "14 дней", "‹ Назад"]  # noqa: RUF001
-    assert "„🤒 Болезнь / травма“" in first["text"]
+    assert "«🤒 Болезнь / травма»" in first["text"]
 
 
 def test_other_and_back_are_a_pure_render(

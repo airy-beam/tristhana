@@ -127,7 +127,12 @@ def test_done_under_a_tour_opened_from_start_is_today(client: TestClient) -> Non
     body = _tap(client, "q1:d:s")
 
     assert body["method"] == "editMessageText"
-    assert _rows(body) == [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
+    assert _rows(body) == [
+        ["🧘 Practiced"],
+        ["😌 Rest day"],
+        ["Other…"],
+        ["📅 Another day", "☰ Menu"],
+    ]
 
 
 def test_a_status_tap_still_works_after_an_old_done(client: TestClient) -> None:

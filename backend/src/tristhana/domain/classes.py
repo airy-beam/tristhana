@@ -7,7 +7,7 @@ override > a closure > the moon day (per the shala's policy, Q117) > a swap day 
 dates are the stored observed dates (kshaya included): nothing is recomputed here.
 """
 
-from collections.abc import Iterator, Mapping, Sequence, Set
+from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
@@ -392,3 +392,60 @@ def shifts(zones: Set[str], viewer: str, start: date, end: date) -> tuple[Shift,
 def local_date(o: Occurrence, zone: str) -> date:
     """The date of `o.starts_at` in `zone` (rows sit under the viewer's date)."""
     return o.starts_at.astimezone(ZoneInfo(zone)).date()
+
+
+# UI-06 stage 6 (spec §3.1): a shala's Classes list, the rules as they stand. The same cases
+# drive the Mini App's mirror (`screens/shalas/classText.ts`): data/classes/class_list_cases.json.
+
+type Run = tuple[int, int]  # ISO weekdays, first and last, both included
+_RUN_MIN = 3  # days in a row that read as one run ("Mon-Fri"); two read as "Mon, Tue"
+
+
+def current_classes(classes: Iterable[ClassSeries], today: date) -> list[ClassSeries]:
+    """The series a shala runs from `today` (the shala's) on.
+
+    `ListClasses` also returns ended series (ADR-0048): a weekly series stays while it has no
+    last date or one on/after today, a one-date class while its date is today or later.
+    Weekly first, by first weekday, start, type (the catalog's order) and id; then the
+    one-date classes by date, start, type and id.
+    """
+    order = list(ClassType)
+
+    def key(c: ClassSeries) -> tuple[int, int, date, time, int, str]:
+        weekly = bool(c.weekdays)
+        return (
+            0 if weekly else 1,
+            min(c.weekdays) if weekly else 0,
+            date.min if weekly else c.starts_on,
+            c.start,
+            order.index(c.type),
+            str(c.id),
+        )
+
+    def current(c: ClassSeries) -> bool:
+        if not c.weekdays:
+            return c.starts_on >= today
+        return c.ends_on is None or c.ends_on >= today
+
+    return sorted((c for c in classes if current(c)), key=key)
+
+
+def day_runs(weekdays: Iterable[int]) -> tuple[Run, ...]:
+    """{1, 2, 3, 4, 5} → ((1, 5),) "Mon-Fri"; {1, 3} → ((1, 1), (3, 3)) "Mon, Wed".
+
+    Three or more days in a row are one run, shorter stretches single days, Monday first (a
+    run never wraps past Sunday); all seven are (1, 7), "every day".
+    """
+    days = sorted(set(weekdays))
+    runs: list[Run] = []
+    start = 0
+    for i in range(1, len(days) + 1):
+        if i < len(days) and days[i] == days[i - 1] + 1:
+            continue
+        stretch = days[start:i]
+        if len(stretch) >= _RUN_MIN:
+            runs.append((stretch[0], stretch[-1]))
+        else:
+            runs.extend((d, d) for d in stretch)
+        start = i
+    return tuple(runs)

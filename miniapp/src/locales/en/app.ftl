@@ -136,7 +136,7 @@ today-moon-fact =
        *[amavasya] New moon · { $when }
     }
 moon-none = No moon days in the next two months yet: the calendar is being prepared.
-moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
+moon-calc-note = Dates are calculated for 📍 { $city }, by the moon at sunrise there. Your shala's calendar may differ by a day; follow your teacher.
 # MD-04: the person's own city, when it isn't the followed one.
 moon-same-as-city = Same as my city ({ $city })
 moon-home-fyi = ℹ In 📍 { $city } it falls on { $date }
@@ -271,8 +271,8 @@ settings-cap = { $n ->
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
 settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and how far your practice goes. All rest you log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. How you feel, your notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
-# MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
-settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
+# MD-04: the map data behind the zone lookup is ODbL (ADR-0029): credited here, linked, and in the README.
+settings-privacy-location = 📍 A location you send the bot is used only to set your local time and isn't stored. Map data <osm>© OpenStreetMap contributors</osm>.
 settings-save-failed = Couldn't save. Try again in a moment.
 
 ## Weekly day off and auto-rest (PR-09). { $d } is an ISO weekday (1 = Monday).
@@ -405,7 +405,7 @@ settings-checkin-hint = A few short questions on days you practice: mood, energy
 
 ## Diary note (PR-07). Private, per day, any status; never asked for.
 diary-title = Note
-diary-add = 📓 Add a note
+diary-add = 📓 Note
 # The row of a note that exists (the bot's button); its first line shows under it.
 diary-row = 📓 Note
 diary-edit = Edit
@@ -555,6 +555,8 @@ students-give-ask-across = { $name }: new asanas { $from } ({ $from_series }) �
 students-give-yes = 🎉 Yes, mark
 students-given = ✅ Marked: { $asana }.
 students-given-range = ✅ Marked: { $from } → { $asana }.
+# Under students-given(-range): who can undo a teacher's mark (UI-06 stage 6, polish).
+students-given-undo = If it's a mistake, the student can undo it in 🧘 My asanas.
 students-give-stale = This card was out of date, so nothing was marked. Here it is now.
 students-give-unset = No last asana set yet. Once they set it in My asanas, you can mark new ones here.
 links-students = 👥 My students ({ $count })
@@ -576,7 +578,7 @@ shala-online-only = 🌐 Online classes only
 shala-my-roles = My roles in the shala
 shala-create-submit = Create
 shala-name-invalid = The shala needs a name, up to 64 characters.
-shala-caps = No more shalas or staff links for now: that's the limit.
+shala-caps = No more shalas or staff links for now: that's the limit. A staff link works for 7 days; after that you can make a new one.
 shala-save-failed = Couldn't save. Try again in a moment.
 shala-load-failed = Couldn't load the shala. Try again in a moment.
 shala-role =
@@ -594,20 +596,19 @@ shala-online = 🌐 Online
 # otherwise inside shala-time, whose $zone carries the offset (ADR-0044).
 shala-place = 📍 { $city }
 shala-time = { $place } · shala time: { $zone }
-shala-moon-line = 🌙 Moon days: 📍 { $city }
 shala-moon-city = City for the shala's moon days
 shala-moon-same = Same as the shala's city
-shala-moon-shared = 🌙 Staff, and members whose teacher works here, follow this calendar unless they chose a city. Other members follow it unless they or their teacher chose one.
+shala-moon-shared = 🌙 Staff and students follow the shala's moon days unless they chose their own city.
 shala-staff-title = Teachers and staff
 shala-edit = ✏️ Edit the shala
 shala-roles-save = Save
 shala-students = 👥 Students ({ $n })
 shala-no-students = No students in this shala yet.
-shala-invite-students = ➕ Invite students
+shala-invite-students = ➕ Invite students to the shala
 shala-invite-staff = ➕ Invite staff
 shala-staff-pick = Choose a role. The link adds one person with that role.
 shala-staff-link-hint = This link adds one person as { $role }. It works once, for 7 days.
-shala-join-hint = Send this link or show the QR code. Each student confirms for themselves.
+shala-join-hint = Send this link or show the QR code. Each student confirms for themselves. They join the shala and can then pick their teacher there.
 shala-share-text = Join { $shala } in Tristhana. Before you confirm, the bot shows who sees what.
 shala-qr-alt = QR code for the shala's link
 shala-remove = Remove…
@@ -615,6 +616,8 @@ shala-remove-ask = Remove { $name } from the shala? No one gets a message.
 shala-remove-yes = Remove
 shala-leave = Leave…
 shala-leave-ask = Leave { $shala }? No one gets a message, and your log stays as it is.
+# Under shala-leave-ask for someone with the Teacher role there (UI-06 stage 6, polish).
+shala-leave-own-students = Your own students stay on your list.
 shala-leave-yes = Leave
 shala-delete = Delete the shala…
 shala-delete-ask = Delete { $shala } for everyone in it? Everyone's own logs stay. No one gets a message. This can't be undone.
@@ -643,17 +646,12 @@ class-type = { $type ->
     }
 class-led-hint = Often Friday or Sunday
 shala-moon-policy-label = 🌙 On moon days
-shala-moon-policy = { $p ->
-        [pranayama] 🌙 Moon days: pranayama, chanting and talks only
-        [open] 🌙 Moon days: classes as usual
-       *[closed] 🌙 Moon days: the shala is closed
-    }
 shala-moon-policy-option = { $p ->
         [pranayama] Pranayama, chanting and talks only
         [open] Classes as usual
        *[closed] The shala is closed
     }
-shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use "Hold anyway" or "Cancel this class".
+shala-moon-policy-note = Dates follow the moon at sunrise in the shala's moon city. If your shala keeps another day, use ✅ Hold anyway or ❌ Cancel this date.
 shala-day-off-label = 😌 Day off (up to two)
 shala-day-off-line = 😌 Day off: { $days }
 shala-day-off-adopt = 😌 Make { $days } my day off too
@@ -756,17 +754,22 @@ guide-open = 📖 Guide
 ## student does not take them for their own next step.
 shala-empty = Nobody here yet. To add a teacher or join a shala, open the link they send you.
 shala-starts-title = For teachers and shalas
-shala-start-invite = Invite students
+shala-start-invite = Invite my students
 shala-start-shala = Shala and classes
-links-no-students = No students on your list.
+# C6 (UI-06 stage 6): $shala is "yes" for someone with the Teacher role in a shala, whose
+# students can pick them there, else "no".
+links-no-students = No students yet. Send them your link{ $shala ->
+        [yes] ; students of your shala can also pick you as their teacher
+       *[no] {""}
+    }.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
 links-make-main = ⭐ Make main
 links-remove = Remove…
 links-remove-yes = Remove
-links-invite = ➕ Invite students
-links-invite-first = I teach: invite students
+links-invite = ➕ Invite my students
+links-invite-first = I teach: invite my students
 link-no-name = (no name)
 link-unlink-ask = Remove { $name } from your teachers? They won't get a message, but you'll no longer be on their list.
 link-next-main = { $name } becomes your main teacher.
@@ -783,7 +786,9 @@ invite-qr-alt = QR code for your invite link
 links-load-failed = Couldn't load your lists. Try again in a moment.
 
 ## NT-03: announcements from a teacher or a shala
-ann-announce = 📣 Announce
+ann-announce = 📣 Announce to the shala
+# C20 (UI-06 stage 6): a teacher's own students, on My students.
+ann-announce-students = 📣 Announce to my students
 ann-compose-title = 📣 Announcement
 ann-to-students = To: all your students ({ $count })
 ann-to-shala = To: everyone in { $shala } ({ $count })
@@ -900,5 +905,5 @@ next-invite-do = Open the invite
 next-class = Your shala has no classes yet. Add the first one, and students will see the schedule.
 next-class-do = Add a class
 next-shala-invite = Your shala has a schedule now. Invite students, and they'll see its classes.
-next-shala-invite-do = Invite students
+next-shala-invite-do = Invite students to the shala
 next-not-now = Not now

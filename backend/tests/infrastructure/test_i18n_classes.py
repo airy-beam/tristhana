@@ -28,7 +28,8 @@ BOT_KEYS = (
     "schedule-substitute",
     "schedule-day-off",
     "schedule-empty",
-    "shala-moon-policy",
+    "shala-moon-summary",
+    "shala-moon-policy-short",
     "shala-day-off-line",
     "shala-day-off-adopt",
     "class-cancel-ask",
@@ -44,7 +45,8 @@ BOT_KEYS = (
 APP_KEYS = (
     "class-type",
     "class-led-hint",
-    "shala-moon-policy",
+    "shala-moon-summary",
+    "shala-moon-policy-short",
     "shala-moon-policy-note",
     "shala-day-off-adopt",
     "schedule-moon-day",
@@ -113,13 +115,17 @@ TYPES = {
     "chanting": ("Chanting", "Чантинг"),
     "workshop": ("Workshop", "Семинар"),
 }
+# UI-06 stage 6 (C15): the card's one moon line, in the ashtanga-expert's words.
 POLICIES = {
-    "closed": ("🌙 Moon days: the shala is closed", "🌙 В лунные дни шала закрыта"),
+    "closed": ("🌙 Moon days (📍 Mysuru): shala closed", "🌙 Лунные дни (📍 Mysuru): шала закрыта"),
     "pranayama": (
-        "🌙 Moon days: pranayama, chanting and talks only",
-        "🌙 В лунные дни только пранаяма, чантинг и конференции",
+        "🌙 Moon days (📍 Mysuru): pranayama, chanting and talks only",
+        "🌙 Лунные дни (📍 Mysuru): только пранаяма, чантинг и конференции",
     ),
-    "open": ("🌙 Moon days: classes as usual", "🌙 В лунные дни занятия как обычно"),
+    "open": (
+        "🌙 Moon days (📍 Mysuru): classes as usual",
+        "🌙 Лунные дни (📍 Mysuru): занятия как обычно",
+    ),
 }
 REASONS = {
     "moon": ("moon day", "лунный день"),
@@ -155,10 +161,11 @@ def test_the_class_type_select(type: str, labels: tuple[str, str]) -> None:
 def test_the_moon_policy_select(policy: str, labels: tuple[str, str]) -> None:
     t = FluentTranslator()
 
-    assert (
-        _flat(t.t("en", "shala-moon-policy", p=policy)),
-        _flat(t.t("ru", "shala-moon-policy", p=policy)),
-    ) == labels
+    def line(locale: Locale) -> str:
+        short = t.t(locale, "shala-moon-policy-short", p=policy)
+        return _flat(t.t(locale, "shala-moon-summary", city="Mysuru", policy=short))
+
+    assert (line("en"), line("ru")) == labels
 
 
 @pytest.mark.parametrize(("reason", "labels"), list(REASONS.items()))

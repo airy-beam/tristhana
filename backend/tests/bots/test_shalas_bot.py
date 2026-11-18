@@ -392,7 +392,7 @@ def test_join_edits_into_the_card(client: TestClient, storage: InMemoryStorage) 
     text = body["text"]
     assert text.splitlines()[0] == "🏛 Ashtanga Almaty"
     assert "📍 Almaty · shala time: Almaty (UTC+5)" in text
-    assert "🌙 Moon days: 📍 Almaty" in text
+    assert "🌙 Your moon days now: 📍 Almaty" in text
     assert "Anna" in text  # a member sees the staff
     me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
     assert storage.shalas.students_of(shala) == [me.id]
@@ -513,10 +513,12 @@ def test_the_staff_consent_in_both_languages(
     again = _tap(client, f"h1:rs:{STAFF}", lang)
 
     assert _flat(body["text"]) == short  # the short screen (ADR-0045)
+    other = "ru" if lang == "en" else "en"
     assert [b["callback_data"] for b in _buttons(body)] == [
         f"h1:b:{STAFF}",
         "h1:n",
         f"h1:ds:{STAFF}",
+        f"h1:ls:{other}:{STAFF}",  # UI-06 stage 6 (C4): its own language letter
     ]
     # Details: the full text exactly as before UI-06, with the same confirm.
     assert _flat(details["text"]) == f"{full} {know}"
@@ -538,7 +540,8 @@ def test_staff_accept_from_details_is_the_same_accept(
 
     body = _tap(client, _data(details, "✅"))
 
-    assert body["text"].splitlines()[0] == "🏛 Ashtanga Almaty"
+    # UI-06 stage 6 (C4): the welcome line, then the card.
+    assert body["text"].split("\n\n", 1)[1].splitlines()[0] == "🏛 Ashtanga Almaty"
     me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
     assert storage.shalas.membership(shala, me.id).roles == frozenset({ShalaRole.ASSISTANT})  # type: ignore[union-attr]
 
@@ -567,7 +570,8 @@ def test_staff_accept_edits_into_the_card_and_notes_the_inviter_silently(
     body = _tap(client, _data(consent, "✅"))
 
     assert body["method"] == "editMessageText"
-    assert body["text"].splitlines()[0] == "🏛 Ashtanga Almaty"
+    # UI-06 stage 6 (C4): the welcome line, then the card.
+    assert body["text"].split("\n\n", 1)[1].splitlines()[0] == "🏛 Ashtanga Almaty"
     note = _note(outbound, 1001)
     assert note.fields["text"] == "🏛 Ash теперь в шале Ashtanga Almaty. Роль: Ассистент."
     assert note.fields["disable_notification"] is True
@@ -653,7 +657,7 @@ def test_the_card_per_role(
     texts = _texts(body)
 
     assert any(t.startswith("👥 Students") for t in texts) is students
-    assert ("➕ Invite students" in texts) is invite_students
+    assert ("➕ Invite students to the shala" in texts) is invite_students
     assert ("➕ Invite staff" in texts) is invite_staff
     assert any(t.startswith("Leave") for t in texts) is leave
     assert "S0" not in body["text"]  # students are never listed on the card
@@ -718,6 +722,22 @@ def test_leave_is_ask_then_leave(
     assert done["method"] == "editMessageText"
     assert storage.shalas.membership(shala, me.id) is None
     assert [s for s in outbound if s.name == "sendMessage"] == []
+
+
+@pytest.mark.parametrize(
+    ("role", "says"), [(ShalaRole.TEACHER, True), (ShalaRole.ASSISTANT, False)]
+)
+def test_a_teacher_who_leaves_is_told_their_own_students_stay(
+    client: TestClient, storage: InMemoryStorage, role: ShalaRole, says: bool
+) -> None:
+    me = _me(client, storage)
+    shala = _shala(storage, _owner(storage))
+    storage.shalas.add_staff(shala, me.id, role)
+
+    ask = _tap(client, f"h1:k:{short_id(shala)}")
+
+    assert ask["text"].startswith("Leave ")
+    assert ask["text"].endswith(_t("shala-leave-own-students")) is says
 
 
 def test_the_owner_gets_no_leave_even_by_forged_data(
@@ -830,7 +850,7 @@ def test_a_forged_manager_invite_by_an_admin_creates_nothing(
 # /teachers and the invite screen
 
 
-def test_teachers_lists_my_shalas_above_open_the_app(
+def test_teachers_lists_my_shalas_above_the_shala_in_the_app(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
@@ -841,7 +861,7 @@ def test_teachers_lists_my_shalas_above_open_the_app(
 
     rows = _rows(body)
     shala_row = next(i for i, r in enumerate(rows) if r == ["🏛 Ashtanga Almaty"])
-    app_row = next(i for i, r in enumerate(rows) if any("Open the app" in t for t in r))
+    app_row = next(i for i, r in enumerate(rows) if r == ["🏛 Shala in the app"])
     assert shala_row < app_row
     assert _data(body, "🏛 Ashtanga Almaty") == f"h1:c:{short_id(shala)}"
 
@@ -1118,3 +1138,201 @@ def test_codes_stay_out_of_the_logs_when_a_handler_fails(
 
     assert any("telegram handler failed" in line for line in logs), "the capture saw nothing"
     assert [line for line in logs if JOIN in line or STAFF in line] == []
+
+
+# UI-06 stage 6, slice C: teachers and shala staff (spec §4, C2-C6, C14, C15, C20).
+
+
+def test_the_staff_consent_has_its_own_language_letter(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """C4: `h1:ls` re-renders the staff consent in the other language; `h1:l` stays the join
+    consent's, so an old join button still opens a join screen."""
+    shala = _shala(storage, _owner(storage))
+    _invite(storage, shala, ShalaRole.ASSISTANT)
+
+    body = _command(client, f"/start hs_{STAFF}")
+    switched = _tap(client, _data(body, "🗣"))
+    join = _command(client, f"/start h_{JOIN}", "ru")
+
+    assert _data(body, "🗣") == f"h1:ls:ru:{STAFF}"
+    assert _flat(switched["text"]) == RU_STAFF_SHORT
+    assert _data(switched, "✅") == f"h1:b:{STAFF}"
+    assert _data(switched, "🗣") == f"h1:ls:en:{STAFF}"
+    assert _data(join, "🗣") == f"h1:l:en:{JOIN}"
+
+
+def test_a_staff_accept_says_where_things_are_above_the_card(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """C4: the lead names the shala and the role, then the card as before."""
+    shala = _shala(storage, _owner(storage))
+    _invite(storage, shala, ShalaRole.TEACHER)
+
+    body = _tap(client, f"h1:b:{STAFF}")
+
+    lead, card = body["text"].split("\n\n", 1)
+    assert _flat(lead) == _t("shala-staff-welcome", shala="Ashtanga Almaty", role="Teacher")
+    assert card.splitlines()[0] == "🏛 Ashtanga Almaty"
+
+
+@pytest.mark.parametrize(
+    ("mine", "offered"),
+    [
+        ("owner", ("teacher", "assistant", "office", "admin")),
+        ("admin", ("teacher", "assistant", "office")),
+    ],
+)
+def test_the_role_picker_says_what_each_role_it_offers_can_do(
+    client: TestClient, storage: InMemoryStorage, mine: str, offered: tuple[str, ...]
+) -> None:
+    """C14: one `shala-role-hint` line per role offered, and none for a role not offered."""
+    me = _me(client, storage)
+    if mine == "owner":
+        shala = storage.shalas.add_shala(me.id, "Mine", "almaty", code=JOIN).id
+    else:
+        shala = _shala(storage, _owner(storage))
+        storage.shalas.add_staff(shala, me.id, ShalaRole.ADMIN)
+
+    text = _flat(_tap(client, f"h1:e:{short_id(shala)}")["text"])
+
+    assert text.startswith(_t("shala-staff-pick"))
+    for role in ("teacher", "assistant", "office", "admin"):
+        line = _t(
+            "shala-role-hint-line",
+            role=_t("shala-role", role=role),
+            hint=_t("shala-role-hint", role=role),
+        )
+        assert (line in text) is (role in offered), role
+
+
+@pytest.mark.parametrize(
+    ("policy", "said"),
+    [("closed", "shala closed"), ("open", "classes as usual"), ("pranayama", "pranayama")],
+)
+def test_the_card_has_one_moon_line_with_its_policy(
+    client: TestClient, storage: InMemoryStorage, policy: str, said: str
+) -> None:
+    """C15: one line, the city and the policy; no separate Moon days line."""
+    me = _me(client, storage)
+    shala = storage.shalas.add_shala(
+        _owner(storage).id, "Ashtanga Almaty", "almaty", code=JOIN, moon_policy=policy
+    ).id
+    storage.shalas.add_student(shala, me.id)
+
+    text = _open_card(client, shala)["text"]
+
+    moon = [line for line in text.splitlines() if line.startswith("🌙")]
+    assert moon == [
+        _t("shala-moon-summary", city="Almaty", policy=_t("shala-moon-policy-short", p=policy))
+    ]
+    assert said in moon[0]
+
+
+def test_the_owner_reads_the_one_line_moon_note(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+    shala = storage.shalas.add_shala(me.id, "Mine", "almaty", code=JOIN).id
+
+    text = _open_card(client, shala)["text"]
+
+    assert _t("shala-moon-shared") == (
+        "🌙 Staff and students follow the shala's moon days unless they chose their own city."
+    )
+    assert _t("shala-moon-shared") in _flat(text)
+
+
+@pytest.mark.parametrize(
+    ("role", "hint", "teacher"),
+    [
+        (ShalaRole.TEACHER, True, "yes"),
+        (ShalaRole.ASSISTANT, True, "no"),
+        (ShalaRole.OFFICE, False, ""),
+    ],
+)
+def test_staff_who_read_the_names_learn_whose_students_they_are(
+    client: TestClient, storage: InMemoryStorage, role: ShalaRole, hint: bool, teacher: str
+) -> None:
+    """C3: a teacher (names only) reads that these are the shala's students, with "Invite my
+    students" (`t1:i`); the front desk, who removes students, gets the plain list."""
+    me = _me(client, storage)
+    shala = _shala(storage, _owner(storage))
+    storage.shalas.add_staff(shala, me.id, role)
+    storage.shalas.add_student(shala, person(storage, "2002", "Bea").id)
+
+    body = _tap(client, f"h1:m:{short_id(shala)}:0")
+
+    if hint:  # a teacher waits to be picked; anyone else sends their own link
+        assert _t("shala-students-not-yours", teacher=teacher) in _flat(body["text"])
+        other = "no" if teacher == "yes" else "yes"
+        assert _t("shala-students-not-yours", teacher=other) not in _flat(body["text"])
+    else:
+        assert "These are the shala's students." not in body["text"]
+    assert ("t1:i" in [b.get("callback_data") for b in _buttons(body)]) is hint
+    assert _rows(body)[-1] == [_t("log-back")]
+
+
+def test_teacher_and_shala_has_no_join_line_for_shala_staff(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """C2: no teacher on my list, but a shala I run: the short line, no "join a shala"."""
+    me = _me(client, storage)
+    storage.shalas.add_shala(me.id, "Mine", "almaty", code=JOIN)
+
+    text = _flat(_command(client, "/teachers")["text"])
+
+    assert _t("links-empty-staff") in text
+    assert _t("links-empty") not in text
+
+
+def test_teacher_and_shala_keeps_the_join_line_for_a_student(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    me = _me(client, storage)
+    storage.shalas.add_student(_shala(storage, _owner(storage)), me.id)
+
+    text = _flat(_command(client, "/teachers")["text"])
+
+    assert _t("links-empty") in text
+
+
+def test_teacher_and_shala_shows_who_waits_for_my_answer_on_top(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """C5: the teacher's waiting row first, above the teachers and shalas."""
+    me = _me(client, storage)
+    shala = storage.shalas.add_shala(me.id, "Mine", "almaty", code=JOIN).id
+    zoe = person(storage, "2003", "Zoe")
+    storage.shalas.add_student(shala, zoe.id)
+    now = datetime.now(UTC)  # the app reads the system clock here
+    storage.teacher_requests.add(
+        zoe.id, me.id, shala, asked_on=now.date(), created_at=now - timedelta(hours=1)
+    )
+
+    body = _command(client, "/teachers")
+
+    assert _buttons(body)[0]["callback_data"].startswith("t1:rl:")
+    assert "1" in _rows(body)[0][0]
+
+
+@pytest.mark.parametrize(
+    ("where", "shala"),
+    [("teacher", "yes"), ("assistant", "no"), ("student", "no"), ("none", "no")],
+)
+def test_an_empty_my_students_says_what_to_do_next(
+    client: TestClient, storage: InMemoryStorage, where: str, shala: str
+) -> None:
+    """C6: send the link; a shala's students can also pick someone with the Teacher role."""
+    me = _me(client, storage)
+    if where != "none":
+        place = _shala(storage, _owner(storage))
+        if where == "student":
+            storage.shalas.add_student(place, me.id)
+        else:
+            storage.shalas.add_staff(place, me.id, ShalaRole(where))
+
+    body = _tap(client, "t1:s:0")
+
+    assert _flat(body["text"]) == _t("links-no-students", shala=shala)
+    assert "t1:i" in [b.get("callback_data") for b in _buttons(body)]

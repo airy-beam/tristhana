@@ -3,6 +3,8 @@
 64 bytes; an id here is no capability: every write checks the caller's membership.
 
 h1:a:<code>  h1:n  h1:l:<locale>:<code>  h1:b:<code>   join, not now, language, staff accept
+h1:ls:<locale>:<code>                                  UI-06 stage 6 (C4): the staff consent's
+                                                       language (`h1:l` stays the join consent's)
 h1:d:<code>  h1:ds:<code>                              consent: the full text (join, staff)
 h1:r:<code>  h1:rs:<code>                              consent: the short screen again (ADR-0045)
 h1:c:<s>  h1:m:<s>:<page>  h1:v:<s>:<acct>             card, students page, student
@@ -56,8 +58,11 @@ class AcceptStaff:
 
 @dataclass(frozen=True, slots=True)
 class Language:
+    """The consent screen again in `locale`: `staff` for a staff link's (`h1:ls`)."""
+
     locale: Locale
     code: str
+    staff: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,8 +139,8 @@ def accept_staff(code: str) -> str:
     return f"{PREFIX}:b:{code}"
 
 
-def language(locale: Locale, code: str) -> str:
-    return f"{PREFIX}:l:{locale}:{code}"
+def language(locale: Locale, code: str, staff: bool = False) -> str:
+    return f"{PREFIX}:{'ls' if staff else 'l'}:{locale}:{code}"
 
 
 def consent(code: str, staff: bool, details: bool) -> str:
@@ -184,10 +189,10 @@ def decode(data: str | None) -> ShalaTap | None:
             return AcceptStaff(code)
         case [p, letter, value] if p == PREFIX and letter in _CONSENT and (code := _code(value)):
             return Consent(code, *_CONSENT[letter])
-        case [p, "l", locale, value] if (
+        case [p, "l" | "ls" as letter, locale, value] if (
             p == PREFIX and locale in LOCALES and (code := _code(value))
         ):
-            return Language(locale, code)  # type: ignore[arg-type]
+            return Language(locale, code, staff=letter == "ls")  # type: ignore[arg-type]
         case [p, "m", s, page] if p == PREFIX and (id := parse_short_id(s)) and _page(page):
             return Students(id, int(page))
         case [p, "e", s, role] if p == PREFIX and (id := parse_short_id(s)) and role in ROLE_CODES:

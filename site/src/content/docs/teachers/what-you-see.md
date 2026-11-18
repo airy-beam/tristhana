@@ -14,7 +14,7 @@ In the bot, open :ftl[menu-open] → :ftl[menu-students]. In the app, open the :
 
 Next to each name is today's mark: 🧘 for practice, 😌 for rest. A name with no mark means there is nothing to show for today.
 
-In the bot, a row :ftl[request-waiting-open]{count=2} at the top means students of your shala picked you and are waiting for your answer. In the app they are at the top of the :ftl[tab-shala] tab. See [Invite your students](../invite-students/).
+In the bot, a row :ftl[request-waiting-open]{count=2} at the top means students of your shala picked you and are waiting for your answer. The same row is at the top of :ftl[menu-teacher]: look there while you have no students yet, because until then :ftl[menu-students] is not in the Menu. In the app they are at the top of the :ftl[tab-shala] tab. See [Invite your students](../invite-students/).
 
 ## A student's card
 
@@ -49,7 +49,7 @@ There is no setting that shows you more.
 ## Good to know
 
 - The card is for reading. You can't change a student's log. The one thing you can add is a new asana: see the next page.
-- A shala's staff sees students' names and nothing from their logs. To see a student's card, confirm them when they pick you at the shala, or send them your own teacher link.
+- A shala's staff sees students' names and nothing from their logs. Those are the shala's students, not your own list. To see a student's card, confirm them when they pick you at the shala, or send them your own teacher link.
 - A student can remove you from their list at any time. You don't get a message.
 
 ## Next

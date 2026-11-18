@@ -1,0 +1,80 @@
+{
+  "_comment": "UI-06 stage 6 (spec §3.1): the cases of a shala's Classes list, shared by the backend (domain/classes.py current_classes, day_runs; tests/domain/test_class_list.py) and the Mini App (screens/shalas/classText.ts currentClasses, dayRuns; classList.test.ts), so the bot's and the app's lists cannot drift. day_runs: ISO weekdays (Monday = 1) -> runs [first, last], Monday first; three or more days in a row are one run, two in a row are two single days, all seven are the run [1, 7] ('every day'); no run wraps past Sunday. current_classes: weekly series with no last date or one on/after today, one-date classes on/after today; weekly first (by first weekday, start, type in the catalog's order, id), then one-date classes (by date, start, type, id).",
+  "day_runs": [
+    { "name": "weekdays", "weekdays": [1, 2, 3, 4, 5], "runs": [[1, 5]] },
+    { "name": "Mon, Wed, Fri", "weekdays": [1, 3, 5], "runs": [[1, 1], [3, 3], [5, 5]] },
+    { "name": "all seven", "weekdays": [1, 2, 3, 4, 5, 6, 7], "runs": [[1, 7]] },
+    { "name": "Sat to Mon does not wrap", "weekdays": [6, 7, 1], "runs": [[1, 1], [6, 6], [7, 7]] },
+    { "name": "Fri to Mon: a run and a day", "weekdays": [5, 6, 7, 1], "runs": [[1, 1], [5, 7]] },
+    { "name": "two in a row stay apart", "weekdays": [2, 3], "runs": [[2, 2], [3, 3]] },
+    { "name": "Mysore but Saturday", "weekdays": [1, 2, 3, 4, 5, 7], "runs": [[1, 5], [7, 7]] },
+    { "name": "unsorted and repeated", "weekdays": [4, 2, 3, 3], "runs": [[2, 4]] },
+    { "name": "one day", "weekdays": [7], "runs": [[7, 7]] },
+    { "name": "none", "weekdays": [], "runs": [] }
+  ],
+  "current_classes": [
+    {
+      "name": "an ended series goes, one ending today stays",
+      "today": "2026-11-18",
+      "classes": [
+        { "id": "ended", "type": "mysore", "start": "06:00", "weekdays": [1, 2, 3, 4, 5], "starts_on": "2026-01-05", "ends_on": "2026-11-17" },
+        { "id": "ends-today", "type": "mysore", "start": "06:00", "weekdays": [1, 2, 3, 4, 5], "starts_on": "2026-01-05", "ends_on": "2026-11-18" },
+        { "id": "open", "type": "led", "start": "08:00", "weekdays": [7], "starts_on": "2026-01-04", "ends_on": null }
+      ],
+      "expected": ["ends-today", "open"]
+    },
+    {
+      "name": "a split: the old series until the change and its successor from it",
+      "today": "2026-11-18",
+      "classes": [
+        { "id": "successor", "type": "mysore", "start": "07:00", "weekdays": [1, 2, 3, 4, 5], "starts_on": "2026-11-23", "ends_on": null },
+        { "id": "until-change", "type": "mysore", "start": "06:00", "weekdays": [1, 2, 3, 4, 5], "starts_on": "2026-01-05", "ends_on": "2026-11-22" }
+      ],
+      "expected": ["until-change", "successor"]
+    },
+    {
+      "name": "one-date classes: past ones go, today's and later ones stay, after the weekly ones",
+      "today": "2026-11-18",
+      "classes": [
+        { "id": "later-workshop", "type": "workshop", "start": "10:00", "weekdays": [], "starts_on": "2026-12-05", "ends_on": null },
+        { "id": "past-workshop", "type": "workshop", "start": "10:00", "weekdays": [], "starts_on": "2026-11-17", "ends_on": null },
+        { "id": "today-chanting", "type": "chanting", "start": "18:00", "weekdays": [], "starts_on": "2026-11-18", "ends_on": null },
+        { "id": "sunday-led", "type": "led", "start": "08:00", "weekdays": [7], "starts_on": "2026-01-04", "ends_on": null }
+      ],
+      "expected": ["sunday-led", "today-chanting", "later-workshop"]
+    },
+    {
+      "name": "weekly order: first weekday, then start, then type",
+      "today": "2026-11-18",
+      "classes": [
+        { "id": "sun-led", "type": "led", "start": "08:00", "weekdays": [7], "starts_on": "2026-01-04", "ends_on": null },
+        { "id": "tue-pranayama", "type": "pranayama", "start": "06:00", "weekdays": [2, 4], "starts_on": "2026-01-06", "ends_on": null },
+        { "id": "mon-evening", "type": "mysore", "start": "17:00", "weekdays": [1, 3], "starts_on": "2026-01-05", "ends_on": null },
+        { "id": "mon-led", "type": "led", "start": "06:00", "weekdays": [1], "starts_on": "2026-01-05", "ends_on": null },
+        { "id": "mon-mysore-b", "type": "mysore", "start": "06:00", "weekdays": [1, 2, 3, 4, 5], "starts_on": "2026-01-05", "ends_on": null },
+        { "id": "mon-mysore-a", "type": "mysore", "start": "05:30", "weekdays": [5, 1], "starts_on": "2026-01-05", "ends_on": null }
+      ],
+      "expected": ["mon-mysore-a", "mon-mysore-b", "mon-led", "mon-evening", "tue-pranayama", "sun-led"]
+    },
+    {
+      "name": "one-date order: date, then start, then type",
+      "today": "2026-11-18",
+      "classes": [
+        { "id": "dec-6-early", "type": "workshop", "start": "09:00", "weekdays": [], "starts_on": "2026-12-06", "ends_on": null },
+        { "id": "dec-5-conference", "type": "conference", "start": "10:00", "weekdays": [], "starts_on": "2026-12-05", "ends_on": null },
+        { "id": "dec-5-led", "type": "led", "start": "10:00", "weekdays": [], "starts_on": "2026-12-05", "ends_on": null },
+        { "id": "dec-5-early", "type": "workshop", "start": "07:30", "weekdays": [], "starts_on": "2026-12-05", "ends_on": null }
+      ],
+      "expected": ["dec-5-early", "dec-5-led", "dec-5-conference", "dec-6-early"]
+    },
+    {
+      "name": "nothing current",
+      "today": "2026-11-18",
+      "classes": [
+        { "id": "ended", "type": "mysore", "start": "06:00", "weekdays": [1, 2, 3, 4, 5], "starts_on": "2026-01-05", "ends_on": "2026-06-30" },
+        { "id": "past", "type": "workshop", "start": "10:00", "weekdays": [], "starts_on": "2026-03-01", "ends_on": null }
+      ],
+      "expected": []
+    }
+  ]
+}

@@ -91,9 +91,9 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
     ("ics-class", {"what": "Mysore", "teacher": "Anna"}, "Mysore · Anna", "Mysore · Anna"),
 ]
 MOON_CALC_NOTE = {
-    "en": "Dates are calculated for 📍 Mysuru (lunar day at sunrise). Your shala's calendar may"
-    " differ by a day; follow your teacher.",
-    "ru": "Даты рассчитаны по городу 📍 Mysuru (лунные сутки на восходе). Календарь твоей шалы"
+    "en": "Dates are calculated for 📍 Mysuru, by the moon at sunrise there. Your shala's"
+    " calendar may differ by a day; follow your teacher.",
+    "ru": "Даты рассчитаны для 📍 Mysuru: по луне на восходе солнца там. Календарь твоей шалы"
     " может отличаться на день: ориентируйся на своего учителя.",
 }
 

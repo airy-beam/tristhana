@@ -92,7 +92,9 @@ def build_router(
                 links.requests, start, invites, translator, bot_username
             )
         if links.shalas is not None:  # SC-01
-            shalas = ShalaScreens(links.shalas, start, invites, settings, translator, bot_username)
+            shalas = ShalaScreens(
+                links.shalas, start, invites, settings, translator, bot_username, miniapp_url
+            )
             if invites.requests is not None:
                 invites.requests.shalas = shalas  # the student's side lands on the card
     register_start(router, start, invites, shalas)
@@ -122,6 +124,7 @@ def build_router(
                 links.shalas.clock,
                 feed,
                 attendance=links.shalas.attendance is not None,  # SC-05
+                app=miniapp_url,
             )
             if links.shalas.attendance is not None:
                 attendance = AttendanceScreens(

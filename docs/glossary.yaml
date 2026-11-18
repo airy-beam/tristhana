@@ -196,6 +196,51 @@ concepts:
     ru: 🗓 Расписание
     where: [the shala card]
 
+  - concept: A shala's classes, as they repeat
+    en: Classes
+    ru: Занятия
+    where: [shala-classes-title, shala-classes-none, shala-class-row, class-add-another]
+    note: >-
+      UI-06 stage 6 (spec §3.1, §6). The repeating rules on the shala card ("Mysore · Mon–Fri ·
+      06:00–09:30"), one row per class; the Schedule below is by date. No 🗓 on the heading: the
+      Schedule's has it.
+
+  - concept: The two student invites
+    en: Invite students to the shala · Invite my students
+    ru: Пригласить учеников в шалу · Пригласить своих учеников
+    where:
+      - shala-invite-students
+      - next-shala-invite-do
+      - setup-students
+      - links-invite
+      - shala-start-invite
+      - welcome-path-invite
+    note: >-
+      UI-06 stage 6 (spec §6, B5). The shala's link joins the shala (its students then pick a
+      teacher); the teacher's own link links students to me and joins no shala. A staff teacher
+      sees both, so neither says a bare "Invite students". The personal invite tells shala staff
+      it is "your own link, not the shala's" (invite-own-not-shala). App buttons say what opens
+      ("🏛 Shala in the app"), never a bare "Open the app".
+    retired:
+      en:
+        - word: 'invite students(?! to the shala)'
+          in:
+            - shala-invite-students
+            - next-shala-invite-do
+            - setup-students
+            - links-invite
+            - shala-start-invite
+            - welcome-path-invite
+      ru:
+        - word: 'пригласить учеников(?! в шалу)'
+          in:
+            - shala-invite-students
+            - next-shala-invite-do
+            - setup-students
+            - links-invite
+            - shala-start-invite
+            - welcome-path-invite
+
   - concept: Passing a link on
     en: ✉️ Send the link
     ru: ✉️ Отправить ссылку
@@ -263,8 +308,6 @@ concepts:
       en: ['time ?zones?']
       ru: ['часов\p{L}* пояс\p{L}*']
     except:
-      - key: settings-privacy-location
-        reason: The location-privacy line says what the location is used for, exactly.
       - key: settings-zone-utc
         reason: The UTC option (it names no zone today; kept free to).
       - key: settings-city-utc

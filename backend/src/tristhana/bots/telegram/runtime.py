@@ -17,6 +17,7 @@ from tristhana.application.days import ClearDayStatus, GetDays, SetDayStatus
 from tristhana.application.diary import ClearDiaryNote, GetDiaryNote, SaveDiaryNote
 from tristhana.application.directory_listing import ListingUseCases
 from tristhana.application.export import DeleteMyAccount, SendMyExport
+from tristhana.application.journey import GetNextSteps
 from tristhana.application.labels import PracticeLabels
 from tristhana.application.moon import (
     FollowMoonSource,
@@ -74,6 +75,8 @@ class DayUseCases:
     get: GetDays
     set: SetDayStatus
     clear: ClearDayStatus
+    # UI-06 stage 6 (B4): a shala's first setup step on Today, for its staff.
+    steps: GetNextSteps | None = None
 
 
 @dataclass(frozen=True, slots=True)

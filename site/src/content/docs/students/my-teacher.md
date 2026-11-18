@@ -51,13 +51,13 @@ The bot asks the same question right after you join a shala: see [My shala](../m
 
 ## Your list
 
-:ftl[menu-open] → :ftl[menu-teacher] shows your teachers and your shalas. In the app they are on the :ftl[tab-shala] tab.
+:ftl[menu-open] → :ftl[menu-teacher] shows your teachers and your shalas, and :ftl[app-open-shala] opens the same in the app, on the :ftl[tab-shala] tab. If you teach too, people waiting for your answer are on top of this screen: :ftl[request-waiting-open]{count=2}.
 
 ![The list of teachers and shalas in the bot](../../../assets/shots/en/bot-teachers.webp)
 
 ![The Shala tab in the app: My schedule, your shala, your teacher with Announcements, and the rows for teachers and shalas](../../../assets/shots/en/app-shala-tab.webp)
 
-- You can have several teachers. ⭐ marks your main one. If you haven't chosen a city yourself, your moon days follow the city they chose. If your main teacher teaches at your shala, the shala's calendar comes first.
+- You can have several teachers. ⭐ marks your main one. If you haven't chosen a city yourself, your moon days follow your shala's. If your main teacher isn't on your shala's staff and has chosen a city, they follow that city instead. Without a shala, they follow the city your main teacher chose, and otherwise Mysuru. See [Rest days, moon days and 🌸](../rest-and-moon-days/).
 - Tap a name, then :ftl[links-remove]{from=bot} to take them off your list. Nobody gets a message.
 
 ## Messages from your teacher

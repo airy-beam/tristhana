@@ -328,10 +328,10 @@ describe("the first screen: the bot's five rows, each with its value", () => {
   });
 
   it.each([
-    ["en", "📖 Guide", "https://tristhana.app/"],
-    ["ru", "📖 Справка", "https://tristhana.app/ru/"],
+    ["en", "📖 Guide", "https://tristhana.app/students/settings/"],
+    ["ru", "📖 Справка", "https://tristhana.app/ru/students/settings/"],
   ] as const)(
-    "opens the guide in the person's language from the last row (UI-05, %s)",
+    "opens the guide's Settings page in the person's language from the last row (UI-05, %s)",
     async (locale, label, url) => {
       stubApi();
       const { openLink } = await import("../../telegram");
@@ -683,7 +683,12 @@ describe("My city (MD-04)", () => {
     await openCity();
 
     expect(screen.getByText(/Reminders and times follow your city's clock/)).toBeInTheDocument();
-    expect(screen.getByText(/© OpenStreetMap contributors \(ODbL\)/)).toBeInTheDocument();
+    const credit = screen.getByRole("link", { name: "© OpenStreetMap contributors" });
+    expect(credit).toHaveAttribute("href", "https://www.openstreetmap.org/copyright");
+    expect(screen.getByText(/used only to set your local time/)).toBeInTheDocument();
+    const { openLink } = await import("../../telegram");
+    fireEvent.click(credit);
+    expect(openLink).toHaveBeenLastCalledWith("https://www.openstreetmap.org/copyright");
   });
 
   it("shows the old city again when the save fails", async () => {

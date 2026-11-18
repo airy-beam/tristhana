@@ -2,10 +2,10 @@
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 
-/** @typedef {{ name: string, kind: "app" | "bot", as: "student" | "teacher" | "newcomer" | "assistant" | "owner" | "member", features: string[], say?: string, tap?: string[], click?: string[], full?: boolean, top?: string }} Shot */
+/** @typedef {{ name: string, kind: "app" | "bot", as: "student" | "teacher" | "newcomer" | "assistant" | "owner" | "member" | "invitee", features: string[], say?: string, tap?: string[], click?: string[], full?: boolean, top?: string }} Shot */
 
 const KEYS = new Set(["name", "kind", "as", "features", "say", "tap", "click", "full", "top"]);
-const ROLES = ["student", "teacher", "newcomer", "assistant", "owner", "member"];
+const ROLES = ["student", "teacher", "newcomer", "assistant", "owner", "member", "invitee"];
 
 /** @returns {Shot[]} */
 export function parseManifest(/** @type {string} */ text) {

@@ -13,7 +13,7 @@ import { DayEditor } from "./stats/DayEditor";
 import { TodayCard } from "./TodayCard";
 
 // PR-07 (spec §6, ADR-0025): the diary note in the Today card (any status, or none) and the
-// day editor. A list row (UI-06): "Add a note", or "Note" with the note's first line, which
+// day editor. A list row (UI-06): "📓 Note" alone to add one, or with the note's first line, which
 // opens the whole note with Edit and Remove note. Editing is a
 // textarea with explicit Save / Cancel (never save-on-blur), a counter from 1800 code points,
 // closing confirmation while dirty, not optimistic for the text (a failed save keeps it open),
@@ -169,7 +169,12 @@ async function sent(seen: Request[], method: string, date = TODAY): Promise<Requ
   return noteRequests(seen, method, date);
 }
 
-const addLink = () => screen.findByRole("button", { name: "📓 Add a note" });
+/** The add row: the same label as a note's row (UI-06 stage 6), with no first line under it. */
+const addLink = async () => {
+  const row = await screen.findByRole("button", { name: "📓 Note" });
+  expect(row).not.toHaveAccessibleDescription(/./);
+  return row;
+};
 /** The row of a note that exists; a tap opens the whole note under it. */
 const noteRow = () => screen.findByRole("button", { name: "📓 Note" });
 const openNote = async () => {

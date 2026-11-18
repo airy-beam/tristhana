@@ -6,6 +6,7 @@ import {
   STUDENTS_PAGE,
   useCatalog,
   useDropStudents,
+  useMyShalas,
   useMarkNewAsana,
   useRemoveStudent,
   useStudent,
@@ -14,6 +15,7 @@ import {
   type ProgressionPosition,
   type StudentCard,
 } from "../../api/client";
+import { GUIDE_PAGE } from "../../guide";
 import type { Locale } from "../../i18n/negotiate";
 import {
   backButtonAvailable,
@@ -22,6 +24,7 @@ import {
   haptics,
   useBackButton,
 } from "../../telegram";
+import { GuideLink } from "../GuideLink";
 import { lengthText } from "../practiceText";
 import { get, isStanding, stopLabel } from "../progression/progressionText";
 import { lazyRetry } from "../../shell/lazyRetry";
@@ -29,6 +32,8 @@ import { lazyRetry } from "../../shell/lazyRetry";
 interface Props {
   locale: Locale;
   onBack: () => void;
+  /** C6 (UI-06 stage 6): "➕ Invite my students", my own invite on the Shala tab. */
+  onInvite?: (() => void) | undefined;
 }
 
 /** "👥 My students" (ST-06): name and today's mark in the list, the 7 days on the card only, so
@@ -36,7 +41,7 @@ interface Props {
  * my answer are on the Shala tab (UI-06 stage 4B, QC), not here. Loaded lazily. */
 const Announcements = lazyRetry(() => import("../announcements/Announcements"));
 
-export default function Students({ locale, onBack }: Props) {
+export default function Students({ locale, onBack, onInvite }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const [announcing, setAnnouncing] = useState(false);
   if (announcing)
@@ -61,7 +66,9 @@ export default function Students({ locale, onBack }: Props) {
     />
   ) : (
     <List
+      locale={locale}
       onBack={onBack}
+      onInvite={onInvite}
       onOpen={setOpen}
       onAnnounce={() => {
         setAnnouncing(true);
@@ -76,11 +83,15 @@ function useName() {
 }
 
 function List({
+  locale,
   onBack,
+  onInvite,
   onOpen,
   onAnnounce,
 }: {
+  locale: Locale;
   onBack: () => void;
+  onInvite: (() => void) | undefined;
   onOpen: (id: string) => void;
   onAnnounce: () => void;
 }) {
@@ -89,6 +100,11 @@ function List({
   const first = useStudents(0);
   const total = first.data?.total ?? 0;
   const empty = first.data && first.data.students.length === 0;
+  // C6 (UI-06 stage 6): a shala's students can pick someone with the Teacher role there (as
+  // `can_be_asked_as_teacher`). Read for an empty list only; the Shala tab has it cached.
+  const pickable = (useMyShalas(empty === true).data ?? []).some(
+    (s) => s.side === "staff" && s.roles.includes("teacher"),
+  );
   return (
     <main className="screen students">
       {!backButtonAvailable() && (
@@ -105,7 +121,7 @@ function List({
         <p className="hint" />
       </Localized>
       {total > 0 && (
-        <Localized id="ann-announce">
+        <Localized id="ann-announce-students">
           <button type="button" className="row-button" onClick={onAnnounce} />
         </Localized>
       )}
@@ -115,7 +131,7 @@ function List({
         </Localized>
       )}
       {empty && (
-        <Localized id="links-no-students">
+        <Localized id="links-no-students" vars={{ shala: pickable ? "yes" : "no" }}>
           <p className="hint" />
         </Localized>
       )}
@@ -133,6 +149,19 @@ function List({
           />
         </Localized>
       )}
+      {first.data && onInvite && (
+        <Localized id="links-invite">
+          <button
+            type="button"
+            className="row-button"
+            onClick={() => {
+              haptics.selection();
+              onInvite();
+            }}
+          />
+        </Localized>
+      )}
+      {first.data && <GuideLink locale={locale} page={GUIDE_PAGE.inviteStudents} />}
     </main>
   );
 }
@@ -357,7 +386,9 @@ function MarkNewAsana({
           haptics.impact("light");
           setOpen(false);
           const id = steps === 1 ? "students-given" : "students-given-range";
-          setLine({ text: get(l10n, id, vars), alert: false });
+          // Who can undo it: the student, in their own My asanas.
+          const text = `${get(l10n, id, vars)} ${get(l10n, "students-given-undo")}`;
+          setLine({ text, alert: false });
         },
         onError: (error) => {
           if (error instanceof ApiError && error.status === 404) {

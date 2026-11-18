@@ -176,6 +176,8 @@ function respond(path: string): Response {
   if (leftShala && path === `/api/v1/shalas/${SHALA}`) return json({ code: "not_found" }, 404);
   if (path === `/api/v1/shalas/${SHALA}/join-link`)
     return json({ url: "https://t.me/tristhana_bot?start=s_a", qr: QR });
+  // UI-06 stage 6: the card's Classes, for those who manage the schedule.
+  if (path === `/api/v1/shalas/${SHALA}/classes`) return json([]);
   if (path === `/api/v1/shalas/${SHALA}/schedule`)
     return json({
       zone: "Asia/Almaty",
@@ -595,7 +597,7 @@ describe("Settings keeps what it was opened over", () => {
   test("an unsaved note is still there: Back closes Settings first, the note keeps its own", async () => {
     await launch();
     await today();
-    fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📓 Note" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
       target: { value: "Kapotasana felt lighter" },
     });
@@ -722,7 +724,7 @@ describe("Back or tabs, never both", () => {
   test("the bar is absent while a note has unsaved text", async () => {
     await launch();
     await today();
-    fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📓 Note" }));
     expect(bar()).not.toBeNull(); // nothing typed yet: nothing to protect
 
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
@@ -1019,7 +1021,7 @@ describe("Today: one next step, each leading to its place", () => {
     await launch();
     await today();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Invite students" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Invite students to the shala" }));
 
     expect(await screen.findByRole("img", { name: "QR code for the shala's link" })).toBeVisible();
     expect(
@@ -1077,7 +1079,7 @@ describe("the empty Shala tab", () => {
     ).toBeInTheDocument();
     // The two starts sit under the bot's name for that row, so a student skips them.
     const starts = screen.getByRole("heading", { level: 2, name: "For teachers and shalas" });
-    const invite = screen.getByRole("button", { name: "Invite students" });
+    const invite = screen.getByRole("button", { name: "Invite my students" });
     expect(starts.compareDocumentPosition(invite)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     // Two list rows of one card.
     expect(invite.parentElement).toHaveClass("card", "list");
@@ -1094,7 +1096,7 @@ describe("the empty Shala tab", () => {
     await launch();
     await today();
     await go("shala");
-    const row = await screen.findByRole("button", { name: "Invite students" });
+    const row = await screen.findByRole("button", { name: "Invite my students" });
 
     fireEvent.click(row);
 
@@ -1114,7 +1116,7 @@ describe("the empty Shala tab", () => {
 
     expect(await screen.findByLabelText("Name")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invite my students" })).toBeInTheDocument();
   });
 
   test("someone with a teacher sees the list, not the empty line", async () => {
@@ -1218,6 +1220,67 @@ describe("opened by a bot button (?open=…)", () => {
     back();
 
     expect(await shala()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
+  });
+
+  // UI-06 stage 6 (spec §2): the bot's shala card, its week and My schedule.
+  test("?open=shala&shala= opens that shala's card, with its Classes; Back goes to the root", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    await launch(`/?open=shala&shala=${SHALA}`);
+
+    expect(await heading((n: string) => plain(n) === "🏛 Ashtanga Almaty")).toBeVisible();
+    expect(await screen.findByRole("heading", { level: 2, name: "Classes" })).toBeVisible();
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("?open=shala without a shala opens the Shala root", async () => {
+    await launch("/?open=shala");
+
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("?open=class&shala= opens the class form over that card; Back: card, then root", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    await launch(`/?open=class&shala=${SHALA}`);
+
+    expect(await heading("New class")).toBeVisible();
+    back();
+
+    expect(await heading((n: string) => plain(n) === "🏛 Ashtanga Almaty")).toBeVisible();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("?open=edit-shala&shala= opens that card with its edit form", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    await launch(`/?open=edit-shala&shala=${SHALA}`);
+
+    expect(await screen.findByLabelText("Name")).toHaveValue("Ashtanga Almaty");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ashtanga Almaty");
+  });
+
+  test("?open=schedule opens My schedule over the Shala tab; Back goes to the Shala root", async () => {
+    myShalas = [myShala("student")];
+    await launch("/?open=schedule");
+
+    await heading("🗓 My schedule");
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
     expect(sdk.backShown).toBe(false);
   });
 

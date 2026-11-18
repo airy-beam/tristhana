@@ -19,6 +19,8 @@ trends-scale-icon = { $scale ->
     }
 # Над полоской настроения: края шкалы (для энергии и усилия — checkin-energy / checkin-effort).
 trends-mood-ends = 💭 Настроение: 1 😔 → 5 😊
+# Above the strips: what the numbers mean (UI-06 stage 6, polish).
+trends-scale-ends = 1 — низко · 5 — высоко
 trends-moon-full = 🌕 Около полнолуния
 trends-moon-new = 🌑 Около новолуния
 trends-moon-other = Остальные дни

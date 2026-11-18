@@ -24,6 +24,8 @@ Your city sets your clock, so reminders come at the right hour and days get the 
 1. Tap the second row, the one with your city, and pick your city. Until you do, the row itself asks: :ftl[settings-city-unset-line]{zone="UTC+5"}.
 2. Not on the list? Tap :ftl[settings-city-unlisted]. You can send your location once, or let the app use your phone's time.
 
+Until you choose, the bot asks under each day you save: :ftl[city-ask] :ftl[city-ask-button] opens the list. :ftl[next-not-now] brings you here instead, with one line on top: :ftl[settings-city-later] The bot won't ask again, and opening the app once also sets your clock.
+
 A location you send is used only to find the local time there. It isn't stored.
 
 Traveling? When your phone's time differs, the app asks whether to switch or keep your home time. It never changes it silently.

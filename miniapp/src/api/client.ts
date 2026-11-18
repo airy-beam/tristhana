@@ -111,9 +111,11 @@ export type NextStep = components["schemas"]["NextStepOut"];
 export const NEXT_STEPS_KEY = ["next-steps"] as const;
 
 /** What the Today tab may offer next (UI-06), in offer order; the server derives it on every
- * read. An API older than this bundle answers 404: then there is no card, and no retry. */
-export function useNextSteps() {
+ * read. An API older than this bundle answers 404: then there is no card, and no retry. The
+ * Shala tab reads the same cache for its first row (UI-06 stage 6, C16). */
+export function useNextSteps(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: NEXT_STEPS_KEY,
     queryFn: async (): Promise<NextStep[]> => {
       const { data, error, response } = await api.GET("/api/v1/me/next-steps");
@@ -1244,8 +1246,9 @@ export type NewShala = components["schemas"]["ShalaIn"];
 const SHALAS_KEY = ["shalas"];
 export const SHALA_STUDENTS_PAGE = 20;
 
-export function useMyShalas() {
+export function useMyShalas(enabled = true) {
   return useQuery({
+    enabled,
     staleTime: 60_000,
     queryKey: [...SHALAS_KEY, "mine"],
     queryFn: async (): Promise<MyShala[]> => {

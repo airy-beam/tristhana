@@ -28,9 +28,14 @@ SECRET = "test-secret_123"
 TOKEN = "123456:TEST-token-for-unit-tests-only_xxxxxxxxxxx"
 APP = "https://tristhana.web.app"
 OTHER = UUID("33333333-3333-4333-8333-333333333333")  # a teacher's or a shala's id
-FRONT = ["My practice", "Invite students", "Shala and classes", "🗣 Русский"]
-FRONT_RU = ["Моя практика", "Пригласить учеников", "Шала и занятия", "🗣 English"]
-TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
+FRONT = ["🧘 Log my practice", "👥 Invite my students", "🏛 Shala and classes", "🗣 Русский"]
+FRONT_RU = [
+    "🧘 Отмечать свою практику",
+    "👥 Пригласить своих учеников",
+    "🏛 Шала и занятия",
+    "🗣 English",
+]
+TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["📅 Another day", "☰ Menu"]]
 HINT = "Everything else is now under ☰ Menu."
 _ids = itertools.count(98_000)
 
@@ -214,7 +219,12 @@ def test_someone_with_a_logged_day_gets_today_with_the_menu_hint_once(
 
     assert HINT in first["text"]
     assert "Namaste" not in first["text"]
-    assert _rows(first) == [["🧘 Practiced"], ["✓ 😌 Rest day"], ["Other…"], ["☰ Menu"]]
+    assert _rows(first) == [
+        ["🧘 Practiced"],
+        ["✓ 😌 Rest day"],
+        ["Other…"],
+        ["📅 Another day", "☰ Menu"],
+    ]
     assert HINT not in second["text"]
     assert _rows(second) == _rows(first)
 
@@ -278,13 +288,18 @@ def test_an_invite_start_never_shows_the_front_door_then_or_later(
 def test_first_log_from_today_edits_in_place_and_ends_with_the_menu(client: TestClient) -> None:
     _command(client, "/start")
     today = _tap(client, "w1:p")
-    assert _data(today)[1] == f"d1:s:{_today():%Y%m%d}:r"  # an absolute date
+    assert _data(today)[1] == f"d1:n:{_today():%Y%m%d}:r"  # an absolute date (ADR-0051)
 
-    saved = _tap(client, f"d1:s:{_today():%Y%m%d}:r")
+    saved = _tap(client, f"d1:n:{_today():%Y%m%d}:r")
 
     assert saved["method"] == "editMessageText"
     assert saved["text"].startswith("✓ Today")
-    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["☰ Menu"]]
+    assert _rows(saved) == [
+        ["✏️ Change", "📅 Another day"],
+        ["📓 Note"],
+        ["🏙 Choose my city", "Not now"],  # no zone and no city yet (stage 6, B7)
+        ["☰ Menu"],
+    ]
 
 
 def test_returning_start_marks_today(client: TestClient, storage: InMemoryStorage) -> None:
@@ -330,7 +345,7 @@ def test_no_app_button_after_practiced_whether_the_zone_is_known_or_not(
     for body in (saved, details, done, again):
         assert "Open the app" not in _texts(body)
         assert "time zone" not in body["text"]
-    assert _rows(saved) == [["📝 Add details"], ["✓ Done"]]
+    assert _rows(saved) == [["📝 Add details"], ["✓ Done"], ["🏙 Choose my city", "Not now"]]
 
 
 # The language button under greetings sent before UI-06 (`o1:l:*`)
@@ -344,7 +359,12 @@ def test_an_old_language_button_switches_and_shows_today(
     ru = _tap(client, "o1:l:ru")
 
     assert ru["method"] == "editMessageText"
-    assert _rows(ru) == [["🧘 Практика"], ["😌 День отдыха"], ["Другое…"], ["☰ Меню"]]
+    assert _rows(ru) == [
+        ["🧘 Практика"],
+        ["😌 День отдыха"],
+        ["Другое…"],
+        ["📅 Другой день", "☰ Меню"],
+    ]
     [account] = storage.repo.accounts.values()
     assert (account.locale, account.locale_custom) == ("ru", True)
 

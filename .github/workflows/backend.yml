@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      ["backend/**", "data/seed/**", "data/i18n/**", "miniapp/src/api/openapi.json", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
+      ["backend/**", "data/seed/**", "data/i18n/**", "data/classes/**", "miniapp/src/shell/nav.ts", "miniapp/src/api/openapi.json", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
   pull_request:
     paths:
-      ["backend/**", "data/seed/**", "data/i18n/**", "miniapp/src/api/openapi.json", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
+      ["backend/**", "data/seed/**", "data/i18n/**", "data/classes/**", "miniapp/src/shell/nav.ts", "miniapp/src/api/openapi.json", "infra/**", ".dockerignore", ".github/workflows/backend.yml"]
   workflow_dispatch: # redeploy main
 
 permissions:

@@ -272,6 +272,8 @@ describe("How you've felt", () => {
       "⚡ Energy: 1 low → 5 high",
       "🔥 Effort: 1 easy → 5 hard",
     ]);
+    // Once above the strips: what the numbers mean.
+    expect(within(section("By month")).getByText("1 low · 5 high")).toBeVisible();
   });
 
   it("renders a payload from an older server that has no moon field", async () => {

@@ -7,7 +7,7 @@ main.
 """
 
 import asyncio
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Sequence
 from contextlib import suppress
 from datetime import date
 from typing import TYPE_CHECKING
@@ -26,9 +26,10 @@ from aiogram.types import (
     WebAppInfo,
 )
 
-from tristhana.application.policies import Principal
+from tristhana.application.policies import Principal, can_be_asked_as_teacher
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.notifications import KeepOffer, RequestClosed
+from tristhana.application.ports.shalas import MyShala
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
 from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
@@ -136,11 +137,16 @@ def request_closed_note(t: Translator, locale: Locale, note: RequestClosed) -> S
 
 
 def invite_screen(
-    t: Translator, locale: Locale, url: str, last_rows: list[list[InlineKeyboardButton]]
+    t: Translator,
+    locale: Locale,
+    url: str,
+    last_rows: list[list[InlineKeyboardButton]],
+    staff: bool = False,
 ) -> Screen:
     """One sentence, "Send the link" (Telegram's share sheet) and the QR code: the invite on
     the Menu path (I0) and on the first run (F1, `home.py`), which differ only in their last
-    rows. The link itself is under "More"."""
+    rows. The link itself is under "More". `staff`: on a shala's staff, a line says this link
+    is the person's own, not the shala's (UI-06 stage 6, B5)."""
     query = urlencode({"url": url, "text": t.t(locale, "invite-share-text")}, quote_via=quote)
     rows = [
         [
@@ -151,11 +157,18 @@ def invite_screen(
         [button(t, locale, "invite-qr", cb.plain("q"))],
         *last_rows,
     ]
-    return Screen(t.t(locale, "invite-simple"), InlineKeyboardMarkup(inline_keyboard=rows))
+    text = t.t(locale, "invite-simple")
+    if staff:
+        text = f"{text}\n\n{t.t(locale, 'invite-own-not-shala')}"
+    return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
 
 async def _zero() -> int:
     return 0
+
+
+async def _none_mine() -> Sequence[MyShala]:
+    return ()
 
 
 def _find(people: tuple[Linked, ...], id: UUID) -> Linked | None:
@@ -186,13 +199,13 @@ class LinkScreens:
     def announce_button(
         self, locale: Locale, shala: UUID | None = None
     ) -> InlineKeyboardButton | None:
-        """NT-03: `[📣 Announce]` opens the Mini App's compose screen (Q176)."""
+        """NT-03: `[📣 Announce …]` opens the Mini App's compose screen (Q176), named by its
+        audience (UI-06 stage 6, C20): the shala's, or my own students without one."""
         if not self._app or self.announcements is None:
             return None
         url = app_url(self._app, "announce", shala=str(shala) if shala else None)
-        return InlineKeyboardButton(
-            text=self._t.t(locale, "ann-announce"), web_app=WebAppInfo(url=url)
-        )
+        key = "ann-announce" if shala else "ann-announce-students"
+        return InlineKeyboardButton(text=self._t.t(locale, key), web_app=WebAppInfo(url=url))
 
     def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
         return button(self._t, locale, key, data)
@@ -306,19 +319,28 @@ class LinkScreens:
 
     async def overview(self, principal: Principal, lead: str | None = None) -> Screen:
         """ "My teacher" (`/teachers`, `t1:o`): my teachers and my shalas. Students have their
-        own Menu row (UI-06); someone without students keeps one quiet row to invite them."""
+        own Menu row (UI-06); someone without students keeps one quiet row to invite them.
+        Someone people wait for (ID-07) finds that row on top (UI-06 stage 6, C5)."""
         locale = principal.account.locale
-        # SC-01: the shala rows load alongside the lists, not after them.
-        found, shala_rows = await asyncio.gather(
-            self._links.get.execute(principal), self._shala_rows(principal)
+        asked = self.requests
+        # SC-01: the shala rows load alongside the lists, not after them; so does the count of
+        # people waiting for my answer (C5: +1, in parallel).
+        found, mine, waiting = await asyncio.gather(
+            self._links.get.execute(principal),
+            self._mine(principal),
+            _zero() if asked is None else asked.waiting_count(principal),
         )
         several = len(found.teachers) >= 2
         main = effective_primary(found.teachers)
         lines = [lead] if lead else []
         lines.append(self._t.t(locale, "menu-teacher"))
         if not found.teachers:
-            lines.append(self._t.t(locale, "links-empty"))
+            # C2: no "join a shala" line above a shala I'm on the staff of.
+            staff = any(s.me.staff for s in mine)
+            lines.append(self._t.t(locale, "links-empty-staff" if staff else "links-empty"))
         rows: list[list[InlineKeyboardButton]] = []
+        if waiting > 0:
+            rows.append(waiting_row(self._t, locale, waiting))
         for teacher in found.teachers:
             star = "⭐ " if several and teacher.id == main else ""
             label = f"{star}{_name(self._t, locale, teacher.name)}"
@@ -329,28 +351,29 @@ class LinkScreens:
                 key = "links-main-chosen" if teacher.chosen_primary else "links-main-auto"
                 lines.append(self._t.t(locale, key, name=_name(self._t, locale, teacher.name)))
                 lines.append(self._t.t(locale, "links-primary-hint"))
-        rows += shala_rows
-        if self._app:
-            rows.append([app_button(self._t, locale, self._app)])
+        rows += [
+            [
+                InlineKeyboardButton(
+                    text=f"🏛 {s.name}", callback_data=shalas_callbacks.on_shala("c", s.id)
+                )
+            ]
+            for s in mine
+        ]
+        if self._app:  # UI-06 stage 6 (C1): says what opens, and opens it
+            url = app_url(self._app, "shala")
+            rows.append([app_button(self._t, locale, "app-open-shala", url)])
         if not found.students and self._username:  # a label, not a toggle; quiet on purpose
             # With the origin, so Back from the invite returns here.
             rows.append([self._button(locale, "links-invite-first", cb.plain("i", "o"))])
         rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
-    async def _shala_rows(self, principal: Principal) -> list[list[InlineKeyboardButton]]:
-        """SC-01: my shalas as `🏛 Name` rows, above [Open the app]."""
+    async def _mine(self, principal: Principal) -> Sequence[MyShala]:
+        """SC-01: the shalas I'm in (none while shalas are not wired)."""
         shalas = self._links.shalas
         if shalas is None:
-            return []
-        return [
-            [
-                InlineKeyboardButton(
-                    text=f"🏛 {s.name}", callback_data=shalas_callbacks.on_shala("c", s.id)
-                )
-            ]
-            for s in await shalas.mine.execute(principal)
-        ]
+            return ()
+        return await shalas.mine.execute(principal)
 
     def qr_png(self, url: str) -> bytes:
         return self._links.qr.png(url)
@@ -359,14 +382,22 @@ class LinkScreens:
         locale = principal.account.locale
         view = self._links.view
         asked = self.requests
-        # ID-07: how many people wait for my answer loads alongside the list.
-        (found, total), waiting = await asyncio.gather(
+        # ID-07: how many people wait for my answer loads alongside the list. So does, for
+        # someone on a shala's staff on the first page, whether a shala's students can pick
+        # me (C6: said only under an empty list; in parallel, so the empty list waits for
+        # no second round trip).
+        staff = principal.account.shala is not None and principal.account.shala.staff
+        (found, total), waiting, mine = await asyncio.gather(
             view.students.execute(principal, page * PAGE, PAGE),
             _zero() if asked is None else asked.waiting_count(principal),
+            self._mine(principal) if staff and page == 0 else _none_mine(),
         )
         if not found and page > 0:
             page = 0
-            found, total = await view.students.execute(principal, 0, PAGE)
+            (found, total), mine = await asyncio.gather(
+                view.students.execute(principal, 0, PAGE),
+                self._mine(principal) if staff else _none_mine(),
+            )
         rows: list[list[InlineKeyboardButton]] = []
         if waiting > 0:  # also above an empty list: the first student may come this way
             rows.append(waiting_row(self._t, locale, waiting))
@@ -397,7 +428,9 @@ class LinkScreens:
                 ]
             )
         else:
-            text = self._t.t(locale, "links-no-students")
+            # C6 (UI-06 stage 6): whether a shala's students can pick me (read above).
+            pickable = any(can_be_asked_as_teacher(s.me) for s in mine)
+            text = self._t.t(locale, "links-no-students", shala="yes" if pickable else "no")
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def teacher(self, principal: Principal, id: UUID, already: bool = False) -> Screen:
@@ -615,6 +648,7 @@ class LinkScreens:
         else:
             first = self._stop(locale, targets[0])
             lead = self._t.t(locale, "students-given-range", **{"from": first}, asana=asana)
+        lead = f"{lead}\n{self._t.t(locale, 'students-given-undo')}"  # who can undo it
         return await self.student(principal, step.id, step.page, lead)
 
     async def ask_remove_student(self, principal: Principal, id: UUID) -> Screen:
@@ -660,7 +694,8 @@ class LinkScreens:
             [self._button(locale, "invite-more", cb.plain("im", origin))],
             [self._button(locale, "log-back", back)],
         ]
-        return invite_screen(self._t, locale, url, last_rows)
+        staff = account.shala is not None and account.shala.staff
+        return invite_screen(self._t, locale, url, last_rows, staff=staff)
 
     async def invite_more(
         self, principal: Principal, rotate: bool = False, origin: cb.Origin | None = None

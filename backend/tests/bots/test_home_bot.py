@@ -31,7 +31,10 @@ BOT = "tristhana_test_bot"
 SHALA = UUID("11111111-1111-4111-8111-111111111111")
 MENU = ["☰ Menu"]
 BACK = "‹ Back"  # noqa: RUF001
-TYPED = "I can't answer messages yet. Here is everything I can do 🙏\n\n☰ Menu"
+TYPED = (
+    "I understand buttons, not typed messages. To add a note, log the day and tap 📓 Note. "
+    "Here is everything I can do 🙏\n\n☰ Menu"
+)
 _ids = itertools.count(260_000)
 _OUTBOUND: list[Any] = []
 
@@ -146,6 +149,7 @@ def _me(client: TestClient, storage: InMemoryStorage, **role: Any) -> Account:
 NOBODY_MENU = {
     "📝 Today": "w1:n",
     "📊 My practice": f"{APP}?open=practice",
+    "🧘 My asanas": "g1:o",  # UI-06 stage 6 (C9): as Help's row
     "🌙 Moon days": "m1:v",
     "🙏 Teacher and shala": "t1:o",
     "⚙️ Settings": "s1:v",
@@ -195,7 +199,7 @@ def test_the_menu_follows_what_the_person_is(
     if not quiet:  # Q310: no students and on no staff
         del expected["For teachers and shalas"]
     assert where == expected
-    assert len(where) <= 9  # at most eight rows and the quiet one
+    assert len(where) <= 9  # at most nine rows, the quiet one included
 
 
 def test_the_menu_keeps_its_fixed_order(client: TestClient, storage: InMemoryStorage) -> None:
@@ -204,6 +208,7 @@ def test_the_menu_keeps_its_fixed_order(client: TestClient, storage: InMemorySto
     assert _rows(_text(client, "/menu")) == [
         ["📝 Today"],
         ["📊 My practice"],
+        ["🧘 My asanas"],
         ["🌙 Moon days"],
         ["🗓 My schedule"],
         ["🙏 Teacher and shala"],
@@ -270,8 +275,8 @@ def test_for_teachers_and_shalas(client: TestClient) -> None:
     assert body["method"] == "editMessageText"
     assert body["text"].startswith("For teachers and shalas\n")
     assert _where(body) == {
-        "Invite students": "t1:i",
-        "Shala and classes": "w1:s:o",
+        "👥 Invite my students": "t1:i",
+        "🏛 Shala and classes": "w1:s:o",
         "☰ Menu": "w1:m",
     }
 
@@ -315,14 +320,19 @@ def test_invite_then_the_teachers_closing_then_today(client: TestClient) -> None
     closing = _tap(client, "w1:c")
     today = _tap(client, _where(closing)["🧘 Log my own practice"])
 
-    assert "☰ Menu → For teachers and shalas" in closing["text"]  # where the link is now
+    assert "☰ Menu → 🙏 Teacher and shala → I teach: invite my students" in closing["text"]
     assert "☰ Menu → 👥 My students" in closing["text"]  # where students will appear
     assert _where(closing) == {
         "🧘 Log my own practice": "w1:n",
-        "Shala and classes": "w1:s:c",
+        "🏛 Shala and classes": "w1:s:c",
         "☰ Menu": "w1:m",
     }
-    assert _rows(today) == [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], MENU]
+    assert _rows(today) == [
+        ["🧘 Practiced"],
+        ["😌 Rest day"],
+        ["Other…"],
+        ["📅 Another day", *MENU],
+    ]
 
 
 def test_invite_without_a_bot_name_goes_to_the_closing_screen(storage: InMemoryStorage) -> None:
@@ -355,7 +365,7 @@ def test_back_from_shala_and_classes_is_the_front_door_again(client: TestClient)
     body = _tap(client, "w1:f")
 
     assert body["text"].endswith("Where shall we start?")
-    assert _rows(body)[0] == ["My practice"]
+    assert _rows(body)[0] == ["🧘 Log my practice"]
 
 
 @pytest.mark.parametrize("data", ["w1:m", "w1:o", "w1:h", "w1:c", "w1:f", "w1:s:f"])
@@ -401,12 +411,15 @@ def test_help_names_no_command(client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     ("lang", "label", "url"),
-    [("en", "📖 Guide", f"{GUIDE}/"), ("ru", "📖 Справка", f"{GUIDE}/ru/")],
+    [
+        ("en", "📖 Guide", f"{GUIDE}/start/first-steps/"),
+        ("ru", "📖 Справка", f"{GUIDE}/ru/start/first-steps/"),
+    ],
 )
 def test_help_links_to_the_guide_in_the_persons_language(
     storage: InMemoryStorage, outbound: list[Any], lang: str, label: str, url: str
 ) -> None:
-    # UI-05: a trailing slash in the setting doesn't double up.
+    # UI-05: a trailing slash in the setting doesn't double up. Help's own page: first steps.
     with _client(storage, public_site_url=f"{GUIDE}/") as client:
         body = _text(client, "/help", lang)
 

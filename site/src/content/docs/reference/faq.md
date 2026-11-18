@@ -1,7 +1,7 @@
 ---
 title: "Questions and answers"
 description: "Short answers to the things people ask most."
-features: [UI-05, ID-07]
+features: [UI-05, ID-07, UI-06]
 ---
 
 Short answers to the things people ask most.
@@ -16,7 +16,7 @@ Yes. Most of Tristhana is your own log: practice, rest, moon days and your asana
 
 ## I forgot to log a few days. What now?
 
-Nothing is lost. In the bot, open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-earlier-day], or tap the day in the calendar on the app's :ftl[tab-practice] tab. You can also leave days empty. An empty day is just an empty day.
+Nothing is lost. In the bot, tap :ftl[log-another-day] on Today, or tap the day in the calendar on the app's :ftl[tab-practice] tab. You can also leave days empty. An empty day is just an empty day.
 
 ## Does a rest day interrupt my practices in a row?
 
@@ -33,7 +33,7 @@ Tristhana shows every time by your city's clock, so it needs to know your city. 
 ## My reminders stopped coming
 
 - Check that your city is set: reminders start once it is.
-- Practice reminders don't come on moon days, on your days off or on days you have already logged.
+- Practice reminders don't come on moon days, on your days off, on days you have already logged, or during a pause (sick, traveling or 🌸).
 - After ten practice reminders in a row with nothing logged, the bot sends one message and turns them off, so it doesn't nag. Turn them on again under :ftl[menu-help] → :ftl[help-reminder].
 
 ## What does my teacher see?
@@ -47,6 +47,10 @@ In the app, open the :ftl[tab-shala] tab: while you have no teacher, :ftl[reques
 ## I picked my teacher at the shala. What happens now?
 
 Your teacher gets one message with your name and confirms. Nothing from your log is shown before that. If there is no answer after 7 days, the bot tells you: ask them in class, or pick another teacher. See [My teacher](../../students/my-teacher/).
+
+## I teach at a shala. Which link do I send?
+
+Students who come to the shala's classes: :ftl[shala-invite-students], on the shala's card. They join the shala and pick you there. Students you teach on your own: your own link, :ftl[links-invite]. See [Invite your students](../../teachers/invite-students/).
 
 ## How do I delete everything?
 

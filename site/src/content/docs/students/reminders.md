@@ -1,7 +1,7 @@
 ---
 title: "Reminders"
 description: "A gentle daily nudge to log your practice, and a heads-up before moon days. You choose the time, and you can turn them off at any time."
-features: [PR-10, NT-01, NT-02]
+features: [PR-10, NT-01, NT-02, UI-06]
 ---
 
 A gentle daily nudge to log your practice, and a heads-up before moon days. You choose the time, and you can turn them off at any time.
@@ -9,7 +9,7 @@ A gentle daily nudge to log your practice, and a heads-up before moon days. You 
 ## The daily practice reminder
 
 1. Open :ftl[menu-open] → :ftl[menu-help] and tap :ftl[help-reminder].
-2. Pick a time and tap :ftl[remind-turn-on].
+2. Tap a time: the reminder turns on and comes at that time. :ftl[remind-turn-off] turns it off again.
 
 ![The practice reminder screen with times to choose from](../../../assets/shots/en/bot-remind.webp)
 
@@ -41,7 +41,7 @@ Reminders don't come between 22:00 and 07:00, and the bot sends at most 3 of the
 - Reminders are off until you turn them on. The bot offers once, after your first practice: :ftl[remind-offer-yes] turns them on in one tap, and :ftl[remind-change-time] picks another hour.
 - If you leave ten reminders unanswered, the bot stops asking and says so. Turn them back on the same way.
 - A reminder never changes a day you have already logged.
-- Reminders need to know your city's time. Open the app once, or choose your city in :ftl[menu-settings].
+- Reminders need to know your city's time. Choose your city when the bot asks under a saved day, or in :ftl[menu-settings]. Opening the app once works too.
 
 ## Next
 

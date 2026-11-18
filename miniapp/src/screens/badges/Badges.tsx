@@ -181,6 +181,10 @@ function List({
           </section>
         );
       })}
+      {/* Under the grid: a row opens what the badge is for (UI-06 stage 6, polish). */}
+      <Localized id="badges-tap-hint">
+        <p className="hint small" />
+      </Localized>
     </>
   );
 }

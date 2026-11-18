@@ -6,9 +6,16 @@ features: [ID-03, ID-04, ID-07, UI-06]
 
 Two ways to connect with a student: send your own link, or say yes when they pick you at your shala.
 
-## Get your link
+## Two links
 
-1. The first time, open :ftl[menu-open] → :ftl[menu-teach] and tap :ftl[welcome-path-invite]. Already on a shala's staff? Then the row is :ftl[links-invite-first], under :ftl[menu-teacher].
+- :ftl[links-invite] is your own link. A student who opens it is on your list straight away. It joins no shala.
+- :ftl[shala-invite-students] is the shala's link, on the shala's card. A student who opens it joins the shala, sees its classes and can then pick their teacher there.
+
+Which one to send? Students who come to your shala's classes: the shala's link, and they pick you there. Students you teach on your own, privately or online: your own link.
+
+## Get your own link
+
+1. The first time, open :ftl[menu-open] → :ftl[menu-teach] and tap :ftl[welcome-path-invite]. On a shala's staff, that first row is :ftl[shala-invite-students], the shala's link. Your own is then under :ftl[menu-teacher] → :ftl[links-invite-first].
 2. Once you have students, it is :ftl[menu-open] → :ftl[menu-students] → :ftl[links-invite].
 3. :ftl[invite-send] sends your personal link to a chat. :ftl[invite-qr] makes a picture you can show on your phone or print for the shala wall. :ftl[invite-more] shows the link as text.
 
@@ -16,9 +23,15 @@ Two ways to connect with a student: send your own link, or say yes when they pic
 
 In the app the same link is on the :ftl[tab-shala] tab: tap :ftl[shala-start-invite].
 
-![The Shala tab in the app before anyone is on it, with Invite students and Shala and classes](../../../assets/shots/en/app-shala-empty.webp)
+![The Shala tab in the app before anyone is on it, with Invite my students and Shala and classes](../../../assets/shots/en/app-shala-empty.webp)
 
 There is no teacher account to apply for. If you teach, you send your link, and that's all.
+
+On a shala's staff, your own invite screen says so: :ftl[invite-own-not-shala]
+
+## The shala's link
+
+On the shala's card, in the bot or the app, tap :ftl[shala-invite-students]: a link and a QR code, the same for everyone. It doesn't expire. See [Create a shala and invite teachers and staff](../../staff/create-shala/).
 
 ## What your student does
 
@@ -37,7 +50,7 @@ Do you have the :ftl[shala-role]{role=teacher} role at a shala? Then a student w
 
 ![The bot's message to a teacher about a student, with the buttons Yes, my student and Not my student](../../../assets/shots/en/bot-request-note.webp)
 
-Everyone still waiting is in one list. In the bot it is the row :ftl[request-waiting-open]{count=2} at the top of :ftl[menu-students] and on the shala's card. :ftl[request-all]{count=2} confirms everyone on the list you are looking at.
+Everyone still waiting is in one list. In the bot it is the row :ftl[request-waiting-open]{count=2} at the top of :ftl[menu-students], of :ftl[menu-teacher] and of the shala's card. Your first requests may come before you have any students, while :ftl[menu-students] is not in the Menu yet: then use :ftl[menu-teacher]. :ftl[request-all]{count=2} confirms everyone on the list you are looking at.
 
 ![The list of people waiting for a teacher's answer in the bot](../../../assets/shots/en/bot-requests.webp)
 
@@ -63,7 +76,7 @@ Tap the student's name in your list, then :ftl[links-remove]. Nobody gets a mess
 - One link works for all your students, and it doesn't expire.
 - You can have up to 500 students.
 - You can be a teacher and a student in the same account.
-- Students who haven't chosen a moon city follow the one you choose: see [Moon days your students follow](../moon-days/).
+- Students who haven't chosen a moon city follow the one you choose (in a shala where you're on the staff, they follow the shala): see [Moon days your students follow](../moon-days/).
 
 ## Next
 

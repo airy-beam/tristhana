@@ -28,11 +28,17 @@ _ids = itertools.count(97_000)
 
 
 @pytest.fixture(autouse=True)
-def outbound(monkeypatch: pytest.MonkeyPatch) -> None:
+def outbound(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
+    """Bot API calls made directly (not as the webhook reply), answers left out."""
+    sent: list[Any] = []
+
     async def record(self: AiohttpSession, bot: object, method: Any, **_: object) -> bool:
+        if method.__api_method__ != "answerCallbackQuery":
+            sent.append(method)
         return True
 
     monkeypatch.setattr(AiohttpSession, "make_request", record)
+    return sent
 
 
 @pytest.fixture
@@ -344,15 +350,18 @@ def test_the_city_nudge_is_gone(client: TestClient, storage: InMemoryStorage) ->
 def test_an_old_not_now_button_writes_and_shows_settings(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
-    """UI-06 §5: the nudge's button, still under an old message."""
+    """UI-06 §5: the nudge's button, still under an old message; since stage 6 (B7) also
+    "Not now" under the city question. The lead says the city stays one tap away."""
     me = _me(client, storage)
     storage.repo.accounts[me.id] = replace(me, timezone=ZONE)
 
     body = _tap(client, "s1:n")
+    ru = _tap(client, "s1:n", "ru")
 
     assert storage.repo.accounts[me.id].home_city == "-"
     assert storage.repo.accounts[me.id].timezone == ZONE
-    assert body["text"] == "⚙️ Settings"
+    assert body["text"] == "Pick your city here any time.\n\n⚙️ Settings"
+    assert ru["text"].startswith("Город можно выбрать здесь в любой момент.\n\n")
     assert ["🕐 My time: Almaty (UTC+5)"] in _rows(body)
 
 
@@ -421,19 +430,27 @@ def _location(client: TestClient, **extra: Any) -> Any:
     return _post(client, {"update_id": next(_ids), "message": message})
 
 
-def test_a_shared_location_sets_the_zone_only(client: TestClient, storage: InMemoryStorage) -> None:
+def test_a_shared_location_sets_the_zone_only(
+    client: TestClient, storage: InMemoryStorage, outbound: list[Any]
+) -> None:
     me = _me(client, storage)
     _tap(client, "s1:c:astana")
+
+    outbound.clear()
 
     body = _location(client)
 
     account = storage.repo.accounts[me.id]
     assert (account.timezone, account.home_city) == ("Asia/Bangkok", "-")
-    assert (
-        body["text"]
-        == "🕐 Done: your time is Bangkok (UTC+7). You can change it under ☰ Menu → ⚙️ Settings."
+    # UI-06 stage 6 (C13): the line takes the keyboard away, then Settings follows.
+    [line] = outbound
+    assert line.text == (
+        "🕐 Done: your time is Bangkok (UTC+7). You can change it in ⚙️ Settings below."
     )
-    assert body["reply_markup"] == {"remove_keyboard": True}
+    assert line.reply_markup.remove_keyboard is True
+    assert body["text"] == "⚙️ Settings"
+    assert ["🕐 My time: Bangkok (UTC+7)"] in _rows(body)  # the new zone; the city one tap away
+    assert _rows(body)[-1] == MENU
 
 
 def test_a_live_location_is_not_an_answer(client: TestClient, storage: InMemoryStorage) -> None:
@@ -481,7 +498,9 @@ def test_a_venue_is_not_an_answer(client: TestClient, storage: InMemoryStorage) 
     assert storage.repo.accounts[me.id].timezone is None
 
 
-def test_a_location_at_sea_writes_nothing(client: TestClient, storage: InMemoryStorage) -> None:
+def test_a_location_at_sea_writes_nothing(
+    client: TestClient, storage: InMemoryStorage, outbound: list[Any]
+) -> None:
     me = _me(client, storage)
     message = {
         "message_id": 11,
@@ -491,9 +510,14 @@ def test_a_location_at_sea_writes_nothing(client: TestClient, storage: InMemoryS
         "location": {"latitude": 0.0, "longitude": -30.0},
     }
 
+    outbound.clear()
+
     body = _post(client, {"update_id": next(_ids), "message": message})
 
-    assert body["text"].startswith("I couldn't tell the local time from that place.")
+    [line] = outbound
+    assert line.text.startswith("I couldn't tell the local time from that place.")
+    assert line.reply_markup.remove_keyboard is True
+    assert body["text"] == "⚙️ Settings"  # the city row is one tap away
     assert storage.repo.accounts[me.id].timezone is None
 
 

@@ -52,7 +52,10 @@ TOO_LONG = re.compile(
     r"above, so you can shorten it and resend\."
 )
 # UI-06: anything typed opens the Menu, with this line on top.
-FALLBACK = "I can't answer messages yet. Here is everything I can do 🙏\n\n☰ Menu"
+FALLBACK = (
+    "I understand buttons, not typed messages. To add a note, log the day and tap 📓 Note. "
+    "Here is everything I can do 🙏\n\n☰ Menu"
+)
 EXPLAIN = "⚡ Energy: 1 low → 5 high · 🔥 Effort: 1 easy → 5 hard. Tap what fits, all optional."
 BACK = "‹ Back"  # noqa: RUF001
 STATUS_EMOJI = ["🧘", "😌", "🌙", "🌸", "🤒", "✈️", "🌱", "✓"]
@@ -435,7 +438,7 @@ def test_k_has_the_note_button_and_no_preview(
     assert not any(r.startswith("diary.") for r in calls.reads)
 
 
-# Never on the week picker, V or P's summary
+# The note itself never on the week picker or V (V has the 📓 Note button, UI-06 stage 6)
 
 
 def test_no_note_text_or_marker_on_the_week_picker(
@@ -453,18 +456,31 @@ def test_no_note_text_or_marker_on_the_week_picker(
     assert "note " not in shown
 
 
-def test_no_note_on_the_done_screen(
+def test_the_done_screen_has_the_note_button_and_never_the_note(
     client: TestClient, storage: InMemoryStorage, outbound: list[Any]
 ) -> None:
+    """C11: "How do you feel?" and 📓 Note left the details for V; Back returns to V."""
     me = _me(client, storage)
     _logged(storage, me, TODAY, DayStatus.PRACTICED)
     _with_note(storage, me, TODAY)
+    d = _ymd(TODAY)
 
-    body = _one(_tap(client, f"p1:v:{_ymd(TODAY)}"), outbound)
+    body = _one(_tap(client, f"p1:v:{d}"), outbound)
+    opened = _one(_tap(client, f"n1:o:{d}:v"), outbound)
+    back = _one(_tap(client, f"n1:b:{d}:v"), outbound)
+    _logged(storage, me, TODAY, DayStatus.REST)
+    changed = _one(_tap(client, f"n1:b:{d}:v"), outbound)
 
     shown = body["text"] + " ".join(_texts(body))
-    assert "📓" not in shown
+    assert "📓" not in body["text"]
     assert NOTE not in shown
+    assert ["📓 Note"] in [
+        [b["text"] for b in row] for row in body["reply_markup"]["inline_keyboard"]
+    ]
+    assert _data_of(body, "📓 Note") == f"n1:o:{d}:v"
+    assert _data_of(opened, BACK) == f"n1:b:{d}:v"
+    assert "📝 Details" in _texts(back)  # V again
+    assert "✓ 😌 Rest day" in _texts(changed)  # no longer 🧘: the day editor
 
 
 # Screen N
@@ -606,7 +622,8 @@ def test_back_from_n_opened_on_k_returns_to_k(
 def test_back_from_n_opened_on_the_details_returns_to_them(
     client: TestClient, storage: InMemoryStorage, outbound: list[Any]
 ) -> None:
-    """UI-06 P1 carries the note button; a day that stopped being 🧘 falls back to its editor."""
+    """Old messages: P1 carried the note button before UI-06 stage 6 (C11), and its data
+    still returns there; a day that stopped being 🧘 falls back to its editor."""
     me = _me(client, storage)
     _logged(storage, me, TODAY, DayStatus.PRACTICED)
     d = _ymd(TODAY)
@@ -617,7 +634,7 @@ def test_back_from_n_opened_on_the_details_returns_to_them(
     _logged(storage, me, TODAY, DayStatus.REST)
     changed = _one(_tap(client, f"n1:b:{d}:p"), outbound)
 
-    assert _data_of(details, "📓 Note") == f"n1:o:{d}:p"
+    assert "📓 Note" not in _texts(details)
     assert _data_of(opened, BACK) == f"n1:b:{d}:p"
     assert _data_of(opened, "✏️ Write") == f"n1:w:{d}:p"
     assert "Add details? Optional" in back["text"]

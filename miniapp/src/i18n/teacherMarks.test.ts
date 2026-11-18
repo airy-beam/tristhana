@@ -48,7 +48,7 @@ describe("teacher-mark copy", () => {
       "No last asana set yet. Once they set it in My asanas, you can mark new ones here.",
     );
     expect(plain(format(ru, "students-give-unset"))).toBe(
-      "Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, здесь можно будет отмечать новые.",
+      "Последняя асана пока не указана. Когда она будет указана в разделе «Мои асаны», здесь можно будет отмечать новые.",
     );
     expect(format(en, "students-give-stale")).toBe(
       "This card was out of date, so nothing was marked. Here it is now.",

@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import type { Me } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
 import More from "../settings/pages/More";
 import { confirmAction, useBackButton } from "../../telegram";
+import { addDays, dayName, todayIn } from "./scheduleText";
 import ShalaScreen from "./ShalaScreen";
 import ShalaTab from "./ShalaTab";
 
@@ -19,6 +20,7 @@ import ShalaTab from "./ShalaTab";
 
 const telegram = vi.hoisted(() => ({
   confirmDestructive: vi.fn<(message: string, ok: string, cancel: string) => Promise<boolean>>(),
+  openLink: vi.fn<(url: string) => void>(),
 }));
 
 vi.mock("../../telegram", () => ({
@@ -29,6 +31,7 @@ vi.mock("../../telegram", () => ({
   confirmDestructive: telegram.confirmDestructive,
   confirmAction: vi.fn(() => Promise.resolve(false)),
   openTelegramLink: vi.fn(),
+  openLink: telegram.openLink,
   useMainButton: vi.fn(),
   mainButtonAvailable: vi.fn(() => false),
   enableClosingConfirmation: vi.fn(),
@@ -49,6 +52,7 @@ const ME: Me = {
 const SHALA = "00000000-0000-0000-0000-0000000000c1";
 const ANNA = "00000000-0000-0000-0000-0000000000a1";
 const BORIS = "00000000-0000-0000-0000-0000000000a2";
+const CLASS_ID = "00000000-0000-0000-0000-0000000000d1";
 const TODAY = "2026-11-07";
 const CITIES = [
   { slug: "mysuru", name_en: "Mysuru", name_ru: "Майсур", timezone: "Asia/Kolkata" },
@@ -86,6 +90,7 @@ const OWNER: MeIn = { owner: true, roles: ["teacher"], student: false };
 const ADMIN: MeIn = { owner: false, roles: ["admin"], student: false };
 const TEACHER: MeIn = { owner: false, roles: ["teacher"], student: false };
 const STUDENT: MeIn = { owner: false, roles: [], student: true };
+const OFFICE: MeIn = { owner: false, roles: ["office"], student: false };
 const MINE = [
   {
     id: SHALA,
@@ -112,6 +117,12 @@ interface Stub {
   choices?: () => unknown;
   /** What an ask comes to. */
   ask?: () => Response;
+  /** The shala's saved class series (`GET …/classes`, UI-06 stage 6); none unless given. */
+  classes?: unknown[];
+  /** My account's language; English unless given. */
+  locale?: Locale;
+  /** The shala's students page (staff); none unless given. */
+  students?: { id: string; name: string | null }[];
 }
 
 function stubApi(stub: Stub = {}): Request[] {
@@ -148,6 +159,10 @@ function stubApi(stub: Stub = {}): Request[] {
           occurrences: [],
           closures: [],
         }); // SC-02
+      if (path === `/api/v1/shalas/${SHALA}/students`) {
+        const students = stub.students ?? [];
+        return json({ students, total: students.length });
+      }
       if (path === `/api/v1/shalas/${SHALA}/join-link`)
         return json({ url: "https://t.me/x?start=s_a", qr: "data:image/png;base64,AA==" });
       if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
@@ -177,9 +192,17 @@ function stubApi(stub: Stub = {}): Request[] {
         });
       if (path === `/api/v1/shalas/${SHALA}/staff-invites`)
         return json({ url: "https://t.me/x?start=i_a", qr: "data:image/png;base64,AA==" });
-      if (path === `/api/v1/shalas/${SHALA}/classes`) return json([]);
+      if (path === `/api/v1/shalas/${SHALA}/classes` && request.method === "POST")
+        return json({ id: CLASS_ID, rrule: null, ...((await request.json()) as object) }, 201);
+      if (path === `/api/v1/shalas/${SHALA}/classes`) return json(stub.classes ?? []);
       if (path === "/api/v1/me/announcements/sent") return json([]); // NT-03
-      if (path === "/api/v1/me") return json({ ...ME, day_off: [6], home_city: stub.home ?? null });
+      if (path === "/api/v1/me")
+        return json({
+          ...ME,
+          locale: stub.locale ?? ME.locale,
+          day_off: [6],
+          home_city: stub.home ?? null,
+        });
       return json({});
     }),
   );
@@ -375,7 +398,100 @@ describe("the shala card", () => {
     // UI-06 stage 5: no "shala time" in my own zone; the place alone, as in the bot.
     expect(screen.getByText((t) => plain(t) === "📍 Almaty")).toBeInTheDocument();
     expect(pageText()).not.toContain("shala time");
-    expect(pageText()).toContain("🌙 Moon days: 📍 Almaty");
+    // C15 (UI-06 stage 6): one moon line, the policy included, as the bot's card has it.
+    expect(pageText()).toContain("🌙 Moon days (📍 Almaty): shala closed");
+    expect(pageText()).not.toContain("🌙 Moon days: ");
+  });
+
+  it.each([
+    ["open", "🌙 Moon days (📍 Almaty): classes as usual"],
+    ["pranayama", "🌙 Moon days (📍 Almaty): pranayama, chanting and talks only"],
+  ])("names the moon policy %s on the same line", async (policy, line) => {
+    stubApi({ card: shalaOut(STUDENT, { moon_policy: policy }) });
+
+    renderWith(card());
+
+    await screen.findByText(/Ashtanga Almaty/);
+    await waitFor(() => {
+      expect(screen.getByText((t) => plain(t) === line)).toBeInTheDocument();
+    });
+  });
+
+  it("says in one line whom the moon calendar is for, to those who set it", async () => {
+    stubApi({ card: shalaOut(OWNER) });
+
+    renderWith(card());
+
+    await screen.findByText(
+      "🌙 Staff and students follow the shala's moon days unless they chose their own city.",
+    );
+  });
+
+  // C14 (UI-06 stage 6): what each role can do, under it, as `application/policies.py` allows.
+  const HINTS = {
+    Teacher:
+      "Classes and schedule, attendance, announcements, the student list; students can pick them as their teacher.",
+    Assistant: "Attendance and the student list; not the schedule or announcements.",
+    "Front desk":
+      "Classes and schedule, attendance, announcements, the student list; can remove a student from the shala; not the shala's settings or roles.",
+    Manager: "Everything except deleting the shala and managing other managers.",
+  } as const;
+
+  it("the staff invite picker says what each role can do", async () => {
+    stubApi({ card: shalaOut(OWNER) });
+    renderWith(card());
+    await screen.findByText(/Ashtanga Almaty/);
+
+    fireEvent.click(await screen.findByRole("button", { name: "➕ Invite staff" }));
+
+    for (const [role, hint] of Object.entries(HINTS)) {
+      expect(await screen.findByRole("button", { name: role })).toHaveAccessibleDescription(hint);
+    }
+  });
+
+  it("the role editor says what each role it offers can do", async () => {
+    stubApi({ card: shalaOut(ADMIN) });
+    renderWith(card());
+    await screen.findByText(/Boris/);
+
+    fireEvent.click(screen.getByRole("button", { name: /Boris/ }));
+
+    for (const role of ["Teacher", "Assistant", "Front desk"] as const) {
+      expect(await screen.findByRole("checkbox", { name: role })).toHaveAccessibleDescription(
+        HINTS[role],
+      );
+    }
+    expect(screen.queryByText(HINTS.Manager)).toBeNull(); // a manager can't make a manager
+  });
+
+  // C3 (UI-06 stage 6): staff who read the names learn whose students they are.
+  const ASSISTANT: MeIn = { owner: false, roles: ["assistant"], student: false };
+  const YOURS =
+    "These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).";
+  const SEND =
+    "These are the shala's students. To have students of your own, send them your own link (➕ Invite my students).";
+  it.each([
+    ["a teacher", TEACHER, YOURS],
+    ["an assistant", ASSISTANT, SEND],
+    ["the front desk", OFFICE, null],
+  ])("the students list for %s", async (_, me, line) => {
+    const told = line !== null;
+    stubApi({ card: shalaOut(me), students: [{ id: BORIS, name: "Bea" }] });
+    const onInvite = vi.fn();
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} onInvite={onInvite} />);
+    await screen.findByText(/Ashtanga Almaty/);
+
+    fireEvent.click(screen.getByRole("button", { name: /👥 Students/ }));
+    await screen.findByText("Bea");
+
+    if (line) expect(screen.getByText(line)).toBeVisible();
+    expect(pageText()).not.toContain(line === YOURS ? SEND : YOURS);
+    const invite = screen.queryByRole("button", { name: "➕ Invite my students" });
+    expect(!!invite).toBe(told);
+    if (invite) {
+      fireEvent.click(invite);
+      expect(onInvite).toHaveBeenCalledOnce();
+    }
   });
 
   it.each([
@@ -390,7 +506,9 @@ describe("the shala card", () => {
 
     await screen.findByText(/Ashtanga Almaty/);
     expect(!!screen.queryByRole("button", { name: /👥 Students \(34\)/ })).toBe(students);
-    expect(!!screen.queryByRole("button", { name: "➕ Invite students" })).toBe(students);
+    expect(!!screen.queryByRole("button", { name: "➕ Invite students to the shala" })).toBe(
+      students,
+    );
     expect(!!screen.queryByRole("button", { name: "➕ Invite staff" })).toBe(inviteStaff);
     expect(!!screen.queryByRole("button", { name: /^Leave/ })).toBe(leave);
   });
@@ -483,6 +601,25 @@ describe("the shala card", () => {
 
     await screen.findByRole("checkbox", { name: "Teacher" });
     expect(screen.queryByRole("checkbox", { name: "Manager" })).toBeNull();
+  });
+
+  it.each([
+    ["a teacher", TEACHER, true],
+    ["a student", STUDENT, false],
+  ] as const)("leaving as %s says whether their own students stay", async (_, me, says) => {
+    telegram.confirmDestructive.mockResolvedValueOnce(false);
+    stubApi({ card: shalaOut(me) });
+    renderWith(card());
+    await screen.findByText(/Ashtanga Almaty/);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Leave/ }));
+
+    await waitFor(() => {
+      expect(telegram.confirmDestructive).toHaveBeenCalledTimes(1);
+    });
+    const [ask] = telegram.confirmDestructive.mock.calls[0] ?? [""];
+    expect(ask).toMatch(/^Leave .*No one gets a message, and your log stays as it is\./);
+    expect(ask.endsWith(" Your own students stay on your list.")).toBe(says);
   });
 
   it("deletes only after the native confirm", async () => {
@@ -603,7 +740,7 @@ describe("opened for one thing", () => {
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="join" />);
 
     const qr = await screen.findByRole("img", { name: "QR code for the shala's link" });
-    expect(screen.queryByRole("button", { name: "➕ Invite students" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "➕ Invite students to the shala" })).toBeNull();
     const posts = calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`);
     expect(posts).toHaveLength(1);
     expect(await posts[0]?.json()).toEqual({ rotate: false }); // the same link, never a new one
@@ -616,7 +753,9 @@ describe("opened for one thing", () => {
     renderWith(card());
 
     await screen.findByRole("button", { name: "➕ Add a class" });
-    expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "➕ Invite students to the shala" }),
+    ).toBeInTheDocument();
     expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`)).toHaveLength(0);
     expect(scrolled).not.toHaveBeenCalled();
   });
@@ -625,7 +764,7 @@ describe("opened for one thing", () => {
     stubApi({ card: shalaOut(TEACHER) });
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
 
-    await screen.findByRole("button", { name: "➕ Invite students" });
+    await screen.findByRole("button", { name: "➕ Invite students to the shala" });
     expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull();
   });
 
@@ -653,7 +792,9 @@ describe("opened for one thing", () => {
 
       // The same card again, as a tap opens it: nothing unfolded.
       expect(await screen.findByRole("button", { name: "➕ Add a class" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "➕ Invite students to the shala" }),
+      ).toBeInTheDocument();
     },
   );
 });
@@ -855,11 +996,11 @@ describe("opened to announce", () => {
     await composer();
     back();
 
-    fireEvent.click(await screen.findByRole("button", { name: "📣 Announce" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📣 Announce to the shala" }));
 
     expect(await composer()).toBeVisible();
     back();
-    expect(await screen.findByRole("button", { name: "📣 Announce" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "📣 Announce to the shala" })).toBeVisible();
     expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
   });
 
@@ -880,7 +1021,7 @@ describe("opened to announce", () => {
 
     expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
     expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "📣 Announce" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "📣 Announce to the shala" })).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(calls(seen, "POST", "/api/v1/me/announcements")).toHaveLength(0);
   });
@@ -929,7 +1070,9 @@ describe("the setup list", () => {
 
     expect(list()).toBeInTheDocument();
     expect(current()).toEqual(["Add a class"]);
-    expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Invite students to the shala" }),
+    ).toBeInTheDocument();
     // Two or three words on the row; "optional" is its quiet second line.
     const third = screen.getByRole("button", { name: "Invite teachers and staff" });
     expect(third).toHaveAccessibleDescription("Optional");
@@ -946,10 +1089,10 @@ describe("the setup list", () => {
     renderWith(card());
     await loaded();
 
-    expect(current()).toEqual(["Invite students"]);
+    expect(current()).toEqual(["Invite students to the shala"]);
     expect(screen.getAllByRole("img", { name: "done" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Add a class" })).toBeNull(); // done: plain text
-    fireEvent.click(screen.getByRole("button", { name: "Invite students" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite students to the shala" }));
 
     const qr = await screen.findByRole("img", { name: "QR code for the shala's link" });
     const made = calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`);
@@ -1098,5 +1241,316 @@ describe("Follow my shala in Settings", () => {
       expect(select.options.length).toBeGreaterThan(1);
     });
     expect(Array.from(select.options).some((o) => o.textContent.includes("shala"))).toBe(false);
+  });
+});
+
+// UI-06 stage 6 (spec §3.1, B2): the card's Classes, each class as it stands, for those who may
+// manage the schedule; a row opens the class's form, "➕ Add a class" is under the rows and
+// leads while there are none; after a save the card says so and offers "Add another class".
+describe("the Classes on the card", () => {
+  const scrolled = vi.fn();
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = scrolled;
+  });
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+  const OWNS = shalaOut({ ...OWNER, schedule: true });
+  const today = todayIn("Asia/Almaty");
+  const series = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    type: "mysore",
+    title: null,
+    online: false,
+    city: null,
+    teacher_id: null,
+    start: "06:00:00",
+    minutes: 210,
+    weekdays: [1, 2, 3, 4, 5],
+    every: 1,
+    starts_on: "2026-01-05",
+    ends_on: null,
+    rrule: "FREQ=WEEKLY",
+    ...over,
+  });
+  const id = (n: number) => `00000000-0000-0000-0000-0000000000e${String(n)}`;
+  const section = () => screen.findByRole("heading", { level: 2, name: "Classes" });
+  /** The rows of the Classes, as read: label, then the quiet second line. */
+  const rows = async () => {
+    const heading = await section();
+    const box = heading.closest("section") as HTMLElement;
+    await waitFor(() => {
+      expect(box).not.toHaveAttribute("aria-busy");
+    });
+    return within(box)
+      .getAllByRole("button")
+      .filter((b) => !b.classList.contains("guide")) // the quiet 📖 Guide, tested apart
+      .map((b) =>
+        [
+          b.querySelector(".lrow-label")?.textContent ?? b.textContent,
+          b.querySelector(".lrow-sub")?.textContent,
+        ]
+          .filter(Boolean)
+          .map((t) => plain(t))
+          .join(" | "),
+      );
+  };
+
+  it("ends with the guide's page on classes, in the person's language", async () => {
+    stubApi({ card: OWNS, classes: [series(id(1))] });
+    renderWith(card());
+    const box = (await section()).closest("section") as HTMLElement;
+
+    fireEvent.click(within(box).getByRole("button", { name: "📖 Guide" }));
+
+    expect(telegram.openLink).toHaveBeenLastCalledWith("https://tristhana.app/staff/classes/");
+  });
+
+  it("lists the current classes in order, each with what else is set; ended ones go", async () => {
+    stubApi({
+      card: OWNS,
+      classes: [
+        series(id(1), {
+          type: "led",
+          start: "08:00:00",
+          minutes: 90,
+          weekdays: [7],
+          teacher_id: ANNA,
+        }),
+        series(id(2), { ends_on: "2026-01-31" }), // ended
+        series(id(3), { teacher_id: BORIS }),
+        series(id(4), {
+          type: "workshop",
+          start: "10:00:00",
+          minutes: 120,
+          weekdays: [],
+          starts_on: addDays(today, 3),
+          rrule: null,
+        }),
+        series(id(5), {
+          type: "pranayama",
+          start: "17:00:00",
+          minutes: 60,
+          weekdays: [1, 3, 5],
+          every: 2,
+          title: "Nadi",
+        }),
+        series(id(6), {
+          weekdays: [1, 2, 3, 4, 5, 6, 7],
+          start: "07:00:00",
+          online: true,
+          city: "moscow",
+          ends_on: addDays(today, 30),
+        }),
+        series(id(7), {
+          type: "chanting",
+          start: "19:00:00",
+          minutes: 60,
+          weekdays: [6, 7, 1],
+          starts_on: addDays(today, 2),
+        }),
+      ],
+    });
+    renderWith(card());
+
+    expect(await rows()).toEqual([
+      "Mysore · Mon–Fri · 06:00–09:30 | Boris",
+      `Mysore · every day · 07:00–10:30 | through ${dayName(addDays(today, 30), "en")} · 🌐 Moscow (UTC+3)`,
+      "Pranayama Nadi · Mon, Wed, Fri · 17:00–18:00 | every 2 weeks",
+      `Chanting · Mon, Sat, Sun · 19:00–20:00 | from ${dayName(addDays(today, 2), "en")}`,
+      "Led · Sun · 08:00–09:30 | Anna",
+      `Workshop · ${dayName(addDays(today, 3), "en")} · 10:00–12:00`,
+      "➕ Add a class",
+    ]);
+    // Between the place and the announcements; the Schedule by date stays below.
+    const classes = (await section()).closest("section") as HTMLElement;
+    const announcements = screen.getByRole("button", { name: "📣 Announcements" });
+    expect(classes.compareDocumentPosition(announcements)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("reads in Russian", async () => {
+    stubApi({
+      locale: "ru",
+
+      card: OWNS,
+      classes: [
+        series(id(1)),
+        series(id(2), { weekdays: [1, 2, 3, 4, 5, 6, 7], start: "08:00:00" }),
+      ],
+    });
+    renderWith(card(), "ru");
+
+    const heading = await screen.findByRole("heading", { level: 2, name: "Занятия" });
+    await waitFor(() => {
+      expect(heading.closest("section")).not.toHaveAttribute("aria-busy");
+    });
+    const text = plain(heading.closest("section")?.textContent);
+    expect(text).toContain("Майсор · пн–пт · 06:00–09:30");
+    expect(text).toContain("Майсор · каждый день · 08:00–11:30");
+    expect(text).toContain("➕ Добавить занятие");
+  });
+
+  it("with none: the line, and Add a class as the main row", async () => {
+    stubApi({ card: OWNS, classes: [series(id(2), { ends_on: "2026-01-31" })] });
+    renderWith(card());
+
+    await section();
+    expect(await screen.findByText("No classes yet.")).toBeInTheDocument();
+    const add = screen.getByRole("button", { name: "➕ Add a class" });
+    expect(add).toHaveClass("btn");
+    expect(add.closest("section")).toBe((await section()).closest("section"));
+  });
+
+  // Spec §13.14: one main action. The owner's setup list leads with "Add a class" while it is
+  // due, so the Classes' own add row is a plain row then.
+  it("with none and the setup list showing Add a class: the add row is plain", async () => {
+    stubApi({
+      card: shalaOut({ ...OWNER, schedule: true }, { setup: ["add_class", "invite_students"] }),
+      classes: [],
+    });
+    renderWith(card());
+
+    const heading = await section();
+    expect(await screen.findByText("No classes yet.")).toBeInTheDocument();
+    const box = heading.closest("section") as HTMLElement;
+    const add = within(box).getByRole("button", { name: "➕ Add a class" });
+    expect(add).not.toHaveClass("btn");
+    expect(add).toHaveClass("lrow");
+    // The setup list's step is the one main action on the card.
+    const steps = screen
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-current") === "step");
+    expect(steps.map((b) => b.textContent)).toEqual(["Add a class"]);
+    expect(screen.getAllByRole("button").filter((b) => b.classList.contains("btn"))).toEqual(steps);
+
+    fireEvent.click(add);
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+  });
+
+  it("with none and the setup list past that step: the add row is the main one again", async () => {
+    stubApi({
+      card: shalaOut({ ...OWNER, schedule: true }, { setup: ["invite_students"] }),
+      classes: [series(id(2), { ends_on: "2026-01-31" })], // its only class has ended
+    });
+    renderWith(card());
+
+    await screen.findByText("No classes yet.");
+    expect(screen.getByRole("button", { name: "➕ Add a class" })).toHaveClass("btn");
+  });
+
+  it.each([
+    ["a student", STUDENT],
+    ["a teacher who may not manage the schedule", TEACHER],
+  ] as const)("is not there for %s, and nothing reads the classes", async (_, me) => {
+    const seen = stubApi({ card: shalaOut(me), classes: [series(id(1))] });
+    renderWith(card());
+
+    await screen.findByText(/Ashtanga Almaty/);
+    await screen.findByRole("heading", { name: "🗓 Schedule" });
+    expect(screen.queryByRole("heading", { name: "Classes" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
+    expect(calls(seen, "GET", `/api/v1/shalas/${SHALA}/classes`)).toHaveLength(0);
+  });
+
+  it("a row opens that class's form, proposing today for a change to a class that has run", async () => {
+    // A day the class does not run today: the form proposes today itself (ADR-0048).
+    const tomorrow = new Date(`${addDays(today, 1)}T00:00:00Z`).getUTCDay() || 7;
+    stubApi({ card: OWNS, classes: [series(id(1), { weekdays: [tomorrow] })] });
+    renderWith(card());
+    await rows();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Mysore · / }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Change the class" }),
+    ).toBeVisible();
+    expect(
+      await screen.findByText((t) =>
+        plain(t).startsWith(`Changes apply from ${dayName(today, "en")}.`),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("a class that has not begun opens whole, from its own first date", async () => {
+    stubApi({ card: OWNS, classes: [series(id(1), { starts_on: addDays(today, 5) })] });
+    renderWith(card());
+    await rows();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Mysore · / }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Change the class" }),
+    ).toBeVisible();
+    // Nothing has run, so the change is to the whole class: no date to apply it from.
+    expect(screen.queryByText(/Changes apply from/)).toBeNull();
+  });
+
+  it("after a save: the card says so, and the add row reads Add another class", async () => {
+    const seen = stubApi({ card: OWNS });
+    renderWith(card());
+    fireEvent.click(await screen.findByRole("button", { name: "➕ Add a class" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+    // B2: what one class is, under the days (the wording changed after A1).
+    expect(
+      screen.getByText(
+        "Pick the days this class runs at this time. A different time or type is a separate class: Mysore Mon–Fri at 06:00 and Led on Sunday at 08:00 are two. Save this one, then add the next.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save the class" }));
+
+    await waitFor(() => {
+      expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/classes`)).toHaveLength(1);
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("✓ Class saved.");
+    expect(await screen.findByRole("button", { name: "➕ Add another class" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "➕ Add a class" })).toBeNull();
+  });
+
+  it("opened plainly, it says nothing was saved", async () => {
+    stubApi({ card: OWNS, classes: [series(id(1))] });
+    renderWith(card());
+    await rows();
+
+    expect(screen.queryByText("✓ Class saved.")).toBeNull();
+    expect(screen.getByRole("button", { name: "➕ Add a class" })).not.toHaveClass("btn");
+  });
+});
+
+// UI-06 stage 6 (spec §2): the bot's "✏️ Edit the shala" opens the card with its edit form.
+describe("opened to edit the shala", () => {
+  const scrolled = vi.fn();
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = scrolled;
+  });
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  it("an owner or a manager gets the form open, in view", async () => {
+    stubApi({ card: shalaOut(ADMIN) });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="edit" />);
+
+    const name = await screen.findByLabelText("Name");
+    expect(name).toHaveValue("Ashtanga Almaty");
+    expect(scrolled.mock.contexts[0]).toBe(name.closest("form"));
+    expect(screen.queryByRole("button", { name: "✏️ Edit the shala" })).toBeNull();
+  });
+
+  it("someone who may not edit it gets the card", async () => {
+    stubApi({ card: shalaOut(TEACHER) });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="edit" />);
+
+    await screen.findByText(/Ashtanga Almaty/);
+    await screen.findByRole("button", { name: "➕ Invite students to the shala" });
+    expect(screen.queryByLabelText("Name")).toBeNull();
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+
+  it("the Shala tab's start edit:<id> opens that card so", async () => {
+    stubApi({ mine: MINE, card: shalaOut(OWNER) });
+    renderWith(<ShalaTab start={`edit:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+
+    expect(await screen.findByLabelText("Name")).toHaveValue("Ashtanga Almaty");
   });
 });

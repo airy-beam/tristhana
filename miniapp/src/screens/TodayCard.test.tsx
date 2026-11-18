@@ -261,7 +261,7 @@ describe("TodayCard: three choices", () => {
     expect(state()).toBe("🌙 Moon day");
     expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
     expect(screen.queryByText(/In your log/)).not.toBeInTheDocument(); // the line says it
-    expect(controls()).toEqual(["Change", "📓 Add a note"]);
+    expect(controls()).toEqual(["Change", "📓 Note"]);
   });
 
   it("Change shows the three choices again, with Clear next to them", async () => {
@@ -275,14 +275,14 @@ describe("TodayCard: three choices", () => {
     expect(haptics.selection).toHaveBeenCalled();
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     // Clear sits with the choices, over the entries, never among them.
-    expect(controls()).toEqual(["Change", ...CHOICES, "Clear", "📓 Add a note"]);
+    expect(controls()).toEqual(["Change", ...CHOICES, "Clear", "📓 Note"]);
     // A reason sits behind "Other…", which carries the mark.
     expect(labels(screen.getAllByRole("button", { pressed: true }))).toEqual(["Other…"]);
     expect(state()).toBe("🌙 Moon day"); // still said while changing
 
     fireEvent.click(toggle); // a second tap folds it again
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(controls()).toEqual(["Change", "📓 Add a note"]);
+    expect(controls()).toEqual(["Change", "📓 Note"]);
   });
 
   it("another choice behind Change saves and folds again", async () => {
@@ -390,7 +390,7 @@ describe("TodayCard: three choices", () => {
     });
     expect(screen.queryByText(/Only you see this/)).not.toBeInTheDocument();
     expect(await screen.findByText(PROMPT)).toBeInTheDocument(); // unanswered again
-    expect(controls()).toEqual([...CHOICES, "📓 Add a note"]); // the note entry stays
+    expect(controls()).toEqual([...CHOICES, "📓 Note"]); // the note entry stays
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
   });
 
@@ -410,7 +410,7 @@ describe("TodayCard: three choices", () => {
   it("keeps the card and a typed note when a save and the refetch after it both fail", async () => {
     stubApi(logged("rest"));
     renderCard();
-    fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📓 Note" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
       target: { value: "Kapotasana felt lighter" },
     });
@@ -497,10 +497,10 @@ describe("TodayCard: after Practiced", () => {
       "🔁 Same as last time",
       "📝 Add details",
       "✨ How do you feel?",
-      "📓 Add a note",
+      "📓 Note",
     ]);
     // Nothing entered yet: these rows have no second line.
-    for (const name of ["📝 Add details", "✨ How do you feel?", "📓 Add a note"]) {
+    for (const name of ["📝 Add details", "✨ How do you feel?", "📓 Note"]) {
       expect(screen.getByRole("button", { name })).not.toHaveAccessibleDescription();
     }
     expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
@@ -535,7 +535,7 @@ describe("TodayCard: after Practiced", () => {
     expect(screen.getByRole("button", { name: "📝 Details" })).toHaveAccessibleDescription(
       "Led · Full Primary · 90 min",
     );
-    expect(controls()).toEqual(["Change", "📝 Details", "✨ How do you feel?", "📓 Add a note"]);
+    expect(controls()).toEqual(["Change", "📝 Details", "✨ How do you feel?", "📓 Note"]);
   });
 
   it("an older practice says which day it was (Q296)", async () => {
@@ -663,7 +663,7 @@ describe("TodayCard: the note entry", () => {
     stubApi(logged("rest"));
     renderCard();
 
-    const add = await screen.findByRole("button", { name: "📓 Add a note" });
+    const add = await screen.findByRole("button", { name: "📓 Note" });
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     fireEvent.click(add);
     expect(screen.getByRole("textbox")).toBeInTheDocument();
