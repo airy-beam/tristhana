@@ -274,8 +274,8 @@ class ShalaScreens:
             return None
         city = moon.city.name(locale)
         if moon.source is MoonSource.SHALA and moon.shala is not None:
-            return self._t.t(locale, "settings-moon-line-shala", city=city, shala=moon.shala.name)
-        return self._t.t(locale, "settings-moon-line", city=city)
+            return self._t.t(locale, "shala-moon-yours-shala", city=city, shala=moon.shala.name)
+        return self._t.t(locale, "shala-moon-yours", city=city)
 
     # The card
 

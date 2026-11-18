@@ -16,7 +16,7 @@ It's the chat with [@tristhana_bot](https://t.me/tristhana_bot). Use it to:
 - mark a new asana;
 - receive messages from your teacher or your shala.
 
-You don't need to type commands. :ftl[menu-open] is the last button under today's question and leads to everything else. Writing any message to the bot opens it too.
+You don't need to type commands. :ftl[menu-open] is in the last row under today's question, next to :ftl[log-another-day], and leads to everything else. Writing any message to the bot opens it too.
 
 ![The bot's Menu](../../../assets/shots/en/bot-menu.webp)
 
@@ -35,6 +35,7 @@ The gear :ftl[settings-open] in the top corner opens the settings: the same five
 ## Good to know
 
 - Everything you log in the bot shows up in the app, and the other way round.
+- A bot button that opens the app says what it opens, like :ftl[app-open-shala] or :ftl[schedule-full-app].
 - You don't need the app to use the bot, or the bot to use the app. Reminders, though, always come from the bot.
 - The app follows your Telegram theme, light or dark.
 - Want a quick look around? In the bot, :ftl[menu-help] lists the things people ask most, one tap each. In the app, the gear leads to :ftl[guide-open], which opens this guide.

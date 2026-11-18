@@ -1,7 +1,7 @@
 ---
 title: "Rest days, moon days and 🌸"
 description: "Rest is part of the practice. Here is how days off, moon days, 🌸 days, sick days and travel work."
-features: [PR-09, WH-01, WH-02, MD-03, MD-04]
+features: [PR-09, WH-01, WH-02, MD-03, MD-04, UI-06]
 ---
 
 Rest is part of the practice. Here is how days off, moon days, 🌸 days, sick days and travel work.
@@ -15,19 +15,19 @@ When you log a day you can choose :ftl[status-rest], or tap :ftl[today-other] fo
 1. Open :ftl[menu-open] → :ftl[menu-settings] and tap the day off row (😌). In the app it is the same row behind the gear.
 2. Pick one or two days. The other days are your practice days.
 
-From then on your day off shows as rest by itself, and practice reminders skip it. If you practiced on a day off, just log it: what you log always wins.
+From then on your day off shows as rest by itself, and practice reminders don't come that day. If you practiced on a day off, just log it: what you log always wins.
 
 ## Moon days
 
 In Ashtanga we traditionally rest on full and new moon days. Tristhana fills them in for you as :ftl[status-moon].
 
 - :ftl[menu-open] → :ftl[menu-moon] shows the next moon days and the city they are calculated for. In the app, tap the moon line on the :ftl[tab-today] tab.
-- If you chose a city yourself, the dates follow it. Otherwise they follow the city your main teacher chose, then your shala's calendar, then Mysuru. If your main teacher teaches at your shala, the shala's calendar comes first.
+- If you chose a city yourself, the dates follow it. Otherwise, in a shala, they follow the shala's moon days. If your main teacher isn't on your shala's staff and has chosen a city, they follow that city instead. Without a shala, they follow the city your main teacher chose, and otherwise Mysuru. See [Moon days your students follow](../../teachers/moon-days/).
 - You get a reminder 7 days and 1 day before, at 19:00 your time. :ftl[moon-reminders] changes that or turns it off.
 
 ![The next moon days in the bot, with the city and the reminders line](../../../assets/shots/en/bot-moon.webp)
 
-Moon days depend on the place, so two cities can differ by a day. If your shala's calendar says something else, follow your teacher.
+Moon days depend on the place, so two cities can differ by a day. If your shala or your teacher announces another day, go by what they say.
 
 ## Several days: sick, traveling or 🌸
 

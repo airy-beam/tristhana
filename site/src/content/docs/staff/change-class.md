@@ -1,17 +1,16 @@
 ---
 title: "Change, end or delete a class"
 description: "Move a class to another time or day, end it from a date, or delete it. Earlier dates stay as they were."
-features: [SC-02]
+features: [SC-02, UI-06]
 ---
 
 Move a class to another time or day, end it from a date, or delete it. Earlier dates stay as they were.
 
 ## Change a class
 
-1. In the app, open the :ftl[tab-shala] tab and tap your shala.
-2. In the schedule, tap the class on the date the change should start from.
-3. Tap :ftl[class-edit] to open the form.
-4. Change what you need and tap :ftl[class-form-save].
+1. In the app, open the :ftl[tab-shala] tab and tap your shala. From the bot, :ftl[shala-classes-edit] on the shala's card opens the same screen.
+2. Tap the class's row under :ftl[shala-classes-title]: its form opens, set to change it from today. Or, in the schedule, tap the class on the date the change should start from and then :ftl[class-edit].
+3. Change what you need and tap :ftl[class-form-save].
 
 ![The form of a saved class in the app, with the date the changes apply from](../../../assets/shots/en/app-class-edit.webp)
 

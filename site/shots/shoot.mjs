@@ -86,11 +86,27 @@ function locate(page, step, locale, shot) {
 /**
  * What a bot shot's person sends. `=invite` is the start code of the demo teacher's invite
  * link, which exists only once the cast is seeded: `/start =invite` is someone opening it.
+ * `=staff-invite` is a new one-time staff link to the demo shala, with the Teacher role, made
+ * by its owner for this shot (UI-06 stage 6: the invitee's shots).
  * @param {ReturnType<typeof createClient>} client
  * @param {string} say
  * @param {"en" | "ru"} locale
  */
 async function message(client, say, locale) {
+  if (say.includes("=staff-invite")) {
+    const owner = CAST[locale].teacher;
+    const mine = /** @type {{ id: string, name: string }[]} */ (
+      await client.call(owner, "GET", "/me/shalas")
+    );
+    const shala = mine.find((s) => s.name === SHALA[locale]);
+    if (!shala) throw new Error(`${locale}: the demo teacher has no ${SHALA[locale]}`);
+    const link = /** @type {{ url: string }} */ (
+      await client.call(owner, "POST", `/shalas/${shala.id}/staff-invites`, { role: "teacher" })
+    );
+    const code = /[?&]start=([\w-]+)/.exec(link.url)?.[1];
+    if (!code) throw new Error(`no start code in the staff link ${link.url}`);
+    return say.replace("=staff-invite", code);
+  }
   if (!say.includes("=invite")) return say;
   const invite = /** @type {{ url: string }} */ (
     await client.call(CAST[locale].teacher, "POST", "/me/invite", {})

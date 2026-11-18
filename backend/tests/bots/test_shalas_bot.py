@@ -392,7 +392,7 @@ def test_join_edits_into_the_card(client: TestClient, storage: InMemoryStorage) 
     text = body["text"]
     assert text.splitlines()[0] == "🏛 Ashtanga Almaty"
     assert "📍 Almaty · shala time: Almaty (UTC+5)" in text
-    assert "🌙 Moon days: 📍 Almaty" in text
+    assert "🌙 Your moon days now: 📍 Almaty" in text
     assert "Anna" in text  # a member sees the staff
     me = next(a for a in storage.repo.accounts.values() if a.display_name == "Ash")
     assert storage.shalas.students_of(shala) == [me.id]

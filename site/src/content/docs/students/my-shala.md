@@ -12,7 +12,7 @@ Join a shala, see its classes in your own city's time, add them to your calendar
 2. Open it. The bot shows the shala and, in short, what joining means. :ftl[consent-details] has the full text.
 3. Tap :ftl[shala-join-yes].
 
-The shala's teachers and staff see your name, and nothing from your log. The staff can send announcements, and you can mute them. Your moon days may follow the shala's calendar: see [Rest days, moon days and 🌸](../rest-and-moon-days/).
+The shala's teachers and staff see your name, and nothing from your log. The staff can send announcements, and you can mute them. Your moon days follow the shala's, unless you chose your own city. The exception: if your main teacher isn't on the shala's staff and has chosen a city, you follow that city. See [Rest days, moon days and 🌸](../rest-and-moon-days/).
 
 ## Who is your teacher here?
 
@@ -35,8 +35,9 @@ What comes next, and how to take a request back: [My teacher](../my-teacher/).
 
 ## Your schedule
 
-- **In the bot:** :ftl[menu-open] → :ftl[menu-classes] shows this week's classes at all your shalas.
+- **In the bot:** :ftl[menu-open] → :ftl[menu-classes] shows this week's classes at all your shalas. If the week is too long for one message, it ends with :ftl[schedule-full-app], which opens the whole week in the app.
 - **In the app:** on the :ftl[tab-shala] tab, tap :ftl[my-schedule-open]{from=app} for the whole week, and the weeks after it. Today's class is also a line on the :ftl[tab-today] tab.
+- **One shala's week:** on its card, tap :ftl[schedule-open]. The card's moon line says what the shala does on moon days.
 
 ![This week's classes in the bot](../../../assets/shots/en/bot-schedule.webp)
 

@@ -67,6 +67,16 @@ describe("manifest", () => {
     });
   });
 
+  it("reads a bot shot of the invitee, who opens a staff link (UI-06 stage 6)", () => {
+    const text =
+      "shots:\n  - {name: a, kind: bot, as: invitee, say: /start =staff-invite, tap: [shala-staff-yes], features: [SC-01]}\n";
+    expect(parseManifest(text)[0]).toMatchObject({
+      as: "invitee",
+      say: "/start =staff-invite",
+      tap: ["shala-staff-yes"],
+    });
+  });
+
   it("selects by name or feature, and refuses an unknown value", () => {
     const shots = parseManifest(
       "shots:\n  - {name: a, kind: app, as: student, features: [PR-01]}\n  - {name: b, kind: app, as: teacher, features: [ST-06, PR-01]}\n",

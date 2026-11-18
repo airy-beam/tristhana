@@ -6,8 +6,10 @@
  * ID-07 added four people around the demo shala: `colleague`, a second teacher on its team, so
  * a student there has two names to pick from; `asker` and `asker2`, who joined by the shala's
  * link and named the demo teacher, so two people wait for his answer; and `member`, who joined
- * the same way and has not picked anyone yet.
- * @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser, assistant: DemoUser, owner: DemoUser, colleague: DemoUser, member: DemoUser, asker: DemoUser, asker2: DemoUser }} Cast
+ * the same way and has not picked anyone yet. UI-06 stage 6 added `invitee`, who has never
+ * used the bot and gets a staff link from the demo teacher in her shots only (`=staff-invite`):
+ * she reads it, then confirms it.
+ * @typedef {{ student: DemoUser, teacher: DemoUser, newcomer: DemoUser, assistant: DemoUser, owner: DemoUser, colleague: DemoUser, member: DemoUser, asker: DemoUser, asker2: DemoUser, invitee: DemoUser }} Cast
  */
 
 export const CITY = { slug: "almaty", zone: "Asia/Almaty" };
@@ -31,6 +33,7 @@ export const CAST = {
     member: { id: 9007, name: "Tara", lang: "en" },
     asker: { id: 9008, name: "Leo", lang: "en" },
     asker2: { id: 9009, name: "Sasha", lang: "en" },
+    invitee: { id: 9010, name: "Kiran", lang: "en" },
   },
   ru: {
     student: { id: 9101, name: "Майя", lang: "ru" },
@@ -42,6 +45,7 @@ export const CAST = {
     member: { id: 9107, name: "Тара", lang: "ru" },
     asker: { id: 9108, name: "Лео", lang: "ru" },
     asker2: { id: 9109, name: "Саша", lang: "ru" },
+    invitee: { id: 9110, name: "Киран", lang: "ru" },
   },
 };
 

@@ -1034,6 +1034,9 @@ shala-caps = No more shalas or staff links for now: that's the limit. A staff li
 moon-source-shala = 🏛 Same as your shala, { $shala }. You can choose another city.
 moon-follow-shala = 🏛 Follow my shala ({ $shala })
 settings-moon-line-shala = 🌙 Moon days: 📍 { $city } (as { $shala })
+# After joining a shala or its staff: where the person's own moon days come from now (not the shala's own line above it).
+shala-moon-yours = 🌙 Your moon days now: 📍 { $city }
+shala-moon-yours-shala = 🌙 Your moon days now: 📍 { $city } (as { $shala })
 
 
 ## The shala card's Classes and its buttons into the app (UI-06 stage 6, spec §3.1, B1, B4).

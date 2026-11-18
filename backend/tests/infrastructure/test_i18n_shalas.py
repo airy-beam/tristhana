@@ -27,6 +27,8 @@ KEYS = (
     "moon-follow-shala",
     "shala-moon-shared",
     "settings-moon-line-shala",
+    "shala-moon-yours",
+    "shala-moon-yours-shala",
     "shala-invalid",
     "shala-already",
     "shala-already-staff",
@@ -79,6 +81,12 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         {"city": "Almaty", "shala": "S"},
         "🌙 Moon days: 📍 Almaty (as S)",
         "🌙 Лунные дни: 📍 Almaty (как в шале: S)",
+    ),
+    (
+        "shala-moon-yours-shala",
+        {"city": "Almaty", "shala": "S"},
+        "🌙 Your moon days now: 📍 Almaty (as S)",
+        "🌙 Твои лунные дни теперь: 📍 Almaty (как в шале: S)",
     ),
     # UI-06 stage 6 (spec §6 and the ux-writer's review).
     (
