@@ -6,12 +6,8 @@ into OUT_DIR with ../render.sh (headless Chrome). The screenshots are the guide'
 (site/src/assets/shots/<lang>/), so run `npm run shots` in site/ first if the product changed.
 To change a text, edit SLIDES below and run the script again. The caption is in ../launch.md.
 
-promo_shots/<lang>/ holds two screens shot with the product's own "hide the 🌸 button" setting
-on (bot-start, app-home): public posts do not show that button (owner's rule for public
-material). To re-shoot them: in site/shots/lib/seed.mjs add `hide_ladies: true` to the
-`PATCH /me` call, in site/shots/manifest.yaml set bot-start to `as: student`, run
-`npm run shots -- --only bot-start` and `-- --only app-home`, copy the four .webp files here,
-then `git checkout` the two pipeline files and site/src/assets/shots.
+Public posts do not show the 🌸 button (owner's rule for public material). Since UI-06 it sits
+behind "Other…" on Today in the bot and the app, so the guide's own screens are used as they are.
 """
 
 import subprocess
@@ -21,7 +17,6 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SHOTS = HERE.parents[2] / "site/src/assets/shots"
-PROMO = HERE / "promo_shots"  # screens shot specially for promo; they win over the guide's
 MARK = (HERE / "mark.svg.part").read_text().strip()
 CSS = (HERE / "style.css").as_uri()
 TAG = {"ru": "Асана · Дыхание · Дришти", "en": "Asana · Breath · Drishti"}
@@ -34,9 +29,9 @@ SLIDES = {
         ("cover", "Открыто для всех", "Спутник твоей практики аштанги",
          "Журнал практики и&nbsp;отдыха, лунные дни, учителя и&nbsp;шалы — прямо в&nbsp;Telegram.", ("app-home", 0)),
         (S, "Практикующим", "Отметить день — одно касание",
-         "Практика или отдых: в&nbsp;журнал идёт и&nbsp;то, и&nbsp;другое. Прошедший день тоже можно отметить.", ("bot-start", 0)),
+         "Практика или отдых: в&nbsp;журнал идёт и&nbsp;то, и&nbsp;другое. Прошедший день тоже можно отметить.", ("bot-today", 0)),
         (S, "Практикующим", "Детали — только если хочется",
-         "Майсор, лед-класс, индивидуально или самостоятельно. Серия до&nbsp;твоей последней асаны, длительность. Или <b>«как в&nbsp;прошлый раз»</b>.", ("bot-log-practice", 0)),
+         "Майсор, Лед-класс, индивидуально или самостоятельно. Серия до&nbsp;твоей последней асаны, длительность. Или <b>«как в&nbsp;прошлый раз»</b>.", ("bot-log-practice", 0)),
         (S, "Практикующим", "Отдых — часть практики",
          "День отдыха, лунный день, болезнь, дорога: у&nbsp;каждого своя отметка. На&nbsp;несколько дней можно поставить паузу.", ("bot-pause", 0)),
         (S, "Практикующим", "Лунные дни для твоего города",
@@ -60,7 +55,7 @@ SLIDES = {
         (S, "Учителям", "Новая асана для ученика",
          "Отметь её в&nbsp;карточке ученика: ему придёт короткое сообщение&nbsp;🎉. Журнал остаётся за&nbsp;учеником: отметку он может отменить.", ("bot-mark-asana", 0)),
         (S, "Шалам", "Шала и&nbsp;её расписание",
-         "Майсор, лед-классы и&nbsp;другие занятия по&nbsp;дням недели. Закрытые дни, переносы из-за лунных дней и&nbsp;замены преподавателя.", ("app-shala", 0)),
+         "Майсор, Лед-классы и&nbsp;другие занятия по&nbsp;дням недели. Закрытые дни, переносы из-за лунных дней и&nbsp;замены преподавателя.", ("app-shala", 0)),
         (S, "Шалам", "Каждый видит своё время",
          "<b>Моё расписание</b> собирает занятия всех твоих шал по&nbsp;времени твоего города. Их можно добавить в&nbsp;календарь телефона.", ("app-schedule", 0)),
         (S, "Шалам", "Посещения занятий",
@@ -78,7 +73,7 @@ SLIDES = {
             ("🔓 Открытый код", "Лицензия AGPL-3.0: <b>github.com/airy-beam/tristhana</b>"),
         ]),
         ("end", "О&nbsp;проекте", "Бесплатно — и&nbsp;так и&nbsp;останется",
-         "Некоммерческий хобби-проект для сообщества аштанги: сделан практикующим для практикующих. Без рейтингов и&nbsp;соревнований. По-русски и&nbsp;по-английски.",
+         "Некоммерческий хобби-проект для сообщества аштанги: от практикующих для практикующих. Без рейтингов и&nbsp;соревнований. По-русски и&nbsp;по-английски.",
          ("Как начать", "@tristhana_bot", "Справка с&nbsp;картинками: <b>tristhana.app/ru</b>",
           ["Открой <b>@tristhana_bot</b> в&nbsp;Telegram", "Отметь сегодняшний день: практика или отдых"])),
     ],
@@ -86,7 +81,7 @@ SLIDES = {
         ("cover", "Now open to all", "A companion for your Ashtanga practice",
          "A log for practice and rest, moon days, teachers and shalas, right in Telegram.", ("app-home", 0)),
         (S, "For practitioners", "Log a day in one tap",
-         "Practice or rest: both go in your log. You can log an earlier day too.", ("bot-start", 0)),
+         "Practice or rest: both go in your log. You can log an earlier day too.", ("bot-today", 0)),
         (S, "For practitioners", "Details only if you want them",
          "Mysore, Led, 1:1 or self-practice. The series up to your last asana, how long you practiced. Or <b>“same as last time”</b>.", ("bot-log-practice", 0)),
         (S, "For practitioners", "Rest is part of the practice",
@@ -147,8 +142,7 @@ def page(lang: str, n: int, total: int, slide: tuple) -> str:
         name, skip = extra
         if kind == "cover":
             body += f'<div class="swipe">{SWIPE[lang]}</div>\n'
-        own = PROMO / lang / f"{name}.webp"
-        src = (own if own.exists() else SHOTS / lang / f"{name}.webp").as_uri()
+        src = (SHOTS / lang / f"{name}.webp").as_uri()
         chat = " chat" if name.startswith("bot-") else ""
         body += f'<div class="shot{chat}"><img src="{src}" style="margin-top:-{skip}px" alt=""></div>\n'
     elif kind == "cards":
