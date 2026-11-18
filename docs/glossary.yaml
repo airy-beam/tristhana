@@ -1,0 +1,610 @@
+# One word per thing (UI-06 stage 5, ADR-0050). The source of truth for the words the bot, the
+# Mini App and the guides use, in English and in Russian. The ux-writer reads it before writing
+# copy; a new concept with a new word is a line here in the same pull request.
+#
+# Read by site/src/lib/words.test.mjs (the site suite):
+#   - no message text of bot.ftl, card.ftl or the Mini App's .ftl (en, ru) contains a `retired`
+#     word of its language, or a `banned` one, outside `except`; only what a person reads is
+#     scanned (values and attributes, every variant, variables removed), never ids or comments;
+#   - the same for the guide pages: titles, descriptions and prose, without :ftl[…], :cmd[…],
+#     code, link targets and image paths;
+#   - a key both products define renders the same text, unless `same-key-different-text` says
+#     why not.
+#
+# A retired or banned word is a regular expression (case-insensitive, Unicode), matched as whole
+# words: a letter or digit may not touch either end. Write it in 'single quotes' so `\p{L}` stays.
+# It is either a plain string (every message and every guide page of that language), or a map:
+#   word:    the expression
+#   in:      only these message keys (`prefix-*` for a prefix); never guide pages
+#   guides:  false = messages only (the guides' Commands page names commands on purpose)
+# `except` (per concept, and under `banned`): `key` (optionally `source: bot | app`) or `page`
+# (as below), always with a `reason`.
+#
+# File names in `pending` and `except`:
+#   bot/<locale>/…     backend/src/tristhana/infrastructure/i18n/locales/<locale>/…
+#   app/<locale>/…     miniapp/src/locales/<locale>/…
+#   guides/…           site/src/content/docs/… (Russian pages under guides/ru/…)
+
+concepts:
+  - concept: The calendar and numbers place
+    en: My practice
+    ru: Моя практика
+    where: [stats-title, menu-practice, stats-show-ladies, tab-practice]
+    note: Q342, QA (Q361). The tab keeps the short form 📊 Practice / «📊 Практика».
+    retired:
+      en:
+        - word: '(?<!my )practice'
+          in: [stats-title, menu-practice, stats-show-ladies, tab-practice]
+      ru:
+        - word: '(?<!мо(?:я|ей|ю|ею) )практик\p{L}*'
+          in: [stats-title, menu-practice, stats-show-ladies, tab-practice]
+    except:
+      - key: tab-practice
+        source: app
+        reason: >-
+          A tab is about 102 px at 320 px; «📊 Моя практика» would be cut. The heading under it
+          says My practice (QA, Q361).
+
+  - concept: A logged practice
+    en: 🧘 Practiced (legend Practice)
+    ru: 🧘 Практика (legend Практика)
+    where: [status-practiced, stats-legend-practiced]
+    note: Q342, kept; 📊 and 🧘 tell the place from the status.
+
+  - concept: The student's own practice, how far it goes
+    en: 'My practice: … / Your practice: …'
+    ru: 'Моя практика: … / Твоя практика: …'
+    where: [preset-mine, progression-current]
+    expert: true
+    note: The Ashtanga sense, kept by the ashtanga-expert.
+
+  - concept: How far in the series
+    en: 📏 How far
+    ru: 📏 Объём практики
+    where: [practice-length]
+    expert: true
+    note: QD (Q364).
+    retired:
+      en:
+        - word: 'length'
+          in: [practice-length]
+
+  - concept: Minutes
+    en: ⏱ How long
+    ru: Длительность
+    where: [practice-duration, class-form-length]
+    note: QD (Q364); the same word in the practice details and on the class form.
+    retired:
+      en:
+        - word: 'duration|length'
+          in: [practice-duration, class-form-length]
+      ru:
+        - word: 'сколько длится'
+          in: [practice-duration, class-form-length]
+
+  - concept: The record of days
+    en: log
+    ru: журнал
+    where: [everywhere]
+
+  - concept: Private text on a day
+    en: 📓 Note
+    ru: 📓 Заметка
+    where: [diary-*, consents, More]
+    retired:
+      en: ['diar(?:y|ies)']
+      ru: ['дневник\p{L}*']
+
+  - concept: How you feel after practice
+    en: ✨ How do you feel? (noun how you feel; trends ✨ How you've felt)
+    ru: ✨ Как самочувствие? (самочувствие; «✨ Самочувствие за год»)
+    where: [checkin-*, trends-*, settings-checkin-hint, consents]
+    note: >-
+      settings-checkin-hint names the app's chips Mood / Body / Mind (Настроение / Тело / Ум);
+      checkin-clear says Remove answers / «Убрать ответы».
+    retired:
+      en:
+        - 'check[- ]?ins?'
+        - word: 'energy|effort'
+          in: [settings-checkin-hint]
+      ru:
+        - word: 'отметк\p{L}*'
+          in: [checkin-*, trends-*, settings-checkin-hint]
+        - word: 'энерги\p{L}*|усили\p{L}*'
+          in: [settings-checkin-hint]
+        - word: 'самочувстви\p{L}*'
+          in: [checkin-clear]
+
+  - concept: Practice details
+    en: 📝 Details · 📝 Add details
+    ru: 📝 Детали
+    where: [practice-details, the day card]
+
+  - concept: A consent's full text
+    en: 📄 Read in full
+    ru: 📄 Подробнее
+    where: [consent-details]
+    note: The bot and ask.ftl, byte for byte (ADR-0049).
+    retired:
+      en:
+        - word: 'details'
+          in: [consent-details]
+
+  - concept: The day's third choice
+    en: Other…
+    ru: Другое…
+    where: [today-other, remind-other]
+    note: >-
+      Only these two. Elsewhere a label says what it opens: preset-other 🎯 Choose… / «🎯
+      Выбрать…»; day-off-ask-other Pick days… / «Выбрать дни…»; class-form-length-other Enter
+      minutes / «Ввести минуты»; the bot's pause-other is the app's (same-key test).
+    retired:
+      en:
+        - word: 'other'
+          in: [preset-other, day-off-ask-other, class-form-length-other]
+      ru:
+        - word: 'друг\p{L}*'
+          in: [preset-other, day-off-ask-other, class-form-length-other]
+
+  - concept: One session at a shala
+    en: class
+    ru: занятие
+    where: [everywhere]
+    note: RU «класс» only after a hyphen («Лед-класс», «майсор-класс»).
+    retired:
+      ru:
+        - 'урок(?:а|у|ом|е|и|ов|ам|ами|ах)?'
+        - '(?<!-)класс(?:а|у|ом|е|ы|ов|ам|ами|ах)?'
+
+  - concept: Class kinds
+    en: Mysore · Led · 1:1 · Self-practice
+    ru: Майсор · Лед-класс · Индивидуально · Самостоятельно
+    where: [context-*, the class form]
+    expert: true
+    note: >-
+      The RU comment example in miniapp/src/locales/ru/shala.ftl reads «Лед-класс Первая серия
+      целиком» (decision 2026-10-19); comments are not scanned.
+
+  - concept: My week of classes
+    en: 🗓 My schedule
+    ru: 🗓 Моё расписание
+    where: [menu-classes, command-schedule, welcome-shala-student, my-schedule-*]
+    note: QB (Q362). Classes / «Занятия» is not a place.
+    retired:
+      en:
+        - word: 'classes'
+          in: [menu-classes, command-schedule]
+        - word: '→ classes'
+          in: [welcome-shala-student]
+      ru:
+        - word: 'занятия'
+          in: [menu-classes, command-schedule]
+        - word: '→ занятия'
+          in: [welcome-shala-student]
+
+  - concept: A shala's timetable
+    en: 🗓 Schedule
+    ru: 🗓 Расписание
+    where: [the shala card]
+
+  - concept: Passing a link on
+    en: ✉️ Send the link
+    ru: ✉️ Отправить ссылку
+    where: [invite-send, invite-share, invite-hint, shala-join-hint]
+    note: >-
+      Both invites, both products. The hints say Send this link or show the QR code. / «Отправь
+      ссылку или покажи QR-код.»
+    retired:
+      en:
+        - word: 'share'
+          in: [invite-send, invite-share, invite-hint, shala-join-hint]
+      ru:
+        - word: 'подел\p{L}*'
+          in: [invite-send, invite-share, invite-hint, shala-join-hint]
+
+  - concept: Share a picture
+    en: Share
+    ru: Поделиться
+    where: [share-*]
+
+  - concept: Joining a shala
+    en: join
+    ru: присоединиться
+    where: [hints, consents, feed-moon-only]
+    note: RU in sentences only, never on a button (too long).
+    retired:
+      ru: ['вступ(?:ить|ишь|ит|им|ите|ят|и|ай|ил|ила|или|ив|ивший|ает|аешь|ают)']
+
+  - concept: People with a role in a shala
+    en: staff
+    ru: команда шалы
+    where: [the shala card, setup-staff, consents]
+    note: EN setup-staff says Invite teachers and staff, as the card's Teachers and staff.
+    retired:
+      en:
+        - word: 'invite teachers(?! and staff)'
+          in: [setup-staff]
+
+  - concept: Teacher
+    en: teacher
+    ru: учитель (on my list) · преподаватель (a role in a shala)
+    where: [everywhere]
+    note: ID-07 rule, kept.
+
+  - concept: Moon day
+    en: 🌙 Moon day · Full moon / New moon
+    ru: 🌙 Лунный день · Полнолуние / Новолуние
+    where: [moon-*]
+    expert: true
+
+  - concept: Rest, day off, ladies' holiday, no practice
+    en: Rest day · Day off · Ladies' holiday · No practice
+    ru: День отдыха · Выходной · Женские дни · Без практики
+    where: [everywhere]
+    note: The tone words are under `banned`.
+
+  - concept: Where times are told
+    en: 'My city · 🕐 Times: Almaty'
+    ru: 'Мой город · 🕐 Время: Алматы'
+    where: [settings, reminders, moon, schedule]
+    retired:
+      en: ['time ?zones?']
+      ru: ['часов\p{L}* пояс\p{L}*']
+    except:
+      - key: settings-privacy-location
+        reason: The location-privacy line says what the location is used for, exactly.
+      - key: settings-zone-utc
+        reason: The UTC option (it names no zone today; kept free to).
+      - key: settings-city-utc
+        reason: The UTC option (it names no zone today; kept free to).
+
+  - concept: Product name
+    en: Tristhana
+    ru: Tristhana (never declined; where a case is needed, «приложение»)
+    where: [start-greeting, bot-description, startup-failed, not-in-telegram, session-expired]
+    note: QF (Q366). Voice-overs keep their own spelling.
+    retired:
+      ru: ['тристхан\p{L}*']
+
+  - concept: Getting somewhere in the bot
+    en: ☰ Menu → 🌙 Moon days
+    ru: ☰ Меню → 🌙 Лунные дни
+    where: [running text]
+    note: >-
+      QC (Q363). No message names a command; the commands stay in Telegram's command menu and on
+      the guides' Commands page (:cmd[…] is not prose). /admin is the admin's own note.
+    retired:
+      en:
+        - word: '/(?:start|schedule|moon|settings|help|log|asanas|remind|teachers|classes|menu)'
+          guides: false
+      ru:
+        - word: '/(?:start|schedule|moon|settings|help|log|asanas|remind|teachers|classes|menu)'
+          guides: false
+
+  - concept: Extra fields of a form
+    en: More options
+    ru: Дополнительно
+    where: [class-form-more]
+    retired:
+      ru:
+        - word: 'ещё настройки'
+          in: [class-form-more]
+
+  - concept: Removing my own entry · deleting for everyone
+    en: Remove · Delete
+    ru: Убрать · Удалить
+    where: [everywhere]
+    retired:
+      ru:
+        - word: 'удал\p{L}*'
+          in: [diary-clear, diary-clear-confirm, diary-clear-yes]
+        - word: 'удален\p{L}*'
+          in: [diary-removed]
+
+  - concept: The class form's rhythm
+    en: Regularly · One date; How often every week / every 2 weeks
+    ru: Регулярно · Одна дата; «Повторяется по дням»
+    where: [class-form-weekly, class-form-once]
+    retired:
+      en:
+        - word: 'every week'
+          in: [class-form-weekly]
+      ru:
+        - word: 'каждую неделю'
+          in: [class-form-weekly]
+
+# Never, anywhere: the tone rule (supportive, never guilt-inducing). «серия» is the series, so
+# only its run phrases are banned; «практик подряд» stays. «пропуск» is the noun (a miss): the
+# verb «пропускает» (a reminder passes over a day off) is not a judgement.
+banned:
+  en: ['streaks?', 'missed', 'skipped', 'broken']
+  ru:
+    - 'полос(?:а|ы|е|у|ой|ою)'
+    - 'пропуск(?:а|у|ом|е|и|ов|ам|ами|ах)?'
+    - 'пропущенн\p{L}*'
+    - 'сери\p{L}* (?:из )?(?:дней|практик)'
+    - '(?:прерв|прерыв|сохран)\p{L}* сери\p{L}*'
+    - 'дней подряд'
+  except:
+    - key: closure-failed
+      reason: The longest a shala may close (up to 92 days in a row), not a run of practice.
+    - page: guides/ru/staff/closures-and-swaps.md
+      reason: The longest a shala may close (up to 92 days in a row), not a run of practice.
+
+# A key both products define, rendered differently on purpose. `locale` limits an entry to one
+# language; without it the entry covers both.
+same-key-different-text:
+  - key: ann-pinned-until
+    reason: >-
+      The app's line sits on the announcement's own card, where 📌 says pinned; the bot's list
+      line spells it out.
+  - key: attend-removed
+    reason: The bot's message names the mark it removed; the app's line sits under that row.
+  - key: attend-roster-hint
+    reason: The bot's roster is a column of name buttons, the app's a list of ticks.
+  - key: attend-staff-open
+    reason: The app's button carries the counts; the bot's opens the roster that shows them.
+  - key: attend-staff-tag
+    reason: The bot joins the tag to the name with " · "; the app sets it apart as a tag.
+  - key: delete-explain
+    reason: The bot adds a line on the messages already in its chat, which only the bot has.
+  - key: diary-removed
+    reason: The bot adds a line on the messages already in its chat, which only the bot has.
+  - key: feed-copy
+    reason: A bot button carries its emoji; the app's is a plain button beside the link.
+  - key: length-pick-range
+    reason: The bot asks in a message; the app labels a field.
+  - key: progression-pick-series
+    reason: The bot asks in a message; the app labels a field.
+  - key: progression-pick-asana
+    reason: The bot asks in a message (with the series); the app labels a field.
+  - key: practice-length
+    reason: The bot's button carries the emoji; the app's is a field label beside its value.
+  - key: practice-duration
+    reason: The bot's button carries the emoji; the app's is a field label beside its value.
+  - key: progression-title
+    reason: A bot message heading carries the emoji; the app's screen heading does not.
+  - key: settings-title
+    reason: A bot message heading carries the emoji; the app's screen heading does not.
+  - key: schedule-title
+    reason: The bot's heading names the shala and the week; the app shows both on the card.
+  - key: shala-staff-title
+    reason: The bot lists the people on the heading's line; the app lists them under it.
+
+# Today's offenders (slice 1). Slices 2–4 work through them; slice 4 adds "pending is empty".
+pending:
+  words:
+    # bot EN: 52
+    - { file: bot/en/bot.ftl, key: checkin-clear, word: "check-in" }
+    - { file: bot/en/bot.ftl, key: command-schedule, word: "classes" }
+    - { file: bot/en/bot.ftl, key: consent-details, word: "details" }
+    - { file: bot/en/bot.ftl, key: day-off-ask-other, word: "other" }
+    - { file: bot/en/bot.ftl, key: delete-done, word: "/start" }
+    - { file: bot/en/bot.ftl, key: delete-explain, word: "check-ins" }
+    - { file: bot/en/bot.ftl, key: delete-explain, word: "diary" }
+    - { file: bot/en/bot.ftl, key: diary-removed, word: "diary" }
+    - { file: bot/en/bot.ftl, key: diary-saved, word: "diary" }
+    - { file: bot/en/bot.ftl, key: export-readme-files, word: "check-in" }
+    - { file: bot/en/bot.ftl, key: export-readme-files, word: "diary" }
+    - { file: bot/en/bot.ftl, key: export-readme-unreadable, word: "diary" }
+    - { file: bot/en/bot.ftl, key: export-sent, word: "diary" }
+    - { file: bot/en/bot.ftl, key: invite-consent, word: "/teachers" }
+    - { file: bot/en/bot.ftl, key: invite-consent, word: "check-ins" }
+    - { file: bot/en/bot.ftl, key: invite-consent, word: "diary" }
+    - { file: bot/en/bot.ftl, key: invite-consent-short, word: "/teachers" }
+    - { file: bot/en/bot.ftl, key: invite-consent-short, word: "check-ins" }
+    - { file: bot/en/bot.ftl, key: invite-consent-short, word: "diary" }
+    - { file: bot/en/bot.ftl, key: invite-moon-hint, word: "/moon" }
+    - { file: bot/en/bot.ftl, key: invite-share, word: "share" }
+    - { file: bot/en/bot.ftl, key: log-date-future, word: "time zone" }
+    - { file: bot/en/bot.ftl, key: menu-classes, word: "classes" }
+    - { file: bot/en/bot.ftl, key: moon-follow-changed, word: "/moon" }
+    - { file: bot/en/bot.ftl, key: moon-follow-ended, word: "/moon" }
+    - { file: bot/en/bot.ftl, key: moon-keep-already, word: "/moon" }
+    - { file: bot/en/bot.ftl, key: moon-kept, word: "/moon" }
+    - { file: bot/en/bot.ftl, key: moon-reminder-off, word: "/moon" }
+    - { file: bot/en/bot.ftl, key: moon-teacher-shared, word: "/moon" }
+    - { file: bot/en/bot.ftl, key: moon-use-city-zone, word: "time zone" }
+    - { file: bot/en/bot.ftl, key: moon-zone-needed, word: "/settings" }
+    - { file: bot/en/bot.ftl, key: practice-duration, word: "duration" }
+    - { file: bot/en/bot.ftl, key: practice-length, word: "length" }
+    - { file: bot/en/bot.ftl, key: preset-other, word: "other" }
+    - { file: bot/en/bot.ftl, key: remind-off-note, word: "/remind" }
+    - { file: bot/en/bot.ftl, key: remind-paused, word: "/remind" }
+    - { file: bot/en/bot.ftl, key: request-consent, word: "check-ins" }
+    - { file: bot/en/bot.ftl, key: request-consent, word: "diary" }
+    - { file: bot/en/bot.ftl, key: request-consent-short, word: "check-ins" }
+    - { file: bot/en/bot.ftl, key: request-consent-short, word: "diary" }
+    - { file: bot/en/bot.ftl, key: settings-location-unknown, word: "/settings" }
+    - { file: bot/en/bot.ftl, key: settings-location-unknown, word: "time zone" }
+    - { file: bot/en/bot.ftl, key: settings-location-zone, word: "/settings" }
+    - { file: bot/en/bot.ftl, key: settings-location-zone, word: "time zone" }
+    - { file: bot/en/bot.ftl, key: settings-share-location, word: "time zone" }
+    - { file: bot/en/bot.ftl, key: shala-join-consent, word: "/teachers" }
+    - { file: bot/en/bot.ftl, key: shala-join-consent-short, word: "/teachers" }
+    - { file: bot/en/bot.ftl, key: shala-join-hint, word: "share" }
+    - { file: bot/en/bot.ftl, key: shala-staff-consent, word: "/teachers" }
+    - { file: bot/en/bot.ftl, key: shala-staff-consent-short, word: "/teachers" }
+    - { file: bot/en/bot.ftl, key: students-days-note, word: "time zone" }
+    - { file: bot/en/bot.ftl, key: welcome-shala-student, word: "→ classes" }
+    # bot RU: 42
+    - { file: bot/ru/bot.ftl, key: bot-description, word: "тристхана" }
+    - { file: bot/ru/bot.ftl, key: checkin-clear, word: "самочувствие" }
+    - { file: bot/ru/bot.ftl, key: command-schedule, word: "занятия" }
+    - { file: bot/ru/bot.ftl, key: day-off-ask-other, word: "другой" }
+    - { file: bot/ru/bot.ftl, key: delete-done, word: "/start" }
+    - { file: bot/ru/bot.ftl, key: diary-clear, word: "удалить" }
+    - { file: bot/ru/bot.ftl, key: diary-clear-confirm, word: "удалить" }
+    - { file: bot/ru/bot.ftl, key: diary-clear-yes, word: "удалить" }
+    - { file: bot/ru/bot.ftl, key: diary-removed, word: "дневника" }
+    - { file: bot/ru/bot.ftl, key: diary-removed, word: "удалена" }
+    - { file: bot/ru/bot.ftl, key: diary-saved, word: "дневнике" }
+    - { file: bot/ru/bot.ftl, key: feed-moon-only, word: "вступишь" }
+    - { file: bot/ru/bot.ftl, key: invite-consent, word: "/teachers" }
+    - { file: bot/ru/bot.ftl, key: invite-consent-short, word: "/teachers" }
+    - { file: bot/ru/bot.ftl, key: invite-moon-hint, word: "/moon" }
+    - { file: bot/ru/bot.ftl, key: invite-share, word: "поделиться" }
+    - { file: bot/ru/bot.ftl, key: log-date-future, word: "часовом поясе" }
+    - { file: bot/ru/bot.ftl, key: menu-classes, word: "занятия" }
+    - { file: bot/ru/bot.ftl, key: moon-follow-changed, word: "/moon" }
+    - { file: bot/ru/bot.ftl, key: moon-follow-ended, word: "/moon" }
+    - { file: bot/ru/bot.ftl, key: moon-keep-already, word: "/moon" }
+    - { file: bot/ru/bot.ftl, key: moon-kept, word: "/moon" }
+    - { file: bot/ru/bot.ftl, key: moon-reminder-off, word: "/moon" }
+    - { file: bot/ru/bot.ftl, key: moon-teacher-shared, word: "/moon" }
+    - { file: bot/ru/bot.ftl, key: moon-use-city-zone, word: "часовой пояс" }
+    - { file: bot/ru/bot.ftl, key: moon-zone-needed, word: "/settings" }
+    - { file: bot/ru/bot.ftl, key: preset-other, word: "другое" }
+    - { file: bot/ru/bot.ftl, key: remind-off-note, word: "/remind" }
+    - { file: bot/ru/bot.ftl, key: remind-paused, word: "/remind" }
+    - { file: bot/ru/bot.ftl, key: settings-location-unknown, word: "/settings" }
+    - { file: bot/ru/bot.ftl, key: settings-location-unknown, word: "часовой пояс" }
+    - { file: bot/ru/bot.ftl, key: settings-location-zone, word: "/settings" }
+    - { file: bot/ru/bot.ftl, key: settings-location-zone, word: "часовой пояс" }
+    - { file: bot/ru/bot.ftl, key: settings-share-location, word: "часовой пояс" }
+    - { file: bot/ru/bot.ftl, key: shala-join-consent, word: "/teachers" }
+    - { file: bot/ru/bot.ftl, key: shala-join-consent-short, word: "/teachers" }
+    - { file: bot/ru/bot.ftl, key: shala-join-hint, word: "поделись" }
+    - { file: bot/ru/bot.ftl, key: shala-staff-consent, word: "/teachers" }
+    - { file: bot/ru/bot.ftl, key: shala-staff-consent-short, word: "/teachers" }
+    - { file: bot/ru/bot.ftl, key: start-greeting, word: "тристхана" }
+    - { file: bot/ru/bot.ftl, key: students-days-note, word: "часовому поясу" }
+    - { file: bot/ru/bot.ftl, key: welcome-shala-student, word: "→ занятия" }
+    # app EN: 39
+    - { file: app/en/app.ftl, key: day-off-ask-other, word: "other" }
+    - { file: app/en/app.ftl, key: delete-explain, word: "check-ins" }
+    - { file: app/en/app.ftl, key: delete-explain, word: "diary" }
+    - { file: app/en/app.ftl, key: diary-private-hint, word: "diary" }
+    - { file: app/en/app.ftl, key: diary-removed, word: "diary" }
+    - { file: app/en/app.ftl, key: diary-title, word: "diary" }
+    - { file: app/en/app.ftl, key: invite-hint, word: "share" }
+    - { file: app/en/app.ftl, key: invite-share, word: "share" }
+    - { file: app/en/app.ftl, key: moon-zone-needed-app, word: "time zone" }
+    - { file: app/en/app.ftl, key: settings-checkin-hint, word: "check-in" }
+    - { file: app/en/app.ftl, key: settings-checkin-hint, word: "effort" }
+    - { file: app/en/app.ftl, key: settings-checkin-hint, word: "energy" }
+    - { file: app/en/app.ftl, key: settings-privacy-sharing, word: "check-ins" }
+    - { file: app/en/app.ftl, key: settings-privacy-sharing, word: "diary" }
+    - { file: app/en/app.ftl, key: shala-join-hint, word: "share" }
+    - { file: app/en/app.ftl, key: students-days-note, word: "time zone" }
+    - { file: app/en/app.ftl, key: trends-open, word: "check-ins" }
+    - { file: app/en/ask.ftl, key: consent-details, word: "details" }
+    - { file: app/en/ask.ftl, key: request-consent, word: "check-ins" }
+    - { file: app/en/ask.ftl, key: request-consent, word: "diary" }
+    - { file: app/en/ask.ftl, key: request-consent-short, word: "check-ins" }
+    - { file: app/en/ask.ftl, key: request-consent-short, word: "diary" }
+    - { file: app/en/details.ftl, key: checkin-clear, word: "check-in" }
+    - { file: app/en/details.ftl, key: checkin-save-failed, word: "check-in" }
+    - { file: app/en/details.ftl, key: practice-duration, word: "duration" }
+    - { file: app/en/details.ftl, key: practice-length, word: "length" }
+    - { file: app/en/details.ftl, key: preset-other, word: "other" }
+    - { file: app/en/shala.ftl, key: class-form-length-other, word: "other" }
+    - { file: app/en/shala.ftl, key: class-form-weekly, word: "every week" }
+    - { file: app/en/shala.ftl, key: setup-staff, word: "invite teachers" }
+    - { file: app/en/trends.ftl, key: trends-cell-label, word: "check-in" }
+    - { file: app/en/trends.ftl, key: trends-cell-label, word: "check-ins" }
+    - { file: app/en/trends.ftl, key: trends-count-hint, word: "check-ins" }
+    - { file: app/en/trends.ftl, key: trends-empty, word: "check-ins" }
+    - { file: app/en/trends.ftl, key: trends-gap-note, word: "check-ins" }
+    - { file: app/en/trends.ftl, key: trends-note, word: "check-ins" }
+    - { file: app/en/trends.ftl, key: trends-title, word: "check-ins" }
+    - { file: app/en/trends.ftl, key: trends-too-few, word: "check-ins" }
+    - { file: app/en/trends.ftl, key: trends-window, word: "check-ins" }
+    # app RU: 32
+    - { file: app/ru/app.ftl, key: day-off-ask-other, word: "другой" }
+    - { file: app/ru/app.ftl, key: diary-clear, word: "удалить" }
+    - { file: app/ru/app.ftl, key: diary-clear-confirm, word: "удалить" }
+    - { file: app/ru/app.ftl, key: diary-clear-yes, word: "удалить" }
+    - { file: app/ru/app.ftl, key: diary-private-hint, word: "дневник" }
+    - { file: app/ru/app.ftl, key: diary-removed, word: "дневника" }
+    - { file: app/ru/app.ftl, key: diary-removed, word: "удалена" }
+    - { file: app/ru/app.ftl, key: diary-title, word: "дневник" }
+    - { file: app/ru/app.ftl, key: feed-moon-only, word: "вступишь" }
+    - { file: app/ru/app.ftl, key: invite-hint, word: "поделись" }
+    - { file: app/ru/app.ftl, key: invite-share, word: "поделиться" }
+    - { file: app/ru/app.ftl, key: moon-zone-needed-app, word: "часовой пояс" }
+    - { file: app/ru/app.ftl, key: not-in-telegram, word: "тристхану" }
+    - { file: app/ru/app.ftl, key: session-expired, word: "тристхану" }
+    - { file: app/ru/app.ftl, key: settings-checkin-hint, word: "отметка" }
+    - { file: app/ru/app.ftl, key: settings-checkin-hint, word: "усилие" }
+    - { file: app/ru/app.ftl, key: settings-checkin-hint, word: "энергия" }
+    - { file: app/ru/app.ftl, key: shala-join-hint, word: "поделись" }
+    - { file: app/ru/app.ftl, key: startup-failed, word: "тристхану" }
+    - { file: app/ru/app.ftl, key: students-days-note, word: "часовому поясу" }
+    - { file: app/ru/details.ftl, key: checkin-clear, word: "самочувствие" }
+    - { file: app/ru/details.ftl, key: preset-other, word: "другое" }
+    - { file: app/ru/shala.ftl, key: class-form-length, word: "сколько длится" }
+    - { file: app/ru/shala.ftl, key: class-form-length-other, word: "другое" }
+    - { file: app/ru/shala.ftl, key: class-form-more, word: "ещё настройки" }
+    - { file: app/ru/shala.ftl, key: class-form-weekly, word: "каждую неделю" }
+    - { file: app/ru/trends.ftl, key: trends-cell-label, word: "отметка" }
+    - { file: app/ru/trends.ftl, key: trends-cell-label, word: "отметки" }
+    - { file: app/ru/trends.ftl, key: trends-count-hint, word: "отметкам" }
+    - { file: app/ru/trends.ftl, key: trends-empty, word: "отметкам" }
+    - { file: app/ru/trends.ftl, key: trends-note, word: "отметкам" }
+    - { file: app/ru/trends.ftl, key: trends-window, word: "отметкам" }
+    # guides EN: 32
+    - { file: guides/index.mdx, word: "diary" }
+    - { file: guides/index.mdx, word: "time zone" }
+    - { file: guides/reference/commands.md, word: "time zone" }
+    - { file: guides/reference/faq.md, word: "check-ins" }
+    - { file: guides/reference/faq.md, word: "diary" }
+    - { file: guides/reference/faq.md, word: "time zone" }
+    - { file: guides/reference/privacy.md, word: "check-ins" }
+    - { file: guides/reference/privacy.md, word: "diary" }
+    - { file: guides/reference/privacy.md, word: "time zone" }
+    - { file: guides/reference/whats-new.md, word: "check-in" }
+    - { file: guides/reference/whats-new.md, word: "check-ins" }
+    - { file: guides/reference/whats-new.md, word: "diary" }
+    - { file: guides/reference/whats-new.md, word: "time zone" }
+    - { file: guides/staff/classes.md, word: "time zone" }
+    - { file: guides/staff/create-shala.md, word: "time zone" }
+    - { file: guides/start/bot-and-app.md, word: "check-ins" }
+    - { file: guides/start/first-steps.md, word: "time zone" }
+    - { file: guides/students/check-in-and-diary.md, word: "check-in" }
+    - { file: guides/students/check-in-and-diary.md, word: "check-ins" }
+    - { file: guides/students/check-in-and-diary.md, word: "diary" }
+    - { file: guides/students/log-practice.md, word: "time zone" }
+    - { file: guides/students/my-practice.md, word: "check-ins" }
+    - { file: guides/students/my-shala.md, word: "time zone" }
+    - { file: guides/students/my-teacher.md, word: "check-ins" }
+    - { file: guides/students/my-teacher.md, word: "diary" }
+    - { file: guides/students/reminders.md, word: "time zone" }
+    - { file: guides/students/settings.md, word: "time zone" }
+    - { file: guides/students/your-data.md, word: "check-ins" }
+    - { file: guides/students/your-data.md, word: "diary" }
+    - { file: guides/teachers/what-you-see.md, word: "check-ins" }
+    - { file: guides/teachers/what-you-see.md, word: "diary" }
+    - { file: guides/teachers/what-you-see.md, word: "time zone" }
+    # guides RU: 19
+    - { file: guides/ru/index.mdx, word: "дневника" }
+    - { file: guides/ru/reference/faq.md, word: "дневника" }
+    - { file: guides/ru/reference/faq.md, word: "часовом поясе" }
+    - { file: guides/ru/reference/privacy.md, word: "дневника" }
+    - { file: guides/ru/reference/privacy.md, word: "часовой пояс" }
+    - { file: guides/ru/reference/whats-new.md, word: "дневнике" }
+    - { file: guides/ru/reference/whats-new.md, word: "часовом поясе" }
+    - { file: guides/ru/staff/classes.md, word: "часовом поясе" }
+    - { file: guides/ru/start/first-steps.md, word: "часовой пояс" }
+    - { file: guides/ru/students/check-in-and-diary.md, word: "дневник" }
+    - { file: guides/ru/students/check-in-and-diary.md, word: "дневника" }
+    - { file: guides/ru/students/log-practice.md, word: "часовой пояс" }
+    - { file: guides/ru/students/my-shala.md, word: "часовом поясе" }
+    - { file: guides/ru/students/my-teacher.md, word: "дневника" }
+    - { file: guides/ru/students/reminders.md, word: "часовой пояс" }
+    - { file: guides/ru/students/settings.md, word: "часовой пояс" }
+    - { file: guides/ru/students/your-data.md, word: "дневника" }
+    - { file: guides/ru/teachers/what-you-see.md, word: "дневника" }
+    - { file: guides/ru/teachers/what-you-see.md, word: "часовому поясу" }
+  # The bot and the app say different things under one key (spec §2.1, §2.2).
+  same-key:
+    - { key: moon-same-as-city, locale: en }
+    - { key: moon-teacher-shared, locale: en }
+    - { key: pause-other, locale: en }
+    - { key: remind-days-follow, locale: en }
+    - { key: students-day-blank, locale: en }
+    - { key: moon-same-as-city, locale: ru }
+    - { key: moon-teacher-shared, locale: ru }
+    - { key: pause-other, locale: ru }
+    - { key: remind-days-follow, locale: ru }
+    - { key: students-day-blank, locale: ru }

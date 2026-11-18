@@ -2,6 +2,7 @@ name: site
 
 # UI-05: the public site (landing page + guides). The guides quote the product's own Fluent
 # messages, so a change to a locale file or to the bot's command menu also runs these checks.
+# ADR-0050: the word tests read every bot and Mini App .ftl and the glossary, so they run here too.
 on:
   push:
     branches: [main]
@@ -9,6 +10,7 @@ on:
       - "site/**"
       - "backend/src/tristhana/infrastructure/i18n/locales/**"
       - "miniapp/src/locales/**"
+      - "docs/glossary.yaml"
       - "tools/telegram/set_webhook.py"
       - ".github/workflows/site.yml"
   pull_request:
