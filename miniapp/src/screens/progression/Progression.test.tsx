@@ -305,7 +305,7 @@ test("Telegram's Back closes the Change form and stays on the screen", async () 
   expect(onBack).not.toHaveBeenCalled();
 });
 
-test("the date sits with the new-asana marks; Change is a row of its own (Q367 a)", async () => {
+test("Change sits under the line it changes; the date sits with the new-asana marks (Q367 a)", async () => {
   stubApi();
   renderWith(<Progression locale="en" onBack={vi.fn()} />);
 
@@ -315,12 +315,34 @@ test("the date sits with the new-asana marks; Change is a row of its own (Q367 a
   expect(within(group).getByLabelText("Date")).toBeInTheDocument();
   expect(within(group).getByLabelText("🎉 Another new asana…")).toBeInTheDocument();
   expect(within(group).getByRole("button", { name: "🎉 Drop-backs" })).toBeInTheDocument();
-  expect(within(group).queryByRole("button", { name: "✏️ Change" })).toBeNull();
 
   const change = screen.getByRole("button", { name: "✏️ Change" });
+  const current = screen.getByText("Your practice: Primary → Navasana");
   expect(group.contains(change)).toBe(false);
-  // Change comes after the group, never between a label and its field.
-  expect(group.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  // Right after "Your practice: …", before the group and its date.
+  expect(current.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(group.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  expect(screen.getAllByLabelText("Date")).toHaveLength(1);
+});
+
+test("the first setup can be backdated", async () => {
+  const seen = stubApi({
+    progression: unset(),
+    post: { progression: AT_NAVASANA, event: AT_NAVASANA.events[0], celebrations: [] },
+  });
+  renderWith(<Progression locale="en" onBack={vi.fn()} />);
+
+  fireEvent.change(await screen.findByLabelText("Date"), { target: { value: "2026-09-01" } });
+  fireEvent.change(screen.getByLabelText("Last asana"), { target: { value: "kurmasana" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => {
+    expect(posts(seen)[0]).toMatchObject({
+      kind: "set",
+      last: "kurmasana",
+      occurred_on: "2026-09-01",
+    });
+  });
 });
 
 test("a new asana takes the picked date; Change sets where the practice ends now", async () => {

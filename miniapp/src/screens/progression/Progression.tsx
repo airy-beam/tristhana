@@ -1,5 +1,5 @@
 import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useState, type ReactNode } from "react";
 
 import {
   ApiError,
@@ -110,8 +110,9 @@ function Body({
     change.mutate(
       {
         ...body,
-        // The date belongs to the new-asana group; Change sets where the practice ends now.
-        occurred_on: body.kind !== "set" && day && day !== today ? day : null,
+        // Once a position exists, Change sets where the practice ends now; the date belongs to
+        // the new-asana marks and to the first setup (which may be backdated).
+        occurred_on: (body.kind !== "set" || !progression.set) && day && day !== today ? day : null,
         expected_event_id: progression.last_event_id,
       },
       {
@@ -138,6 +139,18 @@ function Body({
   };
   const position = progression.position;
   const busy = change.isPending || undo.isPending;
+  const dateField = today ? (
+    <Field label={get(l10n, "progression-date")}>
+      <DateInput
+        value={day}
+        max={today}
+        min="2000-01-01"
+        onChange={(e) => {
+          setDay(e.target.value || today);
+        }}
+      />
+    </Field>
+  ) : null;
 
   return (
     <>
@@ -187,21 +200,39 @@ function Body({
         ) : (
           <Current catalog={catalog} progression={progression} locale={locale} />
         )}
+        {editing ? (
+          <ChangeForm
+            catalog={catalog}
+            position={position ?? null}
+            locale={locale}
+            busy={busy}
+            onSave={(target) => {
+              send({ kind: "set", ...target });
+            }}
+            date={progression.set ? null : dateField}
+            onCancel={
+              progression.set
+                ? () => {
+                    setEditing(false);
+                  }
+                : undefined
+            }
+          />
+        ) : (
+          <Localized id="progression-change">
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                setEditing(true);
+              }}
+            />
+          </Localized>
+        )}
         {progression.set && (
-          // Q367 (a): marking a new asana is one group, its date with it; Change is apart.
+          // Q367 (a): marking a new asana is one group, its date with it, below Change.
           <div className="details new-asana-group" role="group">
-            {today && (
-              <Field label={get(l10n, "progression-date")}>
-                <DateInput
-                  value={day}
-                  max={today}
-                  min="2000-01-01"
-                  onChange={(e) => {
-                    setDay(e.target.value || today);
-                  }}
-                />
-              </Field>
-            )}
+            {dateField}
             {progression.next && (
               <button
                 type="button"
@@ -258,36 +289,6 @@ function Body({
                 );
               })}
             </div>
-          </div>
-        )}
-        {editing ? (
-          <ChangeForm
-            catalog={catalog}
-            position={position ?? null}
-            locale={locale}
-            busy={busy}
-            onSave={(target) => {
-              send({ kind: "set", ...target });
-            }}
-            onCancel={
-              progression.set
-                ? () => {
-                    setEditing(false);
-                  }
-                : undefined
-            }
-          />
-        ) : (
-          <div className="details">
-            <Localized id="progression-change">
-              <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  setEditing(true);
-                }}
-              />
-            </Localized>
           </div>
         )}
       </section>
@@ -364,6 +365,7 @@ function ChangeForm({
   position,
   locale,
   busy,
+  date,
   onSave,
   onCancel,
 }: {
@@ -371,6 +373,8 @@ function ChangeForm({
   position: ProgressionPosition | null;
   locale: Locale;
   busy: boolean;
+  /** The first setup's date field (it may be backdated); none once a position exists. */
+  date: ReactNode;
   onSave: (target: Target) => void;
   onCancel: (() => void) | undefined;
 }) {
@@ -420,6 +424,7 @@ function ChangeForm({
           </Select>
         </Field>
       )}
+      {date}
       <div className="chips">
         <Localized id="progression-save">
           <button

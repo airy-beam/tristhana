@@ -288,6 +288,40 @@ def test_the_cards_rows_per_role_and_more(
     assert _data(inner, "‹ Back") == f"h1:c:{short_id(shala)}"
 
 
+@pytest.mark.parametrize(
+    ("role", "card"),
+    [
+        ("owner", [*CARD_MAIN[:2], ["😌 Make Sunday my day off too"], *CARD_MAIN[2:], ["More…"]]),
+        (
+            "teacher",
+            [
+                *ANNOUNCE,
+                *CARD_MAIN[:2],
+                ["😌 Make Sunday my day off too"],
+                *CARD_MAIN[2:],
+                ["Leave…"],
+            ],
+        ),
+    ],
+)
+def test_the_day_off_row_stays_on_the_card_and_never_flips_it(
+    client: TestClient, storage: InMemoryStorage, role: str, card: list[list[str]]
+) -> None:
+    """Review fix: the shala's day off offered to someone without one comes and goes like the
+    waiting row: on the card, under the Schedule, and not counted for More…"""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, role)
+    storage.shalas.shalas[shala].days_off = frozenset({7})
+    storage.schedule.add_class(shala, teacher_id=me.id)
+
+    body = _card(client, shala)
+
+    assert _rows(body) == [*card, ["‹ Back"]]
+    if role == "owner":
+        more = _tap(client, _data(body, "More…"))
+        assert "😌 Make Sunday my day off too" not in _texts(more)
+
+
 def test_more_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
     me = _me(client, storage, "ru")
     shala, _ = _shala(storage, me, "owner")

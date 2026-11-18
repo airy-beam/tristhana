@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Sequence
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import quote, urlencode
 from uuid import UUID
 
@@ -83,6 +83,10 @@ if TYPE_CHECKING:
 PAGE = 10
 CLASS_LINES = 12  # the Classes block on the card, then "…" (the rest is in the app)
 CARD_ROWS = 7  # Q373 (a): more action rows than this, and the card keeps its main ones + More…
+type Place = Literal["main", "more", "passing"]  # where a card row goes (`_actions`)
+MAIN: Place = "main"
+MORE: Place = "more"
+PASSING: Place = "passing"
 DASH = "\u2013"  # en dash: Mon-Fri, 06:00-09:30
 QR_FILE = "tristhana-shala.png"
 QR_TIMEOUT_S = 10
@@ -358,12 +362,12 @@ class ShalaScreens:
         if lead:
             text = f"{lead}\n\n{text}"
         rows = self._actions(principal, card, current, waiting, asking, no_teachers)
-        # The waiting row comes and goes, so it never flips the card's layout.
-        steady = len(rows) - (1 if waiting > 0 else 0)
-        if steady > CARD_ROWS and sum(1 for _, main in rows if not main) > 1:
+        # The waiting and day-off rows come and go, so they never flip the card's layout.
+        steady = sum(1 for _, place in rows if place != PASSING)
+        if steady > CARD_ROWS and sum(1 for _, place in rows if place == MORE) > 1:
             # Q373 (a): the main actions stay; the rest is one tap away behind More…
             more = self._button(locale, "shala-more-button", cb.on_shala("mo", card.id))
-            shown = [row for row, main in rows if main] + [[more]]
+            shown = [row for row, place in rows if place != MORE] + [[more]]
         else:
             shown = [row for row, _ in rows]
         shown.append([self._button(locale, "log-back", "t1:o")])
@@ -378,57 +382,58 @@ class ShalaScreens:
         waiting: int,
         asking: list[list[InlineKeyboardButton]],
         no_teachers: bool,
-    ) -> list[tuple[list[InlineKeyboardButton], bool]]:
-        """The card's action rows in their order, each with whether it is a main one (kept
-        on the card when the rest goes behind More…, Q373 (a)); Back is not among them."""
+    ) -> list[tuple[list[InlineKeyboardButton], Place]]:
+        """The card's action rows in their order, each with its place (Q373 (a)): MAIN stays
+        on the card, MORE goes behind More… on a long card, PASSING stays on the card and is
+        not counted, since it comes and goes. Back is not among them."""
         locale = principal.account.locale
         me = card.me
         manages = can_manage_schedule(me)
         days_off = self._days_off(locale, card.days_off)
-        rows: list[tuple[list[InlineKeyboardButton], bool]] = []
+        rows: list[tuple[list[InlineKeyboardButton], Place]] = []
         if waiting > 0:  # ID-07: people waiting for my answer, in any shala
-            rows.append((waiting_row(self._t, locale, waiting), True))
+            rows.append((waiting_row(self._t, locale, waiting), PASSING))
         ann = self._links.announcements
         if ann is not None:  # NT-03
-            rows.append(([ann.card_button(locale, Source(SourceKind.SHALA, card.id))], False))
+            rows.append(([ann.card_button(locale, Source(SourceKind.SHALA, card.id))], MORE))
             announce = self._links.announce_button(locale, card.id)
             if announce is not None and can_announce_to_shala(me):
-                rows.append(([announce], False))
+                rows.append(([announce], MORE))
         if self._h.classes is not None:  # SC-02
             week = self._button(locale, "schedule-open", classes_cb.week(card.id, 0))
-            rows.append(([week], True))
+            rows.append(([week], MAIN))
             if manages and self._app:  # UI-06 stage 6 (B1): the forms are in the app
                 none = not current if current is not None else card.classes_total == 0
                 if none:
                     url = app_url(self._app, "class", shala=str(card.id))
-                    rows.append(([self._app_button(locale, "schedule-add-class", url)], True))
+                    rows.append(([self._app_button(locale, "schedule-add-class", url)], MAIN))
                 else:
                     url = app_url(self._app, "shala", shala=str(card.id))
-                    rows.append(([self._app_button(locale, "shala-classes-edit", url)], True))
+                    rows.append(([self._app_button(locale, "shala-classes-edit", url)], MAIN))
             if days_off is not None and principal.account.day_off.days is None:  # Q119
                 adopt = classes_cb.adopt_day_off(card.id)
                 button = self._button(locale, "shala-day-off-adopt", adopt, days=days_off)
-                rows.append(([button], False))
-        rows += [(row, True) for row in asking]
+                rows.append(([button], PASSING))  # goes once a day off is set
+        rows.extend((row, MAIN) for row in asking)
         if can_view_shala_students(me) and card.students_total is not None:
             n = card.students_total
             students = self._button(locale, "shala-students", cb.students(card.id, 0), n=n)  # type: ignore[arg-type]
-            rows.append(([students], True))
+            rows.append(([students], MAIN))
         if can_show_join_link(me) and self._username:
             invite = self._button(locale, "shala-invite-students", cb.on_shala("i", card.id))
-            rows.append(([invite], True))
+            rows.append(([invite], MAIN))
         if grantable(me) and self._username:
             staff = self._button(locale, "shala-invite-staff", cb.on_shala("e", card.id))
-            rows.append(([staff], False))
+            rows.append(([staff], MORE))
         if self._app:  # UI-06 stage 6 (B1): roles and the shala's own form are in the app
             if no_teachers:  # the no-teachers hint's own button stays under the hint
                 url = app_url(self._app, "shala", shala=str(card.id))
-                rows.append(([self._app_button(locale, "app-open-shala", url)], True))
+                rows.append(([self._app_button(locale, "app-open-shala", url)], MAIN))
             if can_edit_shala(me):
                 url = app_url(self._app, "edit-shala", shala=str(card.id))
-                rows.append(([self._app_button(locale, "shala-edit", url)], False))
+                rows.append(([self._app_button(locale, "shala-edit", url)], MORE))
         if not me.owner:
-            rows.append(([self._button(locale, "shala-leave", cb.on_shala("k", card.id))], False))
+            rows.append(([self._button(locale, "shala-leave", cb.on_shala("k", card.id))], MORE))
         return rows
 
     async def more(self, principal: Principal, shala: UUID) -> Screen:
@@ -442,8 +447,8 @@ class ShalaScreens:
         no_teachers = self._links.requests is not None and can_edit_shala(card.me) and not teachers
         rows = [
             row
-            for row, main in self._actions(principal, card, None, 0, [], no_teachers)
-            if not main
+            for row, place in self._actions(principal, card, None, 0, [], no_teachers)
+            if place == MORE
         ]
         if not rows:  # nothing more for this seat (a role changed since): the card
             return await self.card(principal, shala)
