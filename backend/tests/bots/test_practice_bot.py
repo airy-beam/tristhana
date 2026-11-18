@@ -193,8 +193,8 @@ def test_add_details_opens_the_details_screen(
     assert _rows(body) == [
         ["Mysore", "Led"],
         ["1:1", "Self-practice"],
-        ["⏱ Duration"],
-        ["📏 Length"],
+        ["⏱ How long"],
+        ["📏 How far"],
         ["✨ How do you feel?"],
         ["📓 Note"],
         ["✓ Done"],
@@ -216,8 +216,8 @@ def test_a_detail_tap_is_one_write_and_keeps_the_layout(
     assert _rows(body) == [
         ["✓ Mysore", "Led"],
         ["1:1", "Self-practice"],
-        ["🌐 Online", "⏱ Duration"],
-        ["📏 Length"],
+        ["🌐 Online", "⏱ How long"],
+        ["📏 How far"],
         ["✨ How do you feel?"],
         ["📓 Note"],
         ["✓ Done", "Remove details"],

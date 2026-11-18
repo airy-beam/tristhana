@@ -61,14 +61,18 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     (
         "moon-follow-changed",
         {"name": "Anna", "city": "Almaty"},
-        "🌙 Your moon days now follow Anna: 📍 Almaty. You can change this in /moon.",
-        "🌙 Лунные дни теперь как у учителя (Anna): 📍 Almaty. Поменять можно в /moon.",
+        "🌙 Your moon days now follow Anna: 📍 Almaty. You can change this under "
+        "☰ Menu → 🌙 Moon days.",
+        "🌙 Лунные дни теперь как у учителя (Anna): 📍 Almaty. Поменять можно в "
+        "☰ Меню → 🌙 Лунные дни.",
     ),
     (
         "moon-follow-ended",
         {"city": "Mysuru"},
-        "🌙 Your moon days are now for 📍 Mysuru. You can change this in /moon.",
-        "🌙 Лунные дни теперь считаются по городу 📍 Mysuru. Поменять можно в /moon.",
+        "🌙 Your moon days are now for 📍 Mysuru. You can change this under "
+        "☰ Menu → 🌙 Moon days.",
+        "🌙 Лунные дни теперь считаются по городу 📍 Mysuru. Поменять можно в "
+        "☰ Меню → 🌙 Лунные дни.",
     ),
     (
         "moon-teacher-shared",
@@ -88,32 +92,32 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "moon-teacher-shared",
         {"chosen": "no", "city": "Mysuru"},
         "👥 Your students' moon days are for 📍 Mysuru, like yours. You can keep it or choose "
-        "your city in /moon.",
+        "your own city.",
         "👥 У учеников лунные дни считаются по городу 📍 Mysuru, как и у тебя. Можно оставить "
-        "так или выбрать свой город в /moon.",
+        "так или выбрать свой город.",
     ),
     (
         "moon-teacher-shared",
         {"chosen": "shala", "city": "Mysuru"},
         "👥 Students in your shala follow its moon calendar. Your other students get 📍 Mysuru by "
-        "default, or your city if you choose one in /moon.",
+        "default, or your city if you choose one.",
         "👥 У учеников из твоей шалы лунные дни считаются по её календарю. У остальных — по "
-        "городу 📍 Mysuru, а если выберешь свой город в /moon, то по нему.",
+        "городу 📍 Mysuru, а если выберешь свой город, то по нему.",
     ),
     (
         "moon-teacher-shared",
         {"chosen": "follow", "city": "Mysuru"},
-        "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your city "
-        "in /moon.",
+        "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your own city.",
         "👥 У учеников лунные дни считаются по городу 📍 Mysuru. Можно оставить так или выбрать "
-        "свой город в /moon.",
+        "свой город.",
     ),
     (
         "invite-moon-hint",
         {},
-        "Students who haven't chosen a moon city will follow the city you choose in /moon.",
+        "Students who haven't chosen a moon city will follow the city you choose under "
+        "☰ Menu → 🌙 Moon days.",
         "У учеников, которые не выбрали город, лунные дни будут считаться по городу, который ты "
-        "выберешь в /moon.",
+        "выберешь в ☰ Меню → 🌙 Лунные дни.",
     ),
     (
         "moon-teacher-own",
@@ -127,14 +131,17 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     (
         "moon-kept",
         {"city": "Almaty"},
-        "🌙 Done: your moon days stay with 📍 Almaty. You can change this in /moon.",
-        "🌙 Готово: лунные дни остаются по городу 📍 Almaty. Поменять можно в /moon.",
+        "🌙 Done: your moon days stay with 📍 Almaty. You can change this under "
+        "☰ Menu → 🌙 Moon days.",
+        "🌙 Готово: лунные дни остаются по городу 📍 Almaty. Поменять можно в "
+        "☰ Меню → 🌙 Лунные дни.",
     ),
     (
         "moon-keep-already",
         {"city": "Almaty"},
-        "🌙 Your moon city is already chosen: 📍 Almaty. You can change it in /moon.",
-        "🌙 Город для лунных дней уже выбран: 📍 Almaty. Поменять можно в /moon.",
+        "🌙 Your moon city is already chosen: 📍 Almaty. You can change it under "
+        "☰ Menu → 🌙 Moon days.",
+        "🌙 Город для лунных дней уже выбран: 📍 Almaty. Поменять можно в ☰ Меню → 🌙 Лунные дни.",
     ),
 ]
 
@@ -181,9 +188,7 @@ def test_the_shared_keys_are_in_the_mini_app_too(locale: str) -> None:
 def test_the_mini_app_keys_read_as_the_bots(locale: str) -> None:
     bot = _sources(Path(str(BOT_FTL).format(locale)))
     app = _app(locale)
-    for key in BOTH:
-        if key == "moon-teacher-shared":  # /moon is a bot command: the app says "your own city"
-            continue
+    for key in BOTH:  # UI-06 stage 5: moon-teacher-shared says the app's words in the bot too
         assert " ".join(app[key].split()) == " ".join(bot[key].split()), key
 
 

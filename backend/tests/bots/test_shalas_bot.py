@@ -49,7 +49,7 @@ EN_JOIN = (
     "teacher has. If your teacher teaches here, the shala's calendar comes first. "
     "• The shala's staff can mark that you came to a class, and so can you. You see these marks "
     "and can remove them any time. "  # SC-05 (Q190)
-    "• You can leave any time in /teachers. No one gets a message. "
+    "• You can leave any time. No one gets a message. "
     "Join only a shala you know: anyone can create one with any name."
 )
 RU_JOIN = (
@@ -61,7 +61,7 @@ RU_JOIN = (
     "учителем. Если учитель преподаёт в этой шале, календарь шалы важнее. "
     "• Посещение занятий может отмечать команда шалы, и ты тоже. Эти отметки видны тебе, и их "
     "можно снять в любой момент. "  # SC-05 (Q190)
-    "• Выйти можно в любой момент в /teachers. Сообщений никто не получит. "
+    "• Выйти можно в любой момент. Сообщений никто не получит. "
     "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 )
 EN_STAFF = (
@@ -71,7 +71,7 @@ EN_STAFF = (
     "• You'll see the names of its students and staff, not their logs. "
     "• The shala's announcements come to you through the bot too. You can mute them. "
     "• You can mark who came to its classes. "  # SC-05 (Q190)
-    "• You can leave any time in /teachers."
+    "• You can leave any time."
 )
 RU_STAFF = (
     "🏛 Anna приглашает тебя в шалу Ashtanga Almaty. Роль: Ассистент. "
@@ -80,7 +80,7 @@ RU_STAFF = (
     "• Тебе будут видны имена учеников и людей из команды, но не их журналы. "
     "• Объявления шалы тоже будут приходить тебе через бота. Их можно отключить. "
     "• Можно отмечать посещение занятий. "  # SC-05 (Q190)
-    "• Выйти можно в любой момент в /teachers."
+    "• Выйти можно в любой момент."
 )
 # ADR-0045: the short screens. Each keeps to what its full text says: who sees what, and the
 # way out; the know-this-shala line is the fourth line.
@@ -89,7 +89,7 @@ EN_JOIN_SHORT = (
     "• The shala's teachers and staff see your name (Ash). Nothing from your log. "
     "• The shala's staff can mark that you came to a class, and so can you. You see these marks "
     "and can remove them any time. "
-    "• You can leave any time in /teachers. No one gets a message. "
+    "• You can leave any time. No one gets a message. "
     "Join only a shala you know: anyone can create one with any name."
 )
 RU_JOIN_SHORT = (
@@ -97,21 +97,21 @@ RU_JOIN_SHORT = (
     "• Преподаватели и команда шалы увидят твоё имя (Ash). Ничего из журнала. "
     "• Посещение занятий может отмечать команда шалы, и ты тоже. Эти отметки видны тебе, и их "
     "можно снять в любой момент. "
-    "• Выйти можно в любой момент в /teachers. Сообщений никто не получит. "
+    "• Выйти можно в любой момент. Сообщений никто не получит. "
     "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 )
 EN_STAFF_SHORT = (
     "🏛 Anna invites you to Ashtanga Almaty as Assistant. "
     "• Everyone in the shala, students included, sees your name (Ash) and role. "
     "• You'll see the names of its students and staff, not their logs. "
-    "• You can leave any time in /teachers. "
+    "• You can leave any time. "
     "Join only a shala you know: anyone can create one with any name."
 )
 RU_STAFF_SHORT = (
     "🏛 Anna приглашает тебя в шалу Ashtanga Almaty. Роль: Ассистент. "
     "• Все в шале, включая учеников, увидят твоё имя (Ash) и роль. "
     "• Тебе будут видны имена учеников и людей из команды, но не их журналы. "
-    "• Выйти можно в любой момент в /teachers. "
+    "• Выйти можно в любой момент. "
     "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 )
 KNOW_EN = "Join only a shala you know: anyone can create one with any name."
@@ -243,7 +243,7 @@ def _note(outbound: list[Sent], chat_id: int) -> Sent:
 @pytest.mark.parametrize(
     ("lang", "short", "details", "other_language", "switch"),
     [
-        ("en", EN_JOIN_SHORT, "📄 Details", "🗣 Русский", "ru"),
+        ("en", EN_JOIN_SHORT, "📄 Read in full", "🗣 Русский", "ru"),
         ("ru", RU_JOIN_SHORT, "📄 Подробнее", "🗣 English", "en"),
     ],
 )
@@ -268,7 +268,7 @@ def test_a_brand_new_person_gets_the_short_join_consent_in_their_language(
     assert datas == [f"h1:a:{JOIN}", "h1:n", f"h1:d:{JOIN}", f"h1:l:{switch}:{JOIN}"]
     assert _texts(body)[2:] == [details, other_language]
     if lang == "en":
-        assert _rows(body) == [["✅ Join", "Not now"], ["📄 Details"], ["🗣 Русский"]]
+        assert _rows(body) == [["✅ Join", "Not now"], ["📄 Read in full"], ["🗣 Русский"]]
     assert storage.shalas.students_of(shala) == []
 
 
@@ -302,7 +302,7 @@ def test_join_from_either_screen_is_the_same_join(
     shala = _shala(storage, _owner(storage))
     consent = _command(client, f"/start h_{JOIN}")
     if screen == "details":
-        consent = _tap(client, _data(consent, "📄 Details"))
+        consent = _tap(client, _data(consent, "📄 Read in full"))
 
     body = _tap(client, _data(consent, "✅"))
 
@@ -356,10 +356,11 @@ def test_the_preview_shows_no_person(client: TestClient, storage: InMemoryStorag
     assert all("Secret" not in t for t in _texts(body))
 
 
-def test_the_card_names_the_shala_time_without_the_offset_for_a_member_in_its_zone(
+def test_the_card_names_the_shala_time_only_for_a_member_outside_its_zone(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
-    """ADR-0044: the offset is for people elsewhere (and for a viewer whose zone is unknown,
+    """UI-06 stage 5 (spec §4.2): in the viewer's own zone the place stands alone; elsewhere
+    "shala time" follows, with the offset (ADR-0044; also for a viewer whose zone is unknown,
     as in the join test below)."""
     owner = _owner(storage)
     shala = _shala(storage, owner)
@@ -371,9 +372,9 @@ def test_the_card_names_the_shala_time_without_the_offset_for_a_member_in_its_zo
     storage.repo.accounts[me.id] = replace(me, timezone="Europe/Berlin")
     far = _tap(client, f"h1:c:{short_id(shala)}")["text"]
 
-    assert "📍 Almaty · shala time: Almaty\n" in mine
-    assert "shala time: Almaty (UTC" not in mine
-    assert "📍 Almaty · shala time: Almaty (UTC+5)" in far
+    assert mine.splitlines()[1] == "📍 Almaty"
+    assert "shala time" not in mine
+    assert far.splitlines()[1] == "📍 Almaty · shala time: Almaty (UTC+5)"
 
 
 def test_join_edits_into_the_card(client: TestClient, storage: InMemoryStorage) -> None:
@@ -907,7 +908,7 @@ def test_a_teacher_who_follows_their_shala_isnt_told_like_yours(
     assert "like yours" not in text
     assert (
         "👥 Students in your shala follow its moon calendar. Your other students get 📍 Mysuru by "
-        "default, or your city if you choose one in /moon."
+        "default, or your city if you choose one."
     ) in text
 
 
@@ -961,8 +962,7 @@ def test_a_teacher_who_is_only_a_student_of_the_shala_gets_the_plain_line(
     assert "like yours" not in text
     assert "Students in your shala" not in text
     assert (
-        "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your city "
-        "in /moon."
+        "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your own city."
     ) in text
 
 

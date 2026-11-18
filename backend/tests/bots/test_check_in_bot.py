@@ -418,7 +418,7 @@ def test_an_old_mood_chip_saves_and_opens_the_check_in_screen(
     assert [f"🔥{n}" for n in range(1, 6)] in rows
     assert _data_of(body, "🏷 Body and mind…") == f"k1:g:{d}"
     assert _data_of(body, "✓ Done") == f"k1:v:{d}"
-    assert _data_of(body, "Remove check-in") == f"k1:x:{d}"
+    assert _data_of(body, "Remove answers") == f"k1:x:{d}"
 
 
 def _row_index(body: Any, first: str) -> int:
@@ -464,7 +464,7 @@ def test_remove_is_offered_only_when_a_check_in_exists(
     body = _tap(client, f"k1:o:{_ymd(TODAY)}")
 
     assert EXPLAIN in body["text"]
-    assert "Remove check-in" not in _texts(body)
+    assert "Remove answers" not in _texts(body)
     assert "✓ Done" in _texts(body)
 
 
@@ -533,7 +533,7 @@ def test_check_in_screens_in_russian(client: TestClient, storage: InMemoryStorag
 
     assert "⚡ Энергия: 1 мало → 5 много" in check_in["text"]
     assert "🙂 · ⚡ энергия 4/5 · 🔥 усилие 3/5 · Лёгкость, Спокойствие" in check_in["text"]
-    assert "Убрать самочувствие" in _texts(check_in)
+    assert "Убрать ответы" in _texts(check_in)
     assert "🏷 Тело и ум…" in _texts(check_in)
     assert "Как тело и ум? Отметь, что подходит." in tags["text"]
     assert "✓ Лёгкость" in _texts(tags)

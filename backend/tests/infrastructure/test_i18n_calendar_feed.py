@@ -49,7 +49,7 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
         "feed-moon-only",
         {},
         "Join a shala to see its classes here too.",
-        "Когда вступишь в шалу, здесь появятся и её занятия.",
+        "Когда присоединишься к шале, здесь появятся и её занятия.",
     ),
     ("feed-create", {}, "📅 Create my link", "📅 Создать ссылку"),
     ("feed-google", {}, "Add to Google Calendar", "Добавить в Google Календарь"),

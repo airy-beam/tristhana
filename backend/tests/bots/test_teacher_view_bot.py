@@ -230,7 +230,7 @@ def test_the_list_has_todays_marks_and_a_blank_is_the_bare_name(
     body = _tap(client, "t1:s:0")
 
     assert _texts(body)[:3] == ["🧘 Anna", "Dmitry", "😌 Maria"]
-    assert _lines(body) == ["👥 My students (3)", "Days follow each student's own time zone."]
+    assert _lines(body) == ["👥 My students (3)", "Days follow each student's local time."]
     assert body["method"] == "editMessageText"
 
 
@@ -242,7 +242,7 @@ def test_the_list_header_in_russian(client: TestClient, storage: InMemoryStorage
 
     assert _lines(body) == [
         "👥 Мои ученики (1)",
-        "Дни считаются по часовому поясу каждого ученика.",
+        "Дни считаются по местному времени каждого ученика.",
     ]
 
 

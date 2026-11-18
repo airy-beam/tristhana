@@ -256,8 +256,8 @@ ITEMS: dict[str, tuple[str, ...]] = {
         "your last asana",
         "If nothing shows for a while",
         "a short note saying just that",
-        "Check-ins",
-        "diary notes",
+        "How you feel",
+        "your notes",
         "the reason for a rest",
         "stay private",
         "any time",  # QB, ADR-0049: no surface named, so the app can show it too
@@ -369,11 +369,11 @@ def test_the_short_request_consent_says_nothing_the_full_text_does_not(locale: s
 def test_the_request_consents_name_no_bot_place_and_the_invite_consent_keeps_its_own(
     locale: str,
 ) -> None:
-    """QB, ADR-0049: the app shows the bot's request texts, so they name no surface. The
-    personal link's consent is bot-only and keeps its wording until stage 5."""
-    for key in ("request-consent-short", "request-consent"):
+    """QB, ADR-0049: the app shows the bot's request texts, so they name no surface. Since
+    UI-06 stage 5 (QC, QE) the personal link's consent names none either: "any time"."""
+    for key in ("request-consent-short", "request-consent", "invite-consent"):
         assert "/teachers" not in _text(locale, key), key
-    assert "/teachers" in _text(locale, "invite-consent")
+        assert re.search("any time|в любой момент", _text(locale, key)), key
 
 
 @pytest.mark.parametrize("locale", LOCALES)

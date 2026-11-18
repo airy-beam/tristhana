@@ -141,7 +141,7 @@ def test_city_picker_and_city_zone(client: TestClient, storage: InMemoryStorage)
 
     chosen = _tap(client, "m1:s:almaty")
     assert chosen["text"].startswith("🌙 Moon days · 📍 Almaty")
-    assert "🕐 Time zone: 📍 Almaty" in _texts(chosen)
+    assert "🕐 My time: 📍 Almaty" in _texts(chosen)
 
     zoned = _tap(client, "m1:z:almaty")
     [account] = storage.repo.accounts.values()
@@ -230,7 +230,7 @@ def test_quick_actions_on_a_reminder(client: TestClient, storage: InMemoryStorag
 
     assert only1["text"].endswith("✓ I'll only remind you the day before.")
     assert "🌕 Full moon in a week" in only1["text"]
-    assert off["text"].endswith("You can turn them back on in /moon.")
+    assert off["text"].endswith("You can turn them back on under ☰ Menu → 🌙 Moon days.")
     assert _texts(off)[0] == "🔔 Turn back on"
     [settings] = storage.notifications.stored.values()
     assert not settings.moon.on

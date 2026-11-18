@@ -40,8 +40,8 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
     (
         "students-days-note",
         {},
-        "Days follow each student's own time zone.",
-        "Дни считаются по часовому поясу каждого ученика.",
+        "Days follow each student's local time.",  # UI-06 stage 5: never "time zone"
+        "Дни считаются по местному времени каждого ученика.",
     ),
     ("students-week", {}, "Last 7 days", "Последние 7 дней"),
     (
@@ -80,9 +80,9 @@ CONSENT_EN = (
     "• If nothing shows for a while, Лена sees a short note saying just that. "
     "• Any teacher on your list can also mark a new asana for you. You get a message and can "
     "undo it. "
-    "• Check-ins, diary notes and the reason for a rest stay private. "
+    "• How you feel, your notes and the reason for a rest stay private. "
     "• Лена can send announcements to all their students through the bot. You can mute them. "
-    "• You can remove Лена from your list any time in /teachers. No one gets a message."
+    "• You can remove Лена from your list any time. No one gets a message."
 )
 CONSENT_RU = (
     "Если подтвердить: "
@@ -95,7 +95,7 @@ CONSENT_RU = (
     "отметку можно отменить. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
     "• Лена может отправлять объявления всем своим ученикам через бота. Их можно отключить. "
-    "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит."
+    "• Убрать из списка можно в любой момент. Сообщений никто не получит."
 )
 PRIVACY_EN = (
     "Your log is yours. A teacher on your list sees your name, your last asana and what you log "
@@ -226,8 +226,19 @@ def test_the_app_only_copy(locale: str, more: str, failed: str, blank: str) -> N
     assert _flat(app["students-day-blank"]) == blank
 
 
+# UI-06 stage 5: the bot's note says "local time" (slice 2); the app's copy follows in slice 3,
+# which removes this mark (strict: the test fails as soon as the two agree again).
+_APP_FOLLOWS = pytest.mark.xfail(strict=True, reason="UI-06 stage 5 slice 3: the app follows")
+
+
 @pytest.mark.parametrize("locale", LOCALES)
-@pytest.mark.parametrize("key", [*BOTH[:6]])
+@pytest.mark.parametrize(
+    "key",
+    [
+        pytest.param(key, marks=_APP_FOLLOWS) if key == "students-days-note" else key
+        for key in BOTH[:6]
+    ],
+)
 def test_the_shared_keys_read_the_same_on_both_surfaces(locale: str, key: str) -> None:
     assert _flat(_app(locale)[key]) == _flat(_bot(locale)[key])
 

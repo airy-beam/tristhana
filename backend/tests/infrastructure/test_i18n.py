@@ -290,13 +290,16 @@ def test_pause_cut_and_kept_name_the_period_gently() -> None:
 
 def test_the_missing_zone_line_asks_for_the_city_and_names_no_button() -> None:
     # It shows on five screens (the reminder reply, /remind, /moon, the moon reminders,
-    # Settings → Reminders) and only the first has a "🏙 My city" button, so it points at
-    # the command. Plain words: never "time zone" (Q314).
+    # Settings → Reminders) and only the first has a "🏙 My city" button, so it gives the
+    # Menu path to Settings (UI-06 stage 5, QC: no command in text). Plain words: never "time
+    # zone" (Q314).
     assert _t("en", "moon-zone-needed") == (
-        "To remind you at the right hour I need to know your city: choose it in /settings."
+        "To remind you at the right hour I need to know your city: choose it under "
+        "☰ Menu → ⚙️ Settings."
     )
     assert _t("ru", "moon-zone-needed") == (
-        "Чтобы напоминать в нужный час, мне нужно знать твой город: выбери его в /settings."  # noqa: RUF001
+        "Чтобы напоминать в нужный час, мне нужно знать твой город: выбери его в "  # noqa: RUF001
+        "☰ Меню → ⚙️ Настройки."
     )
     for locale in ("en", "ru"):
         assert "🏙" not in _t(locale, "moon-zone-needed")
@@ -422,8 +425,8 @@ def test_the_reminder_offer_reply_names_the_time() -> None:
         ("ru", "checkin-tags-open", "🏷 Тело и ум…"),
         ("en", "checkin-tags-pick", "How did body and mind feel? Pick any."),
         ("ru", "checkin-tags-pick", "Как тело и ум? Отметь, что подходит."),
-        ("en", "checkin-clear", "Remove check-in"),
-        ("ru", "checkin-clear", "Убрать самочувствие"),
+        ("en", "checkin-clear", "Remove answers"),  # UI-06 stage 5: never "check-in"
+        ("ru", "checkin-clear", "Убрать ответы"),
         # UI-06 (Q313): the setting shows or hides the "How do you feel?" button.
         ("en", "settings-checkin-off", "✨ Hide “How do you feel?”"),
         ("ru", "settings-checkin-off", "✨ Скрыть «Как самочувствие?»"),
@@ -593,28 +596,27 @@ def test_pr07_keys_exist(locale: str) -> None:
         ),
         ("en", "diary-placeholder", "Your note…"),
         ("ru", "diary-placeholder", "Твоя заметка…"),
-        ("en", "diary-saved", "📓 Saved to your diary."),
-        ("ru", "diary-saved", "📓 Сохранено в дневнике."),
+        ("en", "diary-saved", "📓 Note saved."),  # UI-06 stage 5: a note, never a diary
+        ("ru", "diary-saved", "📓 Заметка сохранена."),
         ("en", "diary-write", "✏️ Write"),
         ("ru", "diary-write", "✏️ Написать"),
         ("en", "diary-rewrite", "✏️ Rewrite"),
         ("ru", "diary-rewrite", "✏️ Переписать"),
         ("en", "diary-clear", "Remove note"),
-        ("ru", "diary-clear", "Удалить заметку"),
+        ("ru", "diary-clear", "Убрать заметку"),  # one's own entry: «Убрать»
         ("en", "diary-clear-confirm", "Remove this note?"),
-        ("ru", "diary-clear-confirm", "Удалить заметку?"),
+        ("ru", "diary-clear-confirm", "Убрать заметку?"),
         ("en", "diary-clear-yes", "Remove"),
-        ("ru", "diary-clear-yes", "Удалить"),
+        ("ru", "diary-clear-yes", "Убрать"),
         (
             "en",
             "diary-removed",
-            "Removed from your diary. Earlier messages in this chat stay until you delete them.",
+            "Note removed. Earlier messages in this chat stay until you delete them.",
         ),
         (
             "ru",
             "diary-removed",
-            "Заметка удалена из дневника. Сообщения выше в чате остаются, их можно удалить "
-            "в Telegram.",
+            "Заметка убрана. Сообщения выше в чате остаются, их можно удалить в Telegram.",
         ),
         (
             "en",
@@ -634,7 +636,7 @@ def test_pr07_keys_exist(locale: str) -> None:
         (
             "ru",
             "diary-unreadable",
-            "Эту заметку сейчас не получается прочитать. Можно написать новую или удалить старую.",
+            "Эту заметку сейчас не получается прочитать. Можно написать новую или убрать старую.",
         ),
     ],
 )

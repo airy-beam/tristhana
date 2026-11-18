@@ -72,15 +72,15 @@ INVITE = Consent(
             ),
             Bullet("Any teacher on your list can also mark a new asana", "details"),
             Bullet(
-                "Check-ins, diary notes and the reason for a rest",
+                "How you feel, your notes and the reason for a rest",
                 "kept",
-                ("Check-ins", "diary notes", "the reason for a rest", "stay private"),
+                ("How you feel", "your notes", "the reason for a rest", "stay private"),
             ),
             Bullet("Лена can send announcements", "details"),
             Bullet(
                 "You can remove Лена from your list",
                 "kept",
-                ("any time in /teachers", "No one gets a message."),
+                ("any time", "No one gets a message."),
             ),
         ),
         "ru": (
@@ -106,7 +106,7 @@ INVITE = Consent(
             Bullet(
                 "Убрать из списка можно",
                 "kept",
-                ("в любой момент в /teachers", "Сообщений никто не получит."),
+                ("в любой момент", "Сообщений никто не получит."),
             ),
         ),
     },
@@ -131,7 +131,7 @@ JOIN = Consent(
             Bullet(
                 "You can leave any time",
                 "kept",
-                ("any time in /teachers", "No one gets a message."),
+                ("any time", "No one gets a message."),
             ),
         ),
         "ru": (
@@ -150,7 +150,7 @@ JOIN = Consent(
             Bullet(
                 "Выйти можно в любой момент",
                 "kept",
-                ("в любой момент в /teachers", "Сообщений никто не получит."),
+                ("в любой момент", "Сообщений никто не получит."),
             ),
         ),
     },
@@ -172,7 +172,7 @@ STAFF = Consent(
             ),
             Bullet("The shala's announcements come to you", "details"),
             Bullet("You can mark who came to its classes", "details"),
-            Bullet("You can leave any time", "kept", ("any time in /teachers",)),
+            Bullet("You can leave any time", "kept", ("any time",)),
         ),
         "ru": (
             Bullet(
@@ -187,7 +187,7 @@ STAFF = Consent(
             ),
             Bullet("Объявления шалы тоже будут приходить тебе", "details"),
             Bullet("Можно отмечать посещение занятий", "details"),
-            Bullet("Выйти можно в любой момент", "kept", ("в любой момент в /teachers",)),
+            Bullet("Выйти можно в любой момент", "kept", ("в любой момент",)),
         ),
     },
 )

@@ -358,10 +358,18 @@ same-key-different-text:
     reason: The bot asks in a message; the app labels a field.
   - key: progression-pick-asana
     reason: The bot asks in a message (with the series); the app labels a field.
+  - key: moon-same-as-city
+    reason: >-
+      A bot button carries its emoji, as its neighbours 👥 Follow my teacher and 🏛 Follow my
+      shala do; the app's is a choice in a list.
   - key: practice-length
     reason: The bot's button carries the emoji; the app's is a field label beside its value.
   - key: practice-duration
     reason: The bot's button carries the emoji; the app's is a field label beside its value.
+  - key: remind-days-follow
+    reason: >-
+      The bot's status line just above already names the days, and its 😌 Day off button is on
+      the same screen; the app's hint stands alone under its switch, so it names both.
   - key: progression-title
     reason: A bot message heading carries the emoji; the app's screen heading does not.
   - key: settings-title
@@ -374,103 +382,7 @@ same-key-different-text:
 # Today's offenders (slice 1). Slices 2–4 work through them; slice 4 adds "pending is empty".
 pending:
   words:
-    # bot EN: 52
-    - { file: bot/en/bot.ftl, key: checkin-clear, word: "check-in" }
-    - { file: bot/en/bot.ftl, key: command-schedule, word: "classes" }
-    - { file: bot/en/bot.ftl, key: consent-details, word: "details" }
-    - { file: bot/en/bot.ftl, key: day-off-ask-other, word: "other" }
-    - { file: bot/en/bot.ftl, key: delete-done, word: "/start" }
-    - { file: bot/en/bot.ftl, key: delete-explain, word: "check-ins" }
-    - { file: bot/en/bot.ftl, key: delete-explain, word: "diary" }
-    - { file: bot/en/bot.ftl, key: diary-removed, word: "diary" }
-    - { file: bot/en/bot.ftl, key: diary-saved, word: "diary" }
-    - { file: bot/en/bot.ftl, key: export-readme-files, word: "check-in" }
-    - { file: bot/en/bot.ftl, key: export-readme-files, word: "diary" }
-    - { file: bot/en/bot.ftl, key: export-readme-unreadable, word: "diary" }
-    - { file: bot/en/bot.ftl, key: export-sent, word: "diary" }
-    - { file: bot/en/bot.ftl, key: invite-consent, word: "/teachers" }
-    - { file: bot/en/bot.ftl, key: invite-consent, word: "check-ins" }
-    - { file: bot/en/bot.ftl, key: invite-consent, word: "diary" }
-    - { file: bot/en/bot.ftl, key: invite-consent-short, word: "/teachers" }
-    - { file: bot/en/bot.ftl, key: invite-consent-short, word: "check-ins" }
-    - { file: bot/en/bot.ftl, key: invite-consent-short, word: "diary" }
-    - { file: bot/en/bot.ftl, key: invite-moon-hint, word: "/moon" }
-    - { file: bot/en/bot.ftl, key: invite-share, word: "share" }
-    - { file: bot/en/bot.ftl, key: log-date-future, word: "time zone" }
-    - { file: bot/en/bot.ftl, key: menu-classes, word: "classes" }
-    - { file: bot/en/bot.ftl, key: moon-follow-changed, word: "/moon" }
-    - { file: bot/en/bot.ftl, key: moon-follow-ended, word: "/moon" }
-    - { file: bot/en/bot.ftl, key: moon-keep-already, word: "/moon" }
-    - { file: bot/en/bot.ftl, key: moon-kept, word: "/moon" }
-    - { file: bot/en/bot.ftl, key: moon-reminder-off, word: "/moon" }
-    - { file: bot/en/bot.ftl, key: moon-teacher-shared, word: "/moon" }
-    - { file: bot/en/bot.ftl, key: moon-use-city-zone, word: "time zone" }
-    - { file: bot/en/bot.ftl, key: moon-zone-needed, word: "/settings" }
-    - { file: bot/en/bot.ftl, key: practice-duration, word: "duration" }
-    - { file: bot/en/bot.ftl, key: practice-length, word: "length" }
-    - { file: bot/en/bot.ftl, key: preset-other, word: "other" }
-    - { file: bot/en/bot.ftl, key: remind-off-note, word: "/remind" }
-    - { file: bot/en/bot.ftl, key: remind-paused, word: "/remind" }
-    - { file: bot/en/bot.ftl, key: request-consent, word: "check-ins" }
-    - { file: bot/en/bot.ftl, key: request-consent, word: "diary" }
-    - { file: bot/en/bot.ftl, key: request-consent-short, word: "check-ins" }
-    - { file: bot/en/bot.ftl, key: request-consent-short, word: "diary" }
-    - { file: bot/en/bot.ftl, key: settings-location-unknown, word: "/settings" }
-    - { file: bot/en/bot.ftl, key: settings-location-unknown, word: "time zone" }
-    - { file: bot/en/bot.ftl, key: settings-location-zone, word: "/settings" }
-    - { file: bot/en/bot.ftl, key: settings-location-zone, word: "time zone" }
-    - { file: bot/en/bot.ftl, key: settings-share-location, word: "time zone" }
-    - { file: bot/en/bot.ftl, key: shala-join-consent, word: "/teachers" }
-    - { file: bot/en/bot.ftl, key: shala-join-consent-short, word: "/teachers" }
-    - { file: bot/en/bot.ftl, key: shala-join-hint, word: "share" }
-    - { file: bot/en/bot.ftl, key: shala-staff-consent, word: "/teachers" }
-    - { file: bot/en/bot.ftl, key: shala-staff-consent-short, word: "/teachers" }
-    - { file: bot/en/bot.ftl, key: students-days-note, word: "time zone" }
-    - { file: bot/en/bot.ftl, key: welcome-shala-student, word: "→ classes" }
-    # bot RU: 42
-    - { file: bot/ru/bot.ftl, key: bot-description, word: "тристхана" }
-    - { file: bot/ru/bot.ftl, key: checkin-clear, word: "самочувствие" }
-    - { file: bot/ru/bot.ftl, key: command-schedule, word: "занятия" }
-    - { file: bot/ru/bot.ftl, key: day-off-ask-other, word: "другой" }
-    - { file: bot/ru/bot.ftl, key: delete-done, word: "/start" }
-    - { file: bot/ru/bot.ftl, key: diary-clear, word: "удалить" }
-    - { file: bot/ru/bot.ftl, key: diary-clear-confirm, word: "удалить" }
-    - { file: bot/ru/bot.ftl, key: diary-clear-yes, word: "удалить" }
-    - { file: bot/ru/bot.ftl, key: diary-removed, word: "дневника" }
-    - { file: bot/ru/bot.ftl, key: diary-removed, word: "удалена" }
-    - { file: bot/ru/bot.ftl, key: diary-saved, word: "дневнике" }
-    - { file: bot/ru/bot.ftl, key: feed-moon-only, word: "вступишь" }
-    - { file: bot/ru/bot.ftl, key: invite-consent, word: "/teachers" }
-    - { file: bot/ru/bot.ftl, key: invite-consent-short, word: "/teachers" }
-    - { file: bot/ru/bot.ftl, key: invite-moon-hint, word: "/moon" }
-    - { file: bot/ru/bot.ftl, key: invite-share, word: "поделиться" }
-    - { file: bot/ru/bot.ftl, key: log-date-future, word: "часовом поясе" }
-    - { file: bot/ru/bot.ftl, key: menu-classes, word: "занятия" }
-    - { file: bot/ru/bot.ftl, key: moon-follow-changed, word: "/moon" }
-    - { file: bot/ru/bot.ftl, key: moon-follow-ended, word: "/moon" }
-    - { file: bot/ru/bot.ftl, key: moon-keep-already, word: "/moon" }
-    - { file: bot/ru/bot.ftl, key: moon-kept, word: "/moon" }
-    - { file: bot/ru/bot.ftl, key: moon-reminder-off, word: "/moon" }
-    - { file: bot/ru/bot.ftl, key: moon-teacher-shared, word: "/moon" }
-    - { file: bot/ru/bot.ftl, key: moon-use-city-zone, word: "часовой пояс" }
-    - { file: bot/ru/bot.ftl, key: moon-zone-needed, word: "/settings" }
-    - { file: bot/ru/bot.ftl, key: preset-other, word: "другое" }
-    - { file: bot/ru/bot.ftl, key: remind-off-note, word: "/remind" }
-    - { file: bot/ru/bot.ftl, key: remind-paused, word: "/remind" }
-    - { file: bot/ru/bot.ftl, key: settings-location-unknown, word: "/settings" }
-    - { file: bot/ru/bot.ftl, key: settings-location-unknown, word: "часовой пояс" }
-    - { file: bot/ru/bot.ftl, key: settings-location-zone, word: "/settings" }
-    - { file: bot/ru/bot.ftl, key: settings-location-zone, word: "часовой пояс" }
-    - { file: bot/ru/bot.ftl, key: settings-share-location, word: "часовой пояс" }
-    - { file: bot/ru/bot.ftl, key: shala-join-consent, word: "/teachers" }
-    - { file: bot/ru/bot.ftl, key: shala-join-consent-short, word: "/teachers" }
-    - { file: bot/ru/bot.ftl, key: shala-join-hint, word: "поделись" }
-    - { file: bot/ru/bot.ftl, key: shala-staff-consent, word: "/teachers" }
-    - { file: bot/ru/bot.ftl, key: shala-staff-consent-short, word: "/teachers" }
-    - { file: bot/ru/bot.ftl, key: start-greeting, word: "тристхана" }
-    - { file: bot/ru/bot.ftl, key: students-days-note, word: "часовому поясу" }
-    - { file: bot/ru/bot.ftl, key: welcome-shala-student, word: "→ занятия" }
-    # app EN: 39
+    # app EN: 34
     - { file: app/en/app.ftl, key: day-off-ask-other, word: "other" }
     - { file: app/en/app.ftl, key: delete-explain, word: "check-ins" }
     - { file: app/en/app.ftl, key: delete-explain, word: "diary" }
@@ -488,11 +400,6 @@ pending:
     - { file: app/en/app.ftl, key: shala-join-hint, word: "share" }
     - { file: app/en/app.ftl, key: students-days-note, word: "time zone" }
     - { file: app/en/app.ftl, key: trends-open, word: "check-ins" }
-    - { file: app/en/ask.ftl, key: consent-details, word: "details" }
-    - { file: app/en/ask.ftl, key: request-consent, word: "check-ins" }
-    - { file: app/en/ask.ftl, key: request-consent, word: "diary" }
-    - { file: app/en/ask.ftl, key: request-consent-short, word: "check-ins" }
-    - { file: app/en/ask.ftl, key: request-consent-short, word: "diary" }
     - { file: app/en/details.ftl, key: checkin-clear, word: "check-in" }
     - { file: app/en/details.ftl, key: checkin-save-failed, word: "check-in" }
     - { file: app/en/details.ftl, key: practice-duration, word: "duration" }
@@ -598,13 +505,23 @@ pending:
     - { file: guides/ru/teachers/what-you-see.md, word: "часовому поясу" }
   # The bot and the app say different things under one key (spec §2.1, §2.2).
   same-key:
-    - { key: moon-same-as-city, locale: en }
-    - { key: moon-teacher-shared, locale: en }
-    - { key: pause-other, locale: en }
-    - { key: remind-days-follow, locale: en }
     - { key: students-day-blank, locale: en }
-    - { key: moon-same-as-city, locale: ru }
-    - { key: moon-teacher-shared, locale: ru }
-    - { key: pause-other, locale: ru }
-    - { key: remind-days-follow, locale: ru }
     - { key: students-day-blank, locale: ru }
+    # Slice 2 gave the bot its new words; the app's copy follows in slice 3.
+    - { key: checkin-clear, locale: en }
+    - { key: day-off-ask-other, locale: en }
+    - { key: invite-share, locale: en }
+    - { key: preset-other, locale: en }
+    - { key: shala-join-hint, locale: en }
+    - { key: students-days-note, locale: en }
+    - { key: checkin-clear, locale: ru }
+    - { key: day-off-ask-other, locale: ru }
+    - { key: diary-clear, locale: ru }
+    - { key: diary-clear-confirm, locale: ru }
+    - { key: diary-clear-yes, locale: ru }
+    - { key: diary-unreadable, locale: ru }
+    - { key: feed-moon-only, locale: ru }
+    - { key: invite-share, locale: ru }
+    - { key: preset-other, locale: ru }
+    - { key: shala-join-hint, locale: ru }
+    - { key: students-days-note, locale: ru }

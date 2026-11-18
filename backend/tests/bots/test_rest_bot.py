@@ -178,8 +178,8 @@ def test_ladies_today_asks_for_how_many_days_with_its_own_chips(
     assert "How many days should show as 🌸 Ladies' holiday, including today?" in text
     assert "Pause practice reminders" not in text
     texts = _texts(body)
-    assert texts[:4] == ["2 days", "3 days", "5 days", "Other…"]
-    assert texts[-2:] == ["✏️ Change", "📅 Another day"]
+    assert texts[:4] == ["2 days", "3 days", "5 days", "Another number…"]
+    assert texts[-3:] == ["✏️ Change", "📅 Another day", "☰ Menu"]  # UI-06 stage 5 (Q330)
     assert _data(body)[:4] == [
         f"a1:p:{_ymd(0)}:l:2",
         f"a1:p:{_ymd(0)}:l:3",
@@ -198,7 +198,7 @@ def test_sick_and_travel_yesterday_offer_three_four_five(
     body = _tap(client, f"d1:s:{_ymd(-1)}:{code}")
 
     assert "⏸ Pause practice reminders for how many days, including yesterday?" in body["text"]
-    assert _texts(body)[:4] == ["3 days", "4 days", "5 days", "Other…"]
+    assert _texts(body)[:4] == ["3 days", "4 days", "5 days", "Another number…"]
     assert _data(body)[3] == f"a1:m:{_ymd(-1)}:{code}:1"
 
 
@@ -218,7 +218,7 @@ def test_russian_plurals_on_the_chips(client: TestClient, storage: InMemoryStora
     first = _tap(client, f"d1:s:{_ymd(0)}:k", "ru")
     other = _tap(client, f"a1:m:{_ymd(0)}:k:0", "ru")
 
-    assert _texts(first)[:4] == ["3 дня", "4 дня", "5 дней", "Другое…"]
+    assert _texts(first)[:4] == ["3 дня", "4 дня", "5 дней", "Другое число дней…"]
     assert _texts(other)[:6] == ["2 дня", "6 дней", "7 дней", "10 дней", "14 дней", "‹ Назад"]  # noqa: RUF001
     assert "„🤒 Болезнь / травма“" in first["text"]
 
@@ -244,7 +244,7 @@ def test_other_and_back_are_a_pure_render(
     assert touched == []
     assert _texts(other)[:4] == ["4 days", "6 days", "7 days", "‹ Back"]  # noqa: RUF001
     assert "How many days should show as 🌸 Ladies' holiday" in other["text"]
-    assert _texts(back)[:4] == ["2 days", "3 days", "5 days", "Other…"]
+    assert _texts(back)[:4] == ["2 days", "3 days", "5 days", "Another number…"]
 
 
 @pytest.mark.parametrize(

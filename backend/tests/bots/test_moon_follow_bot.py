@@ -38,14 +38,19 @@ SOURCE_EN = "👥 Same as your main teacher, Anna. You can choose another city."
 SOURCE_RU = "👥 Как у основного учителя: Anna. Можно выбрать другой город."
 NONE_EN = "👥 Anna hasn't chosen a city yet, so the dates are for 📍 Mysuru for now."
 NONE_RU = "👥 У учителя (Anna) пока не выбран город, поэтому даты считаются по городу 📍 Майсур."
-CHANGED_ANNA = "🌙 Your moon days now follow Anna: 📍 Almaty. You can change this in /moon."
-ENDED = "🌙 Your moon days are now for 📍 Mysuru. You can change this in /moon."
+CHANGED_ANNA = (
+    "🌙 Your moon days now follow Anna: 📍 Almaty. You can change this under "
+    "☰ Menu → 🌙 Moon days."
+)
+ENDED = "🌙 Your moon days are now for 📍 Mysuru. You can change this under ☰ Menu → 🌙 Moon days."
 JOINED = "👥 Ash is on your list of students now."
 OWN_EN = (
     "🌙 Now that you have students, your moon days follow your own setting: 📍 Mysuru. "
     "To keep 📍 Almaty (as with Maya), tap below."
 )
-KEPT = "🌙 Done: your moon days stay with 📍 Almaty. You can change this in /moon."
+KEPT = (
+    "🌙 Done: your moon days stay with 📍 Almaty. You can change this under ☰ Menu → 🌙 Moon days."
+)
 
 
 @dataclass
@@ -482,8 +487,8 @@ def test_make_main_says_the_moon_days_follow_the_new_main(
     body = _tap(client, f"t1:p:{boris.id}")
 
     assert (
-        "🌙 Your moon days now follow Boris: 📍 Moscow. You can change this in /moon."
-        in body["text"]
+        "🌙 Your moon days now follow Boris: 📍 Moscow. You can change this under "
+        "☰ Menu → 🌙 Moon days." in body["text"]
     )
 
 
@@ -508,8 +513,8 @@ def test_the_lead_lines_in_russian(client: TestClient, storage: InMemoryStorage,
     body = _tap(client, f"t1:x:{anna.id}", lang)
 
     assert (
-        "🌙 Лунные дни теперь считаются по городу 📍 Майсур. Поменять можно в /moon."
-        in body["text"]
+        "🌙 Лунные дни теперь считаются по городу 📍 Майсур. Поменять можно в "
+        "☰ Меню → 🌙 Лунные дни." in body["text"]
     )
 
 
@@ -536,7 +541,7 @@ def test_removing_a_teacher_who_isnt_main_says_nothing(
         (
             None,
             "👥 Your students' moon days are for 📍 Mysuru, like yours. You can keep it or "
-            "choose your city in /moon.",
+            "choose your own city.",
         ),
     ],
 )
@@ -572,8 +577,8 @@ def test_the_invite_screen_says_students_will_follow(
         "and then you see what they share."
     )
     assert (
-        "Students who haven't chosen a moon city will follow the city you choose in /moon."
-        in body["text"]
+        "Students who haven't chosen a moon city will follow the city you choose under "
+        "☰ Menu → 🌙 Moon days." in body["text"]
     )
 
 
@@ -686,10 +691,15 @@ def test_keep_stores_the_city_and_edits_the_note(
 @pytest.mark.parametrize(
     ("own", "line"),
     [
-        ("moscow", "🌙 Your moon city is already chosen: 📍 Moscow. You can change it in /moon."),
+        (
+            "moscow",
+            "🌙 Your moon city is already chosen: 📍 Moscow. You can change it under "
+            "☰ Menu → 🌙 Moon days.",
+        ),
         (
             FOLLOW_TEACHER,
-            "🌙 Your moon city is already chosen: 📍 Almaty. You can change it in /moon.",
+            "🌙 Your moon city is already chosen: 📍 Almaty. You can change it under "
+            "☰ Menu → 🌙 Moon days.",
         ),
     ],
 )
@@ -771,6 +781,6 @@ def test_a_follow_chosen_teacher_is_told_students_get_the_default(
 
     assert body["text"].startswith("🌙 Moon days · 📍 Almaty")
     assert (
-        "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your city "
-        "in /moon." in body["text"]
+        "👥 Your students' moon days are for 📍 Mysuru. You can keep it or choose your own "
+        "city." in body["text"]
     )

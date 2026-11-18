@@ -169,12 +169,12 @@ def test_the_menu_for_someone_with_no_role(client: TestClient, outbound: list[An
 @pytest.mark.parametrize(
     ("role", "added", "quiet"),
     [
-        ({"shala": STUDENT_AT}, {"🗓 Classes": "c1:m:0:a"}, True),
+        ({"shala": STUDENT_AT}, {"🗓 My schedule": "c1:m:0:a"}, True),
         ({"teaches": True}, {"👥 My students": "t1:s:0"}, False),
-        ({"shala": STAFF_AT}, {"🗓 Classes": "c1:m:0:a"}, True),  # no students yet: quiet row
+        ({"shala": STAFF_AT}, {"🗓 My schedule": "c1:m:0:a"}, True),  # no students yet: quiet row
         (
             {"teaches": True, "shala": STAFF_AT},
-            {"🗓 Classes": "c1:m:0:a", "👥 My students": "t1:s:0"},
+            {"🗓 My schedule": "c1:m:0:a", "👥 My students": "t1:s:0"},
             False,
         ),
     ],
@@ -205,7 +205,7 @@ def test_the_menu_keeps_its_fixed_order(client: TestClient, storage: InMemorySto
         ["📝 Today"],
         ["📊 My practice"],
         ["🌙 Moon days"],
-        ["🗓 Classes"],
+        ["🗓 My schedule"],
         ["🙏 Teacher and shala"],
         ["👥 My students"],
         ["⚙️ Settings"],

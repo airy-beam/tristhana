@@ -394,7 +394,7 @@ def test_future_date_is_refused_gently(client: TestClient, storage: InMemoryStor
 
     body = _tap(client, f"d1:s:{_ymd(_today() + timedelta(days=3))}:p")
 
-    assert body["text"].startswith("That day hasn't come yet in your time zone.")
+    assert body["text"].startswith("In your city this day hasn't come yet.")
     assert _buttons(body)[0]["text"].startswith("🌙 Today")  # the real week, not blanks
     assert len(storage.day_repo.rows) == 1
 

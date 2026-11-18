@@ -136,7 +136,7 @@ def test_remind_screen_off_by_default(client: TestClient, storage: InMemoryStora
     assert "😌 Is Saturday your weekly day off?" in body["text"]  # PR-09, asked once
     rows = _rows(body)
     assert rows[0] == ["Yes", "Sunday"]
-    assert rows[1] == ["Other…", "Not now"]
+    assert rows[1] == ["Pick days…", "Not now"]
     assert rows[2] == ["09:00", "10:00", "12:00"]
     assert rows[3] == ["18:00", "20:00", "21:00"]
     assert rows[4] == ["😌 Day off"]  # PR-09: one day setting; reminders follow it
@@ -240,7 +240,8 @@ def test_offer_yes_without_a_zone_asks_for_the_city(client: TestClient) -> None:
     assert "🔔 I'll ask once a day at " in yes["text"]
     assert " your time." in yes["text"]
     assert yes["text"].endswith(
-        "To remind you at the right hour I need to know your city: choose it in /settings."
+        "To remind you at the right hour I need to know your city: choose it under "
+        "☰ Menu → ⚙️ Settings."
     )
     assert _rows(yes) == [["⏰ Change the time"], ["🏙 My city"], ["☰ Menu"]]
     data = [b["callback_data"] for row in yes["reply_markup"]["inline_keyboard"] for b in row]
@@ -409,7 +410,7 @@ def test_same_as_last_time_for_a_future_day_shows_the_week(
 
     body = _tap(client, f"r1:s:{_ymd(_today() + timedelta(days=3))}")
 
-    assert body["text"].startswith("That day hasn't come yet")
+    assert body["text"].startswith("In your city this day hasn't come yet")
 
 
 def test_turn_off_from_a_reminder_and_back(client: TestClient, storage: InMemoryStorage) -> None:
@@ -420,7 +421,9 @@ def test_turn_off_from_a_reminder_and_back(client: TestClient, storage: InMemory
     off = _tap(client, f"r1:q:{d}:0")
     back = _tap(client, f"r1:q:{d}:1")
 
-    assert off["text"].endswith("You can turn them back on in /remind.")
+    assert off["text"].endswith(
+        "You can turn them back on under ☰ Menu → ⚙️ Settings → 🔔 Reminders."
+    )
     assert _texts(off) == ["🔔 Turn back on"]
     assert back["text"].endswith("🔔 Practice reminders are on again.")
     assert _texts(back)[0] == "✅ Practiced, same as last time"
@@ -513,7 +516,7 @@ async def test_notifier_renders_the_pause_note(monkeypatch: pytest.MonkeyPatch) 
 
     [method] = sent
     assert method.text.startswith("🌿 I'll stop asking for now.")
-    assert "/remind" in method.text
+    assert "☰ Menu → ⚙️ Settings → 🔔 Reminders" in method.text  # a path, no command (QC)
     assert DEFAULTS.practice.on is None  # opt-in stays the default
 
 
