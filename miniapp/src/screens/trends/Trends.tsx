@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 
 import { api, fail, useMoonCities, type CheckInTrends, type TrendScales } from "../../api/client";
 import { addMessages } from "../../i18n/lazyMessages";
+import { monthTitle } from "../../i18n/dates";
 import type { Locale } from "../../i18n/negotiate";
 import enTrends from "../../locales/en/trends.ftl?raw";
 import ruTrends from "../../locales/ru/trends.ftl?raw";
@@ -85,16 +86,12 @@ function Views({ data, locale }: { data: CheckInTrends; locale: Locale }) {
   const cities = useMoonCities().data;
   const columns = useMemo(() => {
     const narrow = new Intl.DateTimeFormat(locale, { month: "narrow", timeZone: "UTC" });
-    const long = new Intl.DateTimeFormat(locale, {
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    });
     const short = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" });
     const full = new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" });
     const months: Column[] = data.months.map((m) => {
       const first = utc(`${m.month}-01`);
-      return { key: m.month, head: narrow.format(first), where: long.format(first), scales: m };
+      const where = monthTitle(first.getUTCFullYear(), first.getUTCMonth(), locale);
+      return { key: m.month, head: narrow.format(first), where, scales: m };
     });
     const weekdays: Column[] | null =
       data.weekdays?.map((scales, i) => {

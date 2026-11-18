@@ -60,7 +60,7 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "schedule-covering-for",
         {"name": "Dana", "teacher": "Anna"},
         "Dana (for Anna)",
-        "Dana (за Anna)",
+        "Dana (заменяет: Anna)",
     ),
     (
         "my-schedule-none",

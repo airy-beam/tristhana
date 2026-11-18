@@ -34,12 +34,15 @@ export const ZONE_ALIASES: Readonly<Partial<Record<string, string>>> = {
 /** IANA's own name for a zone that also goes by an older one (`Asia/Calcutta`). */
 const canonical = (zone: string) => ZONE_ALIASES[zone] ?? zone;
 
-/** False in the viewer's own zone: the same IANA zone (under either of its names), not an
- * equal clock, so the answer never flips on a daylight-saving date. An unknown viewer zone
- * shows the offset (nothing is "your own" yet). `UTC` never gets one: `07:00 UTC` already
- * says it. */
+/** The viewer's own zone: the same IANA zone (under either of its names), not an equal clock,
+ * so the answer never flips on a daylight-saving date. An unknown viewer zone is no one's own. */
+export const ownZone = (zone: string, viewer: string | null | undefined): boolean =>
+  !!viewer && canonical(zone) === canonical(viewer);
+
+/** False in the viewer's own zone (`ownZone`): an unknown viewer zone shows the offset (nothing
+ * is "your own" yet). `UTC` never gets one: `07:00 UTC` already says it. */
 export function offsetShown(zone: string, viewer: string | null | undefined): boolean {
-  return zone !== UTC && (!viewer || canonical(zone) !== canonical(viewer));
+  return zone !== UTC && !ownZone(zone, viewer);
 }
 
 const formats = new Map<string, Intl.DateTimeFormat>();

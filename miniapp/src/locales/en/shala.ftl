@@ -7,9 +7,9 @@ class-form-edit-title = Change the class
 class-form-type = Type
 # $zone: "Almaty", or "Almaty (UTC+5)" for staff in another zone.
 class-form-start = Start, { $zone }
-# Two chips under this label: every week, or one date.
+# Two chips under this label: regularly (on weekdays, every N weeks), or one date.
 class-form-when = When
-class-form-weekly = Every week
+class-form-weekly = Regularly
 class-form-once = One date
 class-form-days = Repeats on
 class-form-date = Date
@@ -25,8 +25,8 @@ class-form-until = Until
 # Minutes. Never "Length": in the practice details that word means how far in the series.
 class-form-length = How long
 class-form-length-chip = { $minutes } min
-class-form-length-other = Other
-# The field under the "Other" chip: a number, with "min" after it.
+class-form-length-other = Enter minutes
+# The field under the "Enter minutes" chip: a number, with "min" after it.
 class-form-minutes = How many minutes
 class-form-min = min
 class-form-minutes-invalid = Enter 15 to 480 minutes. The class needs to end by midnight.
@@ -93,7 +93,7 @@ ann-cancel-draft = Hi everyone. { $class } on { $day } at { $time } is cancelled
 setup-title = Set up your shala
 setup-class = Add a class
 setup-students = Invite students
-setup-staff = Invite teachers
+setup-staff = Invite teachers and staff
 # The quiet second line of the third step.
 setup-staff-note = Optional
 setup-staff-skip = I teach alone

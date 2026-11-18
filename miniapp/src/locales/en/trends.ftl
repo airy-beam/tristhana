@@ -1,7 +1,7 @@
-## ST-05: check-ins over time. Loaded with the lazy Trends screen (`trends-open` is in app.ftl).
+## ST-05: how you've felt over time. Loaded with the lazy Trends screen (`trends-open` is in app.ftl).
 ## Figures only: no comparison, explanation or advice in words.
-trends-title = Check-ins over time
-trends-window = The last 12 months, from the check-ins you add after practice.
+trends-title = How you've felt
+trends-window = The last 12 months, from your answers to “How do you feel?” after practice.
 trends-by-month = By month
 trends-by-weekday = By weekday
 trends-by-moon = Near full and new moon
@@ -29,17 +29,17 @@ trends-moon-spoken = { $bucket ->
        *[other] Other days
     }
 trends-moon-note = "Near" is the day of the full or new moon, the day before and the day after. Dates for 📍 { $city }.
-trends-count-hint = The small number under each average is how many check-ins it comes from.
+trends-count-hint = The small number under each average is how many days it comes from.
 # Read aloud for one figure. { $where } is a month, a weekday or a moon column.
 trends-cell-label = { $n ->
-        [one] { $scale }, { $where }: { $mean } on average, { $n } check-in
-       *[other] { $scale }, { $where }: { $mean } on average, { $n } check-ins
+        [one] { $scale }, { $where }: { $mean } on average, { $n } day
+       *[other] { $scale }, { $where }: { $mean } on average, { $n } days
     }
-# A cell with too few check-ins behind it.
+# A cell with too few days behind it.
 trends-none = —
 trends-cell-none = { $scale }, { $where }: no average
-trends-gap-note = "—" means fewer than { $min } check-ins there.
-trends-empty = Nothing here yet. Averages of the check-ins you add after practice will show up on this screen.
-trends-too-few = Averages appear here from { $min } check-ins.
-trends-note = These are averages of your own check-ins. The app draws no conclusions from them. Teachers and shalas don't see them.
+trends-gap-note = "—" means fewer than { $min } days there.
+trends-empty = Nothing here yet. When you answer “How do you feel?” after practice, the averages show up on this screen.
+trends-too-few = Averages appear here once { $min } days have answers.
+trends-note = These are averages of your own answers. The app draws no conclusions from them. Teachers and shalas don't see them.
 trends-load-failed = Couldn't load this. Try again in a moment.

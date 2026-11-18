@@ -200,7 +200,7 @@ describe("MoonScreen", () => {
     stubApi();
     renderWith(<Reminders me={{ ...ME, timezone: null }} onBack={vi.fn()} />);
 
-    expect(await screen.findByText(/once your time zone is known/)).toBeInTheDocument();
+    expect(await screen.findByText(/once your local time is known/)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: (name) => /^\d+ days?$/.test(plain(name)) }),
     ).not.toBeInTheDocument();
@@ -318,7 +318,7 @@ describe("PracticeReminderCard", () => {
     renderWith(<Reminders me={{ ...ME, timezone: null }} onBack={vi.fn()} />);
 
     await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
-    expect(screen.getAllByText(/once your time zone is known/)).toHaveLength(1);
+    expect(screen.getAllByText(/once your local time is known/)).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "10:00" })).not.toBeInTheDocument();
   });
 });

@@ -239,7 +239,9 @@ describe("the schedule on the shala card", () => {
       expect(pageText()).not.toContain("UTC+5");
     });
     const text = pageText();
-    expect(text.match(/shala time: Almaty/g)).toHaveLength(1);
+    // UI-06 stage 5: in my own zone the place line is the place alone, as in the bot.
+    expect(screen.getByText((t) => plain(t) === "📍 Almaty")).toBeInTheDocument();
+    expect(text).not.toContain("shala time");
     expect(text).toContain("🌙 Moon day");
     expect(text).toContain("😌 Shala day off");
     expect(text).toContain("moon day"); // the cancelled Friday keeps its reason
@@ -253,6 +255,10 @@ describe("the schedule on the shala card", () => {
     await waitFor(() => {
       expect(pageText().match(/Almaty \(UTC\+5\)/g)).toHaveLength(1);
     });
+    // Outside my zone the card says whose time it is, with the offset (ADR-0044).
+    expect(
+      screen.getByText((t) => plain(t) === "📍 Almaty · shala time: Almaty (UTC+5)"),
+    ).toBeInTheDocument();
   });
 
   it("adds your time only when the viewer's offset differs", async () => {
@@ -565,14 +571,14 @@ describe("the class form", () => {
     expect(await screen.findByLabelText("Start, Almaty")).toHaveAttribute("type", "time");
     expect(screen.getByRole("group", { name: "Repeats on" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save the class" })).toBeInTheDocument();
-    // Every week or one date: two chips, the first chosen.
+    // Regularly or one date: two chips, the first chosen.
     const when = screen.getByRole("group", { name: "When" });
     expect(
       within(when)
         .getAllByRole("button")
         .map((b) => [b.textContent, b.getAttribute("aria-pressed")]),
     ).toEqual([
-      ["Every week", "true"],
+      ["Regularly", "true"],
       ["One date", "false"],
     ]);
     // Nothing else to fill in: no title, teacher, dates or online on the first screen.
@@ -670,7 +676,7 @@ describe("the class form", () => {
 
     expect(screen.queryByRole("group", { name: "Repeats on" })).toBeNull();
     expect(pressed("One date")).toBe(true);
-    expect(pressed("Every week")).toBe(false);
+    expect(pressed("Regularly")).toBe(false);
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-12-05" } });
     save();
 
@@ -699,7 +705,7 @@ describe("the class form", () => {
       within(length)
         .getAllByRole("button")
         .map((b) => plain(b.textContent)),
-    ).toEqual(["60 min", "75 min", "90 min", "120 min", "Other"]);
+    ).toEqual(["60 min", "75 min", "90 min", "120 min", "Enter minutes"]);
     expect(within(length).getByRole("button", { name: "90 min" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -708,7 +714,7 @@ describe("the class form", () => {
     fireEvent.click(within(length).getByRole("button", { name: "75 min" }));
     // Changing the start keeps the length.
     fireEvent.change(screen.getByLabelText("Start, Almaty"), { target: { value: "18:30" } });
-    fireEvent.click(within(length).getByRole("button", { name: "Other" }));
+    fireEvent.click(within(length).getByRole("button", { name: "Enter minutes" }));
     // Minutes, as on the chips: a number, not a clock.
     const minutes = screen.getByLabelText<HTMLInputElement>("How many minutes");
     expect(minutes).toHaveAttribute("type", "number");
@@ -730,7 +736,7 @@ describe("the class form", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Led" }));
     fireEvent.click(chip("Friday"));
     fireEvent.click(more());
-    fireEvent.click(screen.getByRole("button", { name: "Other" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter minutes" }));
     fireEvent.change(screen.getByLabelText("How many minutes"), { target: { value: "" } });
     fireEvent.click(more()); // folded: the mistake is out of sight
     save();
@@ -898,7 +904,8 @@ describe("the class form", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Новое занятие" })).toBeVisible();
     expect(screen.getByRole("group", { name: "Повторяется по дням" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "суббота" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ещё настройки" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Дополнительно" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Когда" })).toHaveTextContent("РегулярноОдна дата");
   });
 });
 

@@ -1025,7 +1025,7 @@ class-caps = Для этой шалы это пока предел.
 class-invalid = Такое изменение не вписывается в расписание.
 # Своя неделя учителя (/classes): все шалы, где он в команде. Время в поясе каждой шалы.
 my-classes-covered = тебя заменяет { $name }
-my-classes-covering = ты заменяешь { $name }
+my-classes-covering = ты заменяешь: { $name }
 
 ## Моё расписание (SC-03): все мои шалы, в моём поясе. { $zone } — «Алматы (UTC+5)».
 command-schedule = Моё расписание
@@ -1041,7 +1041,8 @@ my-schedule-teacher-mark = 👤
 schedule-held-moon = · 🌙
 schedule-swapped-from = 🔁 вместо { $day }
 schedule-swapped-inline = 🔁 { $day }
-schedule-covering-for = { $name } (за { $teacher })
+# Имена не склоняются: после глагола двоеточие и именительный падеж (как «Убрать из шалы: { $name }»).
+schedule-covering-for = { $name } (заменяет: { $teacher })
 # $hours: 1 час, 2 часа, 5 часов; дробное (0,5, 1,5) — «other» → «часа».
 schedule-shift = ⚠ С { $weekday ->
         [1] понедельника

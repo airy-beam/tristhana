@@ -557,7 +557,7 @@ def test_a_substitute_in_russian(client: TestClient, storage: InMemoryStorage) -
 
     body = _command(client, "/schedule", "ru")
 
-    assert "06:00–09:30 Майсор · Dana (за Anna) 👤" in _lines(body)
+    assert "06:00–09:30 Майсор · Dana (заменяет: Anna) 👤" in _lines(body)
 
 
 # The ⚠ shift line (Q140)

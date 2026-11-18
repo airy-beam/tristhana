@@ -372,7 +372,9 @@ describe("the shala card", () => {
     await waitFor(() => {
       expect(pageText()).not.toContain("UTC+5");
     });
-    expect(pageText()).toContain("shala time: Almaty");
+    // UI-06 stage 5: no "shala time" in my own zone; the place alone, as in the bot.
+    expect(screen.getByText((t) => plain(t) === "📍 Almaty")).toBeInTheDocument();
+    expect(pageText()).not.toContain("shala time");
     expect(pageText()).toContain("🌙 Moon days: 📍 Almaty");
   });
 
@@ -677,7 +679,7 @@ describe("the card's student part", () => {
     expect(heading.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(line.compareDocumentPosition(withdraw) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(withdraw.compareDocumentPosition(pick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const place = screen.getByText(/shala time/);
+    const place = screen.getByText((t) => plain(t) === "📍 Almaty");
     expect(pick.compareDocumentPosition(place) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // No state, date or count: the name, and nothing else.
     const box = line.closest(".card");
@@ -690,7 +692,7 @@ describe("the card's student part", () => {
     stubApi({ card: shalaOut(STUDENT) });
     renderWith(card());
 
-    await screen.findByText(/shala time/);
+    await screen.findByText((t) => plain(t) === "📍 Almaty");
     expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
     expect(pageText()).not.toContain("Waiting");
   });
@@ -703,7 +705,7 @@ describe("the card's student part", () => {
     const seen = stubApi({ card: shalaOut(me), choices: () => ({ offer: [ANNA_C], waiting: [] }) });
     renderWith(card());
 
-    await screen.findByText(/shala time/);
+    await screen.findByText((t) => plain(t) === "📍 Almaty");
     expect(calls(seen, "GET", CHOICES)).toHaveLength(0);
     expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
   });
@@ -748,7 +750,7 @@ describe("the card's student part", () => {
 
     await screen.findByText((t) => plain(t) === "Is Boris your teacher?");
     expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
-    expect(screen.getByText(/shala time/)).not.toBeVisible(); // the card is under the layer
+    expect(screen.getByText((t) => plain(t) === "📍 Almaty")).not.toBeVisible(); // the card is under the layer
     fireEvent.click(screen.getByRole("button", { name: "✅ Yes" }));
 
     const said = await screen.findByRole("status");
@@ -929,9 +931,9 @@ describe("the setup list", () => {
     expect(current()).toEqual(["Add a class"]);
     expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
     // Two or three words on the row; "optional" is its quiet second line.
-    const third = screen.getByRole("button", { name: "Invite teachers" });
+    const third = screen.getByRole("button", { name: "Invite teachers and staff" });
     expect(third).toHaveAccessibleDescription("Optional");
-    expect(third.textContent).toBe("Invite teachers");
+    expect(third.textContent).toBe("Invite teachers and staff");
     expect(screen.queryByRole("img", { name: "done" })).toBeNull();
     expect(screen.queryByRole("button", { name: "I teach alone" })).toBeNull();
 
@@ -956,17 +958,17 @@ describe("the setup list", () => {
     expect((scrolled.mock.contexts[0] as HTMLElement).contains(qr)).toBe(true);
   });
 
-  it("with a class and a student: Invite teachers opens the role picker on Teacher", async () => {
+  it("with a class and a student: Invite teachers and staff opens the role picker on Teacher", async () => {
     const seen = stubApi({ card: owns(["invite_staff"]) });
     renderWith(card());
     await loaded();
 
-    expect(current()).toEqual(["Invite teachers"]);
-    expect(screen.getByRole("button", { name: "Invite teachers" })).toHaveAccessibleDescription(
-      "Optional",
-    );
+    expect(current()).toEqual(["Invite teachers and staff"]);
+    expect(
+      screen.getByRole("button", { name: "Invite teachers and staff" }),
+    ).toHaveAccessibleDescription("Optional");
     expect(screen.getAllByRole("img", { name: "done" })).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "Invite teachers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite teachers and staff" }));
 
     const hint = await screen.findByText("Choose a role. The link adds one person with that role.");
     expect((scrolled.mock.contexts[0] as HTMLElement).contains(hint)).toBe(true);
@@ -1011,7 +1013,7 @@ describe("the setup list", () => {
     await loaded();
 
     expect(current()).toEqual(["Add a class"]);
-    expect(screen.queryByRole("button", { name: "Invite teachers" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Invite teachers and staff" })).toBeNull();
   });
 
   it("blocked storage counts as I teach alone: never a list that cannot be put away", async () => {

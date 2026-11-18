@@ -32,7 +32,7 @@ APP_ONLY = (
     "students-more",
     "students-load-failed",
     "students-card-load-failed",
-    "students-day-blank-mark",
+    "students-day-blank-spoken",
 )
 ADDED_TO_APP = ("links-students", "link-students-open", "day-label")
 
@@ -102,7 +102,7 @@ PRIVACY_EN = (
     "from the day you added them: practice or rest and your practice length. All rest you log "
     "looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short "
     "note saying just that. A teacher on your list can also mark a new asana for you: you get a "
-    "message and can undo it. Check-ins, diary notes and the reason for a rest stay private. "
+    "message and can undo it. How you feel, your notes and the reason for a rest stay private. "
     "You can remove a teacher from your list any time."
     " Teachers on your list and your shalas can send you announcements; "
     "you can mute each one."
@@ -223,22 +223,11 @@ def test_the_app_only_copy(locale: str, more: str, failed: str, blank: str) -> N
 
     assert _flat(app["students-more"]) == more
     assert _flat(app["students-load-failed"]) == failed
-    assert _flat(app["students-day-blank"]) == blank
-
-
-# UI-06 stage 5: the bot's note says "local time" (slice 2); the app's copy follows in slice 3,
-# which removes this mark (strict: the test fails as soon as the two agree again).
-_APP_FOLLOWS = pytest.mark.xfail(strict=True, reason="UI-06 stage 5 slice 3: the app follows")
+    assert _flat(app["students-day-blank-spoken"]) == blank
 
 
 @pytest.mark.parametrize("locale", LOCALES)
-@pytest.mark.parametrize(
-    "key",
-    [
-        pytest.param(key, marks=_APP_FOLLOWS) if key == "students-days-note" else key
-        for key in BOTH[:6]
-    ],
-)
+@pytest.mark.parametrize("key", BOTH[:6])
 def test_the_shared_keys_read_the_same_on_both_surfaces(locale: str, key: str) -> None:
     assert _flat(_app(locale)[key]) == _flat(_bot(locale)[key])
 

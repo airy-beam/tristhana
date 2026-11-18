@@ -2,6 +2,7 @@ import { Localized, useLocalization } from "@fluent/react";
 import { useCallback, useMemo, useState } from "react";
 
 import { useMoonCities } from "../../api/client";
+import { monthTitle } from "../../i18n/dates";
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
 import { cityName } from "../cityName";
@@ -40,7 +41,6 @@ export default function Year({ locale, shown, today, first, onPick, onBack }: Pr
   const auto = useMemo(() => stats && autoDays(stats), [stats]);
   const fmt = useMemo(
     () => ({
-      month: new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }),
       day: new Intl.DateTimeFormat(locale, {
         weekday: "short",
         day: "numeric",
@@ -128,7 +128,7 @@ export default function Year({ locale, shown, today, first, onPick, onBack }: Pr
               haptics.selection();
               onPick({ year: stats.year, month });
             }}
-            monthName={(m) => fmt.month.format(Date.UTC(stats.year, m, 1))}
+            monthName={(m) => monthTitle(stats.year, m, locale, { year: false })}
             dateLabel={(day) => fmt.day.format(parse(day))}
           />
           <Legend />

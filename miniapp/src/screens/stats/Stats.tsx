@@ -8,6 +8,7 @@ import {
   type Stats as StatsData,
   type StatsSummary,
 } from "../../api/client";
+import { monthTitle } from "../../i18n/dates";
 import type { Locale } from "../../i18n/negotiate";
 import { lazyRetry } from "../../shell/lazyRetry";
 import { haptics } from "../../telegram";
@@ -268,11 +269,6 @@ function MonthCard({
   const auto = useMemo(() => autoDays(stats), [stats]);
   const fmt = useMemo(
     () => ({
-      monthYear: new Intl.DateTimeFormat(locale, {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      }),
       day: new Intl.DateTimeFormat(locale, {
         weekday: "short",
         day: "numeric",
@@ -302,7 +298,7 @@ function MonthCard({
   const waiting = stats.year !== at.year;
   const current = thisYear && month === now.month;
   const summary = stats.months[month] as StatsSummary;
-  const title = fmt.monthYear.format(Date.UTC(stats.year, month, 1));
+  const title = monthTitle(stats.year, month, locale);
   // From January of the first year with anything logged to the current month.
   const first = (stats.first_year ?? now.year) * 12;
   const end = monthIndex(now);

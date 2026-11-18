@@ -313,7 +313,7 @@ test("PracticeDetails asks after a length past the last asana; Yes celebrates", 
   });
   renderWith(<PracticeDetails date={TODAY} practice={null} zone={null} locale="en" />);
 
-  fireEvent.click(await screen.findByRole("button", { name: "🎯 Other…" }));
+  fireEvent.click(await screen.findByRole("button", { name: "🎯 Choose…" }));
   fireEvent.change(screen.getByLabelText("Last asana"), { target: { value: "kurmasana" } });
 
   expect(
@@ -340,7 +340,7 @@ test("PracticeDetails asks after a length past the last asana; Yes celebrates", 
 test("PracticeDetails: Not new posts the dismissal and hides the question", async () => {
   const seen = stubApi();
   renderWith(<PracticeDetails date={TODAY} practice={null} zone={null} locale="en" />);
-  fireEvent.click(await screen.findByRole("button", { name: "🎯 Other…" }));
+  fireEvent.click(await screen.findByRole("button", { name: "🎯 Choose…" }));
   fireEvent.change(screen.getByLabelText("Last asana"), { target: { value: "kurmasana" } });
   fireEvent.click(await screen.findByRole("button", { name: "Not new" }));
 
