@@ -49,7 +49,7 @@ EN_JOIN = (
     "teacher has. If your teacher teaches here, the shala's calendar comes first. "
     "• The shala's staff can mark that you came to a class, and so can you. You see these marks "
     "and can remove them any time. "  # SC-05 (Q190)
-    "• You can leave any time. No one gets a message. "
+    "• You can leave any time under ☰ Menu → 🙏 Teacher and shala. No one gets a message. "
     "Join only a shala you know: anyone can create one with any name."
 )
 RU_JOIN = (
@@ -61,7 +61,7 @@ RU_JOIN = (
     "учителем. Если учитель преподаёт в этой шале, календарь шалы важнее. "
     "• Посещение занятий может отмечать команда шалы, и ты тоже. Эти отметки видны тебе, и их "
     "можно снять в любой момент. "  # SC-05 (Q190)
-    "• Выйти можно в любой момент. Сообщений никто не получит. "
+    "• Выйти можно в любой момент: ☰ Меню → 🙏 Учитель и шала. Сообщений никто не получит. "
     "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 )
 EN_STAFF = (
@@ -71,7 +71,7 @@ EN_STAFF = (
     "• You'll see the names of its students and staff, not their logs. "
     "• The shala's announcements come to you through the bot too. You can mute them. "
     "• You can mark who came to its classes. "  # SC-05 (Q190)
-    "• You can leave any time."
+    "• You can leave any time under ☰ Menu → 🙏 Teacher and shala."
 )
 RU_STAFF = (
     "🏛 Anna приглашает тебя в шалу Ashtanga Almaty. Роль: Ассистент. "
@@ -80,7 +80,7 @@ RU_STAFF = (
     "• Тебе будут видны имена учеников и людей из команды, но не их журналы. "
     "• Объявления шалы тоже будут приходить тебе через бота. Их можно отключить. "
     "• Можно отмечать посещение занятий. "  # SC-05 (Q190)
-    "• Выйти можно в любой момент."
+    "• Выйти можно в любой момент: ☰ Меню → 🙏 Учитель и шала."
 )
 # ADR-0045: the short screens. Each keeps to what its full text says: who sees what, and the
 # way out; the know-this-shala line is the fourth line.
@@ -89,7 +89,7 @@ EN_JOIN_SHORT = (
     "• The shala's teachers and staff see your name (Ash). Nothing from your log. "
     "• The shala's staff can mark that you came to a class, and so can you. You see these marks "
     "and can remove them any time. "
-    "• You can leave any time. No one gets a message. "
+    "• You can leave any time under ☰ Menu → 🙏 Teacher and shala. No one gets a message. "
     "Join only a shala you know: anyone can create one with any name."
 )
 RU_JOIN_SHORT = (
@@ -97,21 +97,21 @@ RU_JOIN_SHORT = (
     "• Преподаватели и команда шалы увидят твоё имя (Ash). Ничего из журнала. "
     "• Посещение занятий может отмечать команда шалы, и ты тоже. Эти отметки видны тебе, и их "
     "можно снять в любой момент. "
-    "• Выйти можно в любой момент. Сообщений никто не получит. "
+    "• Выйти можно в любой момент: ☰ Меню → 🙏 Учитель и шала. Сообщений никто не получит. "
     "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 )
 EN_STAFF_SHORT = (
     "🏛 Anna invites you to Ashtanga Almaty as Assistant. "
     "• Everyone in the shala, students included, sees your name (Ash) and role. "
     "• You'll see the names of its students and staff, not their logs. "
-    "• You can leave any time. "
+    "• You can leave any time under ☰ Menu → 🙏 Teacher and shala. "
     "Join only a shala you know: anyone can create one with any name."
 )
 RU_STAFF_SHORT = (
     "🏛 Anna приглашает тебя в шалу Ashtanga Almaty. Роль: Ассистент. "
     "• Все в шале, включая учеников, увидят твоё имя (Ash) и роль. "
     "• Тебе будут видны имена учеников и людей из команды, но не их журналы. "
-    "• Выйти можно в любой момент. "
+    "• Выйти можно в любой момент: ☰ Меню → 🙏 Учитель и шала. "
     "Присоединяйся только к знакомой шале: создать шалу с любым названием может кто угодно."
 )
 KNOW_EN = "Join only a shala you know: anyone can create one with any name."

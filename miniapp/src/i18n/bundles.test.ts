@@ -223,6 +223,11 @@ const AVOID = [
   "всего лишь",
   "опять",
 ];
+// Two phrases the list never meant (UI-06 stage 5 review): "Try again" asks for a retry after an
+// error, and "Only you see" is the privacy promise. Neither judges the person or makes their
+// practice small, so they are read out before the words above are looked for.
+const AVOID_FREE = [/\btry again\b/giu, /\bonly you\b/giu];
+const toneOf = (text: string) => AVOID_FREE.reduce((t, re) => t.replace(re, " "), text);
 
 /** The raw source (every variant) of each `checkin-*` / `settings-checkin*` message. */
 function checkInSources(source: string): Record<string, string> {
@@ -264,10 +269,10 @@ describe("PR-06 check-in copy", () => {
       "Показывать «Как самочувствие?» после практики",
     );
     expect(format(bundleFor("en"), "settings-checkin-hint")).toBe(
-      "Mood, Body and Mind, on a day you practiced. Answers you already gave stay and can be changed.",
+      "A few short questions on days you practice: mood, energy, effort, body and mind. If you turn this off, your answers stay and you can still change them.",
     );
     expect(format(bundleFor("ru"), "settings-checkin-hint")).toBe(
-      "Настроение, Тело и Ум в день практики. Уже данные ответы остаются, и их можно изменить.",
+      "Несколько коротких вопросов в дни практики: настроение, энергия, усилие, тело и ум. Если выключить, ответы останутся, и их можно будет изменить.",
     );
   });
 
@@ -293,7 +298,7 @@ describe("PR-06 check-in copy", () => {
     const sources = checkInSources(source);
     expect(Object.keys(sources).length).toBeGreaterThanOrEqual(PR06.length);
     const found = Object.entries(sources).flatMap(([id, text]) =>
-      AVOID.filter((word) => new RegExp(`(^|[^\\p{L}])${word}`, "iu").test(text)).map(
+      AVOID.filter((word) => new RegExp(`(^|[^\\p{L}])${word}`, "iu").test(toneOf(text))).map(
         (word) => `${id}: ${word}`,
       ),
     );
@@ -389,10 +394,8 @@ describe("PR-07 diary copy", () => {
     expect(format(ru, "diary-add")).toBe("📓 Добавить заметку");
     expect(format(en, "diary-row")).toBe("📓 Note");
     expect(format(ru, "diary-row")).toBe("📓 Заметка");
-    expect(format(en, "diary-private-hint")).toBe(
-      "Your notes are private: teachers don't see them.",
-    );
-    expect(format(ru, "diary-private-hint")).toBe("Заметки личные: учителя их не видят.");
+    expect(format(en, "diary-private-hint")).toBe("Only you see your notes.");
+    expect(format(ru, "diary-private-hint")).toBe("Заметки видишь только ты.");
     expect(format(en, "diary-clear")).toBe("Remove note");
     expect(format(ru, "diary-clear")).toBe("Убрать заметку");
     expect(format(en, "diary-clear-confirm")).toBe("Remove this note?");
@@ -426,9 +429,9 @@ describe("PR-07 diary copy", () => {
     const sources = diarySources(source);
     expect(Object.keys(sources).length).toBeGreaterThanOrEqual(PR07.length);
     const found = Object.entries(sources).flatMap(([id, text]) =>
-      DIARY_AVOID.filter((word) => new RegExp(`(^|[^\\p{L}'])${word}`, "iu").test(text)).map(
-        (word) => `${id}: ${word}`,
-      ),
+      DIARY_AVOID.filter((word) =>
+        new RegExp(`(^|[^\\p{L}'])${word}`, "iu").test(toneOf(text)),
+      ).map((word) => `${id}: ${word}`),
     );
     expect(found).toEqual([]);
   });

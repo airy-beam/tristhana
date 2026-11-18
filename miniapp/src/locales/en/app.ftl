@@ -146,7 +146,7 @@ moon-offset =
         [one] { $n } day
        *[other] { $n } days
     }
-moon-zone-needed-app = Reminders start once your local time is known. It's set automatically when you open the app on your phone.
+moon-zone-needed-app = Reminders start once I know your city. Choose it below.
 moon-today =
     { $phase ->
         [purnima] 🌕 Full moon today · 📍 { $city }
@@ -270,7 +270,7 @@ settings-cap = { $n ->
     }
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
-settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. How you feel, your notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
+settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and how far your practice goes. All rest you log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. How you feel, your notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
 # MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
 settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
 settings-save-failed = Couldn't save. Try again in a moment.
@@ -401,7 +401,7 @@ checkin-edit = ✨ How do you feel?
 checkin-summary-energy = ⚡ energy { $n }/5
 checkin-summary-effort = 🔥 effort { $n }/5
 settings-checkin = Show “How do you feel?” after practice
-settings-checkin-hint = Mood, Body and Mind, on a day you practiced. Answers you already gave stay and can be changed.
+settings-checkin-hint = A few short questions on days you practice: mood, energy, effort, body and mind. If you turn this off, your answers stay and you can still change them.
 
 ## Diary note (PR-07). Private, per day, any status; never asked for.
 diary-title = Note
@@ -415,7 +415,7 @@ diary-placeholder = Your note…
 # Shown from 1800 characters; numbers only, so no plural forms.
 diary-counter = { $n } / { $max }
 diary-save-failed = Couldn't save the note. Your text is still here, so you can try once more.
-diary-private-hint = Your notes are private: teachers don't see them.
+diary-private-hint = Only you see your notes.
 diary-unreadable = This note can't be read right now. You can write a new one or remove it.
 diary-clear = Remove note
 diary-clear-confirm = Remove this note?

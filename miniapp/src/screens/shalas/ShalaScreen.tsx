@@ -381,10 +381,16 @@ function Place({
     ? l10n.getString("shala-online")
     : l10n.getString("shala-place", { city: shala.city.name });
   // "Shala time" only where it differs from the viewer's own, with the offset (ADR-0044), as
-  // the bot's card says it.
-  const line = ownZone(shala.zone, viewer)
-    ? place
-    : l10n.getString("shala-time", { place, zone: labelOf(shala.zone, shala.city.name, viewer) });
+  // the bot's card says it. A city gone from the list comes as `Etc/UTC` (the API's stand-in):
+  // as in the bot, the line always says "shala time" and names the city as the shala has it.
+  const gone = shala.zone === "Etc/UTC";
+  const line =
+    !gone && ownZone(shala.zone, viewer)
+      ? place
+      : l10n.getString("shala-time", {
+          place,
+          zone: gone ? shala.city.name : labelOf(shala.zone, shala.city.name, viewer),
+        });
   const days = useDaysOff()(shala.days_off);
   return (
     <section className="card">

@@ -316,7 +316,7 @@ def test_invite_then_the_teachers_closing_then_today(client: TestClient) -> None
     today = _tap(client, _where(closing)["🧘 Log my own practice"])
 
     assert "☰ Menu → For teachers and shalas" in closing["text"]  # where the link is now
-    assert "☰ Menu → My students" in closing["text"]  # where students will appear
+    assert "☰ Menu → 👥 My students" in closing["text"]  # where students will appear
     assert _where(closing) == {
         "🧘 Log my own practice": "w1:n",
         "Shala and classes": "w1:s:c",

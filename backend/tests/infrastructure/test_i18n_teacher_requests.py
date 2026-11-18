@@ -252,7 +252,7 @@ ITEMS: dict[str, tuple[str, ...]] = {
         "your name (Ash)",
         "from today on",
         "practice or rest",
-        "your practice length",
+        "how far your practice goes",
         "your last asana",
         "If nothing shows for a while",
         "a short note saying just that",
@@ -392,9 +392,10 @@ def test_both_layers_name_the_quiet_note_the_tap_agrees_to(locale: str) -> None:
 def test_the_personal_link_and_join_consents_are_unchanged_on_purpose() -> None:
     """Spec §2: joining alone still shares nothing, so `shala-join-consent` says nothing
     about a teacher's view; the question comes after it, with its own consent."""
+    seen = "last asana|последняя асана|how far your practice goes|объём практики"
     for locale in LOCALES:
         join = _text(locale, "shala-join-consent")
-        assert not re.search("last asana|последняя асана|practice length|объём практики", join)
+        assert not re.search(seen, join)
 
 
 @pytest.mark.parametrize("locale", LOCALES)

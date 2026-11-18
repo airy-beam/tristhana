@@ -24,7 +24,7 @@ welcome-path-shala = Shala and classes
 welcome-later = Continue ›
 # Shown before the first student joins: the Menu has no "My students" row yet, so the link
 # is named where it is now ("For teachers and shalas"), and "My students" as what comes next.
-welcome-teacher-next = Your link is under ☰ Menu → For teachers and shalas. Students who confirm appear under ☰ Menu → My students.
+welcome-teacher-next = Your link is under ☰ Menu → For teachers and shalas. Students who confirm appear under ☰ Menu → 👥 My students.
 welcome-own-practice = 🧘 Log my own practice
 welcome-shala-text = A shala here is a page for your students: the class schedule, announcements and one link to join. Tap 🏛 Create a shala: it takes a minute.
 welcome-shala-student = Looking for your shala's classes? Ask your shala for its link. Once you join, the schedule is under ☰ Menu → 🗓 My schedule.
@@ -276,7 +276,7 @@ moon-same-as-city = 📍 Same as my city ({ $city })
 moon-home-fyi = ℹ In 📍 { $city } it falls on { $date }
 # Full-width button: sets the account's time zone to the city's (only when unknown). In the
 # words of the Settings row for an unlisted city ("🕐 My time"), never "time zone" (glossary).
-moon-use-city-zone = 🕐 My time: 📍 { $city }
+moon-use-city-zone = 🕐 Set my time to 📍 { $city }
 
 ## Moon calendar inheritance (MD-02). Names fall back to `link-no-name`.
 moon-source-teacher = 👥 Same as your main teacher, { $name }. You can choose another city.
@@ -335,7 +335,7 @@ remind-turn-back-on = 🔔 Turn back on
 remind-off-note = 🔕 Practice reminders are off. You can turn them back on under ☰ Menu → ⚙️ Settings → 🔔 Reminders.
 remind-on-again = 🔔 Practice reminders are on again.
 # After 10 reminders in a row with nothing logged: one note, then reminders turn off.
-remind-paused = 🌿 I'll stop asking for now. Whenever you'd like the daily prompt back, tap below or open ☰ Menu → ⚙️ Settings → 🔔 Reminders.
+remind-paused = 🌿 I'll stop asking for now. Whenever you'd like the daily reminder back, tap below or open ☰ Menu → ⚙️ Settings → 🔔 Reminders.
 remind-copied-from = Copied from { $date }.
 remind-offer = 🔔 Want me to ask once a day, so logging takes one tap?
 remind-offer-yes = 🔔 Yes, remind me
@@ -671,7 +671,7 @@ delete-explain =
     • If you write to the bot again, it starts fresh.
     • Shalas you own are deleted for everyone in them. Their own logs stay.
 delete-expired = This button is out of date. Here it is again.
-delete-done = Your account and data are deleted. Wishing you good practice 🙏 Write to me any time to begin fresh.
+delete-done = Your account and data are deleted. Wishing you good practice 🙏 Write to me any time to start fresh.
 
 ## Export file labels and README (ST-09): in the account's language.
 
@@ -727,21 +727,21 @@ export-readme-unreadable = unreadable = yes: this entry was saved, but a private
 invite-ask = 🤝 { $name } sent you an invite. Add them to your teachers?
 invite-consent =
     If you confirm:
-    • { $name } sees your name{ $me } and what you log from today on: practice or rest and your practice length.
+    • { $name } sees your name{ $me } and what you log from today on: practice or rest and how far your practice goes.
     • { $name } also sees your last asana as marked in your log.
     • All rest you log looks the same, whatever the reason.
     • If nothing shows for a while, { $name } sees a short note saying just that.
     • Any teacher on your list can also mark a new asana for you. You get a message and can undo it.
     • How you feel, your notes and the reason for a rest stay private.
     • { $name } can send announcements to all their students through the bot. You can mute them.
-    • You can remove { $name } from your list any time. No one gets a message.
+    • You can remove { $name } from your list any time under ☰ Menu → 🙏 Teacher and shala. No one gets a message.
 # The short consent screen (ADR-0045). The full text above is the consent record and stays
 # as it is; ✅ on the short screen agrees to all of it. The first line must name every item
 # the full text says { $name } sees; nothing here may promise more than the full text does.
 invite-consent-short =
-    • { $name } sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, { $name } sees a short note saying just that.
+    • { $name } sees your name{ $me } and what you log from today on: practice or rest, how far your practice goes and your last asana. If nothing shows for a while, { $name } sees a short note saying just that.
     • How you feel, your notes and the reason for a rest stay private.
-    • You can remove { $name } from your list any time. No one gets a message.
+    • You can remove { $name } from your list any time under ☰ Menu → 🙏 Teacher and shala. No one gets a message.
 consent-details = 📄 Read in full
 consent-short-back = ‹ In short
 invite-know-them = Anyone can choose any name here, so confirm only if you know this person.
@@ -779,7 +779,7 @@ request-yes = ✅ Yes
 # The short consent (ADR-0045): the items of `invite-consent-short`, in "the teacher you
 # pick" wording. A name tapped on this screen agrees to all of `request-consent`.
 request-consent-short =
-    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, they see a short note saying just that.
+    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, how far your practice goes and your last asana. If nothing shows for a while, they see a short note saying just that.
     • How you feel, your notes and the reason for a rest stay private.
     • You can remove a teacher from your list any time. No one gets a message.
 request-until-yes = Nothing is shown until they confirm. They get one message with your name.
@@ -789,7 +789,7 @@ request-know-them = Pick only a teacher you know.
 # before the yes, counted from today, withdraw before and remove after).
 request-consent =
     If you pick a teacher and they confirm:
-    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, they see a short note saying just that.
+    • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, how far your practice goes and your last asana. If nothing shows for a while, they see a short note saying just that.
     • How you feel, your notes and the reason for a rest stay private. All rest you log looks the same, whatever the reason.
     • Any teacher on your list can mark a new asana for you. You get a message and can undo it. They can also send announcements through the bot. You can mute them.
     • Nothing is shown until they confirm. They get one message with your name.
@@ -899,12 +899,12 @@ shala-join-consent =
     • The shala's staff can send announcements to members through the bot. You can mute them.
     • Your moon days follow the shala's calendar, unless you've chosen a city, or your teacher has. If your teacher teaches here, the shala's calendar comes first.
     • The shala's staff can mark that you came to a class, and so can you. You see these marks and can remove them any time.
-    • You can leave any time. No one gets a message.
+    • You can leave any time under ☰ Menu → 🙏 Teacher and shala. No one gets a message.
 # The short consent screen (ADR-0045): see invite-consent-short.
 shala-join-consent-short =
     • The shala's teachers and staff see your name{ $me }. Nothing from your log.
     • The shala's staff can mark that you came to a class, and so can you. You see these marks and can remove them any time.
-    • You can leave any time. No one gets a message.
+    • You can leave any time under ☰ Menu → 🙏 Teacher and shala. No one gets a message.
 shala-know-them = Join only a shala you know: anyone can create one with any name.
 shala-join-yes = ✅ Join
 shala-staff-ask = 🏛 { $name } invites you to { $shala } as { $role }.
@@ -914,12 +914,12 @@ shala-staff-consent =
     • You'll see the names of its students and staff, not their logs.
     • The shala's announcements come to you through the bot too. You can mute them.
     • You can mark who came to its classes.
-    • You can leave any time.
+    • You can leave any time under ☰ Menu → 🙏 Teacher and shala.
 # The short consent screen (ADR-0045): see invite-consent-short.
 shala-staff-consent-short =
     • Everyone in the shala, students included, sees your name{ $me } and role.
     • You'll see the names of its students and staff, not their logs.
-    • You can leave any time.
+    • You can leave any time under ☰ Menu → 🙏 Teacher and shala.
 shala-staff-yes = ✅ Confirm
 shala-staff-joined = 🏛 { $name } joined { $shala } as { $role }.
 shala-staff-link-hint = This link adds one person as { $role }. It works once, for 7 days.

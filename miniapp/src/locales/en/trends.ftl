@@ -38,8 +38,8 @@ trends-cell-label = { $n ->
 # A cell with too few days behind it.
 trends-none = —
 trends-cell-none = { $scale }, { $where }: no average
-trends-gap-note = "—" means fewer than { $min } days there.
+trends-gap-note = "—" means fewer than { $min } days with answers there.
 trends-empty = Nothing here yet. When you answer “How do you feel?” after practice, the averages show up on this screen.
-trends-too-few = Averages appear here once { $min } days have answers.
+trends-too-few = Averages appear here once you've answered on { $min } days.
 trends-note = These are averages of your own answers. The app draws no conclusions from them. Teachers and shalas don't see them.
 trends-load-failed = Couldn't load this. Try again in a moment.

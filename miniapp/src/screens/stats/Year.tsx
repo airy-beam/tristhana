@@ -128,7 +128,7 @@ export default function Year({ locale, shown, today, first, onPick, onBack }: Pr
               haptics.selection();
               onPick({ year: stats.year, month });
             }}
-            monthName={(m) => monthTitle(stats.year, m, locale, { year: false })}
+            monthName={(m) => monthTitle(stats.year, m, locale, { year: false, capital: false })}
             dateLabel={(day) => fmt.day.format(parse(day))}
           />
           <Legend />

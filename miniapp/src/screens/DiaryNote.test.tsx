@@ -237,9 +237,7 @@ describe("DiaryNote: where and how it shows", () => {
     expect(textarea().value).toBe(NOTE);
     expect(saveButton()).toBeInTheDocument();
     expect(cancelButton()).toBeInTheDocument();
-    expect(
-      screen.getByText("Your notes are private: teachers don't see them."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Only you see your notes.")).toBeInTheDocument();
   });
 
   it("an absent note is only a quiet Add link", async () => {

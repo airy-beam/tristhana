@@ -27,6 +27,12 @@ describe("monthTitle", () => {
     expect(monthTitle(2026, 2, "ru", { year: false })).toBe("Март");
   });
 
+  test("inside running text, in the language's own case", () => {
+    expect(monthTitle(2026, 10, "ru", { capital: false })).toBe("ноябрь 2026");
+    expect(monthTitle(2026, 10, "en", { capital: false })).toBe("November 2026");
+    expect(monthTitle(2026, 10, "ru", { year: false, capital: false })).toBe("ноябрь");
+  });
+
   test("never the «г.» Intl adds in Russian", () => {
     for (let m = 0; m < 12; m++) expect(monthTitle(2026, m, "ru")).not.toMatch(/г\.|\bг\b/);
   });

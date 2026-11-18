@@ -234,7 +234,7 @@ const NOTE = "How can we tell it's you? (optional)";
 const INTRO = /^If your name is in the Sharath Yoga Centre teachers directory/;
 const LINE_EN =
   "✔ Listed in the Sharath Yoga Centre teachers directory as Anna Petrova (checked: November 2026)";
-const LINE_RU = "✔ Anna Petrova — в списке учителей Sharath Yoga Centre (сверено: Ноябрь 2026)";
+const LINE_RU = "✔ Anna Petrova — в списке учителей Sharath Yoga Centre (сверено: ноябрь 2026)";
 const ABOUT_EN = /^The name is in the public teachers directory of Sharath Yoga Centre \(SYC\)/;
 
 // The screens opened here are lazy chunks, and `renderApp()` resets the modules: loading
@@ -881,9 +881,18 @@ describe("checked: month and year", () => {
   test.each(["UTC", "Pacific/Pago_Pago", "Pacific/Kiritimati"])("in %s", (tz) => {
     process.env.TZ = tz;
     expect(checkedMonth("2026-11-01", "en")).toBe("November 2026");
-    expect(checkedMonth("2026-11-01", "ru")).toBe("Ноябрь 2026");
+    expect(checkedMonth("2026-11-01", "ru")).toBe("ноябрь 2026");
     expect(checkedMonth("2026-11-30", "en")).toBe("November 2026");
-    expect(checkedMonth("2027-01-01", "ru")).toBe("Январь 2027");
+    expect(checkedMonth("2027-01-01", "ru")).toBe("январь 2027");
+  });
+
+  // Inside a sentence («сверено: ноябрь 2026»), as the bot's Babel `LLLL y`: never capitalised.
+  test("in Russian, lowercase inside the line", () => {
+    for (let m = 1; m <= 12; m++) {
+      const month = checkedMonth(`2026-${String(m).padStart(2, "0")}-01`, "ru");
+      expect(month).toBe(month.toLocaleLowerCase("ru"));
+      expect(month).toMatch(/^\p{Ll}+ 2026$/u);
+    }
   });
 
   test("the far-west zone really is in force in this test", () => {
@@ -959,7 +968,7 @@ describe("listing copy", () => {
     expect(say(en, "listing-mark", { listed: "Anna Petrova", when: "November 2026" })).toBe(
       LINE_EN,
     );
-    expect(say(ru, "listing-mark", { listed: "Anna Petrova", when: "Ноябрь 2026" })).toBe(LINE_RU);
+    expect(say(ru, "listing-mark", { listed: "Anna Petrova", when: "ноябрь 2026" })).toBe(LINE_RU);
     expect(say(ru, "listing-open", {})).toBe("Строка о списке SYC");
   });
 

@@ -79,6 +79,19 @@ describe("readable", () => {
     expect(readable(pattern('x = a{""}b { other } c\n'))).toEqual(["ab c"]);
     expect(readable(null)).toEqual([]);
   });
+
+  it("past the limit, reads each variant on its own, never one run into the next", () => {
+    // 3 × 3 × 3 × 3 × 3 × 3 = 729 combinations: the sixth select is read variant by variant.
+    const select = (/** @type {string} */ v) =>
+      `{ $${v} ->\n    [a] ${v}1\n    [b] ${v}2\n   *[c] ${v}3 stop\n  }`;
+    const vars = ["p", "q", "r", "s", "t", "u"];
+    const texts = readable(pattern(`x = ${vars.map(select).join(" ")} end\n`));
+    expect(texts).toContain("u1");
+    expect(texts).toContain("u3 stop");
+    expect(texts).toContain("p1 q1 r1 s1 t1 end");
+    expect(texts.some((t) => /u1 u2|u2 u3/.test(t))).toBe(false);
+    expect(texts.some((t) => /stop u/.test(t))).toBe(false);
+  });
 });
 
 describe("keyIn", () => {
@@ -221,6 +234,9 @@ describe("one word per thing (ADR-0050)", () => {
     ];
     for (const e of excepts) {
       expect(e.reason, JSON.stringify(e)).toBeTruthy();
+      if (e.source !== undefined) {
+        expect(["bot", "app"], `except: source "${e.source}"`).toContain(e.source);
+      }
       if (e.key) expect(keys.has(e.key), `except: no message "${e.key}"`).toBe(true);
       if (e.page) {
         const path = join(DOCS, e.page.replace(/^guides\//, ""));
@@ -270,14 +286,20 @@ describe("one word per thing (ADR-0050)", () => {
       found.filter((k) => !later.has(k)),
       shown.join("\n"),
     ).toEqual([]);
-    // Each allowance and each pending entry must still be needed.
+    // Each allowance and each pending entry must still be needed, in each language it covers:
+    // an allowance for both languages whose texts now agree in one must name the other.
     expect([...later].filter((k) => !found.includes(k))).toEqual([]);
-    const differing = new Set(differ.map((d) => d.key.split(".")[0]));
+    const differing = new Set(differ.map((d) => `${d.key.split(".")[0]} (${d.locale})`));
     expect(
-      allowed
-        .map((/** @type {any} */ e) => e.key)
-        .filter((/** @type {string} */ k) => !differing.has(k)),
+      allowed.flatMap((/** @type {any} */ e) =>
+        (e.locale === undefined ? LOCALES : [e.locale])
+          .map((/** @type {string} */ locale) => `${e.key} (${locale})`)
+          .filter((/** @type {string} */ k) => !differing.has(k)),
+      ),
     ).toEqual([]);
+    for (const e of allowed) {
+      if (e.locale !== undefined) expect(LOCALES, `${e.key}: locale`).toContain(e.locale);
+    }
   });
 
   it("reads both products in both languages", () => {

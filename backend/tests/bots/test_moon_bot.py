@@ -141,7 +141,7 @@ def test_city_picker_and_city_zone(client: TestClient, storage: InMemoryStorage)
 
     chosen = _tap(client, "m1:s:almaty")
     assert chosen["text"].startswith("🌙 Moon days · 📍 Almaty")
-    assert "🕐 My time: 📍 Almaty" in _texts(chosen)
+    assert "🕐 Set my time to 📍 Almaty" in _texts(chosen)
 
     zoned = _tap(client, "m1:z:almaty")
     [account] = storage.repo.accounts.values()

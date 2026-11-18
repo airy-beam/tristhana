@@ -153,8 +153,8 @@ interface Stub {
   /** The answer to a restore; done unless given. */
   restore?: () => Response;
   dayOff?: number[] | null;
-  /** My own zone (the viewer's); Almaty, the shala's, unless given. */
-  timezone?: string;
+  /** My own zone (the viewer's); Almaty, the shala's, unless given; null = not known yet. */
+  timezone?: string | null;
 }
 
 function stubApi(stub: Stub = {}): Request[] {
@@ -193,7 +193,7 @@ function stubApi(stub: Stub = {}): Request[] {
           id: "00000000-0000-0000-0000-000000000001",
           display_name: "Ash",
           locale: "en",
-          timezone: stub.timezone ?? "Asia/Almaty",
+          timezone: stub.timezone === undefined ? "Asia/Almaty" : stub.timezone,
           home_city: null,
           name_from_telegram: true,
           locale_from_telegram: true,
@@ -258,6 +258,45 @@ describe("the schedule on the shala card", () => {
     // Outside my zone the card says whose time it is, with the offset (ADR-0044).
     expect(
       screen.getByText((t) => plain(t) === "📍 Almaty · shala time: Almaty (UTC+5)"),
+    ).toBeInTheDocument();
+  });
+
+  it("says whose time it is when the viewer's zone is not known yet", async () => {
+    stubApi({ timezone: null });
+    renderWith(card());
+
+    await screen.findAllByText(/06:00–09:30/);
+    // An unknown zone is no one's own: the offset shows (ADR-0044).
+    expect(
+      await screen.findByText((t) => plain(t) === "📍 Almaty · shala time: Almaty (UTC+5)"),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["Asia/Kolkata", "Asia/Calcutta"],
+    ["Asia/Calcutta", "Asia/Kolkata"],
+  ])("takes %s and %s for the same zone: the place alone", async (shalaZone, mine) => {
+    stubApi({
+      timezone: mine,
+      card: shalaOut(STUDENT, { city: { slug: "mysuru", name: "Mysuru" }, zone: shalaZone }),
+    });
+    renderWith(card());
+
+    expect(await screen.findByText((t) => plain(t) === "📍 Mysuru")).toBeInTheDocument();
+    await screen.findAllByText(/06:00–09:30/);
+    expect(pageText()).not.toContain("shala time");
+  });
+
+  it("always says shala time when the shala's city is gone from the list, as the bot", async () => {
+    // The API sends `Etc/UTC` and the city's slug when the city is no longer listed.
+    stubApi({
+      timezone: "Etc/UTC",
+      card: shalaOut(STUDENT, { city: { slug: "atlantis", name: "atlantis" }, zone: "Etc/UTC" }),
+    });
+    renderWith(card());
+
+    expect(
+      await screen.findByText((t) => plain(t) === "📍 atlantis · shala time: atlantis"),
     ).toBeInTheDocument();
   });
 

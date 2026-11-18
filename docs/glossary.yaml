@@ -94,26 +94,35 @@ concepts:
     retired:
       en: ['diar(?:y|ies)']
       ru: ['дневник\p{L}*']
+    except: &history
+      - page: guides/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
+      - page: guides/ru/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
 
   - concept: How you feel after practice
-    en: ✨ How do you feel? (noun how you feel; trends ✨ How you've felt)
-    ru: ✨ Как самочувствие? (самочувствие; «✨ Самочувствие за год»)
+    en: "✨ How do you feel? (noun how you feel); trends: How you've felt"
+    ru: ✨ Как самочувствие? (самочувствие; trends «Самочувствие за год»)
     where: [checkin-*, trends-*, settings-checkin-hint, consents]
     note: >-
-      settings-checkin-hint names the app's chips Mood / Body / Mind (Настроение / Тело / Ум);
-      checkin-clear says Remove answers / «Убрать ответы».
+      The trends title is How you've felt / «Самочувствие за год» without ✨; only the button
+      that opens it (trends-open) carries ✨. settings-checkin-hint names what the questions ask,
+      in the editor's own words (mood, energy, effort, body and mind / настроение, энергия,
+      усилие, тело и ум) and what turning them off does; checkin-clear says Remove answers /
+      «Убрать ответы».
     retired:
       en:
         - 'check[- ]?ins?'
-        - word: 'energy|effort'
-          in: [settings-checkin-hint]
       ru:
         - word: 'отметк\p{L}*'
           in: [checkin-*, trends-*, settings-checkin-hint]
-        - word: 'энерги\p{L}*|усили\p{L}*'
-          in: [settings-checkin-hint]
         - word: 'самочувстви\p{L}*'
           in: [checkin-clear]
+    except: *history
 
   - concept: Practice details
     en: 📝 Details · 📝 Add details
@@ -257,6 +266,14 @@ concepts:
         reason: The UTC option (it names no zone today; kept free to).
       - key: settings-city-utc
         reason: The UTC option (it names no zone today; kept free to).
+      - page: guides/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
+      - page: guides/ru/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
 
   - concept: Product name
     en: Tristhana
@@ -382,7 +399,7 @@ same-key-different-text:
 # Today's offenders (slice 1). Slices 2–4 work through them; slice 4 adds "pending is empty".
 pending:
   words:
-    # guides EN: 32
+    # guides EN: 28
     - { file: guides/index.mdx, word: "diary" }
     - { file: guides/index.mdx, word: "time zone" }
     - { file: guides/reference/commands.md, word: "time zone" }
@@ -392,10 +409,6 @@ pending:
     - { file: guides/reference/privacy.md, word: "check-ins" }
     - { file: guides/reference/privacy.md, word: "diary" }
     - { file: guides/reference/privacy.md, word: "time zone" }
-    - { file: guides/reference/whats-new.md, word: "check-in" }
-    - { file: guides/reference/whats-new.md, word: "check-ins" }
-    - { file: guides/reference/whats-new.md, word: "diary" }
-    - { file: guides/reference/whats-new.md, word: "time zone" }
     - { file: guides/staff/classes.md, word: "time zone" }
     - { file: guides/staff/create-shala.md, word: "time zone" }
     - { file: guides/start/bot-and-app.md, word: "check-ins" }
@@ -415,14 +428,12 @@ pending:
     - { file: guides/teachers/what-you-see.md, word: "check-ins" }
     - { file: guides/teachers/what-you-see.md, word: "diary" }
     - { file: guides/teachers/what-you-see.md, word: "time zone" }
-    # guides RU: 19
+    # guides RU: 17
     - { file: guides/ru/index.mdx, word: "дневника" }
     - { file: guides/ru/reference/faq.md, word: "дневника" }
     - { file: guides/ru/reference/faq.md, word: "часовом поясе" }
     - { file: guides/ru/reference/privacy.md, word: "дневника" }
     - { file: guides/ru/reference/privacy.md, word: "часовой пояс" }
-    - { file: guides/ru/reference/whats-new.md, word: "дневнике" }
-    - { file: guides/ru/reference/whats-new.md, word: "часовом поясе" }
     - { file: guides/ru/staff/classes.md, word: "часовом поясе" }
     - { file: guides/ru/start/first-steps.md, word: "часовой пояс" }
     - { file: guides/ru/students/check-in-and-diary.md, word: "дневник" }

@@ -66,7 +66,10 @@ export function useRemoveListing() {
 }
 
 /** `checked_on` is a date, not an instant: month and year only, read from the date itself so
- * no device zone moves it into the month before. The app's one month title (`monthTitle`). */
+ * no device zone moves it into the month before. It sits inside a sentence, so RU keeps the
+ * lowercase «ноябрь 2026», as the bot's Babel `LLLL y` (`monthTitle` without the capital). */
 export function checkedMonth(checkedOn: string, locale: Locale): string {
-  return monthTitle(Number(checkedOn.slice(0, 4)), Number(checkedOn.slice(5, 7)) - 1, locale);
+  const year = Number(checkedOn.slice(0, 4));
+  const month = Number(checkedOn.slice(5, 7)) - 1;
+  return monthTitle(year, month, locale, { capital: false });
 }

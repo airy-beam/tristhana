@@ -95,8 +95,8 @@ const posts = (seen: Request[]) =>
 
 const SHORT_EN =
   "• The teacher you pick sees your name (Ash) and what you log from today on: practice or " +
-  "rest, your practice length and your last asana. If nothing shows for a while, they see a " +
-  "short note saying just that.";
+  "rest, how far your practice goes and your last asana. If nothing shows for a while, they " +
+  "see a short note saying just that.";
 
 afterEach(() => {
   vi.unstubAllGlobals();

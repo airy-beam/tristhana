@@ -43,8 +43,8 @@ _ids = itertools.count(120_000)
 
 EN_CONSENT = (
     "🤝 Лена sent you an invite. Add them to your teachers? If you confirm: "
-    "• Лена sees your name (Ash) and what you log from today on: practice or rest and your "
-    "practice length. "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest and how far "
+    "your practice goes. "
     "• Лена also sees your last asana as marked in your log. "
     "• All rest you log looks the same, whatever the reason. "
     "• If nothing shows for a while, Лена sees a short note saying just that. "
@@ -52,7 +52,8 @@ EN_CONSENT = (
     "You get a message and can undo it. "
     "• How you feel, your notes and the reason for a rest stay private. "
     "• Лена can send announcements to all their students through the bot. You can mute them. "
-    "• You can remove Лена from your list any time. No one gets a message. "
+    "• You can remove Лена from your list any time under ☰ Menu → 🙏 Teacher and shala. "
+    "No one gets a message. "
     "Anyone can choose any name here, so confirm only if you know this person. "
     "If you tap Not now, Лена isn't told."
 )
@@ -67,7 +68,8 @@ RU_CONSENT = (
     "Придёт сообщение, и отметку можно отменить. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
     "• Лена может отправлять объявления всем своим ученикам через бота. Их можно отключить. "
-    "• Убрать из списка можно в любой момент. Сообщений никто не получит. "
+    "• Убрать из списка можно в любой момент: ☰ Меню → 🙏 Учитель и шала. "
+    "Сообщений никто не получит. "
     "Имя здесь может выбрать любой, поэтому подтверждай, только если знаешь этого человека. "
     "Если нажать «Не сейчас», Лена об этом не узнает."
 )
@@ -76,11 +78,12 @@ RU_CONSENT = (
 # sees; the know-this-person line stays as the fourth line (ADR-0030).
 EN_SHORT = (
     "🤝 Лена sent you an invite. Add them to your teachers? "
-    "• Лена sees your name (Ash) and what you log from today on: practice or rest, your "
-    "practice length and your last asana. If nothing shows for a while, Лена sees a short note "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest, how far "
+    "your practice goes and your last asana. If nothing shows for a while, Лена sees a short note "
     "saying just that. "
     "• How you feel, your notes and the reason for a rest stay private. "
-    "• You can remove Лена from your list any time. No one gets a message. "
+    "• You can remove Лена from your list any time under ☰ Menu → 🙏 Teacher and shala. "
+    "No one gets a message. "
     "Anyone can choose any name here, so confirm only if you know this person."
 )
 RU_SHORT = (
@@ -89,7 +92,8 @@ RU_SHORT = (
     "объём практики и последняя асана. Если какое-то время показать нечего, Лена увидит об этом "
     "короткую пометку. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
-    "• Убрать из списка можно в любой момент. Сообщений никто не получит. "
+    "• Убрать из списка можно в любой момент: ☰ Меню → 🙏 Учитель и шала. "
+    "Сообщений никто не получит. "
     "Имя здесь может выбрать любой, поэтому подтверждай, только если знаешь этого человека."
 )
 

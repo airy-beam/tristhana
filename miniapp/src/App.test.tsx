@@ -900,7 +900,7 @@ describe("Today: one next step, each leading to its place", () => {
     // The Reminders page, not the five rows; it says once why the times wait.
     expect(await heading("🔔 Reminders")).toHaveFocus();
     expect(await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" })).toBeChecked();
-    expect(screen.getAllByText(/once your local time is known/)).toHaveLength(1);
+    expect(screen.getAllByText(/once I know your city/)).toHaveLength(1);
     expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
     back();
     expect(await today()).toBeInTheDocument();

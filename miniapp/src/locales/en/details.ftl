@@ -21,7 +21,7 @@ checkin-mind = Mind
 # Screen readers: the mood chips are emoji.
 checkin-mood-label = Mood { $n } of 5
 checkin-clear = Remove answers
-checkin-save-failed = Couldn't save your answers. Try once more in a moment.
+checkin-save-failed = Couldn't save your answers. Try again in a moment.
 progression-ask-new = { $asana } goes beyond your last asana. New asana? 🎉
 progression-ask-yes = 🎉 Yes, new
 progression-ask-no = Not new

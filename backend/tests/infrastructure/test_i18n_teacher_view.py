@@ -73,8 +73,8 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
 
 CONSENT_EN = (
     "If you confirm: "
-    "• Лена sees your name (Ash) and what you log from today on: practice or rest and your "
-    "practice length. "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest and how far "
+    "your practice goes. "
     "• Лена also sees your last asana as marked in your log. "
     "• All rest you log looks the same, whatever the reason. "
     "• If nothing shows for a while, Лена sees a short note saying just that. "
@@ -82,7 +82,8 @@ CONSENT_EN = (
     "undo it. "
     "• How you feel, your notes and the reason for a rest stay private. "
     "• Лена can send announcements to all their students through the bot. You can mute them. "
-    "• You can remove Лена from your list any time. No one gets a message."
+    "• You can remove Лена from your list any time under ☰ Menu → 🙏 Teacher and shala. No one "
+    "gets a message."
 )
 CONSENT_RU = (
     "Если подтвердить: "
@@ -95,15 +96,16 @@ CONSENT_RU = (
     "отметку можно отменить. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
     "• Лена может отправлять объявления всем своим ученикам через бота. Их можно отключить. "
-    "• Убрать из списка можно в любой момент. Сообщений никто не получит."
+    "• Убрать из списка можно в любой момент: ☰ Меню → 🙏 Учитель и шала. Сообщений никто не "
+    "получит."
 )
 PRIVACY_EN = (
     "Your log is yours. A teacher on your list sees your name, your last asana and what you log "
-    "from the day you added them: practice or rest and your practice length. All rest you log "
-    "looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short "
-    "note saying just that. A teacher on your list can also mark a new asana for you: you get a "
-    "message and can undo it. How you feel, your notes and the reason for a rest stay private. "
-    "You can remove a teacher from your list any time."
+    "from the day you added them: practice or rest and how far your practice goes. All rest you "
+    "log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a "
+    "short note saying just that. A teacher on your list can also mark a new asana for you: you "
+    "get a message and can undo it. How you feel, your notes and the reason for a rest stay "
+    "private. You can remove a teacher from your list any time."
     " Teachers on your list and your shalas can send you announcements; "
     "you can mute each one."
 )

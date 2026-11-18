@@ -67,14 +67,21 @@ export function keyIn(/** @type {string} */ key, /** @type {string[]} */ keys) {
   return keys.some((k) => (k.endsWith("*") ? key.startsWith(k.slice(0, -1)) : key === k));
 }
 
+/** Above this many combinations a select's variants are read each on its own. */
+const COMBINATIONS = 256;
+
 /**
  * What a person can read in a Fluent pattern: one text per combination of select variants
  * (every variant, not only the default), with variables and references removed. Whitespace is
- * collapsed so a phrase split by a removed variable still reads as one.
+ * collapsed so a phrase split by a removed variable still reads as one. Past `COMBINATIONS`, a
+ * select's variants become texts of their own and the line around them reads a gap there:
+ * never one variant run into the next, which would make phrases no one reads.
  * @param {import("@fluent/bundle").FluentResource["body"][number]["value"]} pattern
  * @returns {string[]}
  */
 export function readable(pattern) {
+  /** @type {string[]} */
+  const alone = [];
   /** @returns {string[]} */
   const walk = (/** @type {any} */ p) => {
     if (p === null || p === undefined) return [];
@@ -88,12 +95,15 @@ export function readable(pattern) {
         parts = element.variants.flatMap((/** @type {any} */ v) => walk(v.value));
       else if (element.type === "str") parts = [element.value];
       else parts = [" "]; // a variable, a number, another message: not words of this one
-      if (out.length * parts.length > 256) parts = [parts.join(" ")];
+      if (out.length * parts.length > COMBINATIONS) {
+        alone.push(...parts);
+        parts = [" "];
+      }
       out = out.flatMap((before) => parts.map((part) => before + part));
     }
     return out;
   };
-  const texts = walk(pattern).map((text) => text.replace(/\s+/g, " ").trim());
+  const texts = [...walk(pattern), ...alone].map((text) => text.replace(/\s+/g, " ").trim());
   return [...new Set(texts)].filter(Boolean);
 }
 

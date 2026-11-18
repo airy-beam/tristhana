@@ -126,7 +126,7 @@ describe("How you've felt", () => {
     const { container } = renderTrends();
 
     expect(
-      await screen.findByText(says("Averages appear here once 10 days have answers.")),
+      await screen.findByText(says("Averages appear here once you've answered on 10 days.")),
     ).toBeVisible();
     expect(container.querySelector("table, svg")).toBeNull();
     expect(screen.queryByText(/7/)).toBeNull();
@@ -231,7 +231,7 @@ describe("How you've felt", () => {
     stubApi(trends());
     renderTrends();
     await screen.findByRole("heading", { name: "By weekday" });
-    expect(screen.getByText(says('"—" means fewer than 5 days there.'))).toBeVisible();
+    expect(screen.getByText(says('"—" means fewer than 5 days with answers there.'))).toBeVisible();
   });
 
   it("leaves the dash note out when every shown cell has a figure", async () => {
@@ -346,6 +346,16 @@ describe("trends.ftl", () => {
   ])("counts Russian days through Fluent (%i)", (n, tail) => {
     const said = say(ru, "trends-cell-label", { scale: "S", where: "W", mean: "3,0", n });
     expect(said).toBe(`S, W: в среднем 3,0, ${tail}`);
+  });
+
+  it.each([
+    [1, "1 день"],
+    [3, "3 дня"],
+    [10, "10 дней"],
+  ])("says how many days the averages wait for, in Russian plurals (%i)", (min, days) => {
+    expect(say(ru, "trends-too-few", { min })).toBe(
+      `Средние появятся здесь, когда будут ответы хотя бы за ${days}.`,
+    );
   });
 
   it("counts one English day in the singular", () => {

@@ -891,7 +891,7 @@ describe("Reminders", () => {
     await open({ ...ME, timezone: null }, "🔔 Reminders", "🔔 Reminders");
     await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" });
 
-    expect(screen.getAllByText(/once your local time is known/)).toHaveLength(1);
+    expect(screen.getAllByText(/once I know your city/)).toHaveLength(1);
     expect(screen.queryByText(/^🕐 Times:/)).toBeNull();
     expect(screen.queryByRole("button", { name: /^\d\d:00$/ })).toBeNull();
     expect(
@@ -905,7 +905,7 @@ describe("Reminders", () => {
     tg.back = false;
     stubApi();
     const { onBack } = await open({ ...ME, timezone: null }, "🔔 Reminders", "🔔 Reminders");
-    const line = screen.getByText(/once your local time is known/);
+    const line = screen.getByText(/once I know your city/);
 
     const city = screen.getByRole("button", { name: "🏙 My city" });
     expect(line.compareDocumentPosition(city) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
@@ -1321,7 +1321,7 @@ describe("Show “How do you feel?” after practice (PR-06, Q313)", () => {
     const box = toggle();
     expect(box).toBeChecked();
     expect(box).toHaveAccessibleDescription(
-      "Mood, Body and Mind, on a day you practiced. Answers you already gave stay and can be changed.",
+      "A few short questions on days you practice: mood, energy, effort, body and mind. If you turn this off, your answers stay and you can still change them.",
     );
     fireEvent.click(box);
 
