@@ -205,6 +205,15 @@ test("set: current line, next, items, history with Undo", async () => {
   expect(screen.getByRole("button", { name: /^↩︎ Undo: / })).toBeInTheDocument();
 });
 
+test("a history date in Russian has no «г.»", async () => {
+  stubApi();
+  // The words come from the English bundle here; the date follows the screen's locale.
+  renderWith(<Progression locale="ru" onBack={vi.fn()} />);
+
+  expect(await screen.findByText("20 окт. 2026")).toBeInTheDocument();
+  expect(screen.queryByText(/2026 г\./)).toBeNull();
+});
+
 test("a new asana sends the expected id and shows the celebration card", async () => {
   const after = { ...AT_NAVASANA, position: P("primary", "bhujapidasana"), last_event_id: 8 };
   const seen = stubApi({
@@ -313,7 +322,7 @@ test("PracticeDetails asks after a length past the last asana; Yes celebrates", 
   });
   renderWith(<PracticeDetails date={TODAY} practice={null} zone={null} locale="en" />);
 
-  fireEvent.click(await screen.findByRole("button", { name: "🎯 Other…" }));
+  fireEvent.click(await screen.findByRole("button", { name: "🎯 Choose…" }));
   fireEvent.change(screen.getByLabelText("Last asana"), { target: { value: "kurmasana" } });
 
   expect(
@@ -340,7 +349,7 @@ test("PracticeDetails asks after a length past the last asana; Yes celebrates", 
 test("PracticeDetails: Not new posts the dismissal and hides the question", async () => {
   const seen = stubApi();
   renderWith(<PracticeDetails date={TODAY} practice={null} zone={null} locale="en" />);
-  fireEvent.click(await screen.findByRole("button", { name: "🎯 Other…" }));
+  fireEvent.click(await screen.findByRole("button", { name: "🎯 Choose…" }));
   fireEvent.change(screen.getByLabelText("Last asana"), { target: { value: "kurmasana" } });
   fireEvent.click(await screen.findByRole("button", { name: "Not new" }));
 

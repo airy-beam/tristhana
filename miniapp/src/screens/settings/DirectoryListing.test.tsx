@@ -886,6 +886,15 @@ describe("checked: month and year", () => {
     expect(checkedMonth("2027-01-01", "ru")).toBe("январь 2027");
   });
 
+  // Inside a sentence («сверено: ноябрь 2026»), as the bot's Babel `LLLL y`: never capitalised.
+  test("in Russian, lowercase inside the line", () => {
+    for (let m = 1; m <= 12; m++) {
+      const month = checkedMonth(`2026-${String(m).padStart(2, "0")}-01`, "ru");
+      expect(month).toBe(month.toLocaleLowerCase("ru"));
+      expect(month).toMatch(/^\p{Ll}+ 2026$/u);
+    }
+  });
+
   test("the far-west zone really is in force in this test", () => {
     process.env.TZ = "Pacific/Pago_Pago";
     expect(new Date("2026-11-01T00:00:00Z").getMonth()).toBe(9); // October there

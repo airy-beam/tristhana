@@ -431,7 +431,7 @@ def test_a_shared_location_sets_the_zone_only(client: TestClient, storage: InMem
     assert (account.timezone, account.home_city) == ("Asia/Bangkok", "-")
     assert (
         body["text"]
-        == "🕐 Done: your time zone is Bangkok (UTC+7). You can change it in /settings."
+        == "🕐 Done: your time is Bangkok (UTC+7). You can change it under ☰ Menu → ⚙️ Settings."
     )
     assert body["reply_markup"] == {"remove_keyboard": True}
 
@@ -493,7 +493,7 @@ def test_a_location_at_sea_writes_nothing(client: TestClient, storage: InMemoryS
 
     body = _post(client, {"update_id": next(_ids), "message": message})
 
-    assert body["text"].startswith("I couldn't find a time zone there.")
+    assert body["text"].startswith("I couldn't tell the local time from that place.")
     assert storage.repo.accounts[me.id].timezone is None
 
 

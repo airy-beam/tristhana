@@ -411,7 +411,7 @@ describe("TodayCard: three choices", () => {
     stubApi(logged("rest"));
     renderCard();
     fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Diary" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
       target: { value: "Kapotasana felt lighter" },
     });
     vi.stubGlobal(
@@ -426,7 +426,7 @@ describe("TodayCard: three choices", () => {
       "Couldn't save. Try again in a moment.",
     );
     await new Promise((resolve) => setTimeout(resolve, 30)); // the refetch has failed too
-    expect(screen.getByRole("textbox", { name: "Diary" })).toHaveValue("Kapotasana felt lighter");
+    expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("Kapotasana felt lighter");
     expect(screen.getByRole("heading", { level: 2, name: /^Today, / })).toBeInTheDocument();
     expect(screen.queryByText(/Couldn't load/)).not.toBeInTheDocument();
     // Back as it was before the tap.

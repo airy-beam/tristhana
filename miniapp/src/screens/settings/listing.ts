@@ -8,6 +8,7 @@ import {
   type ListingLevel,
   type ListingMark,
 } from "../../api/client";
+import { monthTitle } from "../../i18n/dates";
 import type { Locale } from "../../i18n/negotiate";
 
 // ID-05: the SYC directory line. Kept out of api/client so the initial bundle doesn't carry it:
@@ -64,10 +65,11 @@ export function useRemoveListing() {
   });
 }
 
-/** `checked_on` is a date, not an instant: month and year only, read in UTC so no device zone
- * moves it into the month before. RU: nominative, lowercase, without the «г.» Intl adds. */
+/** `checked_on` is a date, not an instant: month and year only, read from the date itself so
+ * no device zone moves it into the month before. It sits inside a sentence, so RU keeps the
+ * lowercase «ноябрь 2026», as the bot's Babel `LLLL y` (`monthTitle` without the capital). */
 export function checkedMonth(checkedOn: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" })
-    .format(new Date(`${checkedOn.slice(0, 10)}T00:00:00Z`))
-    .replace(/\s*г\.$/, "");
+  const year = Number(checkedOn.slice(0, 4));
+  const month = Number(checkedOn.slice(5, 7)) - 1;
+  return monthTitle(year, month, locale, { capital: false });
 }

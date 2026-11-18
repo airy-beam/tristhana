@@ -38,13 +38,13 @@ The bot asks the same question right after you join a shala: see [My shala](../m
 ## What your teacher sees
 
 - your name;
-- what you log from the day you add them, or the day you asked them at your shala: practice or rest, and your practice length;
+- what you log from the day you add them, or the day you asked them at your shala: practice or rest, and how far you went;
 - your last asana;
-- if nothing shows for a while, a short note saying just that.
+- if nothing shows for a while, one short line saying just that.
 
 ## What stays with you
 
-- check-ins and diary notes;
+- your answers about how you feel, and your notes;
 - the reason for a rest day. All rest looks the same to a teacher, whatever it was;
 - everything you logged before you added them;
 - your badges.

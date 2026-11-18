@@ -82,8 +82,8 @@ def test_command_menu_is_localized_from_the_bot_ftl() -> None:
         "Сегодня",
     )
     assert (default["commands"][1]["description"], ru["commands"][1]["description"]) == (
-        "Classes",
-        "Занятия",
+        "My schedule",  # UI-06 stage 5 (QB): the Menu row's words
+        "Моё расписание",
     )
 
 
@@ -114,7 +114,7 @@ def test_profile_texts_come_from_the_bot_ftl_in_both_languages() -> None:
         "Tristhana is a companion for your Ashtanga practice.\n\n🧘"
     )
     assert en["description"].endswith("Guide: tristhana.app")
-    assert ru["description"].startswith("Тристхана — спутник")
+    assert ru["description"].startswith("Tristhana — спутник")  # QF: Latin, never declined
     assert ru["description"].endswith("tristhana.app/ru/")
     assert "\n\nЖурнал — твой." in ru["description"]  # noqa: RUF001 - blank lines inside the text survive
     assert en_about["short_description"].startswith("Your Ashtanga companion")

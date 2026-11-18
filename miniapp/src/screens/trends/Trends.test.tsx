@@ -108,14 +108,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("Check-ins over time", () => {
+describe("How you've felt", () => {
   it("says so when there is nothing yet, and shows no figure", async () => {
     stubApi(trends({ total: 0, enough: false, months: [], weekdays: null, moon: null }));
     const { container } = renderTrends();
 
     expect(
       await screen.findByText(
-        "Nothing here yet. Averages of the check-ins you add after practice will show up on this screen.",
+        "Nothing here yet. When you answer “How do you feel?” after practice, the averages show up on this screen.",
       ),
     ).toBeVisible();
     expect(container.querySelector("table, svg")).toBeNull();
@@ -125,7 +125,9 @@ describe("Check-ins over time", () => {
     stubApi(trends({ total: 7, enough: false, months: [], weekdays: null, moon: null }));
     const { container } = renderTrends();
 
-    expect(await screen.findByText(says("Averages appear here from 10 check-ins."))).toBeVisible();
+    expect(
+      await screen.findByText(says("Averages appear here once you've answered on 10 days.")),
+    ).toBeVisible();
     expect(container.querySelector("table, svg")).toBeNull();
     expect(screen.queryByText(/7/)).toBeNull();
   });
@@ -161,8 +163,8 @@ describe("Check-ins over time", () => {
 
     const table = within(section("By month")).getByRole("table", { name: "By month" });
     expect(table.parentElement).toHaveClass("visually-hidden");
-    expect(labels(table)).toContain("Energy, October 2026: 3.4 on average, 21 check-ins");
-    expect(labels(table)).toContain("Mood, September 2026: 4.5 on average, 5 check-ins");
+    expect(labels(table)).toContain("Energy, October 2026: 3.4 on average, 21 days");
+    expect(labels(table)).toContain("Mood, September 2026: 4.5 on average, 5 days");
     expect(labels(table)).toContain("Effort, October 2026: no average");
   });
 
@@ -178,7 +180,7 @@ describe("Check-ins over time", () => {
     expect(heads).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
     const energy = within(table).getByRole("rowheader", { name: "Energy" }).closest("tr");
     expect(shown(energy)).toEqual(["3.46", "—", "4.05", "—", "—", "—", "—"]);
-    expect(labels(table)).toContain("Energy, Monday: 3.4 on average, 6 check-ins");
+    expect(labels(table)).toContain("Energy, Monday: 3.4 on average, 6 days");
   });
 
   it("sets days near a full or new moon beside the others, naming the city", async () => {
@@ -192,7 +194,7 @@ describe("Check-ins over time", () => {
         .getAllByRole("columnheader")
         .map((th) => th.textContent),
     ).toEqual(["🌕 Near full moon", "🌑 Near new moon", "Other days"]);
-    expect(labels(moon)).toContain("Energy, Near full moon: 2.5 on average, 5 check-ins");
+    expect(labels(moon)).toContain("Energy, Near full moon: 2.5 on average, 5 days");
     expect(
       await within(moon).findByText(
         says(
@@ -229,7 +231,7 @@ describe("Check-ins over time", () => {
     stubApi(trends());
     renderTrends();
     await screen.findByRole("heading", { name: "By weekday" });
-    expect(screen.getByText(says('"—" means fewer than 5 check-ins there.'))).toBeVisible();
+    expect(screen.getByText(says('"—" means fewer than 5 days with answers there.'))).toBeVisible();
   });
 
   it("leaves the dash note out when every shown cell has a figure", async () => {
@@ -288,7 +290,7 @@ describe("Check-ins over time", () => {
 
     expect(
       await screen.findByText(
-        "These are averages of your own check-ins. The app draws no conclusions from them. Teachers and shalas don't see them.",
+        "These are averages of your own answers. The app draws no conclusions from them. Teachers and shalas don't see them.",
       ),
     ).toBeVisible();
   });
@@ -308,7 +310,7 @@ describe("Check-ins over time", () => {
     await screen.findByRole("heading", { name: "По дням недели" });
 
     const table = within(section("По дням недели")).getByRole("table");
-    expect(labels(table)).toContain("Энергия, понедельник: в среднем 3,4, 6 отметок");
+    expect(labels(table)).toContain("Энергия, понедельник: в среднем 3,4, 6 дней");
     expect(
       await screen.findByText(
         says("«Около» — день полнолуния или новолуния, день до и день после. Даты для 📍 Алматы."),
@@ -337,23 +339,29 @@ describe("trends.ftl", () => {
   });
 
   it.each([
-    [1, "1 отметка"],
-    [2, "2 отметки"],
-    [5, "5 отметок"],
-    [21, "21 отметка"],
-  ])("counts Russian check-ins through Fluent (%i)", (n, tail) => {
+    [1, "1 день"],
+    [2, "2 дня"],
+    [5, "5 дней"],
+    [21, "21 день"],
+  ])("counts Russian days through Fluent (%i)", (n, tail) => {
     const said = say(ru, "trends-cell-label", { scale: "S", where: "W", mean: "3,0", n });
     expect(said).toBe(`S, W: в среднем 3,0, ${tail}`);
   });
 
-  it("counts one English check-in in the singular", () => {
+  it.each([
+    [1, "1 день"],
+    [3, "3 дня"],
+    [10, "10 дней"],
+  ])("says how many days the averages wait for, in Russian plurals (%i)", (min, days) => {
+    expect(say(ru, "trends-too-few", { min })).toBe(
+      `Средние появятся здесь, когда будут ответы хотя бы за ${days}.`,
+    );
+  });
+
+  it("counts one English day in the singular", () => {
     const args = { scale: "S", where: "W", mean: "3.0" };
-    expect(say(en, "trends-cell-label", { ...args, n: 1 })).toBe(
-      "S, W: 3.0 on average, 1 check-in",
-    );
-    expect(say(en, "trends-cell-label", { ...args, n: 2 })).toBe(
-      "S, W: 3.0 on average, 2 check-ins",
-    );
+    expect(say(en, "trends-cell-label", { ...args, n: 1 })).toBe("S, W: 3.0 on average, 1 day");
+    expect(say(en, "trends-cell-label", { ...args, n: 2 })).toBe("S, W: 3.0 on average, 2 days");
   });
 
   // Figures only (spec §2): no comparison, cause, advice, score or statistics word.

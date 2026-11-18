@@ -1,14 +1,14 @@
 ---
 title: "Invite your students"
-description: "Two ways to connect with a student: share your own link, or say yes when they pick you at your shala."
+description: "Two ways to connect with a student: send your own link, or say yes when they pick you at your shala."
 features: [ID-03, ID-04, ID-07, UI-06]
 ---
 
-Two ways to connect with a student: share your own link, or say yes when they pick you at your shala.
+Two ways to connect with a student: send your own link, or say yes when they pick you at your shala.
 
 ## Get your link
 
-1. The first time, open :ftl[menu-open] → :ftl[menu-teach] and tap :ftl[welcome-path-invite]. Already on a shala's team? Then the row is :ftl[links-invite-first], under :ftl[menu-teacher].
+1. The first time, open :ftl[menu-open] → :ftl[menu-teach] and tap :ftl[welcome-path-invite]. Already on a shala's staff? Then the row is :ftl[links-invite-first], under :ftl[menu-teacher].
 2. Once you have students, it is :ftl[menu-open] → :ftl[menu-students] → :ftl[links-invite].
 3. :ftl[invite-send] sends your personal link to a chat. :ftl[invite-qr] makes a picture you can show on your phone or print for the shala wall. :ftl[invite-more] shows the link as text.
 
@@ -18,7 +18,7 @@ In the app the same link is on the :ftl[tab-shala] tab: tap :ftl[shala-start-inv
 
 ![The Shala tab in the app before anyone is on it, with Invite students and Shala and classes](../../../assets/shots/en/app-shala-empty.webp)
 
-There is no teacher account to apply for. If you teach, you share your link, and that's all.
+There is no teacher account to apply for. If you teach, you send your link, and that's all.
 
 ## What your student does
 

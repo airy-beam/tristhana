@@ -15,7 +15,7 @@ Tell everyone in the shala about a change, all at once.
 
 ![The shala announcement form in the app, with one sent announcement](../../../assets/shots/en/app-shala-announce.webp)
 
-It goes to everyone in the shala, students and the team, as a message from the bot with the shala's name and yours.
+It goes to everyone in the shala, students and staff, as a message from the bot with the shala's name and yours.
 
 ## Who can send
 

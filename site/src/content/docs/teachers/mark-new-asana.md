@@ -28,7 +28,7 @@ The student can undo your mark if it doesn't match their practice, until their p
 - You can mark forward only, up to three asanas at a time. Asanas given together, such as Salabhasana A and B, count as one. Anything else, such as moving back or setting a different series, the student changes in :ftl[progression-open].
 - If the student hasn't set their last asana yet, the card says so. Ask them to set it once, and then you can mark new ones.
 - The list crosses from one series to the next: after Setu Bandhasana comes Pasasana.
-- Any teacher on the student's list can mark an asana. A shala's team can't, unless the student added them as a teacher.
+- Any teacher on the student's list can mark an asana. A shala's staff can't, unless the student added them as a teacher.
 - You can't undo your own mark. If you tapped the wrong row, ask the student to undo it.
 
 ## Next

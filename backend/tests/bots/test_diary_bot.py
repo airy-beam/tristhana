@@ -44,8 +44,8 @@ EMPTY = (
 UNREADABLE = "This note can't be read right now. You can write a new one or remove it."
 PROMPT = "Write your note for today as a reply to this message. It's private, just for you."
 REPLACE = "It will replace the current note. Copy the note above to edit it."
-SAVED = "📓 Saved to your diary."
-REMOVED = "Removed from your diary. Earlier messages in this chat stay until you delete them."
+SAVED = "📓 Note saved."
+REMOVED = "Note removed. Earlier messages in this chat stay until you delete them."
 TEXT_ONLY = "Notes are text for now. Type your note as a reply to the prompt above."
 TOO_LONG = re.compile(
     r"That's a bit long for one note: up to 2[, ]?000 characters\. Your text is still "  # noqa: RUF001
@@ -965,7 +965,7 @@ def test_a_reply_with_a_future_token_date_saves_nothing(
 
     body = _one(_reply(client, NOTE, day=TODAY + timedelta(days=2)), outbound)
 
-    assert body["text"].startswith("That day hasn't come yet in your time zone.")
+    assert body["text"].startswith("In your city this day hasn't come yet.")
     assert storage.day_repo.diary_rows == {}
 
 
@@ -1003,10 +1003,10 @@ def test_the_saved_message_in_russian(
 ) -> None:
     _me(client, storage, lang="ru")
 
-    body = _one(_reply(client, "Заметка", lang="ru"), outbound)
+    body = _one(_reply(client, "Мысль дня", lang="ru"), outbound)
 
-    assert "📓 Сохранено в дневнике." in body["text"]
-    assert "Заметка" not in body["text"].replace("Удалить заметку", "")
+    assert "📓 Заметка сохранена." in body["text"]
+    assert "Мысль дня" not in body["text"]  # the note itself is never echoed
 
 
 # Failures
@@ -1033,7 +1033,7 @@ def test_a_future_date_on_n_shows_the_week(
 
     body = _one(_tap(client, f"n1:o:{_ymd(TODAY + timedelta(days=3))}:d"), outbound)
 
-    assert body["text"].startswith("That day hasn't come yet in your time zone.")
+    assert body["text"].startswith("In your city this day hasn't come yet.")
 
 
 @pytest.mark.parametrize("data", ["n1:zz", "n1:o:20261399:d", "n1:o:20261027:q", "n1:o"])

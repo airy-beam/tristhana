@@ -252,12 +252,12 @@ ITEMS: dict[str, tuple[str, ...]] = {
         "your name (Ash)",
         "from today on",
         "practice or rest",
-        "your practice length",
+        "how far your practice goes",
         "your last asana",
         "If nothing shows for a while",
         "a short note saying just that",
-        "Check-ins",
-        "diary notes",
+        "How you feel",
+        "your notes",
         "the reason for a rest",
         "stay private",
         "any time",  # QB, ADR-0049: no surface named, so the app can show it too
@@ -369,11 +369,11 @@ def test_the_short_request_consent_says_nothing_the_full_text_does_not(locale: s
 def test_the_request_consents_name_no_bot_place_and_the_invite_consent_keeps_its_own(
     locale: str,
 ) -> None:
-    """QB, ADR-0049: the app shows the bot's request texts, so they name no surface. The
-    personal link's consent is bot-only and keeps its wording until stage 5."""
-    for key in ("request-consent-short", "request-consent"):
+    """QB, ADR-0049: the app shows the bot's request texts, so they name no surface. Since
+    UI-06 stage 5 (QC, QE) the personal link's consent names none either: "any time"."""
+    for key in ("request-consent-short", "request-consent", "invite-consent"):
         assert "/teachers" not in _text(locale, key), key
-    assert "/teachers" in _text(locale, "invite-consent")
+        assert re.search("any time|в любой момент", _text(locale, key)), key
 
 
 @pytest.mark.parametrize("locale", LOCALES)
@@ -392,9 +392,10 @@ def test_both_layers_name_the_quiet_note_the_tap_agrees_to(locale: str) -> None:
 def test_the_personal_link_and_join_consents_are_unchanged_on_purpose() -> None:
     """Spec §2: joining alone still shares nothing, so `shala-join-consent` says nothing
     about a teacher's view; the question comes after it, with its own consent."""
+    seen = "last asana|последняя асана|how far your practice goes|объём практики"
     for locale in LOCALES:
         join = _text(locale, "shala-join-consent")
-        assert not re.search("last asana|последняя асана|practice length|объём практики", join)
+        assert not re.search(seen, join)
 
 
 @pytest.mark.parametrize("locale", LOCALES)

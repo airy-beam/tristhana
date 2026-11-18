@@ -1,10 +1,10 @@
 ---
 title: "Classes and the week"
-description: "Add Mysore, Led and other classes once, and everyone sees the week in their own time zone."
+description: "Add Mysore, Led and other classes once, and everyone sees the week by their own city's clock."
 features: [SC-02]
 ---
 
-Add Mysore, Led and other classes once, and everyone sees the week in their own time zone.
+Add Mysore, Led and other classes once, and everyone sees the week by their own city's clock.
 
 ## Add a class
 
@@ -19,7 +19,7 @@ Mysore comes filled in: 06:00 to 09:30, every day but the shala's day off. Two t
 
 The rest is under :ftl[class-form-more]:
 
-- **How long it lasts**: 60, 75, 90 or 120 minutes, or :ftl[class-form-length-other] and a number of minutes. Mysore has :ftl[class-form-until] instead.
+- **:ftl[class-form-length]**: 60, 75, 90 or 120 minutes, or :ftl[class-form-length-other] and a number of minutes. Mysore has :ftl[class-form-until] instead.
 - **A title and the teacher.** If you are a teacher in this shala, your name is already filled in.
 - **:ftl[class-form-every]**: every week, or every 2 to 4 weeks.
 - **:ftl[class-form-from]** and **:ftl[class-form-end]**.
@@ -29,14 +29,14 @@ Saved it and want something different? See [Change, end or delete a class](../ch
 
 ## How people see it
 
-- Everyone in the shala sees the week in their own time zone, with the zone's name. If they are in another zone, they see the shala's time too.
-- 1:1 classes are shown to the team only.
+- Everyone in the shala sees the week by their own city's clock, with the city named. If they live by another city's time, they see the shala's time too.
+- 1:1 classes are shown to the staff only.
 - An online class is marked 🌐, and you can set its time by another city.
 - You set times by the clock in the shala's city, so a 06:00 class stays at 06:00 when the clocks change.
 
 ## The classes you teach
 
-In the bot, open :ftl[menu-open] → :ftl[menu-classes] and tap :ftl[my-schedule-filter]{f=mine} to see your own week across all your shalas, including a class you are covering for someone. :cmd[classes] is a shortcut.
+In the bot, open :ftl[menu-open] → :ftl[menu-classes] and tap :ftl[my-schedule-filter]{f=mine} to see your own week across all your shalas, including a class you are covering for someone.
 
 ![The classes a teacher teaches this week, in the bot](../../../assets/shots/en/bot-classes.webp)
 

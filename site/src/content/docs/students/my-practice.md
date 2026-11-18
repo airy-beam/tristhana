@@ -29,13 +29,13 @@ Tap :ftl[badges-open] at the bottom. You see only the badges you have earned, an
 
 ![The badges screen with a few earned badges](../../../assets/shots/en/app-badges.webp)
 
-## Check-ins over time
+## How you've felt
 
-Tap :ftl[trends-open] at the bottom. It shows the averages of your after-practice check-ins for the last 12 months: by month, by weekday, and on the days around a full or new moon next to all other days. The small number under each average is how many check-ins it comes from.
+Tap :ftl[trends-open] at the bottom. It shows the averages of your answers to :ftl[checkin-edit] after practice for the last 12 months: by month, by weekday, and on the days around a full or new moon next to all other days. The small number under each average is how many days it comes from.
 
-![The Check-ins over time screen: averages by month, by weekday and near full and new moon](../../../assets/shots/en/app-trends.webp)
+![The How you've felt screen: averages by month, by weekday and near full and new moon](../../../assets/shots/en/app-trends.webp)
 
-The screen shows your numbers and draws no conclusions from them. Averages appear from 10 check-ins. A month, a weekday or a moon column needs 5, and shows a dash until then. This screen is yours alone: teachers and shalas don't see it.
+The screen shows your numbers and draws no conclusions from them. Averages appear once you've answered on 10 days. A month, a weekday or a moon column needs 5 days, and shows a dash until then. This screen is yours alone: teachers and shalas don't see it.
 
 ## Share a card
 

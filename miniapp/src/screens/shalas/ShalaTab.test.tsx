@@ -572,7 +572,9 @@ test("the invite shows the server's QR on the page, with no link built here", as
 
   expect(qr).toHaveAttribute("src", QR_1);
   expect(pageText()).toContain(URL_1);
-  expect(pageText()).toContain("Share this link or QR code. Each student confirms for themselves.");
+  expect(pageText()).toContain(
+    "Send this link or show the QR code. Each student confirms for themselves.",
+  );
   const [post] = calls(seen, "POST", "/api/v1/me/invite");
   expect(await post?.clone().json()).toEqual({ rotate: false });
   expect(seen.every((r) => !r.url.includes("t_"))).toBe(true);
@@ -591,12 +593,12 @@ test("Copy puts the link on the clipboard and says so", async () => {
   expect(writeText).toHaveBeenCalledWith(URL_1);
 });
 
-test("Share opens Telegram's share sheet through the wrapper", async () => {
+test("Send the link opens Telegram's share sheet through the wrapper", async () => {
   stubApi(() => ({ teachers: [], students: [] }));
   await openScreen();
   await openInvite();
 
-  fireEvent.click(screen.getByRole("button", { name: "📤 Share" }));
+  fireEvent.click(screen.getByRole("button", { name: "✉️ Send the link" }));
 
   expect(openTelegramLink).toHaveBeenCalledOnce();
   const [link = ""] = openTelegramLink.mock.calls[0] ?? [];
@@ -1475,7 +1477,7 @@ describe("the waiting block", () => {
     await screen.findByRole("button", { name: UNDO });
 
     fireEvent.click(await screen.findByRole("button", { name: "👥 My students" }));
-    await screen.findByText(/own time zone/);
+    await screen.findByText(/each student's local time/);
     act(() => {
       telegram.back();
     });

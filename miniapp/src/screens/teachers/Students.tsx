@@ -454,9 +454,9 @@ function Days({
             <li
               key={day.date}
               className="student-day-blank"
-              aria-label={l10n.getString("students-day-blank", { date: label })}
+              aria-label={l10n.getString("students-day-blank-spoken", { date: label })}
             >
-              {l10n.getString("students-day-blank-mark", { date: label })}
+              {l10n.getString("students-day-blank", { date: label })}
             </li>
           );
         }

@@ -25,7 +25,7 @@ In the app you tick the names, search by name if the list is long, and save.
 
 ## Who is on the list
 
-The shala's students, and people on the team who practice there.
+The shala's students, and staff who practice there.
 
 ## What students see
 
@@ -35,7 +35,7 @@ The shala's students, and people on the team who practice there.
 
 ## Good to know
 
-- Anyone on the team can mark attendance, assistants and the front desk included.
+- Anyone on the staff can mark attendance, assistants and the front desk included.
 - A cancelled class can't be marked.
 - Attendance is separate from the practice log. Marking a class doesn't log a practice for the student, and you see nothing from their log here.
 

@@ -13,6 +13,7 @@ const KEYS = [
   "students-quiet",
   "students-mark",
   "students-day-blank",
+  "students-day-blank-spoken",
   "students-more",
   "students-load-failed",
   "links-students",
@@ -33,7 +34,7 @@ describe("ST-06 copy", () => {
     const vars = { date: "D", state: "S", length: "L" };
     expect(format(bundle, "students-day", vars)).toBe("D: S");
     expect(format(bundle, "students-day-length", vars)).toBe("D: S, L");
-    expect(format(bundle, "students-day-blank-mark", vars)).toBe("D: ·");
+    expect(format(bundle, "students-day-blank", vars)).toBe("D: ·");
   });
 
   it("reads as written", () => {
@@ -49,10 +50,10 @@ describe("ST-06 copy", () => {
     );
     expect(format(en, "students-quiet")).toBe("Nothing shared for a while");
     expect(format(ru, "students-quiet")).toBe("Какое-то время показать нечего");
-    expect(plain(format(en, "students-day-blank", { date: "Nov 5" }))).toBe(
+    expect(plain(format(en, "students-day-blank-spoken", { date: "Nov 5" }))).toBe(
       "Nov 5: nothing to show",
     );
-    expect(plain(format(ru, "students-day-blank", { date: "5 нояб." }))).toBe(
+    expect(plain(format(ru, "students-day-blank-spoken", { date: "5 нояб." }))).toBe(
       "5 нояб.: показать нечего",
     );
     expect(plain(format(en, "links-students", { count: 12 }))).toBe("👥 My students (12)");

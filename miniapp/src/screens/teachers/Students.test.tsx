@@ -307,7 +307,9 @@ async function renderApp(locale: "en" | "ru" = "en") {
 async function openList(locale: "en" | "ru" = "en") {
   await renderApp(locale);
   fireEvent.click(await homeRow(locale));
-  await screen.findByText(locale === "en" ? /own time zone/ : /часовому поясу каждого ученика/);
+  await screen.findByText(
+    locale === "en" ? /each student's local time/ : /местному времени каждого ученика/,
+  );
 }
 
 async function openCard(name: RegExp | string = /Anna/, locale: "en" | "ru" = "en") {
@@ -425,14 +427,14 @@ describe("the list", () => {
     expect(screen.getAllByLabelText("😌 Rest day")).toHaveLength(1);
   });
 
-  test("has the title and the time zone note", async () => {
+  test("has the title and the local time note", async () => {
     stubApi();
 
     await openList();
 
     await screen.findByRole("button", { name: /Maria/ });
     expect(heading()).toBe("👥 My students (3)");
-    expect(pageText()).toContain("Days follow each student's own time zone.");
+    expect(pageText()).toContain("Days follow each student's local time.");
   });
 
   test("carries no dates and no week, and opens no card by itself", async () => {
@@ -531,7 +533,7 @@ describe("the list", () => {
     fireEvent.click(await homeRow());
 
     await screen.findByRole("button", { name: /Maria/ });
-    expect(pageText()).toContain("Days follow each student's own time zone.");
+    expect(pageText()).toContain("Days follow each student's local time.");
   });
 });
 
@@ -819,7 +821,7 @@ describe("Russian", () => {
 
     await screen.findByRole("button", { name: /Maria/ });
     expect(heading()).toBe("👥 Мои ученики (3)");
-    expect(pageText()).toContain("Дни считаются по часовому поясу каждого ученика.");
+    expect(pageText()).toContain("Дни считаются по местному времени каждого ученика.");
     expect(screen.getAllByLabelText("🧘 Практика")).toHaveLength(1);
     expect(screen.getAllByLabelText("😌 День отдыха")).toHaveLength(1);
   });

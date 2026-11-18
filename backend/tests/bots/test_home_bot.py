@@ -169,12 +169,12 @@ def test_the_menu_for_someone_with_no_role(client: TestClient, outbound: list[An
 @pytest.mark.parametrize(
     ("role", "added", "quiet"),
     [
-        ({"shala": STUDENT_AT}, {"🗓 Classes": "c1:m:0:a"}, True),
+        ({"shala": STUDENT_AT}, {"🗓 My schedule": "c1:m:0:a"}, True),
         ({"teaches": True}, {"👥 My students": "t1:s:0"}, False),
-        ({"shala": STAFF_AT}, {"🗓 Classes": "c1:m:0:a"}, True),  # no students yet: quiet row
+        ({"shala": STAFF_AT}, {"🗓 My schedule": "c1:m:0:a"}, True),  # no students yet: quiet row
         (
             {"teaches": True, "shala": STAFF_AT},
-            {"🗓 Classes": "c1:m:0:a", "👥 My students": "t1:s:0"},
+            {"🗓 My schedule": "c1:m:0:a", "👥 My students": "t1:s:0"},
             False,
         ),
     ],
@@ -205,7 +205,7 @@ def test_the_menu_keeps_its_fixed_order(client: TestClient, storage: InMemorySto
         ["📝 Today"],
         ["📊 My practice"],
         ["🌙 Moon days"],
-        ["🗓 Classes"],
+        ["🗓 My schedule"],
         ["🙏 Teacher and shala"],
         ["👥 My students"],
         ["⚙️ Settings"],
@@ -316,7 +316,7 @@ def test_invite_then_the_teachers_closing_then_today(client: TestClient) -> None
     today = _tap(client, _where(closing)["🧘 Log my own practice"])
 
     assert "☰ Menu → For teachers and shalas" in closing["text"]  # where the link is now
-    assert "☰ Menu → My students" in closing["text"]  # where students will appear
+    assert "☰ Menu → 👥 My students" in closing["text"]  # where students will appear
     assert _where(closing) == {
         "🧘 Log my own practice": "w1:n",
         "Shala and classes": "w1:s:c",

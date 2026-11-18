@@ -596,16 +596,16 @@ describe("Settings keeps what it was opened over", () => {
     await launch();
     await today();
     fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Diary" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
       target: { value: "Kapotasana felt lighter" },
     });
 
     menuSettings();
     await settings();
-    expect(screen.queryByRole("textbox", { name: "Diary" })).toBeNull(); // hidden, not gone
+    expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull(); // hidden, not gone
     back();
 
-    expect(await screen.findByRole("textbox", { name: "Diary" })).toHaveValue(
+    expect(await screen.findByRole("textbox", { name: "Note" })).toHaveValue(
       "Kapotasana felt lighter",
     );
     expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
@@ -725,7 +725,7 @@ describe("Back or tabs, never both", () => {
     fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
     expect(bar()).not.toBeNull(); // nothing typed yet: nothing to protect
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Diary" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
       target: { value: "Kapotasana felt lighter" },
     });
 
@@ -900,7 +900,7 @@ describe("Today: one next step, each leading to its place", () => {
     // The Reminders page, not the five rows; it says once why the times wait.
     expect(await heading("🔔 Reminders")).toHaveFocus();
     expect(await screen.findByRole("checkbox", { name: "🔔 Ask me once a day" })).toBeChecked();
-    expect(screen.getAllByText(/once your time zone is known/)).toHaveLength(1);
+    expect(screen.getAllByText(/once I know your city/)).toHaveLength(1);
     expect(screen.queryByRole("heading", { level: 1, name: "Settings" })).toBeNull();
     back();
     expect(await today()).toBeInTheDocument();

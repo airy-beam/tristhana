@@ -33,7 +33,7 @@ Under the message is :ftl[ann-mute]. A student who taps it stops getting the mes
 - You can send up to 3 announcements in 24 hours.
 - Name the day and the time, for example "Mon 16 Nov, 6:00", not "tomorrow". People may read it later.
 - It goes to all your students at once. Everyone sees the text and your name, so leave out other people's personal details.
-- To write to everyone in a shala, students and team, see [Shala announcements](../../staff/announcements/).
+- To write to everyone in a shala, students and staff, see [Shala announcements](../../staff/announcements/).
 
 ## Next
 

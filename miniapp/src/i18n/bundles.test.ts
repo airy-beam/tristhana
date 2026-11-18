@@ -223,6 +223,11 @@ const AVOID = [
   "всего лишь",
   "опять",
 ];
+// Two phrases the list never meant (UI-06 stage 5 review): "Try again" asks for a retry after an
+// error, and "Only you see" is the privacy promise. Neither judges the person or makes their
+// practice small, so they are read out before the words above are looked for.
+const AVOID_FREE = [/\btry again\b/giu, /\bonly you\b/giu];
+const toneOf = (text: string) => AVOID_FREE.reduce((t, re) => t.replace(re, " "), text);
 
 /** The raw source (every variant) of each `checkin-*` / `settings-checkin*` message. */
 function checkInSources(source: string): Record<string, string> {
@@ -254,8 +259,8 @@ describe("PR-06 check-in copy", () => {
     expect(format(bundleFor("ru"), "checkin-edit")).toBe("✨ Как самочувствие?");
     expect(format(bundleFor("en"), "checkin-summary-energy", { n: 4 })).toBe("⚡ energy 4/5");
     expect(format(bundleFor("ru"), "checkin-summary-effort", { n: 3 })).toBe("🔥 усилие 3/5");
-    expect(format(bundleFor("en"), "checkin-clear")).toBe("Remove check-in");
-    expect(format(bundleFor("ru"), "checkin-clear")).toBe("Убрать самочувствие");
+    expect(format(bundleFor("en"), "checkin-clear")).toBe("Remove answers");
+    expect(format(bundleFor("ru"), "checkin-clear")).toBe("Убрать ответы");
     // Q313: the setting shows or hides the entry; it no longer promises "add one from the day".
     expect(format(bundleFor("en"), "settings-checkin")).toBe(
       "Show “How do you feel?” after practice",
@@ -264,10 +269,10 @@ describe("PR-06 check-in copy", () => {
       "Показывать «Как самочувствие?» после практики",
     );
     expect(format(bundleFor("en"), "settings-checkin-hint")).toBe(
-      "Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.",
+      "A few short questions on days you practice: mood, energy, effort, body and mind. If you turn this off, your answers stay and you can still change them.",
     );
     expect(format(bundleFor("ru"), "settings-checkin-hint")).toBe(
-      "Настроение, энергия и усилие в день практики. Уже сделанная отметка остаётся, и её можно изменить.",
+      "Несколько коротких вопросов в дни практики: настроение, энергия, усилие, тело и ум. Если выключить, ответы останутся, и их можно будет изменить.",
     );
   });
 
@@ -293,7 +298,7 @@ describe("PR-06 check-in copy", () => {
     const sources = checkInSources(source);
     expect(Object.keys(sources).length).toBeGreaterThanOrEqual(PR06.length);
     const found = Object.entries(sources).flatMap(([id, text]) =>
-      AVOID.filter((word) => new RegExp(`(^|[^\\p{L}])${word}`, "iu").test(text)).map(
+      AVOID.filter((word) => new RegExp(`(^|[^\\p{L}])${word}`, "iu").test(toneOf(text))).map(
         (word) => `${id}: ${word}`,
       ),
     );
@@ -382,28 +387,28 @@ describe("PR-07 diary copy", () => {
   it("reads as written", () => {
     const en = bundleFor("en");
     const ru = bundleFor("ru");
-    expect(format(en, "diary-title")).toBe("Diary");
-    expect(format(ru, "diary-title")).toBe("Дневник");
+    expect(format(en, "diary-title")).toBe("Note");
+    expect(format(ru, "diary-title")).toBe("Заметка");
     // The bot's 📓, as every list row has an icon (UI-06).
     expect(format(en, "diary-add")).toBe("📓 Add a note");
     expect(format(ru, "diary-add")).toBe("📓 Добавить заметку");
     expect(format(en, "diary-row")).toBe("📓 Note");
     expect(format(ru, "diary-row")).toBe("📓 Заметка");
-    expect(format(en, "diary-private-hint")).toBe("Your diary is private: teachers don't see it.");
-    expect(format(ru, "diary-private-hint")).toBe("Дневник личный: учителя его не видят.");
+    expect(format(en, "diary-private-hint")).toBe("Only you see your notes.");
+    expect(format(ru, "diary-private-hint")).toBe("Заметки видишь только ты.");
     expect(format(en, "diary-clear")).toBe("Remove note");
-    expect(format(ru, "diary-clear")).toBe("Удалить заметку");
+    expect(format(ru, "diary-clear")).toBe("Убрать заметку");
     expect(format(en, "diary-clear-confirm")).toBe("Remove this note?");
-    expect(format(ru, "diary-clear-confirm")).toBe("Удалить заметку?");
+    expect(format(ru, "diary-clear-confirm")).toBe("Убрать заметку?");
     expect(format(en, "diary-clear-yes")).toBe("Remove");
-    expect(format(ru, "diary-clear-yes")).toBe("Удалить");
-    expect(format(en, "diary-removed")).toBe("Removed from your diary.");
-    expect(format(ru, "diary-removed")).toBe("Заметка удалена из дневника.");
+    expect(format(ru, "diary-clear-yes")).toBe("Убрать");
+    expect(format(en, "diary-removed")).toBe("Note removed.");
+    expect(format(ru, "diary-removed")).toBe("Заметка убрана.");
     expect(format(en, "diary-unreadable")).toBe(
       "This note can't be read right now. You can write a new one or remove it.",
     );
     expect(format(ru, "diary-unreadable")).toBe(
-      "Эту заметку сейчас не получается прочитать. Можно написать новую или удалить старую.",
+      "Эту заметку сейчас не получается прочитать. Можно написать новую или убрать старую.",
     );
     expect(format(en, "diary-save")).toMatch(/^save$/i);
     expect(format(en, "diary-cancel")).toMatch(/^cancel$/i);
@@ -424,9 +429,9 @@ describe("PR-07 diary copy", () => {
     const sources = diarySources(source);
     expect(Object.keys(sources).length).toBeGreaterThanOrEqual(PR07.length);
     const found = Object.entries(sources).flatMap(([id, text]) =>
-      DIARY_AVOID.filter((word) => new RegExp(`(^|[^\\p{L}'])${word}`, "iu").test(text)).map(
-        (word) => `${id}: ${word}`,
-      ),
+      DIARY_AVOID.filter((word) =>
+        new RegExp(`(^|[^\\p{L}'])${word}`, "iu").test(toneOf(text)),
+      ).map((word) => `${id}: ${word}`),
     );
     expect(found).toEqual([]);
   });

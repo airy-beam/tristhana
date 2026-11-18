@@ -24,10 +24,10 @@ home-check-connection = Проверить связь
 home-connection-ok = Связь в порядке ✓
 
 # Если приложение не запустилось (простой текст, вне React).
-startup-failed = Что-то пошло не так. Открой Тристхану заново.
+startup-failed = Что-то пошло не так. Открой приложение заново.
 
 # Если страницу открыли не из Telegram (в проде).
-not-in-telegram = Открой Тристхану в Telegram: @tristhana_bot
+not-in-telegram = Открой приложение в Telegram: @tristhana_bot
 
 # Пример множественного числа для статистики (ST-03).
 practice-days =
@@ -38,7 +38,7 @@ practice-days =
     }
 
 # Показывается, если сессия Telegram старше 24 часов (или её не удалось проверить).
-session-expired = Сессия истекла. Закрой Тристхану и открой её снова из бота.
+session-expired = Сессия истекла. Закрой приложение и открой его снова из бота.
 
 # «Сегодня»: карточка дня (PR-01, UI-06). Подписи и фразы совпадают с ботом.
 # $date: «вс, 18 окт.».
@@ -149,7 +149,7 @@ moon-offset =
         [few] за { $n } дня
        *[other] за { $n } дней
     }
-moon-zone-needed-app = Напоминания начнутся, как только станет известен твой часовой пояс. Он определится сам, когда ты откроешь приложение на телефоне.
+moon-zone-needed-app = Напоминания начнутся, когда я узнаю твой город. Выбери его ниже.
 moon-today =
     { $phase ->
         [purnima] Сегодня 🌕 полнолуние · 📍 { $city }
@@ -325,7 +325,7 @@ day-off-ask-instead = { $d ->
         [6] Суббота
        *[7] Воскресенье
     }
-day-off-ask-other = Другой…
+day-off-ask-other = Выбрать дни…
 day-off-ask-later = Не сейчас
 stats-cell-auto = { $date }: { $kind ->
         [moon] 🌙 лунный день (📍 { $city })
@@ -411,10 +411,10 @@ checkin-edit = ✨ Как самочувствие?
 checkin-summary-energy = ⚡ энергия { $n }/5
 checkin-summary-effort = 🔥 усилие { $n }/5
 settings-checkin = Показывать «Как самочувствие?» после практики
-settings-checkin-hint = Настроение, энергия и усилие в день практики. Уже сделанная отметка остаётся, и её можно изменить.
+settings-checkin-hint = Несколько коротких вопросов в дни практики: настроение, энергия, усилие, тело и ум. Если выключить, ответы останутся, и их можно будет изменить.
 
 ## Дневник (PR-07). Личная заметка на день, при любом статусе; не просим писать.
-diary-title = Дневник
+diary-title = Заметка
 diary-add = 📓 Добавить заметку
 # Строка уже написанной заметки (кнопка бота); под ней первая строка заметки.
 diary-row = 📓 Заметка
@@ -425,12 +425,12 @@ diary-placeholder = Твоя заметка…
 # Видно с 1800 символов; только числа, без форм множественного числа.
 diary-counter = { $n } / { $max }
 diary-save-failed = Не получилось сохранить заметку. Текст остался здесь, можно попробовать ещё раз.
-diary-private-hint = Дневник личный: учителя его не видят.
-diary-unreadable = Эту заметку сейчас не получается прочитать. Можно написать новую или удалить старую.
-diary-clear = Удалить заметку
-diary-clear-confirm = Удалить заметку?
-diary-clear-yes = Удалить
-diary-removed = Заметка удалена из дневника.
+diary-private-hint = Заметки видишь только ты.
+diary-unreadable = Эту заметку сейчас не получается прочитать. Можно написать новую или убрать старую.
+diary-clear = Убрать заметку
+diary-clear-confirm = Убрать заметку?
+diary-clear-yes = Убрать
+diary-removed = Заметка убрана.
 diary-discard-confirm = Выйти, не сохранив заметку?
 diary-discard-yes = Не сохранять
 diary-discard-no = Продолжить писать
@@ -537,7 +537,7 @@ delete-failed = Не получилось удалить. Попробуй чу�
 delete-done-app = Аккаунт и данные удалены. Хорошей практики 🙏 Открой бота, когда захочешь начать заново.
 delete-close = Закрыть
 
-students-days-note = Дни считаются по часовому поясу каждого ученика.
+students-days-note = Дни считаются по местному времени каждого ученика.
 students-week = Последние 7 дней
 students-last-asana = Последняя асана по отметкам в журнале: { $asana } ({ $series } серия)
 students-last-standing = По отметкам в журнале: Сурья Намаскар и стоячие
@@ -550,8 +550,9 @@ students-mark =
     }
 students-day = { $date }: { $state }
 students-day-length = { $date }: { $state }, { $length }
-students-day-blank-mark = { $date }: ·
-students-day-blank = { $date }: показать нечего
+students-day-blank = { $date }: ·
+# Пустой день для чтения вслух (сама строка — точка, как в боте).
+students-day-blank-spoken = { $date }: показать нечего
 students-more = Показать ещё
 students-card-load-failed = Не получилось загрузить страницу. Попробуй ещё раз чуть позже.
 students-load-failed = Не получилось загрузить учеников. Попробуй ещё раз чуть позже.
@@ -600,6 +601,8 @@ shala-role =
 shala-title = 🏛 { $shala }
 shala-person = { $name } · { $roles }
 shala-online = 🌐 Онлайн
+# Строка места на карточке: shala-place (или shala-online) одна, если пояс шалы — твой;
+# иначе внутри shala-time, где в $zone есть смещение (ADR-0044).
 shala-place = 📍 { $city }
 shala-time = { $place } · время шалы: { $zone }
 shala-moon-line = 🌙 Лунные дни: 📍 { $city }
@@ -620,7 +623,7 @@ shala-invite-students = ➕ Пригласить учеников
 shala-invite-staff = ➕ Пригласить в команду
 shala-staff-pick = Выбери роль. Ссылка добавит одного человека с этой ролью.
 shala-staff-link-hint = Эта ссылка добавит одного человека. Роль: { $role }. Работает один раз, 7 дней.
-shala-join-hint = Поделись ссылкой или QR-кодом. Каждый ученик подтверждает сам.
+shala-join-hint = Отправь ссылку или покажи QR-код. Каждый ученик подтверждает сам.
 shala-share-text = Присоединяйся к шале { $shala } в Tristhana. Перед подтверждением бот покажет, кто что увидит.
 shala-qr-alt = QR-код ссылки шалы
 shala-remove = Убрать…
@@ -710,7 +713,8 @@ schedule-held-moon = · 🌙
 schedule-moved = ↪ перенесено с { $day } { $time }
 schedule-swapped-from = 🔁 вместо { $day }
 schedule-swapped-inline = 🔁 { $day }
-schedule-covering-for = { $name } (за { $teacher })
+# Имена не склоняются: после глагола двоеточие и именительный падеж (как «Убрать из шалы: { $name }»).
+schedule-covering-for = { $name } (заменяет: { $teacher })
 # $hours: 1 час, 2 часа, 5 часов; дробное (0,5, 1,5) — «other» → «часа».
 schedule-shift = ⚠ С { $weekday ->
         [1] понедельника
@@ -737,7 +741,7 @@ my-schedule-empty = { $f ->
 my-schedule-zone-unknown = Время указано по { $zone }. Укажи свой город, чтобы видеть своё время.
 my-schedule-load-failed = Не получилось загрузить расписание. Попробуй чуть позже.
 my-classes-covered = тебя заменяет { $name }
-my-classes-covering = ты заменяешь { $name }
+my-classes-covering = ты заменяешь: { $name }
 
 # Paging (shala students, SC-01; schedule weeks, SC-02).
 page-prev = ◀
@@ -747,7 +751,7 @@ page-next = ▶
 feed-open = 📅 Добавить в календарь
 feed-title = 📅 Подписка в календаре
 feed-explain = Твои занятия и лунные дни в Google, Apple или Outlook Календаре. Обновляется само (в Google — до суток).
-feed-moon-only = Когда вступишь в шалу, здесь появятся и её занятия.
+feed-moon-only = Когда присоединишься к шале, здесь появятся и её занятия.
 feed-create = 📅 Создать ссылку
 feed-copy = Скопировать ссылку
 feed-copied = ✓ Скопировано
@@ -789,8 +793,8 @@ link-no-name = (без имени)
 link-unlink-ask = Убрать из списка учителей: { $name }? Сообщений никто не получит, просто в списке учеников тебя больше не будет.
 link-next-main = Основным учителем станет: { $name }.
 link-remove-ask = Убрать из списка учеников: { $name }? Сообщений никто не получит.
-invite-hint = Поделись ссылкой или QR-кодом. Каждый ученик подтверждает сам.
-invite-share = 📤 Поделиться
+invite-hint = Отправь ссылку или покажи QR-код. Каждый ученик подтверждает сам.
+invite-share = ✉️ Отправить ссылку
 invite-share-text = Моя ссылка, чтобы добавить меня как учителя в Tristhana. Перед подтверждением бот покажет, что мне будет видно.
 invite-copy = Скопировать ссылку
 invite-copied = Скопировано

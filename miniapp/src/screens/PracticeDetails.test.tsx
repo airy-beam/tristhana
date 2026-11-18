@@ -178,8 +178,8 @@ describe("PracticeDetails", () => {
 
     // The class type has its heading, as length and duration do.
     expect(await screen.findByText("Type of practice")).toBeInTheDocument();
-    expect(screen.getByText("Length")).toBeInTheDocument();
-    expect(screen.getByText("Duration")).toBeInTheDocument();
+    expect(screen.getByText("How far")).toBeInTheDocument();
+    expect(screen.getByText("How long")).toBeInTheDocument();
   });
 
   it("a context tap saves the whole practice", async () => {
@@ -288,7 +288,7 @@ describe("PracticeDetails", () => {
     const seen = stubApi(practicedToday);
     renderCard();
     await openDetails();
-    fireEvent.click(await screen.findByRole("button", { name: "🎯 Other…" }));
+    fireEvent.click(await screen.findByRole("button", { name: "🎯 Choose…" }));
 
     const [range, end] = screen.getAllByRole("combobox");
     fireEvent.change(range as HTMLElement, { target: { value: "12second_half" } });

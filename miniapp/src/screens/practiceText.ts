@@ -3,6 +3,7 @@
 import type { ReactLocalization } from "@fluent/react";
 
 import type { Catalog, Length, Practice } from "../api/client";
+import { shortDate } from "../i18n/dates";
 import type { Locale } from "../i18n/negotiate";
 
 /** Fluent isolates placeables with invisible bidi marks; these labels are composed from
@@ -102,13 +103,10 @@ export function lastWhen(lastDate: string | null, day: string, locale: Locale): 
   if (lastDate === null || utcDay(day) - utcDay(lastDate) <= OLD_AFTER_DAYS * 86_400_000) {
     return null;
   }
-  return new Intl.DateTimeFormat(locale, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: lastDate.slice(0, 4) === day.slice(0, 4) ? undefined : "numeric",
-    timeZone: "UTC",
-  }).format(utcDay(lastDate));
+  return shortDate(lastDate, locale, {
+    weekday: true,
+    year: lastDate.slice(0, 4) !== day.slice(0, 4),
+  });
 }
 
 function get(l10n: ReactLocalization, id: string, args?: Record<string, string | number>): string {

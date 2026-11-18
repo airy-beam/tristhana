@@ -237,7 +237,7 @@ def test_joining_a_shala_with_teachers_asks_who_my_teacher_is(
     assert _rows(body) == [
         [("Anna", _member("ta", shala, anna.id))],
         [("Boris", _member("ta", shala, boris.id))],
-        [("📄 Details", _on("td", shala)), ("Not now", _on("tn", shala))],
+        [("📄 Read in full", _on("td", shala)), ("Not now", _on("tn", shala))],
     ]
     assert w.storage.shalas.students_of(shala) == [w.me.id]
     assert w.requests.rows == {}  # joining alone asks no one

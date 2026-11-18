@@ -311,8 +311,9 @@ class DayScreens:
         reminders_on: bool,
         more: bool = False,
     ) -> Screen:
-        """V + "for how many days?" with the kind's day counts (or its "Other…" ones). A
-        pure render: Other… and Back need no DB. Ignoring it means no pause."""
+        """V + "for how many days?" with the kind's day counts (or its "Another number…"
+        ones). A pure render: Another number… and Back need no DB. Ignoring it means no pause;
+        the Menu row ends it, as on every screen that closes a log (UI-06 stage 5, Q330)."""
         locale = principal.account.locale
         today, _ = self._days.get.today(principal)
         lines = self.saved_lines(principal, day, kind)
@@ -343,6 +344,7 @@ class DayScreens:
         rows.append([self._button(locale, "pause-only", only, rel=rel)])
         rows.append(self._change_row(locale, day, today))
         rows += self.app_rows(principal)
+        rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def period_saved(

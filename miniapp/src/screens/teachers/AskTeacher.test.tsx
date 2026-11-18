@@ -95,8 +95,8 @@ const posts = (seen: Request[]) =>
 
 const SHORT_EN =
   "• The teacher you pick sees your name (Ash) and what you log from today on: practice or " +
-  "rest, your practice length and your last asana. If nothing shows for a while, they see a " +
-  "short note saying just that.";
+  "rest, how far your practice goes and your last asana. If nothing shows for a while, they " +
+  "see a short note saying just that.";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -118,7 +118,7 @@ describe("the question", () => {
     expect(pageText()).toContain("Pick only a teacher you know.");
     expect(await button("✅ Yes")).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Anna" })).toBeNull();
-    expect(screen.getByRole("button", { name: "📄 Details" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "📄 Read in full" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
@@ -188,7 +188,7 @@ describe("Details", () => {
     renderPicker();
     await button("Anna");
 
-    fireEvent.click(screen.getByRole("button", { name: "📄 Details" }));
+    fireEvent.click(screen.getByRole("button", { name: "📄 Read in full" }));
 
     const back = screen.getByRole("button", { name: "‹ In short" });
     expect(back).toHaveAttribute("aria-expanded", "true");
@@ -200,7 +200,7 @@ describe("Details", () => {
 
     fireEvent.click(back);
 
-    expect(screen.getByRole("button", { name: "📄 Details" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "📄 Read in full" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
@@ -212,7 +212,7 @@ describe("Details", () => {
     const seen = stubApi({ offer: () => [ANNA] });
     renderPicker();
     await button("✅ Yes");
-    fireEvent.click(screen.getByRole("button", { name: "📄 Details" }));
+    fireEvent.click(screen.getByRole("button", { name: "📄 Read in full" }));
 
     fireEvent.click(screen.getByRole("button", { name: "✅ Yes" }));
 
@@ -434,7 +434,7 @@ describe("no 'no' can be read", () => {
     await button("Anna");
 
     const short = pageText();
-    fireEvent.click(screen.getByRole("button", { name: "📄 Details" }));
+    fireEvent.click(screen.getByRole("button", { name: "📄 Read in full" }));
     const full = pageText();
 
     expect(full).not.toBe(short);

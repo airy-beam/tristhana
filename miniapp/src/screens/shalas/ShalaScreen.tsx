@@ -46,6 +46,7 @@ import { Row } from "../Row";
 import { labelOf } from "../settings/zones";
 import { AskedLines, SaidLine } from "../teachers/Asked";
 import { useTeacherChoices, type Said } from "../teachers/requests";
+import { ownZone } from "../timeLabel";
 import ClassForm, { type ClassEdit, type FormResult } from "./ClassForm";
 import ShalaSchedule from "./ShalaSchedule";
 import { WEEKDAYS, weekdayShort } from "./scheduleText";
@@ -379,11 +380,21 @@ function Place({
   const place = shala.online
     ? l10n.getString("shala-online")
     : l10n.getString("shala-place", { city: shala.city.name });
-  const zone = labelOf(shala.zone, shala.city.name, viewer);
+  // "Shala time" only where it differs from the viewer's own, with the offset (ADR-0044), as
+  // the bot's card says it. A city gone from the list comes as `Etc/UTC` (the API's stand-in):
+  // as in the bot, the line always says "shala time" and names the city as the shala has it.
+  const gone = shala.zone === "Etc/UTC";
+  const line =
+    !gone && ownZone(shala.zone, viewer)
+      ? place
+      : l10n.getString("shala-time", {
+          place,
+          zone: gone ? shala.city.name : labelOf(shala.zone, shala.city.name, viewer),
+        });
   const days = useDaysOff()(shala.days_off);
   return (
     <section className="card">
-      <p>{l10n.getString("shala-time", { place, zone })}</p>
+      <p>{line}</p>
       <p>{l10n.getString("shala-moon-line", { city: moonName })}</p>
       <p>{l10n.getString("shala-moon-policy", { p: shala.moon_policy })}</p>
       {days && <p>{plain(l10n.getString("shala-day-off-line", { days }))}</p>}

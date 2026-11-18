@@ -21,7 +21,7 @@ From then on your day off shows as rest by itself, and practice reminders skip i
 
 In Ashtanga we traditionally rest on full and new moon days. Tristhana fills them in for you as :ftl[status-moon].
 
-- :ftl[menu-open] → :ftl[menu-moon] (or :cmd[moon]) shows the next moon days and the city they are calculated for. In the app, tap the moon line on the :ftl[tab-today] tab.
+- :ftl[menu-open] → :ftl[menu-moon] shows the next moon days and the city they are calculated for. In the app, tap the moon line on the :ftl[tab-today] tab.
 - If you chose a city yourself, the dates follow it. Otherwise they follow the city your main teacher chose, then your shala's calendar, then Mysuru. If your main teacher teaches at your shala, the shala's calendar comes first.
 - You get a reminder 7 days and 1 day before, at 19:00 your time. :ftl[moon-reminders] changes that or turns it off.
 

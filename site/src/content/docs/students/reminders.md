@@ -41,7 +41,7 @@ Reminders don't come between 22:00 and 07:00, and the bot sends at most 3 of the
 - Reminders are off until you turn them on. The bot offers once, after your first practice: :ftl[remind-offer-yes] turns them on in one tap, and :ftl[remind-change-time] picks another hour.
 - If you leave ten reminders unanswered, the bot stops asking and says so. Turn them back on the same way.
 - A reminder never changes a day you have already logged.
-- Reminders need your time zone. Open the app once, or choose your city in :ftl[menu-settings].
+- Reminders need to know your city's time. Open the app once, or choose your city in :ftl[menu-settings].
 
 ## Next
 

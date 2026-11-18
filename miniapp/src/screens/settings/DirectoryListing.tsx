@@ -6,6 +6,7 @@ import { addMessages } from "../../i18n/lazyMessages";
 import type { Locale } from "../../i18n/negotiate";
 import enListing from "../../locales/en/listing.ftl?raw";
 import ruListing from "../../locales/ru/listing.ftl?raw";
+import { Field, Select, TextArea, TextInput } from "../../ui/controls";
 import {
   backButtonAvailable,
   confirmAction,
@@ -274,35 +275,25 @@ function Form({ listing, onSaved }: { listing: Listing; onSaved: () => void }) {
         void submit();
       }}
     >
-      <label className="label">
-        <Localized id="listing-field-name">
-          <span />
-        </Localized>
-        <input
-          type="text"
+      <Field
+        label={l10n.getString("listing-field-name")}
+        hint={l10n.getString("listing-shown-hint")}
+        error={(blank.name || invalid) && l10n.getString("listing-name-invalid")}
+      >
+        <TextInput
           value={name}
           maxLength={NAME_MAX}
           aria-invalid={blank.name || invalid}
-          aria-describedby="listing-shown"
           onChange={(e) => {
             setName(e.target.value);
           }}
         />
-      </label>
-      <Localized id="listing-shown-hint">
-        <p id="listing-shown" className="hint small" />
-      </Localized>
-      {(blank.name || invalid) && (
-        <Localized id="listing-name-invalid">
-          <p className="hint small" role="alert" />
-        </Localized>
-      )}
-      <label className="label">
-        <Localized id="listing-field-region">
-          <span />
-        </Localized>
-        <input
-          type="text"
+      </Field>
+      <Field
+        label={l10n.getString("listing-field-region")}
+        error={(blank.region || invalid) && l10n.getString("listing-region-invalid")}
+      >
+        <TextInput
           value={region}
           maxLength={REGION_MAX}
           aria-invalid={blank.region || invalid}
@@ -310,17 +301,9 @@ function Form({ listing, onSaved }: { listing: Listing; onSaved: () => void }) {
             setRegion(e.target.value);
           }}
         />
-      </label>
-      {(blank.region || invalid) && (
-        <Localized id="listing-region-invalid">
-          <p className="hint small" role="alert" />
-        </Localized>
-      )}
-      <label className="label">
-        <Localized id="listing-field-level">
-          <span />
-        </Localized>
-        <select
+      </Field>
+      <Field label={l10n.getString("listing-field-level")}>
+        <Select
           value={level}
           onChange={(e) => {
             setLevel(e.target.value as ListingLevel | "");
@@ -332,25 +315,21 @@ function Form({ listing, onSaved }: { listing: Listing; onSaved: () => void }) {
               {l10n.getString("listing-level-name", { level: value })}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="label">
-        <Localized id="listing-field-note">
-          <span />
-        </Localized>
-        <textarea
+        </Select>
+      </Field>
+      <Field
+        label={l10n.getString("listing-field-note")}
+        hint={l10n.getString("listing-note-hint")}
+      >
+        <TextArea
           value={note}
           rows={3}
           maxLength={NOTE_MAX}
-          aria-describedby="listing-note-hint"
           onChange={(e) => {
             setNote(e.target.value);
           }}
         />
-      </label>
-      <Localized id="listing-note-hint">
-        <p id="listing-note-hint" className="hint small" />
-      </Localized>
+      </Field>
       {(mustWait || refused) && (
         <Localized id="listing-wait">
           <p className="hint" role={refused ? "alert" : undefined} />

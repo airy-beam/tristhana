@@ -32,7 +32,7 @@ APP_ONLY = (
     "students-more",
     "students-load-failed",
     "students-card-load-failed",
-    "students-day-blank-mark",
+    "students-day-blank-spoken",
 )
 ADDED_TO_APP = ("links-students", "link-students-open", "day-label")
 
@@ -40,8 +40,8 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
     (
         "students-days-note",
         {},
-        "Days follow each student's own time zone.",
-        "Дни считаются по часовому поясу каждого ученика.",
+        "Days follow each student's local time.",  # UI-06 stage 5: never "time zone"
+        "Дни считаются по местному времени каждого ученика.",
     ),
     ("students-week", {}, "Last 7 days", "Последние 7 дней"),
     (
@@ -73,16 +73,17 @@ COPY: list[tuple[str, dict[str, str], str, str]] = [
 
 CONSENT_EN = (
     "If you confirm: "
-    "• Лена sees your name (Ash) and what you log from today on: practice or rest and your "
-    "practice length. "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest and how far "
+    "your practice goes. "
     "• Лена also sees your last asana as marked in your log. "
     "• All rest you log looks the same, whatever the reason. "
     "• If nothing shows for a while, Лена sees a short note saying just that. "
     "• Any teacher on your list can also mark a new asana for you. You get a message and can "
     "undo it. "
-    "• Check-ins, diary notes and the reason for a rest stay private. "
+    "• How you feel, your notes and the reason for a rest stay private. "
     "• Лена can send announcements to all their students through the bot. You can mute them. "
-    "• You can remove Лена from your list any time in /teachers. No one gets a message."
+    "• You can remove Лена from your list any time under ☰ Menu → 🙏 Teacher and shala. No one "
+    "gets a message."
 )
 CONSENT_RU = (
     "Если подтвердить: "
@@ -95,15 +96,16 @@ CONSENT_RU = (
     "отметку можно отменить. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
     "• Лена может отправлять объявления всем своим ученикам через бота. Их можно отключить. "
-    "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит."
+    "• Убрать из списка можно в любой момент: ☰ Меню → 🙏 Учитель и шала. Сообщений никто не "
+    "получит."
 )
 PRIVACY_EN = (
     "Your log is yours. A teacher on your list sees your name, your last asana and what you log "
-    "from the day you added them: practice or rest and your practice length. All rest you log "
-    "looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short "
-    "note saying just that. A teacher on your list can also mark a new asana for you: you get a "
-    "message and can undo it. Check-ins, diary notes and the reason for a rest stay private. "
-    "You can remove a teacher from your list any time."
+    "from the day you added them: practice or rest and how far your practice goes. All rest you "
+    "log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a "
+    "short note saying just that. A teacher on your list can also mark a new asana for you: you "
+    "get a message and can undo it. How you feel, your notes and the reason for a rest stay "
+    "private. You can remove a teacher from your list any time."
     " Teachers on your list and your shalas can send you announcements; "
     "you can mute each one."
 )
@@ -223,11 +225,11 @@ def test_the_app_only_copy(locale: str, more: str, failed: str, blank: str) -> N
 
     assert _flat(app["students-more"]) == more
     assert _flat(app["students-load-failed"]) == failed
-    assert _flat(app["students-day-blank"]) == blank
+    assert _flat(app["students-day-blank-spoken"]) == blank
 
 
 @pytest.mark.parametrize("locale", LOCALES)
-@pytest.mark.parametrize("key", [*BOTH[:6]])
+@pytest.mark.parametrize("key", BOTH[:6])
 def test_the_shared_keys_read_the_same_on_both_surfaces(locale: str, key: str) -> None:
     assert _flat(_app(locale)[key]) == _flat(_bot(locale)[key])
 

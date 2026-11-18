@@ -12,12 +12,12 @@ A student who hasn't chosen a moon city follows the city their main teacher chos
 
 ## Choose your city
 
-1. Open :ftl[menu-open] → :ftl[menu-moon] (or send :cmd[moon]).
+1. Open :ftl[menu-open] → :ftl[menu-moon].
 2. Tap :ftl[moon-change-city] and pick the city your room follows.
 
 ![The teacher's moon days in the bot, with the line about students](../../../assets/shots/en/bot-teacher-moon.webp)
 
-The line with 👥 says what your students follow now. If you are on a shala's team, it also says that students in that shala follow the shala's calendar, whichever city you choose.
+The line with 👥 says what your students follow now. If you are on a shala's staff, it also says that students in that shala follow the shala's calendar, whichever city you choose.
 
 ## What a student follows, in order
 

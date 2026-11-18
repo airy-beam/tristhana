@@ -1,3 +1,4 @@
+import { shortDate } from "../../i18n/dates";
 import type { Locale } from "../../i18n/negotiate";
 
 /** Shared bits of the shala schedule (SC-02): ISO dates as strings, ISO weekdays (Monday = 1). */
@@ -29,14 +30,9 @@ export function dayName(day: string, locale: Locale): string {
   }).format(new Date(`${day}T00:00:00Z`));
 }
 
-/** "Jan 5, 2026" / «5 янв. 2026 г.»: a date that may lie in another year. */
+/** "Jan 5, 2026" / «5 янв. 2026»: a date that may lie in another year. */
 export function fullDate(day: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${day}T00:00:00Z`));
+  return shortDate(day, locale);
 }
 
 /** "Nov 16 – 22" / «16–22 нояб.»: a span of days, short enough for one line at 320px. */

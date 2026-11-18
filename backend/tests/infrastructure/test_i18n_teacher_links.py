@@ -181,7 +181,7 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     ("links-students", {"count": 12}, "👥 My students (12)", "👥 Мои ученики (12)"),
     ("links-invite", {}, "➕ Invite students", "➕ Пригласить учеников"),
     ("links-remove-yes", {}, "Remove", "Убрать"),
-    ("invite-share", {}, "📤 Share", "📤 Поделиться"),
+    ("invite-share", {}, "✉️ Send the link", "✉️ Отправить ссылку"),  # UI-06 stage 5
     ("invite-qr", {}, "🔳 QR code", "🔳 QR-код"),
     ("invite-new", {}, "🔄 New link…", "🔄 Новая ссылка…"),
     ("invite-new-yes", {}, "🔄 Yes, new link", "🔄 Да, новая ссылка"),
@@ -255,10 +255,10 @@ def _bot(locale: str) -> dict[str, str]:
         (
             "en",
             "Your log is yours. A teacher on your list sees your name, your last asana and what "
-            "you log from the day you added them: practice or rest and your practice length. All "
-            "rest you log looks the same, whatever the reason. If nothing shows for a while, the "
-            "teacher sees a short note saying just that. A teacher on your list can also mark a "
-            "new asana for you: you get a message and can undo it. Check-ins, diary notes and "
+            "you log from the day you added them: practice or rest and how far your practice goes. "
+            "All rest you log looks the same, whatever the reason. If nothing shows for a while, "
+            "the teacher sees a short note saying just that. A teacher on your list can also mark "
+            "a new asana for you: you get a message and can undo it. How you feel, your notes and "
             "the reason for a rest stay private. You can remove a teacher from your list any "
             "time."
             " Teachers on your list and your shalas can send you announcements; "

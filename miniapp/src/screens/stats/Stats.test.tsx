@@ -361,7 +361,7 @@ describe("the month comes first (UI-06 stage 3)", () => {
 
     expect(await screen.findByRole("button", { name: "Предыдущий месяц" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Следующий месяц" })).toBeDisabled();
-    expect(screen.getByRole("heading", { level: 2, name: "октябрь 2026 г." })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 2, name: "Октябрь 2026" })).toBeVisible();
   });
 });
 
@@ -380,7 +380,7 @@ describe("four marks", () => {
   it("has the same four in Russian", async () => {
     stubApi();
     renderStats("ru");
-    await screen.findByRole("heading", { level: 2, name: "октябрь 2026 г." });
+    await screen.findByRole("heading", { level: 2, name: "Октябрь 2026" });
 
     expect(legend("Что означают отметки")).toEqual([
       "Практика",
@@ -889,7 +889,7 @@ describe("the rows under the month", () => {
     expect(useBackButton).not.toHaveBeenCalled();
   });
 
-  it("has My asanas, the year, Badges and Check-ins after the month, in this order", async () => {
+  it("has My asanas, the year, Badges and How you've felt after the month, in this order", async () => {
     stubApi();
     const onAsanas = vi.fn();
     renderStats("en", { onAsanas });
@@ -900,7 +900,7 @@ describe("the rows under the month", () => {
       "🧘 My asanas",
       "📅 2026 · 1 practice",
       "🏅 Badges",
-      "✨ Check-ins over time",
+      "✨ How you've felt",
     ]);
     for (const row of rows) {
       expect(card.contains(row)).toBe(false);
@@ -923,7 +923,7 @@ describe("the rows under the month", () => {
     expect([...document.querySelectorAll(".row-button")].map((r) => r.textContent)).toEqual([
       "🧘 My asanas",
       "🏅 Badges",
-      "✨ Check-ins over time",
+      "✨ How you've felt",
     ]);
   });
 
@@ -1130,7 +1130,7 @@ describe("Stats auto-rest and the day-off question (PR-09)", () => {
           "😌 Practice reminders don't come on Saturdays. Is that your weekly day off?",
       ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Other…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pick days…" }));
     expect(onDayOff).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
 
@@ -1210,7 +1210,7 @@ describe("Share cards (ST-07)", () => {
   });
 });
 
-describe("Check-ins over time entry (ST-05)", () => {
+describe("How you've felt entry (ST-05)", () => {
   it("opens the lazy screen from My practice and comes back to the same month", async () => {
     const scrollTo = vi.fn();
     vi.stubGlobal("scrollTo", scrollTo);
@@ -1223,16 +1223,16 @@ describe("Check-ins over time entry (ST-05)", () => {
     await month("September 2026");
     expect(seen.some((r) => r.url.includes("/me/check-in-trends"))).toBe(false);
 
-    fireEvent.click(screen.getByRole("button", { name: "✨ Check-ins over time" }));
+    fireEvent.click(screen.getByRole("button", { name: "✨ How you've felt" }));
 
-    expect(await screen.findByRole("heading", { name: "Check-ins over time" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "How you've felt" })).toBeVisible();
     expect(await screen.findByText(/Nothing here yet/)).toBeVisible();
     expect(seen.some((r) => r.url.includes("/me/check-in-trends"))).toBe(true);
     expect(screen.queryByRole("heading", { name: "September 2026" })).toBeNull(); // hidden
 
     fireEvent.click(screen.getByRole("button", { name: /Back/ }));
 
-    expect(screen.queryByRole("heading", { name: "Check-ins over time" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "How you've felt" })).toBeNull();
     expect(screen.getByRole("heading", { name: "September 2026" })).toBeVisible();
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 300 });
   });

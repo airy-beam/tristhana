@@ -146,7 +146,7 @@ moon-offset =
         [one] { $n } day
        *[other] { $n } days
     }
-moon-zone-needed-app = Reminders start once your time zone is known. It's set automatically when you open the app on your phone.
+moon-zone-needed-app = Reminders start once I know your city. Choose it below.
 moon-today =
     { $phase ->
         [purnima] 🌕 Full moon today · 📍 { $city }
@@ -184,7 +184,7 @@ remind-weekday = { $d ->
 ## Stats (ST-01..03). Runs say "in a row", never "streak"/"broken"/"missed".
 stats-title = My practice
 badges-open = 🏅 Badges
-trends-open = ✨ Check-ins over time
+trends-open = ✨ How you've felt
 stats-year-total = { $n ->
         [one] { $n } practice in { $year }
        *[other] { $n } practices in { $year }
@@ -270,7 +270,7 @@ settings-cap = { $n ->
     }
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
-settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and your practice length. All rest you log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. Check-ins, diary notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
+settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and how far your practice goes. All rest you log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. How you feel, your notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
 # MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
 settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
 settings-save-failed = Couldn't save. Try again in a moment.
@@ -317,7 +317,7 @@ day-off-ask-instead = { $d ->
         [6] Saturday
        *[7] Sunday
     }
-day-off-ask-other = Other…
+day-off-ask-other = Pick days…
 day-off-ask-later = Not now
 stats-cell-auto = { $date }: { $kind ->
         [moon] 🌙 moon day (📍 { $city })
@@ -401,10 +401,10 @@ checkin-edit = ✨ How do you feel?
 checkin-summary-energy = ⚡ energy { $n }/5
 checkin-summary-effort = 🔥 effort { $n }/5
 settings-checkin = Show “How do you feel?” after practice
-settings-checkin-hint = Mood, energy and effort on a day you practiced. A check-in you already made stays and can be changed.
+settings-checkin-hint = A few short questions on days you practice: mood, energy, effort, body and mind. If you turn this off, your answers stay and you can still change them.
 
 ## Diary note (PR-07). Private, per day, any status; never asked for.
-diary-title = Diary
+diary-title = Note
 diary-add = 📓 Add a note
 # The row of a note that exists (the bot's button); its first line shows under it.
 diary-row = 📓 Note
@@ -415,12 +415,12 @@ diary-placeholder = Your note…
 # Shown from 1800 characters; numbers only, so no plural forms.
 diary-counter = { $n } / { $max }
 diary-save-failed = Couldn't save the note. Your text is still here, so you can try once more.
-diary-private-hint = Your diary is private: teachers don't see it.
+diary-private-hint = Only you see your notes.
 diary-unreadable = This note can't be read right now. You can write a new one or remove it.
 diary-clear = Remove note
 diary-clear-confirm = Remove this note?
 diary-clear-yes = Remove
-diary-removed = Removed from your diary.
+diary-removed = Note removed.
 diary-discard-confirm = Leave without saving your note?
 diary-discard-yes = Don't save
 diary-discard-no = Keep writing
@@ -513,7 +513,7 @@ export-unreachable = Couldn't send the file to your chat. Open the bot, tap Star
 export-too-large = This file is too big for Telegram, so it couldn't be sent. Your data is safe here, nothing has changed.
 export-failed = Couldn't send the file. Try again in a moment.
 delete-button = Delete my account…
-delete-explain = This deletes your account and everything in it, right away: days and rest pauses, practices, check-ins, diary notes, your asana progress, teacher and student lists and settings. It can't be undone.
+delete-explain = This deletes your account and everything in it, right away: days and rest pauses, practices, how you felt, notes, your asana progress, teacher and student lists and settings. It can't be undone.
 delete-explain-chat = Messages in the bot's chat stay; you can clear the chat in Telegram.
 delete-explain-backups = Copies in our backups disappear within 30 days.
 delete-explain-fresh = If you write to the bot again, it starts fresh.
@@ -526,7 +526,7 @@ delete-failed = Couldn't delete. Try again in a moment.
 delete-done-app = Your account and data are deleted. Wishing you good practice 🙏 Open the bot any time to start fresh.
 delete-close = Close
 
-students-days-note = Days follow each student's own time zone.
+students-days-note = Days follow each student's local time.
 students-week = Last 7 days
 students-last-asana = Last asana, as marked in their log: { $asana } ({ $series })
 students-last-standing = As marked in their log: sun salutations and standing
@@ -539,8 +539,9 @@ students-mark =
     }
 students-day = { $date }: { $state }
 students-day-length = { $date }: { $state }, { $length }
-students-day-blank-mark = { $date }: ·
-students-day-blank = { $date }: nothing to show
+students-day-blank = { $date }: ·
+# The blank day's line as read aloud (the line itself is the bot's dot).
+students-day-blank-spoken = { $date }: nothing to show
 students-more = Show more
 students-card-load-failed = Couldn't load this page. Try again in a moment.
 students-load-failed = Couldn't load your students. Try again in a moment.
@@ -589,6 +590,8 @@ shala-role =
 shala-title = 🏛 { $shala }
 shala-person = { $name } · { $roles }
 shala-online = 🌐 Online
+# The card's place line: shala-place (or shala-online) alone in the viewer's own zone;
+# otherwise inside shala-time, whose $zone carries the offset (ADR-0044).
 shala-place = 📍 { $city }
 shala-time = { $place } · shala time: { $zone }
 shala-moon-line = 🌙 Moon days: 📍 { $city }
@@ -604,7 +607,7 @@ shala-invite-students = ➕ Invite students
 shala-invite-staff = ➕ Invite staff
 shala-staff-pick = Choose a role. The link adds one person with that role.
 shala-staff-link-hint = This link adds one person as { $role }. It works once, for 7 days.
-shala-join-hint = Share this link or QR code. Each student confirms for themselves.
+shala-join-hint = Send this link or show the QR code. Each student confirms for themselves.
 shala-share-text = Join { $shala } in Tristhana. Before you confirm, the bot shows who sees what.
 shala-qr-alt = QR code for the shala's link
 shala-remove = Remove…
@@ -768,8 +771,8 @@ link-no-name = (no name)
 link-unlink-ask = Remove { $name } from your teachers? They won't get a message, but you'll no longer be on their list.
 link-next-main = { $name } becomes your main teacher.
 link-remove-ask = Remove { $name } from your students? They won't get a message.
-invite-hint = Share this link or QR code. Each student confirms for themselves.
-invite-share = 📤 Share
+invite-hint = Send this link or show the QR code. Each student confirms for themselves.
+invite-share = ✉️ Send the link
 invite-share-text = My link to add me as your teacher in Tristhana. The bot shows what I'd see before you confirm.
 invite-copy = Copy link
 invite-copied = Copied

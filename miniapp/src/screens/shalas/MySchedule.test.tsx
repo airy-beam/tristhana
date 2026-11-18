@@ -331,7 +331,7 @@ describe("my schedule", () => {
     renderWith("ru");
 
     await screen.findByText("Время: Almaty");
-    expect(mains()).toContain("06:00–09:30 Майсор · Dana (за Anna) 👤");
+    expect(mains()).toContain("06:00–09:30 Майсор · Dana (заменяет: Anna) 👤");
     expect(screen.getByRole("button", { name: "🧑‍🏫 Веду" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "👤 Мои учителя" })).toBeInTheDocument();
   });

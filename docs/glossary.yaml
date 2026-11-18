@@ -1,0 +1,400 @@
+# One word per thing (UI-06 stage 5, ADR-0050). The source of truth for the words the bot, the
+# Mini App and the guides use, in English and in Russian. The ux-writer reads it before writing
+# copy; a new concept with a new word is a line here in the same pull request.
+#
+# Read by site/src/lib/words.test.mjs (the site suite):
+#   - no message text of bot.ftl, card.ftl or the Mini App's .ftl (en, ru) contains a `retired`
+#     word of its language, or a `banned` one, outside `except`; only what a person reads is
+#     scanned (values and attributes, every variant, variables removed), never ids or comments;
+#   - the same for the guide pages: titles, descriptions and prose, without :ftl[…], :cmd[…],
+#     code, link targets and image paths;
+#   - a key both products define renders the same text, unless `same-key-different-text` says
+#     why not.
+#
+# A retired or banned word is a regular expression (case-insensitive, Unicode), matched as whole
+# words: a letter or digit may not touch either end. Write it in 'single quotes' so `\p{L}` stays.
+# It is either a plain string (every message and every guide page of that language), or a map:
+#   word:    the expression
+#   in:      only these message keys (`prefix-*` for a prefix); never guide pages
+#   guides:  false = messages only (the guides' Commands page names commands on purpose)
+# `except` (per concept, and under `banned`): `key` (optionally `source: bot | app`) or `page`
+# (as below), always with a `reason`.
+#
+# File names in `except`:
+#   bot/<locale>/…     backend/src/tristhana/infrastructure/i18n/locales/<locale>/…
+#   app/<locale>/…     miniapp/src/locales/<locale>/…
+#   guides/…           site/src/content/docs/… (Russian pages under guides/ru/…)
+
+concepts:
+  - concept: The calendar and numbers place
+    en: My practice
+    ru: Моя практика
+    where: [stats-title, menu-practice, stats-show-ladies, tab-practice]
+    note: Q342, QA (Q361). The tab keeps the short form 📊 Practice / «📊 Практика».
+    retired:
+      en:
+        - word: '(?<!my )practice'
+          in: [stats-title, menu-practice, stats-show-ladies, tab-practice]
+      ru:
+        - word: '(?<!мо(?:я|ей|ю|ею) )практик\p{L}*'
+          in: [stats-title, menu-practice, stats-show-ladies, tab-practice]
+    except:
+      - key: tab-practice
+        source: app
+        reason: >-
+          A tab is about 102 px at 320 px; «📊 Моя практика» would be cut. The heading under it
+          says My practice (QA, Q361).
+
+  - concept: A logged practice
+    en: 🧘 Practiced (legend Practice)
+    ru: 🧘 Практика (legend Практика)
+    where: [status-practiced, stats-legend-practiced]
+    note: Q342, kept; 📊 and 🧘 tell the place from the status.
+
+  - concept: The student's own practice, how far it goes
+    en: 'My practice: … / Your practice: …'
+    ru: 'Моя практика: … / Твоя практика: …'
+    where: [preset-mine, progression-current]
+    expert: true
+    note: The Ashtanga sense, kept by the ashtanga-expert.
+
+  - concept: How far in the series
+    en: 📏 How far
+    ru: 📏 Объём практики
+    where: [practice-length]
+    expert: true
+    note: QD (Q364).
+    retired:
+      en:
+        - word: 'length'
+          in: [practice-length]
+
+  - concept: Minutes
+    en: ⏱ How long
+    ru: Длительность
+    where: [practice-duration, class-form-length]
+    note: QD (Q364); the same word in the practice details and on the class form.
+    retired:
+      en:
+        - word: 'duration|length'
+          in: [practice-duration, class-form-length]
+      ru:
+        - word: 'сколько длится'
+          in: [practice-duration, class-form-length]
+
+  - concept: The record of days
+    en: log
+    ru: журнал
+    where: [everywhere]
+
+  - concept: Private text on a day
+    en: 📓 Note
+    ru: 📓 Заметка
+    where: [diary-*, consents, More]
+    retired:
+      en: ['diar(?:y|ies)']
+      ru: ['дневник\p{L}*']
+    except: &history
+      - page: guides/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
+      - page: guides/ru/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
+
+  - concept: How you feel after practice
+    en: "✨ How do you feel? (noun how you feel); trends: How you've felt"
+    ru: ✨ Как самочувствие? (самочувствие; trends «Самочувствие за год»)
+    where: [checkin-*, trends-*, settings-checkin-hint, consents]
+    note: >-
+      The trends title is How you've felt / «Самочувствие за год» without ✨; only the button
+      that opens it (trends-open) carries ✨. settings-checkin-hint names what the questions ask,
+      in the editor's own words (mood, energy, effort, body and mind / настроение, энергия,
+      усилие, тело и ум) and what turning them off does; checkin-clear says Remove answers /
+      «Убрать ответы».
+    retired:
+      en:
+        - 'check[- ]?ins?'
+      ru:
+        - word: 'отметк\p{L}*'
+          in: [checkin-*, trends-*, settings-checkin-hint]
+        - word: 'самочувстви\p{L}*'
+          in: [checkin-clear]
+    except: *history
+
+  - concept: Practice details
+    en: 📝 Details · 📝 Add details
+    ru: 📝 Детали
+    where: [practice-details, the day card]
+
+  - concept: A consent's full text
+    en: 📄 Read in full
+    ru: 📄 Подробнее
+    where: [consent-details]
+    note: The bot and ask.ftl, byte for byte (ADR-0049).
+    retired:
+      en:
+        - word: 'details'
+          in: [consent-details]
+
+  - concept: The day's third choice
+    en: Other…
+    ru: Другое…
+    where: [today-other, remind-other]
+    note: >-
+      Only these two. Elsewhere a label says what it opens: preset-other 🎯 Choose… / «🎯
+      Выбрать…»; day-off-ask-other Pick days… / «Выбрать дни…»; class-form-length-other Enter
+      minutes / «Ввести минуты»; the bot's pause-other is the app's (same-key test).
+    retired:
+      en:
+        - word: 'other'
+          in: [preset-other, day-off-ask-other, class-form-length-other]
+      ru:
+        - word: 'друг\p{L}*'
+          in: [preset-other, day-off-ask-other, class-form-length-other]
+
+  - concept: One session at a shala
+    en: class
+    ru: занятие
+    where: [everywhere]
+    note: RU «класс» only after a hyphen («Лед-класс», «майсор-класс»).
+    retired:
+      ru:
+        - 'урок(?:а|у|ом|е|и|ов|ам|ами|ах)?'
+        - '(?<!-)класс(?:а|у|ом|е|ы|ов|ам|ами|ах)?'
+
+  - concept: Class kinds
+    en: Mysore · Led · 1:1 · Self-practice
+    ru: Майсор · Лед-класс · Индивидуально · Самостоятельно
+    where: [context-*, the class form]
+    expert: true
+    note: >-
+      The RU comment example in miniapp/src/locales/ru/shala.ftl reads «Лед-класс Первая серия
+      целиком» (decision 2026-10-19); comments are not scanned.
+
+  - concept: My week of classes
+    en: 🗓 My schedule
+    ru: 🗓 Моё расписание
+    where: [menu-classes, command-schedule, welcome-shala-student, my-schedule-*]
+    note: QB (Q362). Classes / «Занятия» is not a place.
+    retired:
+      en:
+        - word: 'classes'
+          in: [menu-classes, command-schedule]
+        - word: '→ classes'
+          in: [welcome-shala-student]
+      ru:
+        - word: 'занятия'
+          in: [menu-classes, command-schedule]
+        - word: '→ занятия'
+          in: [welcome-shala-student]
+
+  - concept: A shala's timetable
+    en: 🗓 Schedule
+    ru: 🗓 Расписание
+    where: [the shala card]
+
+  - concept: Passing a link on
+    en: ✉️ Send the link
+    ru: ✉️ Отправить ссылку
+    where: [invite-send, invite-share, invite-hint, shala-join-hint]
+    note: >-
+      Both invites, both products. The hints say Send this link or show the QR code. / «Отправь
+      ссылку или покажи QR-код.»
+    retired:
+      en:
+        - word: 'share'
+          in: [invite-send, invite-share, invite-hint, shala-join-hint]
+      ru:
+        - word: 'подел\p{L}*'
+          in: [invite-send, invite-share, invite-hint, shala-join-hint]
+
+  - concept: Share a picture
+    en: Share
+    ru: Поделиться
+    where: [share-*]
+
+  - concept: Joining a shala
+    en: join
+    ru: присоединиться
+    where: [hints, consents, feed-moon-only]
+    note: RU in sentences only, never on a button (too long).
+    retired:
+      ru: ['вступ(?:ить|ишь|ит|им|ите|ят|и|ай|ил|ила|или|ив|ивший|ает|аешь|ают)']
+
+  - concept: People with a role in a shala
+    en: staff
+    ru: команда шалы
+    where: [the shala card, setup-staff, consents]
+    note: >-
+      EN setup-staff says Invite teachers and staff, as the card's Teachers and staff. EN "team"
+      is in neither product, so the guides say staff too (RU «команда шалы» stays).
+    retired:
+      en:
+        - word: 'invite teachers(?! and staff)'
+          in: [setup-staff]
+        - 'teams?'
+
+  - concept: Teacher
+    en: teacher
+    ru: учитель (on my list) · преподаватель (a role in a shala)
+    where: [everywhere]
+    note: ID-07 rule, kept.
+
+  - concept: Moon day
+    en: 🌙 Moon day · Full moon / New moon
+    ru: 🌙 Лунный день · Полнолуние / Новолуние
+    where: [moon-*]
+    expert: true
+
+  - concept: Rest, day off, ladies' holiday, no practice
+    en: Rest day · Day off · Ladies' holiday · No practice
+    ru: День отдыха · Выходной · Женские дни · Без практики
+    where: [everywhere]
+    note: The tone words are under `banned`.
+
+  - concept: Where times are told
+    en: 'My city · 🕐 Times: Almaty'
+    ru: 'Мой город · 🕐 Время: Алматы'
+    where: [settings, reminders, moon, schedule]
+    retired:
+      en: ['time ?zones?']
+      ru: ['часов\p{L}* пояс\p{L}*']
+    except:
+      - key: settings-privacy-location
+        reason: The location-privacy line says what the location is used for, exactly.
+      - key: settings-zone-utc
+        reason: The UTC option (it names no zone today; kept free to).
+      - key: settings-city-utc
+        reason: The UTC option (it names no zone today; kept free to).
+      - page: guides/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
+      - page: guides/ru/reference/whats-new.md
+        reason: >-
+          What's new is the product's history: older entries keep the words of their day, and
+          the Clearer words entry names each old word beside its new one.
+
+  - concept: Product name
+    en: Tristhana
+    ru: Tristhana (never declined; where a case is needed, «приложение»)
+    where: [start-greeting, bot-description, startup-failed, not-in-telegram, session-expired]
+    note: QF (Q366). Voice-overs keep their own spelling.
+    retired:
+      ru: ['тристхан\p{L}*']
+
+  - concept: Getting somewhere in the bot
+    en: ☰ Menu → 🌙 Moon days
+    ru: ☰ Меню → 🌙 Лунные дни
+    where: [running text]
+    note: >-
+      QC (Q363). No message names a command; the commands stay in Telegram's command menu and on
+      the guides' Commands page (:cmd[…] is not prose). /admin is the admin's own note.
+    retired:
+      en:
+        - word: '/(?:start|schedule|moon|settings|help|log|asanas|remind|teachers|classes|menu)'
+          guides: false
+      ru:
+        - word: '/(?:start|schedule|moon|settings|help|log|asanas|remind|teachers|classes|menu)'
+          guides: false
+
+  - concept: Extra fields of a form
+    en: More options
+    ru: Дополнительно
+    where: [class-form-more]
+    retired:
+      ru:
+        - word: 'ещё настройки'
+          in: [class-form-more]
+
+  - concept: Removing my own entry · deleting for everyone
+    en: Remove · Delete
+    ru: Убрать · Удалить
+    where: [everywhere]
+    retired:
+      ru:
+        - word: 'удал\p{L}*'
+          in: [diary-clear, diary-clear-confirm, diary-clear-yes]
+        - word: 'удален\p{L}*'
+          in: [diary-removed]
+
+  - concept: The class form's rhythm
+    en: Regularly · One date; How often every week / every 2 weeks
+    ru: Регулярно · Одна дата; «Повторяется по дням»
+    where: [class-form-weekly, class-form-once]
+    retired:
+      en:
+        - word: 'every week'
+          in: [class-form-weekly]
+      ru:
+        - word: 'каждую неделю'
+          in: [class-form-weekly]
+
+# Never, anywhere: the tone rule (supportive, never guilt-inducing). «серия» is the series, so
+# only its run phrases are banned; «практик подряд» stays. «пропуск» is the noun (a miss): the
+# verb «пропускает» (a reminder passes over a day off) is not a judgement.
+banned:
+  en: ['streaks?', 'missed', 'skipped', 'broken']
+  ru:
+    - 'полос(?:а|ы|е|у|ой|ою)'
+    - 'пропуск(?:а|у|ом|е|и|ов|ам|ами|ах)?'
+    - 'пропущенн\p{L}*'
+    - 'сери\p{L}* (?:из )?(?:дней|практик)'
+    - '(?:прерв|прерыв|сохран)\p{L}* сери\p{L}*'
+    - 'дней подряд'
+  except:
+    - key: closure-failed
+      reason: The longest a shala may close (up to 92 days in a row), not a run of practice.
+    - page: guides/ru/staff/closures-and-swaps.md
+      reason: The longest a shala may close (up to 92 days in a row), not a run of practice.
+
+# A key both products define, rendered differently on purpose. `locale` limits an entry to one
+# language; without it the entry covers both.
+same-key-different-text:
+  - key: ann-pinned-until
+    reason: >-
+      The app's line sits on the announcement's own card, where 📌 says pinned; the bot's list
+      line spells it out.
+  - key: attend-removed
+    reason: The bot's message names the mark it removed; the app's line sits under that row.
+  - key: attend-roster-hint
+    reason: The bot's roster is a column of name buttons, the app's a list of ticks.
+  - key: attend-staff-open
+    reason: The app's button carries the counts; the bot's opens the roster that shows them.
+  - key: attend-staff-tag
+    reason: The bot joins the tag to the name with " · "; the app sets it apart as a tag.
+  - key: delete-explain
+    reason: The bot adds a line on the messages already in its chat, which only the bot has.
+  - key: diary-removed
+    reason: The bot adds a line on the messages already in its chat, which only the bot has.
+  - key: feed-copy
+    reason: A bot button carries its emoji; the app's is a plain button beside the link.
+  - key: length-pick-range
+    reason: The bot asks in a message; the app labels a field.
+  - key: progression-pick-series
+    reason: The bot asks in a message; the app labels a field.
+  - key: progression-pick-asana
+    reason: The bot asks in a message (with the series); the app labels a field.
+  - key: moon-same-as-city
+    reason: >-
+      A bot button carries its emoji, as its neighbours 👥 Follow my teacher and 🏛 Follow my
+      shala do; the app's is a choice in a list.
+  - key: practice-length
+    reason: The bot's button carries the emoji; the app's is a field label beside its value.
+  - key: practice-duration
+    reason: The bot's button carries the emoji; the app's is a field label beside its value.
+  - key: remind-days-follow
+    reason: >-
+      The bot's status line just above already names the days, and its 😌 Day off button is on
+      the same screen; the app's hint stands alone under its switch, so it names both.
+  - key: progression-title
+    reason: A bot message heading carries the emoji; the app's screen heading does not.
+  - key: settings-title
+    reason: A bot message heading carries the emoji; the app's screen heading does not.
+  - key: schedule-title
+    reason: The bot's heading names the shala and the week; the app shows both on the card.
+  - key: shala-staff-title
+    reason: The bot lists the people on the heading's line; the app lists them under it.

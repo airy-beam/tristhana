@@ -1,8 +1,9 @@
 import { Localized, useLocalization, type ReactLocalization } from "@fluent/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api, fail, useCatalog, type Badge, type Badges, type Catalog } from "../../api/client";
+import { shortDate } from "../../i18n/dates";
 import { addMessages } from "../../i18n/lazyMessages";
 import type { Locale } from "../../i18n/negotiate";
 import enBadges from "../../locales/en/badges.ftl?raw";
@@ -117,16 +118,6 @@ function List({
 }) {
   const { l10n } = useLocalization();
   const [open, setOpen] = useState<string | null>(null);
-  const format = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      }),
-    [locale],
-  );
   // An older app skips keys it has no copy for (a badge added on the server).
   const known = badges.filter((b) => l10n.getBundle(`badge-${b.key}`) !== null);
   if (known.length === 0) {
@@ -155,7 +146,7 @@ function List({
                 const when = b.at_record_start
                   ? get(l10n, "badges-at-start")
                   : b.earned_on
-                    ? format.format(new Date(`${b.earned_on}T00:00:00Z`))
+                    ? shortDate(b.earned_on, locale)
                     : "";
                 const expanded = open === b.key;
                 return (

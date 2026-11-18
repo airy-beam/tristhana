@@ -58,6 +58,7 @@ from tristhana.domain.shalas import (
     staff_invite_url,
 )
 from tristhana.domain.teacher_links import shown_name
+from tristhana.domain.time_label import canonical_zone
 
 if TYPE_CHECKING:
     from tristhana.bots.telegram.start import StartScreens
@@ -256,21 +257,26 @@ class ShalaScreens:
         today: date = caller_today(principal, self._clock)
         city = self._cities.find(card.city)
         mine = principal.account.timezone
-        zone = (
-            zone_label(self._t, locale, city.location.tz, today, city, mine) if city else card.city
-        )
         place = (
             self._t.t(locale, "shala-online")
             if card.online
             else self._t.t(locale, "shala-place", city=self._city(locale, card.city))
         )
+        # "Shala time" only where it differs from the viewer's own, with the offset (ADR-0044).
+        if city is None or mine is None or canonical_zone(city.location.tz) != canonical_zone(mine):
+            zone = (
+                zone_label(self._t, locale, city.location.tz, today, city, mine)
+                if city
+                else card.city
+            )
+            place = self._t.t(locale, "shala-time", place=place, zone=zone)
         people = " · ".join(
             f"{self._name(locale, s.name)} ({', '.join(self._roles_of(locale, s.owner, s.roles))})"
             if s.owner or s.roles
             else self._name(locale, s.name)
             for s in card.staff
         )
-        lines = [f"🏛 {card.name}", self._t.t(locale, "shala-time", place=place, zone=zone)]
+        lines = [f"🏛 {card.name}", place]
         # A moon city since removed from the list falls back to the shala's own city (Q111).
         moon = self._cities.find(card.moon_city or card.city) or self._cities.find(card.city)
         if moon is not None:

@@ -43,16 +43,17 @@ _ids = itertools.count(120_000)
 
 EN_CONSENT = (
     "🤝 Лена sent you an invite. Add them to your teachers? If you confirm: "
-    "• Лена sees your name (Ash) and what you log from today on: practice or rest and your "
-    "practice length. "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest and how far "
+    "your practice goes. "
     "• Лена also sees your last asana as marked in your log. "
     "• All rest you log looks the same, whatever the reason. "
     "• If nothing shows for a while, Лена sees a short note saying just that. "
     "• Any teacher on your list can also mark a new asana for you. "
     "You get a message and can undo it. "
-    "• Check-ins, diary notes and the reason for a rest stay private. "
+    "• How you feel, your notes and the reason for a rest stay private. "
     "• Лена can send announcements to all their students through the bot. You can mute them. "
-    "• You can remove Лена from your list any time in /teachers. No one gets a message. "
+    "• You can remove Лена from your list any time under ☰ Menu → 🙏 Teacher and shala. "
+    "No one gets a message. "
     "Anyone can choose any name here, so confirm only if you know this person. "
     "If you tap Not now, Лена isn't told."
 )
@@ -67,7 +68,8 @@ RU_CONSENT = (
     "Придёт сообщение, и отметку можно отменить. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
     "• Лена может отправлять объявления всем своим ученикам через бота. Их можно отключить. "
-    "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит. "
+    "• Убрать из списка можно в любой момент: ☰ Меню → 🙏 Учитель и шала. "
+    "Сообщений никто не получит. "
     "Имя здесь может выбрать любой, поэтому подтверждай, только если знаешь этого человека. "
     "Если нажать «Не сейчас», Лена об этом не узнает."
 )
@@ -76,11 +78,12 @@ RU_CONSENT = (
 # sees; the know-this-person line stays as the fourth line (ADR-0030).
 EN_SHORT = (
     "🤝 Лена sent you an invite. Add them to your teachers? "
-    "• Лена sees your name (Ash) and what you log from today on: practice or rest, your "
-    "practice length and your last asana. If nothing shows for a while, Лена sees a short note "
+    "• Лена sees your name (Ash) and what you log from today on: practice or rest, how far "
+    "your practice goes and your last asana. If nothing shows for a while, Лена sees a short note "
     "saying just that. "
-    "• Check-ins, diary notes and the reason for a rest stay private. "
-    "• You can remove Лена from your list any time in /teachers. No one gets a message. "
+    "• How you feel, your notes and the reason for a rest stay private. "
+    "• You can remove Лена from your list any time under ☰ Menu → 🙏 Teacher and shala. "
+    "No one gets a message. "
     "Anyone can choose any name here, so confirm only if you know this person."
 )
 RU_SHORT = (
@@ -89,7 +92,8 @@ RU_SHORT = (
     "объём практики и последняя асана. Если какое-то время показать нечего, Лена увидит об этом "
     "короткую пометку. "
     "• Самочувствие, заметки и причина отдыха остаются личными. "
-    "• Убрать из списка можно в любой момент в /teachers. Сообщений никто не получит. "
+    "• Убрать из списка можно в любой момент: ☰ Меню → 🙏 Учитель и шала. "
+    "Сообщений никто не получит. "
     "Имя здесь может выбрать любой, поэтому подтверждай, только если знаешь этого человека."
 )
 
@@ -255,7 +259,7 @@ def _note(outbound: list[Sent], chat_id: int) -> Sent:
 @pytest.mark.parametrize(
     ("lang", "short", "confirm", "details", "other_language", "switch"),
     [
-        ("en", EN_SHORT, "✅ Confirm", "📄 Details", "🗣 Русский", "ru"),
+        ("en", EN_SHORT, "✅ Confirm", "📄 Read in full", "🗣 Русский", "ru"),
         ("ru", RU_SHORT, "✅ Подтвердить", "📄 Подробнее", "🗣 English", "en"),
     ],
 )
@@ -324,7 +328,7 @@ def test_confirm_from_either_screen_creates_the_same_link(
     teacher = _teacher(storage)
     consent = _command(client, f"/start t_{CODE}")
     if screen == "details":
-        consent = _tap(client, _data(consent, "📄 Details"))
+        consent = _tap(client, _data(consent, "📄 Read in full"))
 
     body = _tap(client, _data(consent, "✅"))
 
@@ -1036,7 +1040,8 @@ def test_more_holds_the_link_as_text_and_the_rare_things(
 
     assert body["text"] == (
         f"https://t.me/{BOT}?start=t_{CODE}\n\n"
-        "Students who haven't chosen a moon city will follow the city you choose in /moon."
+        "Students who haven't chosen a moon city will follow the city you choose under "
+        "☰ Menu → 🌙 Moon days."
     )
     assert body.get("parse_mode") is None
     assert _rows(body) == [["🔄 New link…"], ["🏛 Create a shala"], ["‹ Back"]]

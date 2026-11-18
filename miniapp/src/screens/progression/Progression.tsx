@@ -15,6 +15,7 @@ import {
   type ProgressionPosition,
   type ShareSubject,
 } from "../../api/client";
+import { shortDate } from "../../i18n/dates";
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
 import { lengthText } from "../practiceText";
@@ -22,6 +23,7 @@ import { CelebrationCard, shareOf } from "./CelebrationCard";
 import { ShareButton } from "../share/ShareButton";
 import { celebrationLines, get, isStanding, itemLabel, stopLabel } from "./progressionText";
 import { lazyRetry } from "../../shell/lazyRetry";
+import { DateInput, Field, Select } from "../../ui/controls";
 
 interface Props {
   locale: Locale;
@@ -199,11 +201,8 @@ function Body({
           </button>
         )}
         {progression.set && progression.later.length > 1 && (
-          <label className="label">
-            <Localized id="progression-new-other">
-              <span />
-            </Localized>
-            <select
+          <Field label={get(l10n, "progression-new-other")}>
+            <Select
               value=""
               disabled={busy}
               onChange={(e) => {
@@ -217,8 +216,8 @@ function Body({
                   {stopLabel(catalog, p, locale)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
         )}
         {progression.set && (
           <div className="chips" role="group">
@@ -274,12 +273,8 @@ function Body({
           </Localized>
         )}
         {today && (
-          <label className="label">
-            <Localized id="progression-date">
-              <span />
-            </Localized>
-            <input
-              type="date"
+          <Field label={get(l10n, "progression-date")}>
+            <DateInput
               value={day}
               max={today}
               min="2000-01-01"
@@ -287,7 +282,7 @@ function Body({
                 setDay(e.target.value || today);
               }}
             />
-          </label>
+          </Field>
         )}
       </section>
       {progression.events.length > 0 && (
@@ -374,6 +369,7 @@ function ChangeForm({
   onCancel: (() => void) | undefined;
 }) {
   useBackButton(onCancel ?? noop, onCancel !== undefined);
+  const { l10n } = useLocalization();
   const [series, setSeries] = useState(position?.series ?? catalog.series[0]?.slug ?? "");
   const stops = catalog.series.find((s) => s.slug === series)?.stops ?? [];
   const [last, setLast] = useState(position?.last ?? "");
@@ -383,11 +379,8 @@ function ChangeForm({
       <Localized id="progression-change-explain">
         <p className="hint" />
       </Localized>
-      <label className="label">
-        <Localized id="progression-pick-series">
-          <span />
-        </Localized>
-        <select
+      <Field label={get(l10n, "progression-pick-series")}>
+        <Select
           value={series}
           onChange={(e) => {
             setSeries(e.target.value);
@@ -402,14 +395,11 @@ function ChangeForm({
           <Localized id="progression-standing-only">
             <option value="" />
           </Localized>
-        </select>
-      </label>
+        </Select>
+      </Field>
       {series !== "" && (
-        <label className="label">
-          <Localized id="progression-pick-asana">
-            <span />
-          </Localized>
-          <select
+        <Field label={get(l10n, "progression-pick-asana")}>
+          <Select
             value={last}
             onChange={(e) => {
               setLast(e.target.value);
@@ -421,8 +411,8 @@ function ChangeForm({
                 {locale === "ru" ? s.ru : s.latin}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       )}
       <div className="chips">
         <Localized id="progression-save">
@@ -464,12 +454,6 @@ function History({
   onUndo: (id: number) => void;
 }) {
   const { l10n } = useLocalization();
-  const format = new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
   const [newest] = progression.events;
   // An older payload has no `undoable`: the newest entry, as before (ADR-0026).
   const canUndo = (e: Partial<ProgressionEvent>) => e.undoable ?? e.id === newest?.id;
@@ -488,7 +472,7 @@ function History({
             e.by === "teacher"
               ? ` ${get(l10n, "progression-event-by", { teacher: teacherName(l10n, e.by_name) })}`
               : "";
-          const day = format.format(new Date(`${e.occurred_on}T00:00:00Z`));
+          const day = shortDate(e.occurred_on, locale);
           const line = get(l10n, "progression-event", { kind: e.kind, asana, item }) + by;
           return (
             <li key={e.id}>

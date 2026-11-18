@@ -404,11 +404,11 @@ describe("CheckIn: saving", () => {
     });
   });
 
-  it("Remove check-in sends DELETE and is offered only when one exists", async () => {
+  it("Remove answers sends DELETE and is offered only when one exists", async () => {
     stubApi();
     const { unmount } = renderToday();
     await mood(3);
-    expect(screen.queryByRole("button", { name: "Remove check-in" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove answers" })).not.toBeInTheDocument();
     unmount();
 
     const seen = stubApi({
@@ -416,7 +416,7 @@ describe("CheckIn: saving", () => {
     });
     renderToday();
     await mood(3);
-    fireEvent.click(await screen.findByRole("button", { name: "Remove check-in" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove answers" }));
 
     await sent(seen, "DELETE", checkInPath(TODAY));
   });
