@@ -126,8 +126,16 @@ def test_asanas_unset_without_history(client: TestClient) -> None:
     assert body["method"] == "sendMessage"
     assert body["text"].startswith("🧘 My asanas")
     assert "Set it once" in body["text"]
-    # UI-06: opened from Help, so the Menu row closes it.
-    assert _texts(body) == ["Choose…", "Sun salutations and standing", "☰ Menu"]
+    # UI-06: opened from the Menu and Help, so the Menu row closes it. No zone and no city
+    # yet: the city question stands where "Open the app" was (stage 6, B7).
+    assert _texts(body) == [
+        "Choose…",
+        "Sun salutations and standing",
+        "🏙 Choose my city",
+        "Not now",
+        "☰ Menu",
+    ]
+    assert body["text"].endswith("Your days and reminders follow its clock.")
 
 
 def test_unset_suggests_from_the_log(client: TestClient, storage: InMemoryStorage) -> None:

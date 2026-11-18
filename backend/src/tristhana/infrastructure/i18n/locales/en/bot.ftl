@@ -52,14 +52,18 @@ today-logged = ✓ In your log: { $label }
 # Once, on the first /start after UI-06 for someone who already uses the bot.
 today-menu-hint = Everything else is now under ☰ Menu.
 today-back = ‹ Today
+# ADR-0051: a tap on Today's buttons drawn on an earlier day. $label = a status-* label; the
+# buttons below are the two dates, then ‹ Back.
+today-which-day = This message is from an earlier day. Which day is it for: { $label }?
 
 # The last row of every top-level screen.
 menu-open = ☰ Menu
 menu-title = ☰ Menu
 # On top of the Menu when the person typed something instead of tapping.
-menu-text-lead = I can't answer messages yet. Here is everything I can do 🙏
+menu-text-lead = I understand buttons, not typed messages. To add a note, log the day and tap 📓 Note. Here is everything I can do 🙏
 menu-today = 📝 Today
 menu-practice = 📊 My practice
+menu-asanas = 🧘 My asanas
 menu-moon = 🌙 Moon days
 menu-classes = 🗓 My schedule
 # Everyone sees this row, with or without a teacher, and the screen lists shalas too.
@@ -426,6 +430,12 @@ settings-share-location-button = 📍 Send my location
 settings-location-zone = 🕐 Done: your time is { $zone }. You can change it under ☰ Menu → ⚙️ Settings.
 settings-location-unknown = I couldn't tell the local time from that place. Pick your city under ☰ Menu → ⚙️ Settings, or open the app.
 settings-open-app = ⚙️ More in the app
+# UI-06 stage 6 (B7): under a saved day while neither a city nor a time zone is known. The
+# home city sets the clock, not the moon city (MD-02), so it promises days and reminders only.
+city-ask = 📍 Which city do you live in? Your days and reminders follow its clock.
+city-ask-button = 🏙 Choose my city
+# On top of Settings after "Not now" under the city question.
+settings-city-later = Pick your city here any time.
 settings-link = ⚙️ Settings
 
 ## Weekly day off and auto-rest (PR-09).
@@ -1014,6 +1024,8 @@ next-class = Your shala has no classes yet. Add the first one, and students will
 next-class-do = Add a class
 next-shala-invite = Your shala has a schedule now. Invite students, and they'll see its classes.
 next-shala-invite-do = Invite students to the shala
+# Also "Not now" under the city question (B7).
+next-not-now = Not now
 
 ## Shala classes (SC-02). Times are wall clock in the shala's zone; { $zone } is "Almaty (UTC+5)".
 ## { $day } arrives formatted ("Fri, Nov 13"). No one gets a message about a change (Q122).

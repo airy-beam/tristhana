@@ -1,7 +1,8 @@
 """Callback data for the diary-note screens (PR-07), versioned `n1:`; dates absolute.
 
     n1:o:20261027:d     open the note screen N       (origin: d = day editor, k = check-in K,
-                                                      p = practice details P1)
+                                                      p = practice details P1, v = the done
+                                                      summary V, UI-06 stage 6)
     n1:w:20261027:d     send the write prompt        n1:r:…  the same, replacing a note
     n1:y:20261027:d     ask to confirm removal       n1:x:…  remove → N
     n1:b:20261027:d     back to the origin screen
@@ -17,7 +18,7 @@ from tristhana.domain.days import MIN_LOG_DATE
 
 PREFIX = "n1"
 type Action = Literal["open", "write", "rewrite", "confirm", "clear", "back"]
-type Origin = Literal["d", "k", "p"]
+type Origin = Literal["d", "k", "p", "v"]
 
 _ACTIONS: dict[str, Action] = {
     "o": "open",
@@ -28,7 +29,7 @@ _ACTIONS: dict[str, Action] = {
     "b": "back",
 }
 _LETTER = {a: k for k, a in _ACTIONS.items()}
-_ORIGINS: frozenset[str] = frozenset({"d", "k", "p"})
+_ORIGINS: frozenset[str] = frozenset({"d", "k", "p", "v"})
 _LATEST = date.max - timedelta(days=31)
 
 

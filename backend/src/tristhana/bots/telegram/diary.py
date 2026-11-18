@@ -159,9 +159,12 @@ class DiaryScreens:
             screen = await self._check_in.handle(principal, CheckInCallback("open", day))
             if screen is not None:
                 return screen
-        if origin == "p" and self._days.practice is not None:
+        if origin in ("p", "v") and self._days.practice is not None:
+            practice = self._days.practice
             try:
-                return await self._days.practice.details(principal, day)
+                if origin == "v":  # the done summary V, without the one-time offer
+                    return await practice.summary(principal, day, offer=False)
+                return await practice.details(principal, day)
             except DayNotPracticed:  # the status changed since: the day editor below
                 pass
         return await self._days.status(principal, day)

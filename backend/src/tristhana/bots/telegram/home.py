@@ -60,6 +60,7 @@ from tristhana.domain.teacher_links import invite_url
 # instead (`?open=practice`), so it has no entry here.
 _MENU_DATA: dict[MenuItem, str] = {
     MenuItem.TODAY: cb.TODAY,
+    MenuItem.ASANAS: gcb.encode(gcb.ProgressionCallback("open")),  # as Help's row (C9)
     MenuItem.MOON: mcb.encode(mcb.MoonCallback("view")),
     MenuItem.CLASSES: ccb.my_week(0, "a"),
     MenuItem.TEACHER: tcb.plain("o"),

@@ -7,6 +7,9 @@ legacy `d1:t` is relative: the "Log today" button under /start greetings sent be
     d1:t                today's status screen
     d1:o:20261018       status screen for a date
     d1:s:20261018:p     set a status (codes below)
+    d1:n:20261018:p     set a status from Today (UI-06 stage 6, ADR-0051): saved like `d1:s`
+                        while the date is still today; tapped on a later day, it asks which
+                        day (today or the date it carries, both as `d1:s`)
     d1:x:20261018       clear the status
     d1:w:20261018       week picker ending on that date
     d1:r:20261018:t     "Other reason" for a date (UI-06); the letter is where Back goes:
@@ -20,7 +23,7 @@ from typing import Literal
 from tristhana.domain.days import MIN_LOG_DATE, DayStatus
 
 PREFIX = "d1"
-type Action = Literal["today", "open", "set", "clear", "week", "reasons"]
+type Action = Literal["today", "open", "set", "now", "clear", "week", "reasons"]
 type Origin = Literal["t", "e"]
 
 _CODES: dict[DayStatus, str] = {
@@ -44,7 +47,7 @@ _LATEST = date.max - timedelta(days=31)
 class DayCallback:
     action: Action
     day: date | None = None  # None only for "today"
-    status: DayStatus | None = None  # only for "set"
+    status: DayStatus | None = None  # only for "set" and "now"
     origin: Origin | None = None  # only for "reasons"
 
 
@@ -54,10 +57,11 @@ def encode(cb: DayCallback) -> str:
     if cb.day is None:
         raise ValueError(f"{cb.action} needs a date")
     day = cb.day.strftime("%Y%m%d")
-    if cb.action == "set":
+    if cb.action in ("set", "now"):
         if cb.status is None:
-            raise ValueError("set needs a status")
-        return f"{PREFIX}:s:{day}:{_CODES[cb.status]}"
+            raise ValueError(f"{cb.action} needs a status")
+        letter = "s" if cb.action == "set" else "n"
+        return f"{PREFIX}:{letter}:{day}:{_CODES[cb.status]}"
     if cb.action == "reasons":
         if cb.origin is None:
             raise ValueError("reasons needs an origin")
@@ -78,8 +82,8 @@ def decode(data: str | None) -> DayCallback | None:
         return None
     if day is None or not MIN_LOG_DATE <= day <= _LATEST:
         return None
-    if parts[1] == "s" and len(parts) == 4 and parts[3] in _STATUSES:
-        return DayCallback("set", day, _STATUSES[parts[3]])
+    if parts[1] in ("s", "n") and len(parts) == 4 and parts[3] in _STATUSES:
+        return DayCallback("set" if parts[1] == "s" else "now", day, _STATUSES[parts[3]])
     if parts[1] == "r" and len(parts) == 4 and parts[3] in ("t", "e"):
         return DayCallback("reasons", day, origin=parts[3])  # type: ignore[arg-type]
     if parts[1] in _ACTIONS and len(parts) == 3:

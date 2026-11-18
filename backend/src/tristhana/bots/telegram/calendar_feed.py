@@ -12,7 +12,7 @@ from tristhana.application.ports.calendar_feed import FeedLink
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.application.shalas import ShalaUseCases
 from tristhana.bots.telegram import classes_callbacks as cb
-from tristhana.bots.telegram.screens import Screen
+from tristhana.bots.telegram.screens import Screen, menu_row
 from tristhana.domain.locale import Locale
 
 
@@ -72,7 +72,7 @@ class FeedScreens:
         lines = [self._t.t(locale, "feed-title"), self._t.t(locale, "feed-explain")]
         if not await self._shalas.mine.execute(principal):
             lines.append(self._t.t(locale, "feed-moon-only"))
-        rows = [[self._button(locale, "feed-create", "n")]]
+        rows = [[self._button(locale, "feed-create", "n")], menu_row(self._t, locale)]
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _on(self, locale: Locale, link: FeedLink) -> Screen:
@@ -106,6 +106,7 @@ class FeedScreens:
                 self._button(locale, "feed-rotate", "r"),
                 self._button(locale, "feed-off", "x"),
             ],
+            menu_row(self._t, locale),  # UI-06 stage 6 (B8): opened from three places
         ]
         return Screen(
             "\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows), no_preview=True

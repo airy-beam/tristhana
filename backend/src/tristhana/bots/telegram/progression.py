@@ -308,8 +308,10 @@ class ProgressionScreens:
         if result is not None and result.event is not None:
             undo = data("undo", number=result.event.id)
             rows.insert(0, [self._button(locale, "progression-undo", undo)])
-        rows += self._day_screens.app_rows(principal)
-        rows.append(menu_row(self.t, locale))  # UI-06: opened from Help and `/asanas`
+        city_lines, city_rows = self._day_screens.city_ask(principal)  # UI-06 stage 6, B7
+        lines += city_lines
+        rows += city_rows
+        rows.append(menu_row(self.t, locale))  # UI-06: opened from the Menu, Help, `/asanas`
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _state_lines(

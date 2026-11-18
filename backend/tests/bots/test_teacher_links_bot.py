@@ -457,7 +457,7 @@ def test_not_now_stores_nothing_and_messages_no_one(
 # the front door)
 
 PROMPT = "Practice or rest? Both go in your log."
-TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
+TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["📅 Another day", "☰ Menu"]]
 
 
 def _grid_with(body: Any, lead: str) -> None:

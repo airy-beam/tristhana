@@ -269,6 +269,9 @@ class PracticeScreens:
         open_key = "practice-details" if detailed else "practice-add-details"
         rows.append([self._button(locale, open_key, _data("open", day))])
         rows.append([self._button(locale, "practice-done", _data("done", day))])
+        city_lines, city_rows = self._day_screens.city_ask(principal)  # UI-06 stage 6, B7
+        lines += city_lines
+        rows += city_rows
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _summary_line(self, principal: Principal, day: date, practice: Practice | None) -> str:
@@ -337,11 +340,10 @@ class PracticeScreens:
         extras.append(self._button(locale, "practice-duration", _data("durations", day)))
         rows.append(extras)
         rows.append([self._button(locale, "practice-length", _data("lengths", day))])
-        check_in_lines, check_in_rows = self._check_in_part(principal, day, check_ins or ())
+        # UI-06 stage 6 (C11): "How do you feel?" and 📓 Note are on the done summary V, so
+        # the details keep to the practice itself. The check-in still shows what it holds.
+        check_in_lines, _ = self._check_in_part(principal, day, check_ins or ())
         lines += check_in_lines
-        rows += check_in_rows
-        if self._day_screens.notes:
-            rows.append([note_button(self._t, locale, day, "p")])
         last_row = [self._button(locale, "practice-done", _data("done", day))]
         if has_details(practice):
             last_row.append(self._button(locale, "practice-clear", _data("clear", day)))
@@ -408,6 +410,8 @@ class PracticeScreens:
         check_in_lines, check_in_rows = self._check_in_part(principal, day, check_ins or ())
         lines += check_in_lines
         rows += check_in_rows
+        if self._day_screens.notes:  # the day's note, under "How do you feel?" (C11)
+            rows.append([note_button(self._t, locale, day, "v")])
         rows.append(
             [
                 self._button(locale, "practice-details", _data("open", day)),

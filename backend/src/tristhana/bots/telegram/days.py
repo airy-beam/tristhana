@@ -5,6 +5,10 @@ Today and the editor are one builder: three choices (🧘, 😌, "Other reason")
 logged one. Every tap edits the same message (the webhook reply, ADR-0012) and answers the
 callback in parallel. One DB statement per tap besides the account lookup; "Other reason" is
 a pure render. Saving 🧘 Practiced shows the three buttons that follow it (`practice.py`).
+
+Today's choices carry `d1:n` (ADR-0051): tapped on a later day, they ask which day instead of
+saving the date they were drawn for. While neither a zone nor a city is known, every saved
+screen asks for the city (UI-06 stage 6, B7).
 """
 
 from __future__ import annotations
@@ -22,8 +26,9 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.bots.telegram import home_callbacks as hcb
 from tristhana.bots.telegram import rest_callbacks as acb
+from tristhana.bots.telegram import settings_callbacks as gcb
 from tristhana.bots.telegram import shalas_callbacks as scb
-from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, Origin, decode, encode
+from tristhana.bots.telegram.callbacks import PREFIX, Action, DayCallback, Origin, decode, encode
 from tristhana.bots.telegram.check_in import CheckInScreens, register_check_in
 from tristhana.bots.telegram.diary import DiaryScreens, note_button, preview, register_diary
 from tristhana.bots.telegram.practice import PracticeScreens, register_practice
@@ -49,7 +54,7 @@ from tristhana.bots.telegram.screens import (
 )
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
-from tristhana.domain.journey import OTHER_REASONS, NextStep, Step
+from tristhana.domain.journey import OTHER_REASONS, NextStep, Step, asks_for_city
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
 from tristhana.domain.rest_days import AutoKind
@@ -151,6 +156,11 @@ class DayScreens:
         match cb.action, cb.day, cb.status:
             case "set", date() as day, DayStatus() as status:
                 return await self.saved(principal, day, status)
+            case "now", date() as day, DayStatus() as status:
+                today, _ = self._days.get.today(principal)
+                if day < today:  # yesterday's Today, tapped this morning (ADR-0051)
+                    return self.which_day(principal, day, status)
+                return await self.saved(principal, day, status)  # later: `DateInFuture`
             case "clear", date() as day, _:
                 await self._days.clear.execute(principal, day)
                 # Read back: the day may now show as auto-rest (PR-09).
@@ -236,8 +246,9 @@ class DayScreens:
                 last.insert(0, self._button(locale, "log-clear", encode(DayCallback("clear", day))))
             rows.append(last)
             rows.append([self._button(locale, "today-back", hcb.TODAY)])
-        else:
-            rows.append(menu_row(self._t, locale))
+        else:  # UI-06 stage 6 (C8): an earlier day, one tap from Today
+            another = self._button(locale, "log-another-day", encode(DayCallback("week", today)))
+            rows.append([another, *menu_row(self._t, locale)])
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def _step_row(self, locale: Locale, step: Step) -> list[InlineKeyboardButton] | None:
@@ -272,12 +283,13 @@ class DayScreens:
         self, locale: Locale, day: date, current: DayStatus | None, origin: Origin
     ) -> list[list[InlineKeyboardButton]]:
         """🧘 Practiced, 😌 Rest day, "Other reason": one per row, ✓ on the logged choice
-        (on "Other reason" for any status behind it)."""
+        (on "Other reason" for any status behind it). From Today (`t`) they carry `d1:n`."""
         other = self._t.t(locale, "today-other")
         reasons = encode(DayCallback("reasons", day, origin=origin))
+        action = _set_from(origin)
         return [
-            [self._status_button(locale, day, DayStatus.PRACTICED, current)],
-            [self._status_button(locale, day, DayStatus.REST, current)],
+            [self._status_button(locale, day, DayStatus.PRACTICED, current, action)],
+            [self._status_button(locale, day, DayStatus.REST, current, action)],
             [
                 InlineKeyboardButton(
                     text=f"✓ {other}" if current in OTHER_REASONS else other,
@@ -288,12 +300,13 @@ class DayScreens:
 
     def reasons(self, principal: Principal, day: date, origin: Origin) -> Screen:
         """ "Other reason" (UI-06 T1): a pure render, so no ✓ here. Without 🌸 when the
-        person hid it (WH-01)."""
+        person hid it (WH-01). Opened from Today, its choices carry `d1:n` too (ADR-0051)."""
         account = principal.account
         locale = account.locale
         today, _ = self._days.get.today(principal)
+        action = _set_from(origin)
         rows = [
-            [self._status_button(locale, day, status, None)]
+            [self._status_button(locale, day, status, None, action)]
             for status in OTHER_REASONS
             if not (status is DayStatus.LADIES and account.hide_ladies)
         ]
@@ -301,6 +314,42 @@ class DayScreens:
         rows.append([self._button(locale, "log-back", back)])
         text = self._t.t(locale, "today-reasons-title", day=self.day(locale, day, today))
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def which_day(self, principal: Principal, day: date, status: DayStatus) -> Screen:
+        """ADR-0051: a tap from a Today drawn on an earlier day. Nothing is saved; one
+        full-width row per date (today, then the one the message carried), both with explicit
+        dates so the answer never asks again, then Back to Today. A pure render."""
+        locale = principal.account.locale
+        today, _ = self._days.get.today(principal)
+        rows = [
+            [
+                InlineKeyboardButton(
+                    text=self.day(locale, d, today),
+                    callback_data=encode(DayCallback("set", d, status)),
+                )
+            ]
+            for d in (today, day)
+        ]
+        rows.append([self._button(locale, "log-back", hcb.TODAY)])
+        text = self._t.t(locale, "today-which-day", label=self.label(locale, status))
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def city_ask(self, principal: Principal) -> tuple[list[str], list[list[InlineKeyboardButton]]]:
+        """UI-06 stage 6 (B7): under a saved day while neither a zone nor a city is known,
+        the question and [🏙 Choose my city] [Not now]; nothing otherwise. "Not now" is the
+        old nudge's `s1:n` (the same meaning: lands on Settings, never asks again). Never on
+        Today, which keeps one main action."""
+        account = principal.account
+        if not asks_for_city(account):
+            return [], []
+        locale = account.locale
+        cities = gcb.encode(gcb.SettingsCallback("cities", page=0))
+        later = gcb.encode(gcb.SettingsCallback("not_now"))
+        row = [
+            self._button(locale, "city-ask-button", cities),
+            self._button(locale, "next-not-now", later),
+        ]
+        return [self._t.t(locale, "city-ask")], [row]
 
     def auto_line(self, locale: Locale, view: DaysView, day: date) -> str | None:
         """ "🌙 Moon day (📍 Mysuru), a traditional rest day…" for an unlogged auto day, or
@@ -378,7 +427,9 @@ class DayScreens:
         only = acb.encode(acb.RestCallback("only", day, kind))
         rows.append([self._button(locale, "pause-only", only, rel=rel)])
         rows.append(self._change_row(locale, day, today))
-        rows += self.app_rows(principal)
+        city_lines, city_rows = self.city_ask(principal)
+        lines += city_lines
+        rows += city_rows
         rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
@@ -400,6 +451,9 @@ class DayScreens:
         if period.end >= today:
             rows.append([self.end_button(locale, period, reminders_on)])
         rows.append(self._change_row(locale, day, today))
+        city_lines, city_rows = self.city_ask(principal)
+        lines += city_lines
+        rows += city_rows
         rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
@@ -435,20 +489,19 @@ class DayScreens:
         ]
 
     def saved_screen(self, principal: Principal, day: date, status: DayStatus) -> Screen:
-        """What a day shows once logged (UI-06 S; not practiced: that has its own summary)."""
+        """What a day shows once logged (UI-06 S; not practiced: that has its own summary).
+        A rest day's note is one tap away here (UI-06 stage 6, C7; Back → the day's editor)."""
         today, _ = self._days.get.today(principal)
         locale = principal.account.locale
-        rows = [self._change_row(locale, day, today), menu_row(self._t, locale)]
-        return Screen(
-            "\n\n".join(self.saved_lines(principal, day, status)),
-            InlineKeyboardMarkup(inline_keyboard=rows),
-        )
-
-    def app_rows(self, principal: Principal) -> list[list[InlineKeyboardButton]]:
-        """[Open the app] while the time zone is unknown: opening it records the zone."""
-        if principal.account.timezone is not None or not self.app_url:
-            return []
-        return [[app_button(self._t, principal.account.locale, "start-open-app", self.app_url)]]
+        lines = self.saved_lines(principal, day, status)
+        rows = [self._change_row(locale, day, today)]
+        if self.notes:
+            rows.append([note_button(self._t, locale, day, "d")])
+        city_lines, city_rows = self.city_ask(principal)
+        lines += city_lines
+        rows += city_rows
+        rows.append(menu_row(self._t, locale))
+        return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     def saved_lines(self, principal: Principal, day: date, status: DayStatus) -> list[str]:
         """ "✓ Today, Sun, Oct 18: 🧘 Practiced" + the cheer and the privacy note. No time-zone
@@ -510,12 +563,17 @@ class DayScreens:
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     def _status_button(
-        self, locale: Locale, day: date, status: DayStatus, current: DayStatus | None
+        self,
+        locale: Locale,
+        day: date,
+        status: DayStatus,
+        current: DayStatus | None,
+        action: Action = "set",
     ) -> InlineKeyboardButton:
         text = self._t.t(locale, f"status-{status.value}")
         return InlineKeyboardButton(
             text=f"✓ {text}" if status is current else text,
-            callback_data=encode(DayCallback("set", day, status)),
+            callback_data=encode(DayCallback(action, day, status)),
         )
 
     def _button(self, locale: Locale, key: str, data: str, **args: str) -> InlineKeyboardButton:
@@ -523,6 +581,12 @@ class DayScreens:
 
     def day(self, locale: Locale, day: date, today: date) -> str:
         return day_label(self._t, locale, day, today)
+
+
+def _set_from(origin: Origin) -> Action:
+    """Today's choices (`t`) ask which day when tapped later (ADR-0051); the editor's save
+    the date it shows."""
+    return "now" if origin == "t" else "set"
 
 
 def _on(flag: bool) -> str:

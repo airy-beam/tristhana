@@ -472,7 +472,7 @@ def test_today_offers_a_new_shalas_owner_to_add_a_class(
         in _lines(body)
     )
     rows = _rows(body)
-    assert rows[-2:] == [["Add a class"], ["☰ Menu"]]
+    assert rows[-2:] == [["Add a class"], ["📅 Another day", "☰ Menu"]]
     assert _app(body, "Add a class") == {"open": ["class"], "shala": [str(shala)]}
     assert "Not now" not in _texts(body)
 
@@ -490,7 +490,7 @@ def test_today_offers_the_shala_invite_once_it_has_a_class(
     assert "Your shala has a schedule now. Invite students, and they'll see its classes." in _lines(
         body
     )
-    assert _rows(body)[-2:] == [["Invite students to the shala"], ["☰ Menu"]]
+    assert _rows(body)[-2:] == [["Invite students to the shala"], ["📅 Another day", "☰ Menu"]]
     assert _data(body, "Invite students to the shala") == f"h1:i:{short_id(shala)}"
 
 
@@ -503,7 +503,7 @@ def test_today_has_no_shala_step_for_a_student_or_a_staff_teacher(
 
     body = _tap(client, "w1:n")
 
-    assert _rows(body)[-1] == ["☰ Menu"]
+    assert _rows(body)[-1] == ["📅 Another day", "☰ Menu"]
     assert not any("Your shala" in line for line in _lines(body))
 
 

@@ -866,12 +866,61 @@ def test_the_front_door_labels_in_russian_are_the_approved_ones() -> None:
         ("app-open-shala", "🏛 Shala in the app", "🏛 Шала в приложении"),
         ("schedule-full-app", "🗓 Full week in the app", "🗓 Вся неделя в приложении"),
         ("shala-classes-edit", "🗓 Add or change classes", "🗓 Добавить или изменить занятия"),
+        # Slice B: the student journey.
+        ("menu-asanas", "🧘 My asanas", "🧘 Мои асаны"),
+        ("city-ask-button", "🏙 Choose my city", "🏙 Выбрать город"),
+        ("next-not-now", "Not now", "Не сейчас"),  # noqa: RUF001
+        (
+            "city-ask",
+            "📍 Which city do you live in? Your days and reminders follow its clock.",
+            "📍 В каком городе ты живёшь? Дни и напоминания идут по его часам.",  # noqa: RUF001
+        ),
+        (
+            "settings-city-later",
+            "Pick your city here any time.",
+            "Город можно выбрать здесь в любой момент.",
+        ),
+        (
+            "menu-text-lead",
+            "I understand buttons, not typed messages. To add a note, log the day and tap "
+            "📓 Note. Here is everything I can do 🙏",
+            "Я понимаю кнопки, а не сообщения. Чтобы добавить заметку, отметь день и нажми "  # noqa: RUF001
+            "«📓 Заметка». Вот что я умею 🙏",
+        ),
     ],
 )
 def test_ui06_stage6_labels(key: str, en: str, ru: str) -> None:
     t = FluentTranslator()
 
     assert (t.t("en", key), t.t("ru", key)) == (en, ru)
+
+
+@pytest.mark.parametrize(
+    ("locale", "label", "text"),
+    [
+        (
+            "en",
+            "🧘 Practiced",
+            "This message is from an earlier day. Which day is it for: 🧘 Practiced?",
+        ),
+        (
+            "ru",
+            "🧘 Практика",
+            "Это сообщение с прошлого дня. На какой день записать: 🧘 Практика?",  # noqa: RUF001
+        ),
+    ],
+)
+def test_the_which_day_question(locale: str, label: str, text: str) -> None:
+    # ADR-0051: a tap on an earlier day's Today.
+    assert FluentTranslator().t(locale, "today-which-day", label=label) == text  # type: ignore[arg-type]
+
+
+def test_the_city_question_promises_days_and_reminders_not_moon_days() -> None:
+    # B7: the home city sets the clock; the moon city follows the moon choice (MD-02).
+    t = FluentTranslator()
+
+    assert "moon" not in t.t("en", "city-ask").lower()
+    assert "лун" not in t.t("ru", "city-ask").lower()
 
 
 def test_the_prompt_stays_neutral() -> None:

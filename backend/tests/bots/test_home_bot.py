@@ -31,7 +31,10 @@ BOT = "tristhana_test_bot"
 SHALA = UUID("11111111-1111-4111-8111-111111111111")
 MENU = ["☰ Menu"]
 BACK = "‹ Back"  # noqa: RUF001
-TYPED = "I can't answer messages yet. Here is everything I can do 🙏\n\n☰ Menu"
+TYPED = (
+    "I understand buttons, not typed messages. To add a note, log the day and tap 📓 Note. "
+    "Here is everything I can do 🙏\n\n☰ Menu"
+)
 _ids = itertools.count(260_000)
 _OUTBOUND: list[Any] = []
 
@@ -146,6 +149,7 @@ def _me(client: TestClient, storage: InMemoryStorage, **role: Any) -> Account:
 NOBODY_MENU = {
     "📝 Today": "w1:n",
     "📊 My practice": f"{APP}?open=practice",
+    "🧘 My asanas": "g1:o",  # UI-06 stage 6 (C9): as Help's row
     "🌙 Moon days": "m1:v",
     "🙏 Teacher and shala": "t1:o",
     "⚙️ Settings": "s1:v",
@@ -195,7 +199,7 @@ def test_the_menu_follows_what_the_person_is(
     if not quiet:  # Q310: no students and on no staff
         del expected["For teachers and shalas"]
     assert where == expected
-    assert len(where) <= 9  # at most eight rows and the quiet one
+    assert len(where) <= 9  # at most nine rows, the quiet one included
 
 
 def test_the_menu_keeps_its_fixed_order(client: TestClient, storage: InMemoryStorage) -> None:
@@ -204,6 +208,7 @@ def test_the_menu_keeps_its_fixed_order(client: TestClient, storage: InMemorySto
     assert _rows(_text(client, "/menu")) == [
         ["📝 Today"],
         ["📊 My practice"],
+        ["🧘 My asanas"],
         ["🌙 Moon days"],
         ["🗓 My schedule"],
         ["🙏 Teacher and shala"],
@@ -322,7 +327,12 @@ def test_invite_then_the_teachers_closing_then_today(client: TestClient) -> None
         "🏛 Shala and classes": "w1:s:c",
         "☰ Menu": "w1:m",
     }
-    assert _rows(today) == [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], MENU]
+    assert _rows(today) == [
+        ["🧘 Practiced"],
+        ["😌 Rest day"],
+        ["Other…"],
+        ["📅 Another day", *MENU],
+    ]
 
 
 def test_invite_without_a_bot_name_goes_to_the_closing_screen(storage: InMemoryStorage) -> None:

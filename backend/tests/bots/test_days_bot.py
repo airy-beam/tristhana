@@ -118,21 +118,35 @@ def _log(client: TestClient, storage: InMemoryStorage, day: date, status: DaySta
     storage.day_repo.rows[(account.id, day)] = (DayLog(day, status), None)
 
 
+def _zone(storage: InMemoryStorage, zone: str = "UTC") -> None:
+    """A known zone: the city question (B7) stays off these screens."""
+    [account] = storage.repo.accounts.values()
+    storage.repo.accounts[account.id] = replace(account, timezone=zone)
+
+
 # Today (T0)
 
 
-def test_log_shows_today_with_exactly_four_buttons(client: TestClient) -> None:
+def test_log_shows_today_with_its_three_choices_then_another_day_and_the_menu(
+    client: TestClient,
+) -> None:
     body = _command(client, "/log")
     d = _ymd(_today())
 
     assert body["method"] == "sendMessage"
     assert body["text"].startswith("Today, ")
     assert body["text"].endswith("Practice or rest? Both go in your log.")
-    assert _rows(body) == [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
+    assert _rows(body) == [
+        ["🧘 Practiced"],
+        ["😌 Rest day"],
+        ["Other…"],
+        ["📅 Another day", "☰ Menu"],  # UI-06 stage 6 (C8)
+    ]
     assert [b["callback_data"] for b in _buttons(body)] == [
-        f"d1:s:{d}:p",
-        f"d1:s:{d}:r",
+        f"d1:n:{d}:p",  # ADR-0051: Today's own letter
+        f"d1:n:{d}:r",
         f"d1:r:{d}:t",
+        f"d1:w:{d}",
         "w1:m",
     ]
     assert "🌸" not in str(body)  # off the first screen (it is under "Other reason")
@@ -141,7 +155,12 @@ def test_log_shows_today_with_exactly_four_buttons(client: TestClient) -> None:
 def test_today_in_russian(client: TestClient) -> None:
     body = _command(client, "/log", "ru")
 
-    assert _rows(body) == [["🧘 Практика"], ["😌 День отдыха"], ["Другое…"], ["☰ Меню"]]
+    assert _rows(body) == [
+        ["🧘 Практика"],
+        ["😌 День отдыха"],
+        ["Другое…"],
+        ["📅 Другой день", "☰ Меню"],
+    ]
     assert "Практика или отдых?" in body["text"]
 
 
@@ -164,7 +183,7 @@ def test_today_marks_the_logged_choice_and_says_what_it_is(
 
     texts = [b["text"] for b in _buttons(body)]
     assert [t for t in texts if t.startswith("✓")] == [marked]
-    assert len(texts) == 4
+    assert len(texts) == 5
     # The date, then what is logged: the question is answered, so it isn't asked again.
     date_line, logged = body["text"].split("\n")
     assert date_line.startswith("Today, ")
@@ -188,7 +207,7 @@ def test_today_shows_the_auto_rest_line_on_a_moon_day(
     )
     assert "In your log" not in body["text"]  # shown as rest, not logged
     assert not [b for b in _buttons(body) if b["text"].startswith("✓")]
-    assert len(_buttons(body)) == 4
+    assert len(_buttons(body)) == 5
 
 
 def test_today_during_a_pause_opens_with_the_date_not_the_pause(
@@ -206,7 +225,7 @@ def test_today_during_a_pause_opens_with_the_date_not_the_pause(
     assert pause.startswith("🌸 Ladies' holiday through ")
     assert "Practice or rest?" not in body["text"]
     assert [row[0] for row in _rows(body)[:3]] == ["🧘 Practiced", "😌 Rest day", "Other…"]
-    assert _rows(body)[-1] == ["☰ Menu"]
+    assert _rows(body)[-1] == ["📅 Another day", "☰ Menu"]
 
 
 def test_the_menu_hint_and_a_lead_stay_above_the_date(
@@ -255,12 +274,13 @@ def test_other_reason_lists_the_rest_and_goes_back_where_it_came_from(
 
     assert body["method"] == "editMessageText"
     assert body["text"].startswith("Yesterday, ")
+    letter = "n" if origin == "t" else "s"  # from Today: ask which day if tapped later
     assert [(b["text"], b["callback_data"]) for b in _buttons(body)] == [
-        ("🌙 Moon day", f"d1:s:{d}:m"),
-        ("🌸 Ladies' holiday", f"d1:s:{d}:l"),
-        ("🤒 Sick / injury", f"d1:s:{d}:k"),
-        ("✈️ Travel", f"d1:s:{d}:t"),
-        ("🌱 No practice", f"d1:s:{d}:s"),
+        ("🌙 Moon day", f"d1:{letter}:{d}:m"),
+        ("🌸 Ladies' holiday", f"d1:{letter}:{d}:l"),
+        ("🤒 Sick / injury", f"d1:{letter}:{d}:k"),
+        ("✈️ Travel", f"d1:{letter}:{d}:t"),
+        ("🌱 No practice", f"d1:{letter}:{d}:s"),
         ("‹ Back", back.format(d=d)),  # noqa: RUF001
     ]
 
@@ -278,6 +298,8 @@ def test_other_reason_costs_no_statement(
 
 def test_a_reason_saves_like_any_status(client: TestClient, storage: InMemoryStorage) -> None:
     today = _today()
+    _command(client, "/log")
+    _zone(storage)
     reasons = _tap(client, f"d1:r:{_ymd(today)}:t")
 
     saved = _tap(client, reasons["reply_markup"]["inline_keyboard"][4][0]["callback_data"])
@@ -285,7 +307,7 @@ def test_a_reason_saves_like_any_status(client: TestClient, storage: InMemorySto
     assert saved["text"].startswith("✓ Today, ")
     [(day, _)] = storage.day_repo.rows.values()
     assert (day.local_date, day.status) == (today, DayStatus.SKIPPED)
-    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["☰ Menu"]]
+    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["📓 Note"], ["☰ Menu"]]
 
 
 @pytest.mark.parametrize("data", ["d1:r:20261018", "d1:r:20261018:x", "d1:r:20261399:t", "d1:r"])
@@ -449,12 +471,13 @@ def test_a_saved_rest_day_is_one_write_and_ends_with_the_menu(
     client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _command(client, "/log")
+    _zone(storage)
     statements = Statements(monkeypatch, storage)
 
     saved = _tap(client, f"d1:s:{_ymd(_today())}:r")
 
     assert statements.names == ["InMemoryDays.upsert"]
-    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["☰ Menu"]]
+    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["📓 Note"], ["☰ Menu"]]
     assert [b["callback_data"] for b in _buttons(saved)][-1] == "w1:m"
 
 
@@ -499,3 +522,217 @@ def test_database_down_gets_a_toast(client: TestClient, storage: InMemoryStorage
     body = _tap(client, "d1:t")
 
     assert body["method"] == "answerCallbackQuery"
+
+
+# UI-06 stage 6 (B6, ADR-0051): a tap on an old Today asks which day.
+
+
+def test_todays_choices_and_its_other_screen_carry_their_own_letter(client: TestClient) -> None:
+    d = _ymd(_today())
+
+    today = _command(client, "/log")
+    reasons = _tap(client, f"d1:r:{d}:t")
+    editor = _tap(client, f"d1:o:{d}")
+    editor_reasons = _tap(client, f"d1:r:{d}:e")
+
+    assert [b["callback_data"] for b in _buttons(today)][:2] == [f"d1:n:{d}:p", f"d1:n:{d}:r"]
+    assert {b["callback_data"][:5] for b in _buttons(reasons)[:-1]} == {"d1:n:"}
+    assert [b["callback_data"] for b in _buttons(editor)][:2] == [f"d1:s:{d}:p", f"d1:s:{d}:r"]
+    assert {b["callback_data"][:5] for b in _buttons(editor_reasons)[:-1]} == {"d1:s:"}
+
+
+def test_a_tap_from_todays_today_saves_at_once(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    today = _today()
+
+    body = _tap(client, f"d1:n:{_ymd(today)}:p")
+
+    assert body["text"].startswith("✓ Today, ")
+    [(day, _)] = storage.day_repo.rows.values()
+    assert (day.local_date, day.status) == (today, DayStatus.PRACTICED)
+
+
+@pytest.mark.parametrize("lang", ["en", "ru"])
+def test_a_tap_from_yesterdays_today_asks_which_day_and_saves_nothing(
+    client: TestClient, storage: InMemoryStorage, outbound: list[str], lang: str
+) -> None:
+    today = _today(lang)
+    yesterday = today - timedelta(days=1)
+
+    body = _tap(client, f"d1:n:{_ymd(yesterday)}:r", language_code=lang)
+
+    assert outbound == ["answerCallbackQuery"]
+    assert body["method"] == "editMessageText"
+    expected = {
+        "en": "This message is from an earlier day. Which day is it for: 😌 Rest day?",
+        "ru": "Это сообщение с прошлого дня. На какой день записать: 😌 День отдыха?",  # noqa: RUF001
+    }
+    assert body["text"] == expected[lang]
+    rows = body["reply_markup"]["inline_keyboard"]
+    assert [len(row) for row in rows] == [1, 1, 1]  # one date per full-width row, then Back
+    assert [row[0]["callback_data"] for row in rows] == [
+        f"d1:s:{_ymd(today)}:r",
+        f"d1:s:{_ymd(yesterday)}:r",
+        "w1:n",
+    ]
+    assert rows[0][0]["text"].startswith(("Today, ", "Сегодня, "))
+    assert rows[1][0]["text"].startswith(("Yesterday, ", "Вчера, "))
+    assert rows[2][0]["text"] in ("‹ Back", "‹ Назад")  # noqa: RUF001
+    assert storage.day_repo.rows == {}
+
+
+def test_the_question_costs_no_statement(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _command(client, "/log")
+    statements = Statements(monkeypatch, storage)
+
+    _tap(client, f"d1:n:{_ymd(_today() - timedelta(days=3))}:p")
+
+    assert statements.names == []
+
+
+def test_the_answer_saves_the_date_it_names(client: TestClient, storage: InMemoryStorage) -> None:
+    yesterday = _today() - timedelta(days=1)
+    asked = _tap(client, f"d1:n:{_ymd(yesterday)}:k")
+
+    saved = _tap(client, asked["reply_markup"]["inline_keyboard"][1][0]["callback_data"])
+
+    assert saved["text"].startswith("✓ Yesterday, ")
+    [(day, _)] = storage.day_repo.rows.values()
+    assert (day.local_date, day.status) == (yesterday, DayStatus.SICK)
+
+
+def test_a_tap_from_a_today_in_the_future_is_refused_gently(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    body = _tap(client, f"d1:n:{_ymd(_today() + timedelta(days=2))}:p")
+
+    assert body["text"].startswith("In your city this day hasn't come yet.")
+    assert storage.day_repo.rows == {}
+
+
+# UI-06 stage 6 (C8): another day, one tap from Today.
+
+
+def test_today_ends_with_another_day_beside_the_menu(client: TestClient) -> None:
+    body = _command(client, "/log")
+
+    assert _rows(body)[-1] == ["📅 Another day", "☰ Menu"]
+    assert [b["callback_data"] for b in body["reply_markup"]["inline_keyboard"][-1]] == [
+        f"d1:w:{_ymd(_today())}",
+        "w1:m",
+    ]
+
+
+# UI-06 stage 6 (C7): a rest day's note, one tap away.
+
+
+def test_a_saved_rest_day_offers_its_note(client: TestClient, storage: InMemoryStorage) -> None:
+    _command(client, "/log")
+    _zone(storage)
+    d = _ymd(_today())
+
+    saved = _tap(client, f"d1:s:{d}:r")
+    note = _tap(client, f"n1:o:{d}:d")
+    back = _tap(client, f"n1:b:{d}:d")
+
+    assert _rows(saved) == [["✏️ Change", "📅 Another day"], ["📓 Note"], ["☰ Menu"]]
+    assert _buttons(saved)[2]["callback_data"] == f"n1:o:{d}:d"
+    assert note["text"].startswith("📓 ")
+    assert back["text"].startswith("Today, ")  # Back: the day's editor
+    assert _rows(back)[-1] == ["‹ Today"]  # noqa: RUF001
+
+
+# UI-06 stage 6 (B7): the city question after a save.
+
+CITY_ASK = "📍 Which city do you live in? Your days and reminders follow its clock."
+CITY_ROW = [("🏙 Choose my city", "s1:cp:0"), ("Not now", "s1:n")]
+
+
+def _city_row(body: Any) -> list[tuple[str, str]] | None:
+    for row in body["reply_markup"]["inline_keyboard"]:
+        pairs = [(b["text"], b.get("callback_data", "")) for b in row]
+        if pairs and pairs[0][1] == "s1:cp:0":
+            return pairs
+    return None
+
+
+@pytest.mark.parametrize("code", ["r", "k", "l", "m", "s"])
+def test_a_saved_day_asks_for_the_city_while_none_is_known(
+    client: TestClient, storage: InMemoryStorage, code: str
+) -> None:
+    saved = _tap(client, f"d1:s:{_ymd(_today())}:{code}")
+
+    assert saved["text"].endswith(CITY_ASK)
+    assert "moon" not in CITY_ASK.lower()  # the home city is not the moon city (MD-02)
+    assert _city_row(saved) == CITY_ROW
+    assert _rows(saved)[-1] == ["☰ Menu"]
+
+
+def test_the_practiced_screen_asks_for_the_city_too(client: TestClient) -> None:
+    saved = _tap(client, f"d1:s:{_ymd(_today())}:p")
+
+    assert CITY_ASK in saved["text"]
+    assert _city_row(saved) == CITY_ROW
+
+
+def test_a_pause_screen_asks_for_the_city_and_offers_no_app(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    _command(client, "/log")
+    d = _ymd(_today())
+
+    question = _tap(client, f"d1:s:{d}:k")  # sick: "for how many days?"
+    paused = _tap(client, f"a1:p:{d}:k:3")
+
+    for body in (question, paused):
+        assert CITY_ASK in body["text"]
+        assert _city_row(body) == CITY_ROW
+        assert not [b for b in _buttons(body) if "web_app" in b]
+
+
+def test_today_never_asks_for_the_city(client: TestClient) -> None:
+    body = _command(client, "/log")
+
+    assert CITY_ASK not in body["text"]
+    assert _city_row(body) is None
+
+
+@pytest.mark.parametrize(
+    ("timezone", "home_city"),
+    [("Asia/Almaty", None), (None, "-"), ("Asia/Almaty", "almaty")],
+    ids=["zone", "not-now", "city"],
+)
+def test_a_zone_or_a_city_answer_ends_the_question(
+    client: TestClient, storage: InMemoryStorage, timezone: str | None, home_city: str | None
+) -> None:
+    _command(client, "/log")
+    [account] = storage.repo.accounts.values()
+    storage.repo.accounts[account.id] = replace(account, timezone=timezone, home_city=home_city)
+
+    saved = _tap(client, f"d1:s:{_ymd(_today())}:r")
+
+    assert CITY_ASK not in saved["text"]
+    assert _city_row(saved) is None
+
+
+def test_not_now_lands_on_settings_and_never_asks_again(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    _tap(client, f"d1:s:{_ymd(_today())}:r")
+
+    settings = _tap(client, "s1:n")
+    again = _tap(client, f"d1:s:{_ymd(_today())}:k")
+
+    assert settings["text"] == "Pick your city here any time.\n\n⚙️ Settings"
+    [account] = storage.repo.accounts.values()
+    assert account.home_city == "-"
+    assert CITY_ASK not in again["text"]
+
+
+def test_settings_opened_any_other_way_has_no_lead(client: TestClient) -> None:
+    body = _tap(client, "s1:v")
+
+    assert body["text"] == "⚙️ Settings"

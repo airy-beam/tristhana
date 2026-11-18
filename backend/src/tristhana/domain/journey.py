@@ -23,6 +23,7 @@ class MenuItem(StrEnum):
 
     TODAY = "today"
     PRACTICE = "practice"  # "My practice": opens the Mini App
+    ASANAS = "asanas"  # "My asanas" (UI-06 stage 6, C9)
     MOON = "moon"
     CLASSES = "classes"  # only with a shala
     TEACHER = "teacher"  # "My teacher"
@@ -57,9 +58,10 @@ def front_door(account: Account, has_days: bool) -> bool:
 
 
 def menu_for(account: Account) -> tuple[MenuItem, ...]:
-    """At most eight rows, plus the quiet one for everyone without students: a person has either
-    "My students" or the way to their first invite, never neither (Q310 as refined: a teacher on
-    a shala's staff with no students yet would otherwise have no invite path in the Menu)."""
+    """At most nine rows: the quiet last one only for everyone without students, so a person
+    has either "My students" or the way to their first invite, never neither (Q310 as refined:
+    a teacher on a shala's staff with no students yet would otherwise have no invite path in
+    the Menu)."""
     hidden = {
         *(() if account.shala is not None else (MenuItem.CLASSES,)),
         *(() if account.teaches else (MenuItem.STUDENTS,)),
@@ -74,6 +76,13 @@ class SetupStep(StrEnum):
     ADD_CLASS = "add_class"
     INVITE_STUDENTS = "invite_students"
     INVITE_STAFF = "invite_staff"  # optional: "I teach alone" hides it on the device (Q340)
+
+
+def asks_for_city(account: Account) -> bool:
+    """After a save, ask which city the person lives in (UI-06 stage 6, B7): neither a zone nor
+    a city is known, so "today" is a guess and no reminder can be sent. A city chosen, a zone
+    recorded (opening the app, a location) or "Not now" (stored as "not listed") ends it."""
+    return account.timezone is None and account.home_city is None
 
 
 def setup_steps(classes: int, students: int, staff: int) -> tuple[SetupStep, ...]:

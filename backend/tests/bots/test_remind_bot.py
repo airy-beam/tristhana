@@ -162,6 +162,21 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
     assert "Они приходят в дни практики" in sunday_off["text"]
 
 
+def test_a_time_tap_turns_the_reminder_on(client: TestClient, storage: InMemoryStorage) -> None:
+    """UI-06 stage 6 (C10): the chip means "remind me at"; the switch beside it stays."""
+    _me(client, storage)
+
+    off = _tap(client, "r1:v")
+    body = _tap(client, "r1:t:2000")
+
+    assert off["text"].startswith("🔕 Practice reminder is off")
+    [settings] = storage.notifications.stored.values()
+    assert (settings.practice.on, settings.practice.at) == (True, time(20))
+    assert body["text"].startswith("🔔 Practice reminder: every day")
+    assert "✓ 20:00" in _texts(body)
+    assert "🔕 Turn off" in _texts(body)
+
+
 def test_old_weekday_keyboards_just_reshow_the_screen(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
@@ -369,6 +384,7 @@ def test_same_as_last_time_logs_and_shows_what_was_copied(
     assert "Copied from" in body["text"]  # more than two weeks ago
     assert _rows(body) == [
         ["✨ How do you feel?"],
+        ["📓 Note"],
         ["📝 Details", "✏️ Change", "📅 Another day"],
         ["☰ Menu"],
     ]

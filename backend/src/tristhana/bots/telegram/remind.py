@@ -184,8 +184,8 @@ class RemindScreens:
                     patch = ReminderPatch(on=cb.on)
                     saved, pause = await self._r.update.execute_with_pause(principal, patch)
                     return self.settings_screen(principal, saved, pause)
-                case "time":
-                    patch = ReminderPatch(at=cb.at)
+                case "time":  # "remind me at": the time turns it on (UI-06 stage 6, C10)
+                    patch = ReminderPatch(on=True, at=cb.at)
                     saved, pause = await self._r.update.execute_with_pause(principal, patch)
                     return self.settings_screen(principal, saved, pause)
                 case "yes" | "no":

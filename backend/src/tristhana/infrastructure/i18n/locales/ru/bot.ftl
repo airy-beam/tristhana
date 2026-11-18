@@ -52,14 +52,16 @@ today-logged = ✓ В журнале: { $label }
 # Once, on the first /start after UI-06 for someone who already uses the bot.
 today-menu-hint = Всё остальное теперь в ☰ Меню.
 today-back = ‹ Сегодня
+today-which-day = Это сообщение с прошлого дня. На какой день записать: { $label }?
 
 # The last row of every top-level screen.
 menu-open = ☰ Меню
 menu-title = ☰ Меню
 # On top of the Menu when the person typed something instead of tapping.
-menu-text-lead = Я пока не умею отвечать на сообщения. Зато вот что я умею 🙏
+menu-text-lead = Я понимаю кнопки, а не сообщения. Чтобы добавить заметку, отметь день и нажми «📓 Заметка». Вот что я умею 🙏
 menu-today = 📝 Сегодня
 menu-practice = 📊 Моя практика
+menu-asanas = 🧘 Мои асаны
 menu-moon = 🌙 Лунные дни
 menu-classes = 🗓 Моё расписание
 # Everyone sees this row, with or without a teacher, and the screen lists shalas too.
@@ -425,6 +427,9 @@ settings-share-location-button = 📍 Отправить геопозицию
 settings-location-zone = 🕐 Готово: твоё время — { $zone }. Изменить можно в ☰ Меню → ⚙️ Настройки.
 settings-location-unknown = Не удалось понять местное время по этой точке. Выбери город в ☰ Меню → ⚙️ Настройки или открой приложение.
 settings-open-app = ⚙️ Ещё в приложении
+city-ask = 📍 В каком городе ты живёшь? Дни и напоминания идут по его часам.
+city-ask-button = 🏙 Выбрать город
+settings-city-later = Город можно выбрать здесь в любой момент.
 settings-link = ⚙️ Настройки
 
 ## Выходной и автоотдых (PR-09).
@@ -1024,6 +1029,7 @@ next-class = В шале пока нет занятий. Добавь перво
 next-class-do = Добавить занятие
 next-shala-invite = В шале уже есть расписание. Пригласи учеников, и они увидят занятия.
 next-shala-invite-do = Пригласить учеников в шалу
+next-not-now = Не сейчас
 
 ## Занятия шалы (SC-02). Время по часам шалы; { $zone } = «Алматы (UTC+5)».
 ## { $day } приходит готовым («пт, 13 нояб.»). Об изменениях никто не получает сообщений (Q122).
