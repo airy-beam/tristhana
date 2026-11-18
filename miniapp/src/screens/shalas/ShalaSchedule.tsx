@@ -32,8 +32,6 @@ interface Props {
   week?: number;
   /** The class a person tried to change is gone: say so over the week (UI-06 stage 4). */
   gone?: boolean;
-  /** "Add a class": the form opens as a layer of its own. */
-  onAdd: () => void;
   /** "Change the class…" on an occurrence. */
   onEdit: (occurrence: Occurrence) => void;
   /** "Tell students…" after a cancel, with the text to start from. */
@@ -42,13 +40,13 @@ interface Props {
 
 /** The shala's week (SC-02): every member reads it in the shala's zone (the card above names
  * it once); a day whose offset differs (a DST week) names it again. Staff who manage classes
- * add a class from the first row, open an occurrence for its date or the whole class, and set
- * closures and swaps from two rows under the week. Silent: no one gets a message (Q122). */
+ * open an occurrence for its date or the whole class, and set closures and swaps from two rows
+ * under the week; they add a class from the Classes above (UI-06 stage 6). Silent: no one
+ * gets a message (Q122). */
 export default function ShalaSchedule({
   shala,
   week: first = 0,
   gone = false,
-  onAdd,
   onEdit,
   onTell,
 }: Props) {
@@ -76,18 +74,6 @@ export default function ShalaSchedule({
       <Localized id="schedule-title">
         <h2 />
       </Localized>
-      {manage && (
-        <div className="list">
-          <Row
-            label={l10n.getString("schedule-add-class")}
-            action
-            onClick={() => {
-              haptics.selection();
-              onAdd();
-            }}
-          />
-        </div>
-      )}
       {/* Which week this is, between its two arrows: over the days, where one looks first. */}
       <nav className="week-nav">
         <Localized id="page-prev">

@@ -48,6 +48,7 @@ import { AskedLines, SaidLine } from "../teachers/Asked";
 import { useTeacherChoices, type Said } from "../teachers/requests";
 import { ownZone } from "../timeLabel";
 import ClassForm, { type ClassEdit, type FormResult } from "./ClassForm";
+import ShalaClasses from "./ShalaClasses";
 import ShalaSchedule from "./ShalaSchedule";
 import { WEEKDAYS, weekdayShort } from "./scheduleText";
 import { SetupList, type SetupStep } from "./SetupList";
@@ -82,9 +83,9 @@ interface Props {
   id: string;
   onBack: () => void;
   week?: number | undefined; // the schedule's first week shown (0-3), from My schedule
-  /** UI-06: opened for one thing (Today's next step, the bot's "📣 Announce" from this shala):
-   * the class form, the student invite or the message form is open and in view. Once: not
-   * again after the announcements were opened from here. */
+  /** UI-06: opened for one thing (Today's next step, the bot's "📣 Announce" or "✏️ Edit the
+   * shala" from this shala): the class form, the student invite, the message form or the edit
+   * form is open and in view. Once: not again after the announcements were opened from here. */
   open?: ShalaOpen | undefined;
 }
 
@@ -111,6 +112,8 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
   const [opened, setOpened] = useState(open);
   const [form, setForm] = useState<Form | null>(open === "class" ? {} : null);
   const [gone, setGone] = useState(false);
+  // B2 (UI-06 stage 6): a class was saved during this visit; the Classes say so.
+  const [added, setAdded] = useState(false);
   // A student asking a teacher here, and the line the ask or a withdraw left (QE).
   const [asking, setAsking] = useState(false);
   const [said, setSaid] = useState<Said | null>(null);
@@ -155,6 +158,7 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
     setForm(null);
     setOpened(undefined);
     setGone(result === "gone");
+    if (result === "saved") setAdded(true);
   };
   return (
     <>
@@ -165,6 +169,7 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
           week={week}
           open={opened}
           gone={gone}
+          added={added}
           said={said}
           titleRef={title}
           onSaid={setSaid}
@@ -182,6 +187,9 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
           }}
           onEdit={(o) => {
             openForm({ edit: { classId: o.class_id, date: o.key, startsAt: o.starts_at } });
+          }}
+          onOpenClass={(edit) => {
+            openForm({ edit });
           }}
         />
       </div>
@@ -217,6 +225,7 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
 
 interface CardProps extends Props {
   gone: boolean;
+  added: boolean;
   said: Said | null;
   titleRef: Ref<HTMLHeadingElement>;
   onSaid: (said: Said) => void;
@@ -224,6 +233,8 @@ interface CardProps extends Props {
   onAnnouncements: (view: "feed" | "compose", draft?: string) => void;
   onAdd: () => void;
   onEdit: (occurrence: Occurrence) => void;
+  /** A class's row in the Classes (UI-06 stage 6). */
+  onOpenClass: (edit: ClassEdit) => void;
 }
 
 function Card({
@@ -232,6 +243,7 @@ function Card({
   week,
   open,
   gone,
+  added,
   said,
   titleRef,
   onSaid,
@@ -239,6 +251,7 @@ function Card({
   onAnnouncements,
   onAdd,
   onEdit,
+  onOpenClass,
 }: CardProps) {
   useBackButton(onBack);
   const { l10n } = useLocalization();
@@ -274,6 +287,14 @@ function Card({
           {shala.me.student && <Asking shala={shala} onSaid={onSaid} onPick={onPick} />}
           <SetupList shala={shala} onOpen={setup} />
           <Place shala={shala} locale={locale} viewer={me?.timezone} />
+          <ShalaClasses
+            shala={shala}
+            locale={locale}
+            viewer={me?.timezone}
+            added={added}
+            onAdd={onAdd}
+            onOpen={onOpenClass}
+          />
           <DayOffOffer shala={shala} />
           <section className="card">
             <Localized id="ann-list">
@@ -297,12 +318,11 @@ function Card({
               </Localized>
             )}
           </section>
-          {manages(shala.me) && <Edit shala={shala} locale={locale} />}
+          {manages(shala.me) && <Edit shala={shala} locale={locale} start={open === "edit"} />}
           <ShalaSchedule
             shala={shala}
             week={week ?? 0}
             gone={gone}
-            onAdd={onAdd}
             onEdit={onEdit}
             onTell={(draft) => {
               onAnnouncements("compose", draft);
@@ -445,12 +465,18 @@ const DAYS_OFF_MAX = 2;
 const NAME_MAX = 64;
 const SAME = ""; // the moon select's "same as the shala's city"
 
-/** Owners and managers (Q103: editing is in the Mini App only). */
-function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
+/** Owners and managers (Q103: editing is in the Mini App only). `start`: the bot's "✏️ Edit
+ * the shala" (`?open=edit-shala`, UI-06 stage 6): the form is open and in view at once. */
+function Edit({ shala, locale, start }: { shala: Shala; locale: Locale; start: boolean }) {
   const { l10n } = useLocalization();
   const cities = useMoonCities().data;
   const update = useUpdateShala(shala.id);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(start);
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (start) form.current?.scrollIntoView({ block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the card opens
+  }, []);
   const [name, setName] = useState(shala.name);
   const [city, setCity] = useState(shala.city.slug);
   const [online, setOnline] = useState(shala.online);
@@ -507,7 +533,7 @@ function Edit({ shala, locale }: { shala: Shala; locale: Locale }) {
       </Localized>
     );
   return (
-    <form className="card" noValidate onSubmit={submit}>
+    <form className="card" ref={form} noValidate onSubmit={submit}>
       <Field
         label={l10n.getString("shala-name-label")}
         error={blank && l10n.getString("shala-name-invalid")}

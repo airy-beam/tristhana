@@ -64,8 +64,8 @@ import { WEEKDAYS, dayName, fullDate, plain, timeIn, todayIn, weekdayShort } fro
 import "./shalaCopy";
 import "./shala.css";
 
-/** How the form closed: saved (or deleted), or the class was no longer there. */
-export type FormResult = "saved" | "gone";
+/** How the form closed: saved, deleted, or the class was no longer there. */
+export type FormResult = "saved" | "deleted" | "gone";
 
 /** A saved class opened for a change: its id, the date that was tapped, and when that date's
  * class begins (an instant), so a class that has already begun today is left as it ran. */
@@ -331,7 +331,7 @@ function Fields({
     sending.current = true;
     remove.mutate(saved.id, {
       onSuccess: () => {
-        onDone("saved");
+        onDone("deleted");
       },
       onSettled: () => {
         sending.current = false;
@@ -473,13 +473,18 @@ function Fields({
           }))}
           value={now.days}
           onPick={toggleDay}
-          hint={
+          // B2 (UI-06 stage 6): what one class is, so Mysore on weekdays and Led on Sunday
+          // become two classes, not one with every day ticked.
+          hint={[
             offDay
               ? l10n.getString("class-form-day-off-warning")
               : now.type === "led"
                 ? l10n.getString("class-led-hint")
-                : undefined
-          }
+                : null,
+            l10n.getString("class-form-days-hint"),
+          ]
+            .filter(Boolean)
+            .join(" ")}
           error={problem === "days" && l10n.getString("class-form-days-needed")}
         />
       )}

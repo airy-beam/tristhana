@@ -12,6 +12,8 @@ class-form-when = When
 class-form-weekly = Regularly
 class-form-once = One date
 class-form-days = Repeats on
+# Under the weekday chips (UI-06 stage 6, B2): one class is one type at one time.
+class-form-days-hint = A different time or type is another class: Mysore on weekdays and Led on Sunday are two. Save this one, then add the next.
 class-form-date = Date
 class-form-days-needed = Choose at least one day, or “One date”.
 class-form-day-off-warning = One of the chosen days is the shala's day off.
@@ -98,3 +100,18 @@ setup-staff = Invite teachers and staff
 setup-staff-note = Optional
 setup-staff-skip = I teach alone
 setup-done-mark = done
+
+## The shala card's Classes (UI-06 stage 6, spec §3.1): each class as it stands, a row each, for
+## those who may manage the schedule. The Schedule below is by date.
+# No 🗓 here: the Schedule's heading has it.
+shala-classes-title = Classes
+shala-classes-none = No classes yet.
+# One class: $class "Mysore" or "Led Full Primary", $days "Mon–Fri" or "Mon, Wed" (from the
+# weekday names) or a date, $start and $end "06:00", "09:30".
+shala-class-row = { $class } · { $days } · { $start }–{ $end }
+# $days for a class on all seven days.
+shala-class-every-day = every day
+# On the card after a class was saved from the form, for this visit.
+class-form-saved = ✓ Class saved.
+# The Classes' add row after a save, for this visit (before: schedule-add-class).
+class-add-another = ➕ Add another class

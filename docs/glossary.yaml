@@ -196,6 +196,15 @@ concepts:
     ru: 🗓 Расписание
     where: [the shala card]
 
+  - concept: A shala's classes, as they repeat
+    en: Classes
+    ru: Занятия
+    where: [shala-classes-title, shala-classes-none, shala-class-row, class-add-another]
+    note: >-
+      UI-06 stage 6 (spec §3.1, §6). The repeating rules on the shala card ("Mysore · Mon–Fri ·
+      06:00–09:30"), one row per class; the Schedule below is by date. No 🗓 on the heading: the
+      Schedule's has it.
+
   - concept: Passing a link on
     en: ✉️ Send the link
     ru: ✉️ Отправить ссылку

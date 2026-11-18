@@ -1793,3 +1793,59 @@ describe("the chunk", () => {
     expect(shellSource).not.toMatch(/^import .*shalas\/ShalaTab/m);
   });
 });
+
+// UI-06 stage 6 (C16): while a shala I run has no class yet (Today's "add a class" step, the
+// same cache), its row leads the Shala tab and opens its card, the setup list on top; My
+// schedule, a read-only week, is no longer the main row then.
+describe("a shala with no class yet leads the tab", () => {
+  const steps = (body: unknown) => (request: Request) =>
+    new URL(request.url).pathname === "/api/v1/me/next-steps" ? json(body) : undefined;
+  const rowsOf = () => {
+    const root = screen.getByRole("heading", { level: 1, name: "🏛 Shala" }).closest("main");
+    return [...(root?.querySelectorAll(":scope > button") ?? [])].map(
+      (b) => `${b.matches(".btn") ? "▶ " : ""}${plain(b.textContent)}`,
+    );
+  };
+
+  test("its row comes first and is the main one", async () => {
+    mine = [shalaOf(OTHER, "Led Hall", "student"), shalaOf(SHALA, "Mysore Room", "staff", true)];
+    stubApi(
+      () => ({ teachers: [], students: [] }),
+      steps({ steps: [{ kind: "add_class", shala_id: SHALA }] }),
+    );
+    await openScreen();
+
+    await screen.findByRole("button", { name: "🗓 My schedule" });
+    expect(rowsOf()).toEqual(["▶ 🏛 Mysore Room", "🗓 My schedule", "🏛 Led Hall"]);
+  });
+
+  test("its row opens the card", async () => {
+    mine = [shalaOf(SHALA, "Mysore Room", "staff", true)];
+    const seen = stubApi(
+      () => ({ teachers: [], students: [] }),
+      steps({ steps: [{ kind: "add_class", shala_id: SHALA }] }),
+    );
+    await openScreen();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: (n) => plain(n) === "🏛 Mysore Room" }),
+    );
+
+    await waitFor(() => {
+      expect(calls(seen, "GET", `/api/v1/shalas/${SHALA}`).length).toBeGreaterThan(0);
+    });
+  });
+
+  test.each([
+    ["no such step", { steps: [{ kind: "invite_shala_students", shala_id: SHALA }] }],
+    ["a step for a shala not mine", { steps: [{ kind: "add_class", shala_id: OTHER }] }],
+    ["an API without next steps", {}],
+  ])("%s: My schedule leads, as before", async (_, body) => {
+    mine = [shalaOf(SHALA, "Mysore Room", "staff", true)];
+    stubApi(() => ({ teachers: [], students: [] }), steps(body));
+    await openScreen();
+
+    await screen.findByRole("button", { name: "🗓 My schedule" });
+    expect(rowsOf()).toEqual(["▶ 🗓 My schedule", "🏛 Mysore Room"]);
+  });
+});

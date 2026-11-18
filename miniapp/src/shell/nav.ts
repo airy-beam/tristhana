@@ -18,13 +18,13 @@ export type Screen =
   | { name: "announce" }
   | { name: "listing" };
 
-/** What one shala's card is opened for: the class form in its schedule, its student invite, or
- * the message form over it (the bot's "📣 Announce" from that shala). */
-export type ShalaOpen = "class" | "join" | "announce";
+/** What one shala's card is opened for: the class form, its student invite, the message form
+ * over it (the bot's "📣 Announce" from that shala), or its edit form (UI-06 stage 6). */
+export type ShalaOpen = "class" | "join" | "announce" | "edit";
 
 /** A one-time intent for the Shala root: the create form open and focused, the invite open, or
  * one shala's card open (`shala:<id>`), also for one thing on it (`class:<id>`, `join:<id>`,
- * `announce:<id>`). */
+ * `announce:<id>`, `edit:<id>`). */
 export type Start = "create" | "invite" | `${"shala" | ShalaOpen}:${string}`;
 
 export interface Nav {
@@ -64,8 +64,22 @@ export function navigate(nav: Nav, action: NavAction): Nav {
 
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
+/** The Shala root with one shala's card open for `open` (or plainly), when `shala=` is a real
+ * id; else the Shala root. A shala the person has left shows the card's "couldn't load", and
+ * Back finds the root. */
+function card(query: URLSearchParams, open: "shala" | ShalaOpen): Nav {
+  const shala = query.get("shala");
+  return {
+    tab: "shala",
+    stack: [],
+    start: shala && UUID.test(shala) ? `${open}:${shala}` : null,
+  };
+}
+
 /** Where a bot button's `?open=…` lands, read once at launch. The values are a contract (old
- * messages keep their URLs); one the app doesn't know opens Today. */
+ * messages keep their URLs); one the app doesn't know opens Today. The bot builds them with
+ * `screens.app_url` and lists them in `APP_OPEN` (`screens.py`); a test pins that list against
+ * this switch's `case` labels. */
 export function launchNav(search: string): Nav {
   const query = new URLSearchParams(search);
   switch (query.get("open")) {
@@ -83,6 +97,15 @@ export function launchNav(search: string): Nav {
       return { tab: "shala", stack: [{ name: "listing" }], start: null };
     case "settings": // the bot's "⚙️ More in the app" (UI-06 stage 3)
       return { tab: "today", stack: [{ name: "settings" }], start: null };
+    // UI-06 stage 6 (spec §2): the bot's shala card, its week and My schedule.
+    case "shala": // "🗓 Add or change classes", "🗓 Full week in the app", "🏛 Open in the app"
+      return card(query, "shala");
+    case "class": // "➕ Add a class", Today's step
+      return card(query, "class");
+    case "edit-shala": // "✏️ Edit the shala"
+      return card(query, "edit");
+    case "schedule": // My schedule's "🗓 Full week in the app": Back finds the Shala root
+      return { tab: "shala", stack: [{ name: "schedule" }], start: null };
     default:
       return { tab: "today", stack: [], start: null };
   }

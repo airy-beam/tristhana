@@ -176,6 +176,8 @@ function respond(path: string): Response {
   if (leftShala && path === `/api/v1/shalas/${SHALA}`) return json({ code: "not_found" }, 404);
   if (path === `/api/v1/shalas/${SHALA}/join-link`)
     return json({ url: "https://t.me/tristhana_bot?start=s_a", qr: QR });
+  // UI-06 stage 6: the card's Classes, for those who manage the schedule.
+  if (path === `/api/v1/shalas/${SHALA}/classes`) return json([]);
   if (path === `/api/v1/shalas/${SHALA}/schedule`)
     return json({
       zone: "Asia/Almaty",
@@ -1218,6 +1220,67 @@ describe("opened by a bot button (?open=…)", () => {
     back();
 
     expect(await shala()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
+  });
+
+  // UI-06 stage 6 (spec §2): the bot's shala card, its week and My schedule.
+  test("?open=shala&shala= opens that shala's card, with its Classes; Back goes to the root", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    await launch(`/?open=shala&shala=${SHALA}`);
+
+    expect(await heading((n: string) => plain(n) === "🏛 Ashtanga Almaty")).toBeVisible();
+    expect(await screen.findByRole("heading", { level: 2, name: "Classes" })).toBeVisible();
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("?open=shala without a shala opens the Shala root", async () => {
+    await launch("/?open=shala");
+
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("?open=class&shala= opens the class form over that card; Back: card, then root", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    await launch(`/?open=class&shala=${SHALA}`);
+
+    expect(await heading("New class")).toBeVisible();
+    back();
+
+    expect(await heading((n: string) => plain(n) === "🏛 Ashtanga Almaty")).toBeVisible();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
+    expect(sdk.backShown).toBe(false);
+  });
+
+  test("?open=edit-shala&shala= opens that card with its edit form", async () => {
+    myShalas = [{ ...myShala("staff"), owner: true }];
+    ownedShala = true;
+    await launch(`/?open=edit-shala&shala=${SHALA}`);
+
+    expect(await screen.findByLabelText("Name")).toHaveValue("Ashtanga Almaty");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ashtanga Almaty");
+  });
+
+  test("?open=schedule opens My schedule over the Shala tab; Back goes to the Shala root", async () => {
+    myShalas = [myShala("student")];
+    await launch("/?open=schedule");
+
+    await heading("🗓 My schedule");
+    expect(bar()).toBeNull();
+    back();
+
+    expect(await shala()).toBeInTheDocument();
+    expect(current()).toEqual(["🏛 Shala"]);
     expect(sdk.backShown).toBe(false);
   });
 

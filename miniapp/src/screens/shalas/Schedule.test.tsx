@@ -222,6 +222,14 @@ const pageText = () => plain(document.body.textContent);
 const calls = (seen: Request[], method: string, path: string) =>
   seen.filter((r) => r.method === method && new URL(r.url).pathname === path);
 const card = () => <ShalaScreen id={SHALA} onBack={vi.fn()} />;
+/** The week's rows with this text: the Classes above the week name the same times (UI-06
+ * stage 6). */
+const weekRows = (text: RegExp) =>
+  waitFor(() => {
+    const rows = screen.getAllByText(text).filter((row) => !row.closest("section.classes"));
+    expect(rows.length).toBeGreaterThan(0);
+    return rows;
+  });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -233,7 +241,7 @@ describe("the schedule on the shala card", () => {
     stubApi();
     renderWith(card());
 
-    await screen.findAllByText(/06:00–09:30/); // two rows: Monday's and the cancelled Friday
+    await weekRows(/06:00–09:30/); // two rows: Monday's and the cancelled Friday
     // The shala's zone is my own: the card names the place, with no offset (ADR-0044).
     await waitFor(() => {
       expect(pageText()).not.toContain("UTC+5");
@@ -251,7 +259,7 @@ describe("the schedule on the shala card", () => {
     stubApi({ timezone: "Asia/Tashkent" }); // the same clock, still another zone
     renderWith(card());
 
-    await screen.findAllByText(/06:00–09:30/);
+    await weekRows(/06:00–09:30/);
     await waitFor(() => {
       expect(pageText().match(/Almaty \(UTC\+5\)/g)).toHaveLength(1);
     });
@@ -265,7 +273,7 @@ describe("the schedule on the shala card", () => {
     stubApi({ timezone: null });
     renderWith(card());
 
-    await screen.findAllByText(/06:00–09:30/);
+    await weekRows(/06:00–09:30/);
     // An unknown zone is no one's own: the offset shows (ADR-0044).
     expect(
       await screen.findByText((t) => plain(t) === "📍 Almaty · shala time: Almaty (UTC+5)"),
@@ -283,7 +291,7 @@ describe("the schedule on the shala card", () => {
     renderWith(card());
 
     expect(await screen.findByText((t) => plain(t) === "📍 Mysuru")).toBeInTheDocument();
-    await screen.findAllByText(/06:00–09:30/);
+    await weekRows(/06:00–09:30/);
     expect(pageText()).not.toContain("shala time");
   });
 
@@ -349,7 +357,7 @@ describe("the schedule on the shala card", () => {
   it("names the week between its arrows; no arrow leads before this week", async () => {
     const seen = stubApi();
     renderWith(card());
-    await screen.findAllByText(/06:00–09:30/);
+    await weekRows(/06:00–09:30/);
 
     const nav = screen.getByRole("navigation");
     // "Nov 16 – 22", "Nov 30 – Dec 6": short enough for one line at 320px, also in Russian.
@@ -368,7 +376,7 @@ describe("the schedule on the shala card", () => {
     stubApi();
     renderWith(card());
 
-    await screen.findAllByText(/06:00–09:30/); // two rows: Monday's and the cancelled Friday
+    await weekRows(/06:00–09:30/); // two rows: Monday's and the cancelled Friday
     expect(pageText()).not.toContain("your time");
   });
 });
@@ -413,7 +421,7 @@ describe("the day-off adoption (Q109)", () => {
     stubApi({ dayOff: [7] });
     renderWith(card());
 
-    await screen.findAllByText(/06:00–09:30/); // two rows: Monday's and the cancelled Friday
+    await weekRows(/06:00–09:30/); // two rows: Monday's and the cancelled Friday
     expect(screen.queryByRole("button", { name: /Make Saturday my day off/ })).toBeNull();
   });
 });
@@ -423,7 +431,7 @@ describe("the occurrence sheet", () => {
     stubApi();
     renderWith(card());
 
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[0] as HTMLElement);
     expect(screen.queryByRole("button", { name: /Cancel this date/ })).toBeNull();
   });
 
@@ -431,7 +439,7 @@ describe("the occurrence sheet", () => {
     const seen = stubApi({ card: shalaOut(TEACHER) });
     renderWith(card());
 
-    const rows = await screen.findAllByText(/06:00–09:30/);
+    const rows = await weekRows(/06:00–09:30/);
     fireEvent.click(rows[0] as HTMLElement);
     expect(screen.queryByRole("button", { name: /Hold anyway/ })).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "❌ Cancel this date" }));
@@ -453,7 +461,7 @@ describe("the occurrence sheet", () => {
     stubApi({ card: shalaOut(TEACHER) });
     renderWith(card());
 
-    const rows = await screen.findAllByText(/06:00–09:30/);
+    const rows = await weekRows(/06:00–09:30/);
     fireEvent.click(rows[1] as HTMLElement);
     expect(await screen.findByRole("button", { name: "✅ Hold anyway" })).toBeInTheDocument();
   });
@@ -468,7 +476,7 @@ describe("the occurrence sheet", () => {
     const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }) });
     renderWith(card());
 
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[0] as HTMLElement);
     const picker = await screen.findByLabelText("Teacher on this date");
     expect(
       within(picker)
@@ -490,7 +498,7 @@ describe("the occurrence sheet", () => {
     const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }), schedule });
     renderWith(card());
 
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[0] as HTMLElement);
     fireEvent.change(await screen.findByLabelText("Teacher on this date"), {
       target: { value: "" },
     });
@@ -518,7 +526,7 @@ describe("the occurrence sheet", () => {
     const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }), schedule });
     renderWith(card());
 
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[0] as HTMLElement);
     fireEvent.change(await screen.findByLabelText("Teacher on this date"), {
       target: { value: DANA },
     });
@@ -544,7 +552,7 @@ describe("the occurrence sheet", () => {
     const seen = stubApi({ card: shalaOut(TEACHER, { staff: STAFF }), schedule });
     renderWith(card());
 
-    fireEvent.click((await screen.findAllByText(/07:00–08:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/07:00–08:30/))[0] as HTMLElement);
     const picker = await screen.findByLabelText("Teacher on this date");
     expect((picker as HTMLSelectElement).value).toBe(DANA);
     fireEvent.change(picker, { target: { value: "" } });
@@ -566,7 +574,7 @@ describe("the occurrence sheet", () => {
     stubApi({ card: shalaOut(TEACHER, { staff: STAFF }) });
     renderWith(card(), "ru");
 
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[0] as HTMLElement);
     const picker = await screen.findByLabelText("Преподаватель на эту дату");
     expect(plain(within(picker).getAllByRole("option")[0]?.textContent)).toBe("Как обычно (Anna)");
   });
@@ -575,7 +583,7 @@ describe("the occurrence sheet", () => {
     stubApi({ card: shalaOut(TEACHER, { staff: STAFF }) });
     renderWith(card());
 
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[1] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[1] as HTMLElement);
     await screen.findByRole("button", { name: "✅ Hold anyway" });
     expect(screen.queryByLabelText("Teacher on this date")).toBeNull();
   });
@@ -1235,7 +1243,7 @@ describe("changing a class (ADR-0048)", () => {
     expect(screen.getByLabelText<HTMLInputElement>("Start, Almaty").value).toBe("07:00");
   });
 
-  it("deletes the class from the form, after the confirm: saved, never gone", async () => {
+  it("deletes the class from the form, after the confirm: deleted, never gone", async () => {
     const seen = stubApi({ classes: [SERIES] });
     const onDone = vi.fn();
     renderWith(edit(onDone));
@@ -1248,7 +1256,7 @@ describe("changing a class (ADR-0048)", () => {
       expect(calls(seen, "DELETE", `/api/v1/shalas/${SHALA}/classes/${CLASS}`)).toHaveLength(1);
     });
     await waitFor(() => {
-      expect(onDone).toHaveBeenCalledWith("saved");
+      expect(onDone).toHaveBeenCalledWith("deleted");
     });
     // The list refetched after the delete no longer has the class: that is my own doing.
     expect(onDone).toHaveBeenCalledTimes(1);
@@ -1258,7 +1266,7 @@ describe("changing a class (ADR-0048)", () => {
 describe("the sheet's two groups, and the form as a layer", () => {
   const MANAGER: MeIn = { ...TEACHER, announce: true };
   const openSheet = async (n = 0) => {
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[n] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[n] as HTMLElement);
     return screen.findByRole("heading", { name: "The whole class" });
   };
   const putPath = `/api/v1/shalas/${SHALA}/classes/${CLASS}/occurrences/2026-11-09`;
@@ -1311,7 +1319,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
     });
   });
 
-  it("opens a new class from the first row of the schedule", async () => {
+  it("opens a new class from the add row of the Classes (UI-06 stage 6)", async () => {
     stubApi({ card: shalaOut(TEACHER) });
     renderWith(card());
 
@@ -1345,7 +1353,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
   it("writes the cancellation in Russian with the class after a colon", async () => {
     stubApi({ card: shalaOut(MANAGER) });
     renderWith(card(), "ru");
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[0] as HTMLElement);
     fireEvent.click(await screen.findByRole("button", { name: "❌ Отменить на эту дату" }));
     fireEvent.click(await screen.findByRole("button", { name: "📣 Сообщить ученикам…" }));
 
@@ -1375,7 +1383,7 @@ describe("the sheet's two groups, and the form as a layer", () => {
     const off = occurrence({ cancelled: "cancelled" });
     stubApi({ card: shalaOut(MANAGER), schedule: { ...SCHEDULE, occurrences: [off] } });
     renderWith(card());
-    await screen.findAllByText(/06:00–09:30/);
+    await weekRows(/06:00–09:30/);
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "▶" }));
     await openSheet();
     fireEvent.click(screen.getByRole("button", { name: "📣 Tell students…" }));
@@ -1548,7 +1556,7 @@ describe("End this class from this date", () => {
   const schedule = { ...SCHEDULE, days: [day("2099-06-01")], occurrences: [ahead] };
   const row = { name: "⏹️ End this class from this date…" };
   const open = async () => {
-    fireEvent.click((await screen.findAllByText(/06:00–09:30/))[0] as HTMLElement);
+    fireEvent.click((await weekRows(/06:00–09:30/))[0] as HTMLElement);
     await screen.findByRole("heading", { name: "The whole class" });
   };
 

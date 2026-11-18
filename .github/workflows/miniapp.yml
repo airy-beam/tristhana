@@ -3,9 +3,9 @@ name: miniapp
 on:
   push:
     branches: [main]
-    paths: ["miniapp/**", "data/i18n/**", ".github/workflows/miniapp.yml"]
+    paths: ["miniapp/**", "data/i18n/**", "data/classes/**", ".github/workflows/miniapp.yml"]
   pull_request:
-    paths: ["miniapp/**", "data/i18n/**", ".github/workflows/miniapp.yml"]
+    paths: ["miniapp/**", "data/i18n/**", "data/classes/**", ".github/workflows/miniapp.yml"]
 
 permissions:
   contents: read
