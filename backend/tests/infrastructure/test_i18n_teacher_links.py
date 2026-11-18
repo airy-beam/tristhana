@@ -179,7 +179,7 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "Я преподаю: пригласить учеников",
     ),
     ("links-students", {"count": 12}, "👥 My students (12)", "👥 Мои ученики (12)"),
-    ("links-invite", {}, "➕ Invite students", "➕ Пригласить учеников"),
+    ("links-invite", {}, "➕ Invite my students", "➕ Пригласить своих учеников"),  # UI-06 st. 6
     ("links-remove-yes", {}, "Remove", "Убрать"),
     ("invite-share", {}, "✉️ Send the link", "✉️ Отправить ссылку"),  # UI-06 stage 5
     ("invite-qr", {}, "🔳 QR code", "🔳 QR-код"),

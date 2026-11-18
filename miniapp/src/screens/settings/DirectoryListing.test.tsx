@@ -312,7 +312,7 @@ describe("the way in", () => {
 
     await openLinks();
     const row = await screen.findByRole("button", { name: "SYC directory listing" });
-    const invite = screen.getByRole("button", { name: "Invite students" });
+    const invite = screen.getByRole("button", { name: "Invite my students" });
     expect(invite.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     fireEvent.click(row);
@@ -333,7 +333,7 @@ describe("the way in", () => {
     const group = row.closest("section") as HTMLElement;
     expect(
       [...group.querySelectorAll("button")].map((b) => b.textContent.replace(/[⁨⁩]/g, "")),
-    ).toEqual(["Invite students", "Shala and classes", "SYC directory listing"]);
+    ).toEqual(["Invite my students", "Shala and classes", "SYC directory listing"]);
     expect(screen.getByText(/Nobody here yet/)).toBeInTheDocument();
   });
 
@@ -348,7 +348,7 @@ describe("the way in", () => {
     await waitFor(() => {
       expect(calls(seen, "GET")).toHaveLength(1);
     });
-    await screen.findByRole("button", { name: "Invite students" });
+    await screen.findByRole("button", { name: "Invite my students" });
 
     expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -388,7 +388,7 @@ describe("the way in", () => {
     await waitFor(() => {
       expect(calls(seen, "GET")).toHaveLength(1);
     });
-    await screen.findByRole("button", { name: "Invite students" });
+    await screen.findByRole("button", { name: "Invite my students" });
 
     expect(screen.queryByRole("button", { name: "SYC directory listing" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();

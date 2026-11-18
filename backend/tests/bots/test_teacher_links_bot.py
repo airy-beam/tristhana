@@ -858,7 +858,7 @@ def test_my_teacher_shows_no_students_to_a_teacher(
 
     assert body["text"].startswith("🙏 Teacher and shala")
     assert not [t for t in _texts(body) if "students" in t.lower()]
-    assert _rows(body) == [["Open the app"], ["☰ Menu"]]
+    assert _rows(body) == [["🏛 Shala in the app"], ["☰ Menu"]]  # UI-06 stage 6 (C1)
     assert _data(body, "☰ Menu") == "w1:m"
 
 
@@ -870,8 +870,8 @@ def test_my_students_holds_the_invite_and_the_menu(
 
     body = _tap(client, "t1:s:0")
 
-    assert _rows(body)[-2:] == [["➕ Invite students"], ["☰ Menu"]]
-    assert _data(body, "➕ Invite students") == "t1:i"
+    assert _rows(body)[-2:] == [["➕ Invite my students"], ["☰ Menu"]]
+    assert _data(body, "➕ Invite my students") == "t1:i"
     assert "‹ Back" not in _texts(body)
 
 
@@ -883,7 +883,7 @@ def test_with_no_students_the_i_teach_label_stays_quiet(
     assert _rows(body)[-2:] == [["I teach: invite students"], ["☰ Menu"]]
     assert _data(body, "I teach") == "t1:i:o"  # the invite, with the way back here
     assert not any("My students" in t for t in _texts(body))
-    assert "➕ Invite students" not in _texts(body)
+    assert "➕ Invite my students" not in _texts(body)
     assert body["text"] == (
         "🙏 Teacher and shala\n\n"
         "No teacher on your list. To add a teacher or join a shala, open the link they send "

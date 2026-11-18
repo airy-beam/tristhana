@@ -13,7 +13,7 @@ class-form-weekly = Regularly
 class-form-once = One date
 class-form-days = Repeats on
 # Under the weekday chips (UI-06 stage 6, B2): one class is one type at one time.
-class-form-days-hint = A different time or type is another class: Mysore on weekdays and Led on Sunday are two. Save this one, then add the next.
+class-form-days-hint = Pick the days this class runs at this time. A different time or type is a separate class: Mysore Mon–Fri at 06:00 and Led on Sunday at 08:00 are two. Save this one, then add the next.
 class-form-date = Date
 class-form-days-needed = Choose at least one day, or “One date”.
 class-form-day-off-warning = One of the chosen days is the shala's day off.
@@ -94,7 +94,7 @@ ann-cancel-draft = Hi everyone. { $class } on { $day } at { $time } is cancelled
 ## The owner's setup list on a new shala.
 setup-title = Set up your shala
 setup-class = Add a class
-setup-students = Invite students
+setup-students = Invite students to the shala
 setup-staff = Invite teachers and staff
 # The quiet second line of the third step.
 setup-staff-note = Optional

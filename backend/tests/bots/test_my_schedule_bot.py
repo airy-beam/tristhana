@@ -739,8 +739,11 @@ def test_a_crowded_week_is_cut_at_the_budget(client: TestClient, storage: InMemo
     body = _command(client, "/schedule")
 
     assert len(body["text"]) <= 4096
-    assert "…" in _lines(body)
-    assert _lines(body)[-1] == "The full week is in the app."  # review fix: say where the rest is
+    assert _lines(body)[-1] == "…"
+    # UI-06 stage 6 (B1): where the rest is, as a button into the app (was a line).
+    assert "🗓 Full week in the app" in [
+        b["text"] for row in body["reply_markup"]["inline_keyboard"] for b in row
+    ]
 
 
 def test_every_datum_fits_64_bytes(client: TestClient, storage: InMemoryStorage) -> None:

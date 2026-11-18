@@ -30,7 +30,8 @@ interface Props {
  * ("Mysore · Mon–Fri · 06:00–09:30"), so Mysore on weekdays and Led on Sunday read as the two
  * classes they are. For those who may manage the schedule (the API's own guard: a student or
  * an assistant never reads the list); the Schedule below stays by date. A tap opens the
- * class's form; "➕ Add a class" is under the rows, the main row while there are none. */
+ * class's form; "➕ Add a class" is under the rows, the main row while there are none, unless
+ * the setup list above already shows "Add a class" as its step: one main action per screen. */
 export default function ShalaClasses({ shala, locale, viewer, added, onAdd, onOpen }: Props) {
   const { l10n } = useLocalization();
   const manage = shala.me.schedule;
@@ -41,6 +42,8 @@ export default function ShalaClasses({ shala, locale, viewer, added, onAdd, onOp
   const current = query.data ? currentClasses(query.data, today) : undefined;
   const settled = current !== undefined || query.isError;
   const none = current?.length === 0;
+  // The owner's setup list leads with the same step: then this one is a plain row.
+  const setupAdds = (shala.setup ?? []).includes("add_class");
   const add = l10n.getString(added ? "class-add-another" : "schedule-add-class");
   const tapAdd = () => {
     haptics.selection();
@@ -66,10 +69,15 @@ export default function ShalaClasses({ shala, locale, viewer, added, onAdd, onOp
           <p className="hint" />
         </Localized>
       )}
-      {none && (
+      {none && !setupAdds && (
         <button type="button" className="btn" onClick={tapAdd}>
           {add}
         </button>
+      )}
+      {none && setupAdds && (
+        <div className="list">
+          <Row label={add} action onClick={tapAdd} />
+        </div>
       )}
       {settled && !none && (
         <div className="list">

@@ -359,7 +359,7 @@ test("nobody yet: one plain line and two starts in one small card, no empty card
     "Nobody here yet. To add a teacher or join a shala, open the link they send you.",
   );
   expect(screen.getByRole("heading", { level: 2, name: "For teachers and shalas" })).toBeVisible();
-  const invite = screen.getByRole("button", { name: "Invite students" });
+  const invite = screen.getByRole("button", { name: "Invite my students" });
   expect(screen.getByRole("button", { name: "Shala and classes" })).toBeInTheDocument();
   expect(pageText()).not.toContain("start below");
   // The only card is the one that holds the two starts.
@@ -543,8 +543,8 @@ test("with 0 students the group's invite row is the quiet start", async () => {
 
   await openScreen();
 
-  await screen.findByRole("button", { name: "Invite students" });
-  expect(screen.queryByRole("button", { name: "➕ Invite students" })).toBeNull();
+  await screen.findByRole("button", { name: "Invite my students" });
+  expect(screen.queryByRole("button", { name: "➕ Invite my students" })).toBeNull();
   expect(screen.queryByRole("button", { name: "I teach: invite students" })).toBeNull();
 });
 
@@ -554,13 +554,13 @@ test("with students the group's invite row is the same quiet start", async () =>
 
   await openScreen();
 
-  await screen.findByRole("button", { name: "Invite students" });
-  expect(screen.queryByRole("button", { name: "➕ Invite students" })).toBeNull();
+  await screen.findByRole("button", { name: "Invite my students" });
+  expect(screen.queryByRole("button", { name: "➕ Invite my students" })).toBeNull();
 });
 
-/** With nobody on the lists, the quiet "Invite students" row opens the invite under it. */
+/** With nobody on the lists, the quiet "Invite my students" row opens the invite under it. */
 async function openInvite() {
-  fireEvent.click(await screen.findByRole("button", { name: "Invite students" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Invite my students" }));
   return screen.findByRole("img");
 }
 
@@ -648,7 +648,7 @@ test("Russian: the screen and its longest label", async () => {
 
   await openScreen("ru");
 
-  await screen.findByRole("button", { name: "Пригласить учеников" });
+  await screen.findByRole("button", { name: "Пригласить своих учеников" });
   expect(screen.getByRole("heading", { level: 1, name: "🏛 Шала" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 2, name: "Учителям и шалам" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Шала и занятия" })).toBeInTheDocument();
@@ -1036,7 +1036,7 @@ describe("one list in a fixed order", () => {
       return text;
     });
   };
-  const GROUP = ["For teachers and shalas:", ["Invite students", "Shala and classes"]];
+  const GROUP = ["For teachers and shalas:", ["Invite my students", "Shala and classes"]];
   const settled = (last: string) =>
     screen.findByRole("button", { name: (name) => plain(name) === last });
 
@@ -1112,7 +1112,7 @@ describe("one list in a fixed order", () => {
       "heading",
       "▶ 👥 My students",
       "For teachers and shalas:",
-      ["Invite students", "Shala and classes"],
+      ["Invite my students", "Shala and classes"],
     ]);
   });
 
@@ -1128,7 +1128,7 @@ describe("one list in a fixed order", () => {
       "🏛 Mysore Room",
       "👥 My students",
       "For teachers and shalas:",
-      ["Invite students", "Shala and classes"],
+      ["Invite my students", "Shala and classes"],
     ]);
   });
 
@@ -1148,7 +1148,7 @@ describe("one list in a fixed order", () => {
       "[teachers]",
       "👥 My students",
       "For teachers and shalas:",
-      ["Invite students", "Shala and classes"],
+      ["Invite my students", "Shala and classes"],
     ]);
   });
 
@@ -1232,7 +1232,7 @@ describe("the group: For teachers and shalas", () => {
 
     expect(await screen.findByLabelText("Name")).toHaveFocus();
     expect(screen.queryByRole("img")).toBeNull();
-    expect(screen.getByRole("button", { name: "Invite students" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Invite my students" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
@@ -1251,7 +1251,7 @@ describe("the group: For teachers and shalas", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open the invite" }));
 
     expect(await screen.findByRole("img", { name: "QR code for your invite link" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Invite students" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Invite my students" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );

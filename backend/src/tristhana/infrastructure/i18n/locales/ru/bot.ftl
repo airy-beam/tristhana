@@ -13,12 +13,13 @@ start-switch-language = 🗣 { $language }
 start-open-app = Открыть приложение
 
 ## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
-## `welcome-ask` and the three front-door labels are fixed by the owner.
+## `welcome-ask` and the three front-door labels are fixed by the owner (each with its emoji,
+## UI-06 stage 6 C9).
 
 welcome-ask = С чего начнём?
-welcome-path-practice = Моя практика
-welcome-path-invite = Пригласить учеников
-welcome-path-shala = Шала и занятия
+welcome-path-practice = 🧘 Отмечать свою практику
+welcome-path-invite = 👥 Пригласить своих учеников
+welcome-path-shala = 🏛 Шала и занятия
 # Under the invite on the first run. A URL button tells the bot nothing, so this must read
 # right both before and after the link was sent.
 welcome-later = Дальше ›
@@ -28,7 +29,14 @@ welcome-teacher-next = Твоя ссылка — в ☰ Меню → Учите�
 welcome-own-practice = 🧘 Отметить свою практику
 welcome-shala-text = Шала здесь — это страница для учеников: расписание занятий, объявления и одна ссылка, чтобы присоединиться. Нажми «🏛 Создать шалу»: это займёт минуту.
 welcome-shala-student = Ищешь занятия своей шалы? Попроси ссылку в шале. Когда присоединишься, расписание будет в ☰ Меню → 🗓 Моё расписание.
+# "Shala and classes" for someone on a shala's staff, above a row per shala they are in
+# (UI-06 stage 6, B3).
+welcome-shala-mine = Нажми на шалу ниже — там занятия, приглашения и настройки.
+# Under the shala rows, for someone already on a shala's staff.
+shala-create-another = 🏛 Создать ещё одну шалу
 invite-simple = Отправь свою ссылку ученикам. Каждый подтверждает сам, и после этого тебе видно то, чем с тобой делятся.
+# Under invite-simple for someone on a shala's staff: the shala has a link of its own (B5).
+invite-own-not-shala = Это твоя личная ссылка, не ссылка шалы.
 invite-send = ✉️ Отправить ссылку
 # Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
 invite-more = Ещё…
@@ -59,7 +67,8 @@ menu-teacher = 🙏 Учитель и шала
 menu-students = 👥 Мои ученики
 menu-settings = ⚙️ Настройки
 menu-help = ❓ Помощь
-# The quiet last row, for anyone without students and not on a shala's staff; also in Help.
+# The quiet last row, for anyone without students (on a shala's staff too, until the first
+# student of their own); also in Help.
 menu-teach = Учителям и шалам
 teach-title =
     Учителям и шалам
@@ -74,6 +83,8 @@ help-earlier-day = 📅 Отметить другой день
 help-reminder = 🔔 Напоминание о практике
 help-asanas = 🧘 Мои асаны
 help-join = 🙏 Добавить учителя или шалу
+# For someone on a shala's staff: that shala's card, with its Classes (UI-06 stage 6, C17).
+help-shala-classes = 🗓 Занятия шалы
 # UI-05: a link under /help to the public guide site, in the person's language.
 help-guide = 📖 Справка
 
@@ -849,7 +860,7 @@ request-all-done =
        *[many] ✅ { $count } учеников теперь в твоём списке.
     }
 request-waiting-open = ⏳ Ждут твоего ответа ({ $count })
-request-no-teachers-hint = В шале пока ни у кого нет роли «Преподаватель», поэтому ученики не могут выбрать учителя. Роли настраиваются в приложении.
+request-no-teachers-hint = В шале пока ни у кого нет роли «Преподаватель», поэтому ученики не могут выбрать учителя. Чтобы дать её, открой шалу в приложении, затем «Преподаватели и команда».
 
 export-readme-links = teacher_links в data.json: твои учителя и ученики без имён, поэтому чужих данных в этом списке нет.
 export-readme-requests = teacher_requests в data.json: запросы к учителю за последние 30 дней — твои и те, что пришли тебе, без имён. other_side: «teacher» — твой запрос учителю, «student» — запрос ученика тебе. state для твоих запросов: «waiting» — ответа пока нет, «no_answer» — ответа не было 7 дней, «confirmed» — учитель подтвердил, «withdrawn» — запрос отозван или связь позже убрана. Для запросов к тебе: «waiting» — ждёт твоего ответа, «confirmed» — подтверждён, «declined» — твой ответ «Не мой ученик», «closed» — закрыт без твоего ответа.
@@ -858,7 +869,7 @@ links-make-main = ⭐ Сделать основным
 links-remove = Убрать…
 links-invite-first = Я преподаю: пригласить учеников
 links-students = 👥 Мои ученики ({ $count })
-links-invite = ➕ Пригласить учеников
+links-invite = ➕ Пригласить своих учеников
 links-remove-yes = Убрать
 invite-share = ✉️ Отправить ссылку
 invite-qr = 🔳 QR-код
@@ -962,9 +973,9 @@ shala-students =
     }
 shala-no-students = В этой шале пока нет учеников.
 shala-staff-title = Преподаватели и команда: { $people }
-shala-invite-students = ➕ Пригласить учеников
+shala-invite-students = ➕ Пригласить учеников в шалу
 shala-invite-staff = ➕ Пригласить в команду
-shala-join-hint = Отправь ссылку или покажи QR-код. Каждый ученик подтверждает сам.
+shala-join-hint = Отправь ссылку или покажи QR-код. Каждый ученик подтверждает сам. Ученики присоединятся к шале и потом смогут выбрать там учителя.
 shala-share-text = Присоединяйся к шале { $shala } в Tristhana. Перед подтверждением бот покажет, кто что увидит.
 shala-qr-caption = Отсканируй, чтобы присоединиться к шале { $shala } в Tristhana.
 shala-create = 🏛 Создать шалу
@@ -980,6 +991,39 @@ shala-caps = Больше шал или ссылок для команды по�
 moon-source-shala = 🏛 Как в шале: { $shala }. Можно выбрать другой город.
 moon-follow-shala = 🏛 Как в шале ({ $shala })
 settings-moon-line-shala = 🌙 Лунные дни: 📍 { $city } (как в шале: { $shala })
+
+
+## «Занятия» в карточке шалы и её кнопки в приложение (UI-06, этап 6, §3.1, B1, B4).
+## Тексты, которые есть и в Mini App, — копии (ADR-0050: ключ в обоих продуктах читается одинаково).
+# Без 🗓: она у кнопки «Расписание».
+shala-classes-title = Занятия
+shala-classes-none = Занятий пока нет.
+# Одно занятие: $class «Майсор» или «Лед-класс Первая серия», $days «пн–пт» или «пн, ср» (из
+# названий дней) или дата, $start и $end «06:00», «09:30».
+shala-class-row = { $class } · { $days } · { $start }–{ $end }
+# $days для занятия во все семь дней.
+shala-class-every-day = каждый день
+class-form-every-n = { $n ->
+        [1] каждую неделю
+        [one] каждую { $n } неделю
+        [few] каждые { $n } недели
+       *[many] каждые { $n } недель
+    }
+class-form-sum-from = с { $date }
+class-form-sum-end = по { $date }
+# Открывает карточку шалы в приложении, где её «Занятия».
+shala-classes-edit = 🗓 Добавить или изменить занятия
+# Пока у шалы нет занятий: форма нового занятия в приложении.
+schedule-add-class = ➕ Добавить занятие
+shala-edit = ✏️ Изменить шалу
+# Под неделей или «Моим расписанием», если они не поместились: остальное — в приложении.
+schedule-full-app = 🗓 Вся неделя в приложении
+app-open-shala = 🏛 Шала в приложении
+# «Сегодня» для команды шалы: первый шаг настройки шалы (как на «Сегодня» в приложении).
+next-class = В шале пока нет занятий. Добавь первое, и ученики увидят расписание.
+next-class-do = Добавить занятие
+next-shala-invite = В шале уже есть расписание. Пригласи учеников, и они увидят занятия.
+next-shala-invite-do = Пригласить учеников в шалу
 
 ## Занятия шалы (SC-02). Время по часам шалы; { $zone } = «Алматы (UTC+5)».
 ## { $day } приходит готовым («пт, 13 нояб.»). Об изменениях никто не получает сообщений (Q122).
@@ -1068,6 +1112,7 @@ my-schedule-empty = { $f ->
     }
 my-schedule-none = Здесь появятся занятия твоей шалы, когда ты к ней присоединишься. Попроси ссылку в шале.
 my-schedule-zone-unknown = Время указано по { $zone }. Укажи свой город, чтобы видеть своё время.
+# After "…" on a long week when the bot has no app address (dev); else schedule-full-app.
 my-schedule-more = Вся неделя целиком — в приложении.
 
 ## Подписка в календаре (SC-06): личная ICS-ссылка для Google, Apple или Outlook.

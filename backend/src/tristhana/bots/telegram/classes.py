@@ -38,6 +38,8 @@ from tristhana.bots.telegram.screens import (
     Reply,
     Screen,
     answered,
+    app_button,
+    app_url,
     menu_row,
     nothing,
     show,
@@ -90,7 +92,9 @@ class ScheduleScreens:
         clock: Clock,
         feed: "FeedScreens | None" = None,
         attendance: bool = False,  # SC-05 is wired: the entry buttons and row marks show
+        app: str = "",  # the Mini App's address: the full week and the class forms (UI-06)
     ) -> None:
+        self._app = app
         self._feed = feed
         self._attendance = attendance
         self._c = classes
@@ -189,6 +193,7 @@ class ScheduleScreens:
         for o in s.occurrences:
             if o.swapped_from is not None:
                 moved_away.setdefault(o.swapped_from, []).append(o)
+        cut = False
         for day in s.days:
             marks = [self._day(locale, day.date)]
             if day.moon:
@@ -227,6 +232,7 @@ class ScheduleScreens:
             block = [" · ".join(marks), *(f"  {r}" for r in entries)]
             if sum(len(x) + 1 for x in (*lines, *block)) > BUDGET:  # the rest: in the Mini App
                 lines.append("…")
+                cut = True
                 break
             lines += block
         if not s.occurrences:
@@ -244,6 +250,12 @@ class ScheduleScreens:
             rows.append([self._button(locale, "class-cancel-pick", cb.pick(s.shala_id))])
         if self._attendance and s.staff_view:  # SC-05
             rows.append([staff_button(self._t, locale)])
+        if self._app:  # UI-06 stage 6 (B1): the card in the app, with its Classes
+            url = app_url(self._app, "shala", shala=str(s.shala_id))
+            if s.manage:  # also on an empty week: this is where classes are added
+                rows.append([app_button(self._t, locale, "shala-classes-edit", url)])
+            elif cut:
+                rows.append([app_button(self._t, locale, "schedule-full-app", url)])
         back = shalas_callbacks.on_shala("c", s.shala_id)
         rows.append([self._button(locale, "log-back", back)])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
@@ -279,7 +291,9 @@ class ScheduleScreens:
         names = {x.id: x.name for x in s.shalas}
         lines += self._shift_lines(locale, s, names)
         shift_days = {x.on for x in s.shifts}
-        more = self._t.t(locale, "my-schedule-more")
+        # The rest of a long week: a button into the app (UI-06 stage 6, B1); a line without it.
+        more = "" if self._app else self._t.t(locale, "my-schedule-more")
+        cut = False
         here = ZoneInfo(s.zone)
         named = len({r.shala_id for r in s.rows}) > 1
         for day in s.days:
@@ -300,12 +314,13 @@ class ScheduleScreens:
                 continue
             block = [" ".join(marks), *(f"  {e}" for e in entries)]
             if sum(len(x) + 1 for x in (*lines, *block)) > BUDGET - len(more) - 3:
-                lines += ["…", more]  # the full week is in the Mini App
+                lines += ["…", more] if more else ["…"]  # the full week is in the Mini App
+                cut = True
                 break
             lines += block
         if not s.rows:
             lines.append(self._t.t(locale, "my-schedule-empty", f=_FILTER_KEY[_ONLY[only]]))
-        return Screen("\n".join(lines), self._my_buttons(principal, s, n, only))
+        return Screen("\n".join(lines), self._my_buttons(principal, s, n, only, cut))
 
     def _shift_lines(self, locale: Locale, s: MySchedule, names: Mapping[UUID, str]) -> list[str]:
         out: list[str] = []
@@ -389,7 +404,7 @@ class ScheduleScreens:
         return self._marked(locale, o, text)
 
     def _my_buttons(
-        self, principal: Principal, s: MySchedule, n: int, only: cb.Filter
+        self, principal: Principal, s: MySchedule, n: int, only: cb.Filter, cut: bool = False
     ) -> InlineKeyboardMarkup:
         locale = principal.account.locale
         shown: list[cb.Filter] = ["a"]
@@ -415,6 +430,9 @@ class ScheduleScreens:
             nav.append(self._button(locale, "page-next", cb.my_week(n + 1, only)))
         if nav:
             rows.append(nav)
+        if cut and self._app:  # UI-06 stage 6 (B1): the week did not fit
+            url = app_url(self._app, "schedule")
+            rows.append([app_button(self._t, locale, "schedule-full-app", url)])
         shalas = [
             InlineKeyboardButton(text=x.name, callback_data=cb.week(x.id, 0)) for x in s.shalas
         ]

@@ -13,12 +13,13 @@ start-switch-language = 🗣 { $language }
 start-open-app = Open the app
 
 ## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
-## `welcome-ask` and the three front-door labels are fixed by the owner.
+## `welcome-ask` and the three front-door labels are fixed by the owner (each with its emoji,
+## UI-06 stage 6 C9).
 
 welcome-ask = Where shall we start?
-welcome-path-practice = My practice
-welcome-path-invite = Invite students
-welcome-path-shala = Shala and classes
+welcome-path-practice = 🧘 Log my practice
+welcome-path-invite = 👥 Invite my students
+welcome-path-shala = 🏛 Shala and classes
 # Under the invite on the first run. A URL button tells the bot nothing, so this must read
 # right both before and after the link was sent.
 welcome-later = Continue ›
@@ -28,7 +29,14 @@ welcome-teacher-next = Your link is under ☰ Menu → For teachers and shalas. 
 welcome-own-practice = 🧘 Log my own practice
 welcome-shala-text = A shala here is a page for your students: the class schedule, announcements and one link to join. Tap 🏛 Create a shala: it takes a minute.
 welcome-shala-student = Looking for your shala's classes? Ask your shala for its link. Once you join, the schedule is under ☰ Menu → 🗓 My schedule.
+# "Shala and classes" for someone on a shala's staff, above a row per shala they are in
+# (UI-06 stage 6, B3).
+welcome-shala-mine = Tap a shala below: its classes, invites and settings are there.
+# Under the shala rows, for someone already on a shala's staff.
+shala-create-another = 🏛 Create another shala
 invite-simple = Send your link to your students. Each one confirms for themselves, and then you see what they share.
+# Under invite-simple for someone on a shala's staff: the shala has a link of its own (B5).
+invite-own-not-shala = This is your own link, not the shala's.
 invite-send = ✉️ Send the link
 # Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
 invite-more = More…
@@ -59,7 +67,8 @@ menu-teacher = 🙏 Teacher and shala
 menu-students = 👥 My students
 menu-settings = ⚙️ Settings
 menu-help = ❓ Help
-# The quiet last row, for anyone without students and not on a shala's staff; also in Help.
+# The quiet last row, for anyone without students (on a shala's staff too, until the first
+# student of their own); also in Help.
 menu-teach = For teachers and shalas
 teach-title =
     For teachers and shalas
@@ -74,6 +83,8 @@ help-earlier-day = 📅 Log another day
 help-reminder = 🔔 Practice reminder
 help-asanas = 🧘 My asanas
 help-join = 🙏 Add my teacher or shala
+# For someone on a shala's staff: that shala's card, with its Classes (UI-06 stage 6, C17).
+help-shala-classes = 🗓 Shala classes
 # UI-05: a link under /help to the public guide site, in the person's language.
 help-guide = 📖 Guide
 
@@ -845,7 +856,7 @@ request-all-done =
        *[other] ✅ { $count } students are on your list now.
     }
 request-waiting-open = ⏳ Waiting for your answer ({ $count })
-request-no-teachers-hint = No one here has the Teacher role yet, so students can't pick a teacher. Roles are set in the app.
+request-no-teachers-hint = No one here has the Teacher role yet, so students can't pick a teacher. To give it, open the shala in the app, then Teachers and staff.
 
 export-readme-links = teacher_links in data.json: your teachers and students, without names, so this list holds no one else's details.
 export-readme-requests = teacher_requests in data.json: requests to a teacher from the last 30 days, the ones you sent and the ones you received, without names. other_side: "teacher" = you asked a teacher, "student" = a student asked you. state for requests you sent: "waiting" = no answer yet, "no_answer" = no answer within 7 days, "confirmed" = the teacher confirmed, "withdrawn" = taken back, or the link was removed later. For requests you received: "waiting" = waiting for your answer, "confirmed" = you confirmed, "declined" = you answered "Not my student", "closed" = it ended without your answer.
@@ -854,7 +865,7 @@ links-make-main = ⭐ Make main
 links-remove = Remove…
 links-invite-first = I teach: invite students
 links-students = 👥 My students ({ $count })
-links-invite = ➕ Invite students
+links-invite = ➕ Invite my students
 links-remove-yes = Remove
 invite-share = ✉️ Send the link
 invite-qr = 🔳 QR code
@@ -954,9 +965,9 @@ shala-remove-yes = Remove
 shala-students = 👥 Students ({ $n })
 shala-no-students = No students in this shala yet.
 shala-staff-title = Teachers and staff: { $people }
-shala-invite-students = ➕ Invite students
+shala-invite-students = ➕ Invite students to the shala
 shala-invite-staff = ➕ Invite staff
-shala-join-hint = Send this link or show the QR code. Each student confirms for themselves.
+shala-join-hint = Send this link or show the QR code. Each student confirms for themselves. They join the shala and can then pick their teacher there.
 shala-share-text = Join { $shala } in Tristhana. Before you confirm, the bot shows who sees what.
 shala-qr-caption = Scan to join { $shala } in Tristhana.
 shala-create = 🏛 Create a shala
@@ -972,6 +983,37 @@ shala-caps = No more shalas or staff links for now: that's the limit.
 moon-source-shala = 🏛 Same as your shala, { $shala }. You can choose another city.
 moon-follow-shala = 🏛 Follow my shala ({ $shala })
 settings-moon-line-shala = 🌙 Moon days: 📍 { $city } (as { $shala })
+
+
+## The shala card's Classes and its buttons into the app (UI-06 stage 6, spec §3.1, B1, B4).
+## The texts that the Mini App has too are copies (ADR-0050: a key in both products reads the same).
+# No 🗓 here: the Schedule's button has it.
+shala-classes-title = Classes
+shala-classes-none = No classes yet.
+# One class: $class "Mysore" or "Led Full Primary", $days "Mon–Fri" or "Mon, Wed" (from the
+# weekday names) or a date, $start and $end "06:00", "09:30".
+shala-class-row = { $class } · { $days } · { $start }–{ $end }
+# $days for a class on all seven days.
+shala-class-every-day = every day
+class-form-every-n = { $n ->
+        [1] every week
+       *[other] every { $n } weeks
+    }
+class-form-sum-from = from { $date }
+class-form-sum-end = through { $date }
+# Opens the shala's card in the app, where its Classes are.
+shala-classes-edit = 🗓 Add or change classes
+# While the shala has no class: the app's new class form.
+schedule-add-class = ➕ Add a class
+shala-edit = ✏️ Edit the shala
+# Under a week or My schedule cut short: the rest is in the app.
+schedule-full-app = 🗓 Full week in the app
+app-open-shala = 🏛 Shala in the app
+# Today, for someone on a shala's staff: the shala's first setup step (as the app's Today).
+next-class = Your shala has no classes yet. Add the first one, and students will see the schedule.
+next-class-do = Add a class
+next-shala-invite = Your shala has a schedule now. Invite students, and they'll see its classes.
+next-shala-invite-do = Invite students to the shala
 
 ## Shala classes (SC-02). Times are wall clock in the shala's zone; { $zone } is "Almaty (UTC+5)".
 ## { $day } arrives formatted ("Fri, Nov 13"). No one gets a message about a change (Q122).
@@ -1055,6 +1097,7 @@ my-schedule-empty = { $f ->
     }
 my-schedule-none = Your shala's classes appear here once you join. Ask your shala for its link.
 my-schedule-zone-unknown = Times are in { $zone }. Set your city to see your own time.
+# After "…" on a long week when the bot has no app address (dev); else schedule-full-app.
 my-schedule-more = The full week is in the app.
 
 ## Calendar subscription (SC-06): a personal ICS link for Google, Apple or Outlook.

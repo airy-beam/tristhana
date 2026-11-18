@@ -47,11 +47,37 @@ def menu_row(t: Translator, locale: Locale) -> list[InlineKeyboardButton]:
     return [button(t, locale, "menu-open", home_callbacks.MENU)]
 
 
+# Every `open` value the bot builds (`app_url`). A test pins this set against the `case`
+# labels of the Mini App's `launchNav` (`miniapp/src/shell/nav.ts`), and the bot's literal
+# `app_url(…, "<open>")` calls against this set.
+APP_OPEN = frozenset(
+    {
+        "practice",  # the Menu's "📊 My practice"
+        "new-shala",  # "🏛 Create a shala"
+        "announce",  # "📣 Announce" (`shala=` optional)
+        "listing",  # the directory listing (ID-05)
+        "settings",  # "⚙️ More in the app"
+        # UI-06 stage 6 (spec §2):
+        "shala",  # a shala's card (`shala=`), or the Shala root without one
+        "class",  # the card with a new class form (`shala=`)
+        "edit-shala",  # the card with its edit form (`shala=`)
+        "schedule",  # My schedule's full week
+    }
+)
+
+
 def app_url(base: str, open: str | None = None, **params: str | None) -> str:
     """The Mini App's URL, opening straight on a screen: `…?open=new-shala`. The one place
-    these URLs are built (UI-06). The `open` values are a contract with the Mini App
-    (`App.tsx`), and old messages keep their URLs: never rename one. Unknown values open
-    Home. A parameter that is None is left out."""
+    these URLs are built (UI-06). The `open` values (`APP_OPEN`) are a contract with the Mini
+    App (`launchNav` in `shell/nav.ts`), and old messages keep their URLs: never rename one.
+    Unknown values open Today. A parameter that is None is left out.
+
+    - `practice`, `new-shala`, `listing`, `settings`, `schedule`: that screen;
+    - `announce` with an optional `shala=<uuid>`: the message form (over that shala's card);
+    - `shala` with an optional `shala=<uuid>`: that shala's card, or the Shala root;
+    - `class` / `edit-shala` with `shala=<uuid>`: the card with a new class form / its edit
+      form open. A bad or missing id opens the Shala root.
+    """
     query = {"open": open} | params
     given = urlencode({k: v for k, v in query.items() if v is not None})
     if not given:
@@ -59,9 +85,10 @@ def app_url(base: str, open: str | None = None, **params: str | None) -> str:
     return f"{base}{'&' if '?' in base else '?'}{given}"
 
 
-def app_button(t: Translator, locale: Locale, url: str) -> InlineKeyboardButton:
-    """Opens the Mini App (which also records the device time zone, ID-01)."""
-    return InlineKeyboardButton(text=t.t(locale, "start-open-app"), web_app=WebAppInfo(url=url))
+def app_button(t: Translator, locale: Locale, key: str, url: str) -> InlineKeyboardButton:
+    """Opens the Mini App (which also records the device time zone, ID-01). `key` says what
+    opens ("🏛 Shala in the app", UI-06 stage 6 C1)."""
+    return InlineKeyboardButton(text=t.t(locale, key), web_app=WebAppInfo(url=url))
 
 
 def day_label(t: Translator, locale: Locale, day: date, today: date) -> str:

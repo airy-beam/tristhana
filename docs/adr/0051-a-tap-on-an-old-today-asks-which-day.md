@@ -8,7 +8,7 @@ Today's three choices carry the day they were drawn for: `d1:s:<date>:<code>`, t
 The two kinds of tap cannot be told apart today, and `d1:s` may not change meaning: buttons already in chat history must keep saving the date they carry.
 ## Decision
 - **A new letter for taps from Today:** `d1:n:<date>:<code>` ("set, from Today"). Today's 🧘 and 😌, and the reasons screen opened from Today (`d1:r:<date>:t`), draw their status buttons with it. The editor keeps `d1:s`.
-- **On `d1:n`:** the date is the person's today (by `GetDays.today`) → saved exactly as `d1:s`. The date is earlier → nothing is saved; the message is edited into one question, "which day?", with two buttons: today and the carried date, both as `d1:s` with explicit dates (so the answer never asks again), and "‹ Today". A date later than today (a zone change) → the existing `DateInFuture` path.
+- **On `d1:n`:** the date is the person's today (by `GetDays.today`) → saved exactly as `d1:s`. The date is earlier → nothing is saved; the message is edited into one question, "which day?", with one full-width row per date, today first and then the carried date, both as `d1:s` with explicit dates (so the answer never asks again), and a last row "‹ Back" (`log-back`) to Today (`w1:n`). A date later than today (a zone change) → the existing `DateInFuture` path.
 - **`d1:s` is unchanged.** Old Today messages already in chat (sent before this release) still save their date; they age out.
 - The rule lives in the bot adapter (`bots/telegram/days.py`): it is about how a chat message ages, which the Mini App (always drawn live) does not have. The use cases are unchanged.
 ## Consequences

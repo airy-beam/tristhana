@@ -653,7 +653,7 @@ def test_the_card_per_role(
     texts = _texts(body)
 
     assert any(t.startswith("👥 Students") for t in texts) is students
-    assert ("➕ Invite students" in texts) is invite_students
+    assert ("➕ Invite students to the shala" in texts) is invite_students
     assert ("➕ Invite staff" in texts) is invite_staff
     assert any(t.startswith("Leave") for t in texts) is leave
     assert "S0" not in body["text"]  # students are never listed on the card
@@ -830,7 +830,7 @@ def test_a_forged_manager_invite_by_an_admin_creates_nothing(
 # /teachers and the invite screen
 
 
-def test_teachers_lists_my_shalas_above_open_the_app(
+def test_teachers_lists_my_shalas_above_the_shala_in_the_app(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
     me = _me(client, storage)
@@ -841,7 +841,7 @@ def test_teachers_lists_my_shalas_above_open_the_app(
 
     rows = _rows(body)
     shala_row = next(i for i, r in enumerate(rows) if r == ["🏛 Ashtanga Almaty"])
-    app_row = next(i for i, r in enumerate(rows) if any("Open the app" in t for t in r))
+    app_row = next(i for i, r in enumerate(rows) if r == ["🏛 Shala in the app"])
     assert shala_row < app_row
     assert _data(body, "🏛 Ashtanga Almaty") == f"h1:c:{short_id(shala)}"
 

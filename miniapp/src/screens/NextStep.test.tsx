@@ -145,7 +145,7 @@ describe("NextStep", () => {
     ["position", null, "Open My asanas"],
     ["invite_student", null, "Open the invite"],
     ["add_class", SHALA, "Add a class"],
-    ["invite_shala_students", SHALA, "Invite students"],
+    ["invite_shala_students", SHALA, "Invite students to the shala"],
   ] as const)("%s: its button hands the step to the shell", async (kind, shala, label) => {
     stubApi([step(kind, shala)]);
     const onOpen = vi.fn();

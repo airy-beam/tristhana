@@ -136,11 +136,16 @@ def request_closed_note(t: Translator, locale: Locale, note: RequestClosed) -> S
 
 
 def invite_screen(
-    t: Translator, locale: Locale, url: str, last_rows: list[list[InlineKeyboardButton]]
+    t: Translator,
+    locale: Locale,
+    url: str,
+    last_rows: list[list[InlineKeyboardButton]],
+    staff: bool = False,
 ) -> Screen:
     """One sentence, "Send the link" (Telegram's share sheet) and the QR code: the invite on
     the Menu path (I0) and on the first run (F1, `home.py`), which differ only in their last
-    rows. The link itself is under "More"."""
+    rows. The link itself is under "More". `staff`: on a shala's staff, a line says this link
+    is the person's own, not the shala's (UI-06 stage 6, B5)."""
     query = urlencode({"url": url, "text": t.t(locale, "invite-share-text")}, quote_via=quote)
     rows = [
         [
@@ -151,7 +156,10 @@ def invite_screen(
         [button(t, locale, "invite-qr", cb.plain("q"))],
         *last_rows,
     ]
-    return Screen(t.t(locale, "invite-simple"), InlineKeyboardMarkup(inline_keyboard=rows))
+    text = t.t(locale, "invite-simple")
+    if staff:
+        text = f"{text}\n\n{t.t(locale, 'invite-own-not-shala')}"
+    return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
 
 async def _zero() -> int:
@@ -330,8 +338,9 @@ class LinkScreens:
                 lines.append(self._t.t(locale, key, name=_name(self._t, locale, teacher.name)))
                 lines.append(self._t.t(locale, "links-primary-hint"))
         rows += shala_rows
-        if self._app:
-            rows.append([app_button(self._t, locale, self._app)])
+        if self._app:  # UI-06 stage 6 (C1): says what opens, and opens it
+            url = app_url(self._app, "shala")
+            rows.append([app_button(self._t, locale, "app-open-shala", url)])
         if not found.students and self._username:  # a label, not a toggle; quiet on purpose
             # With the origin, so Back from the invite returns here.
             rows.append([self._button(locale, "links-invite-first", cb.plain("i", "o"))])
@@ -339,7 +348,7 @@ class LinkScreens:
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def _shala_rows(self, principal: Principal) -> list[list[InlineKeyboardButton]]:
-        """SC-01: my shalas as `🏛 Name` rows, above [Open the app]."""
+        """SC-01: my shalas as `🏛 Name` rows, above [🏛 Shala in the app]."""
         shalas = self._links.shalas
         if shalas is None:
             return []
@@ -660,7 +669,8 @@ class LinkScreens:
             [self._button(locale, "invite-more", cb.plain("im", origin))],
             [self._button(locale, "log-back", back)],
         ]
-        return invite_screen(self._t, locale, url, last_rows)
+        staff = account.shala is not None and account.shala.staff
+        return invite_screen(self._t, locale, url, last_rows, staff=staff)
 
     async def invite_more(
         self, principal: Principal, rotate: bool = False, origin: cb.Origin | None = None

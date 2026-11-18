@@ -32,6 +32,7 @@ from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import progression_callbacks as gcb
 from tristhana.bots.telegram import remind_callbacks as rcb
 from tristhana.bots.telegram import settings_callbacks as scb
+from tristhana.bots.telegram import shalas_callbacks as hcb
 from tristhana.bots.telegram import teacher_links_callbacks as tcb
 from tristhana.bots.telegram import tour_callbacks as qcb
 from tristhana.bots.telegram.callbacks import DayCallback
@@ -124,7 +125,11 @@ class HomeScreens:
         url = invite_url(self._username, await self._links.invite.execute(principal))
         # The same screen as the Menu path's invite (I0), with its own last row.
         return invite_screen(
-            self._t, locale, url, [[self._button(locale, "welcome-later", cb.CLOSING)]]
+            self._t,
+            locale,
+            url,
+            [[self._button(locale, "welcome-later", cb.CLOSING)]],
+            staff=_staff(principal.account),
         )
 
     def closing(self, locale: Locale) -> Screen:
@@ -138,24 +143,40 @@ class HomeScreens:
             self._t.t(locale, "welcome-teacher-next"), InlineKeyboardMarkup(inline_keyboard=rows)
         )
 
-    def shala(self, locale: Locale, back: cb.ShalaBack) -> Screen:
-        """F3: what a shala is here, the way to create one (the form is in the Mini App),
-        and a line for a student who came for their shala's classes."""
-        rows: list[list[InlineKeyboardButton]] = []
+    async def shala(self, principal: Principal, back: cb.ShalaBack) -> Screen:
+        """F3: the shalas I am in (each opens its card), what a shala is here, the way to
+        create one (the form is in the Mini App), and a line for a student who came for their
+        shala's classes, first (UI-06 stage 6, B3, C12). One statement, only for someone in a
+        shala (`account.shala`); a pure render for everyone else."""
+        account = principal.account
+        locale = account.locale
+        shalas = self._links.shalas if self._links is not None else None
+        mine = (
+            () if account.shala is None or shalas is None else await shalas.mine.execute(principal)
+        )
+        staff = any(s.me.staff for s in mine)
+        rows: list[list[InlineKeyboardButton]] = [
+            [InlineKeyboardButton(text=f"🏛 {s.name}", callback_data=hcb.on_shala("c", s.id))]
+            for s in mine
+        ]
         if self._app:
+            create = "shala-create-another" if staff else "shala-create"
             rows.append(
                 [
                     InlineKeyboardButton(
-                        text=self._t.t(locale, "shala-create"),
+                        text=self._t.t(locale, create),
                         web_app=WebAppInfo(url=app_url(self._app, "new-shala")),
                     )
                 ]
             )
         rows.append([self._button(locale, "log-back", _SHALA_BACK[back])])
-        text = (
-            f"{self._t.t(locale, 'welcome-shala-text')}\n\n"
-            f"{self._t.t(locale, 'welcome-shala-student')}"
-        )
+        if staff:
+            text = self._t.t(locale, "welcome-shala-mine")
+        else:
+            text = (
+                f"{self._t.t(locale, 'welcome-shala-student')}\n\n"
+                f"{self._t.t(locale, 'welcome-shala-text')}"
+            )
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     # --- the Menu ---------------------------------------------------------------------
@@ -184,10 +205,17 @@ class HomeScreens:
         screen = self.menu(account, typed=True)
         return message.answer(screen.text, reply_markup=screen.markup)
 
-    def teach(self, locale: Locale) -> Screen:
-        """M1: "For teachers and shalas"."""
+    def teach(self, account: Account) -> Screen:
+        """M1: "For teachers and shalas". On a shala's staff, the first row is that shala's
+        student invite, not the personal one (UI-06 stage 6, B5; spec §13.6)."""
+        locale = account.locale
+        if account.shala is not None and _staff(account):
+            invite = hcb.on_shala("i", account.shala.id)
+            first = self._button(locale, "shala-invite-students", invite)
+        else:
+            first = self._button(locale, "welcome-path-invite", tcb.plain("i"))
         rows = [
-            [self._button(locale, "welcome-path-invite", tcb.plain("i"))],
+            [first],
             [self._button(locale, "welcome-path-shala", cb.shala("o"))],
             menu_row(self._t, locale),
         ]
@@ -205,8 +233,11 @@ class HomeScreens:
             [self._button(locale, "help-reminder", rcb.encode(rcb.RemindCallback("view")))],
             [self._button(locale, "help-asanas", gcb.encode(gcb.ProgressionCallback("open")))],
             [self._button(locale, "help-join", tcb.plain("o"))],
-            [self._button(locale, "menu-teach", cb.TEACH)],
         ]
+        shala = principal.account.shala
+        if shala is not None and shala.staff:  # UI-06 stage 6 (C17): the card, its Classes
+            rows.append([self._button(locale, "help-shala-classes", hcb.on_shala("c", shala.id))])
+        rows.append([self._button(locale, "menu-teach", cb.TEACH)])
         if self._site:
             # The guide's English pages are at the root, the Russian ones under /ru/.
             path = "/ru/" if locale == "ru" else "/"
@@ -235,11 +266,11 @@ class HomeScreens:
             case "closing":
                 return _now(self.closing(locale))
             case "shala":
-                return _now(self.shala(locale, tap.back or "f"))
+                return self.shala(principal, tap.back or "f")
             case "menu":
                 return _now(self.menu(account))
             case "teach":
-                return _now(self.teach(locale))
+                return _now(self.teach(account))
             case "help":
                 return _now(self.help(principal))
 
@@ -253,6 +284,11 @@ class HomeScreens:
 
 async def _now(screen: Screen) -> Screen:
     return screen
+
+
+def _staff(account: Account) -> bool:
+    """On the staff of their main shala: that shala has a student link of its own (B5)."""
+    return account.shala is not None and account.shala.staff
 
 
 def register_home(router: Router, screens: HomeScreens) -> None:

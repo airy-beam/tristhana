@@ -270,8 +270,8 @@ def test_for_teachers_and_shalas(client: TestClient) -> None:
     assert body["method"] == "editMessageText"
     assert body["text"].startswith("For teachers and shalas\n")
     assert _where(body) == {
-        "Invite students": "t1:i",
-        "Shala and classes": "w1:s:o",
+        "👥 Invite my students": "t1:i",
+        "🏛 Shala and classes": "w1:s:o",
         "☰ Menu": "w1:m",
     }
 
@@ -319,7 +319,7 @@ def test_invite_then_the_teachers_closing_then_today(client: TestClient) -> None
     assert "☰ Menu → 👥 My students" in closing["text"]  # where students will appear
     assert _where(closing) == {
         "🧘 Log my own practice": "w1:n",
-        "Shala and classes": "w1:s:c",
+        "🏛 Shala and classes": "w1:s:c",
         "☰ Menu": "w1:m",
     }
     assert _rows(today) == [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], MENU]
@@ -355,7 +355,7 @@ def test_back_from_shala_and_classes_is_the_front_door_again(client: TestClient)
     body = _tap(client, "w1:f")
 
     assert body["text"].endswith("Where shall we start?")
-    assert _rows(body)[0] == ["My practice"]
+    assert _rows(body)[0] == ["🧘 Log my practice"]
 
 
 @pytest.mark.parametrize("data", ["w1:m", "w1:o", "w1:h", "w1:c", "w1:f", "w1:s:f"])

@@ -1021,7 +1021,7 @@ describe("Today: one next step, each leading to its place", () => {
     await launch();
     await today();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Invite students" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Invite students to the shala" }));
 
     expect(await screen.findByRole("img", { name: "QR code for the shala's link" })).toBeVisible();
     expect(
@@ -1079,7 +1079,7 @@ describe("the empty Shala tab", () => {
     ).toBeInTheDocument();
     // The two starts sit under the bot's name for that row, so a student skips them.
     const starts = screen.getByRole("heading", { level: 2, name: "For teachers and shalas" });
-    const invite = screen.getByRole("button", { name: "Invite students" });
+    const invite = screen.getByRole("button", { name: "Invite my students" });
     expect(starts.compareDocumentPosition(invite)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     // Two list rows of one card.
     expect(invite.parentElement).toHaveClass("card", "list");
@@ -1096,7 +1096,7 @@ describe("the empty Shala tab", () => {
     await launch();
     await today();
     await go("shala");
-    const row = await screen.findByRole("button", { name: "Invite students" });
+    const row = await screen.findByRole("button", { name: "Invite my students" });
 
     fireEvent.click(row);
 
@@ -1116,7 +1116,7 @@ describe("the empty Shala tab", () => {
 
     expect(await screen.findByLabelText("Name")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invite my students" })).toBeInTheDocument();
   });
 
   test("someone with a teacher sees the list, not the empty line", async () => {

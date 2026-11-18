@@ -9,6 +9,7 @@ a pure render. Saving 🧘 Practiced shows the three buttons that follow it (`pr
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, timedelta
 
 from aiogram import F, Router
@@ -21,6 +22,7 @@ from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, Translator
 from tristhana.bots.telegram import home_callbacks as hcb
 from tristhana.bots.telegram import rest_callbacks as acb
+from tristhana.bots.telegram import shalas_callbacks as scb
 from tristhana.bots.telegram.callbacks import PREFIX, DayCallback, Origin, decode, encode
 from tristhana.bots.telegram.check_in import CheckInScreens, register_check_in
 from tristhana.bots.telegram.diary import DiaryScreens, note_button, preview, register_diary
@@ -39,6 +41,7 @@ from tristhana.bots.telegram.screens import (
     Screen,
     answered,
     app_button,
+    app_url,
     day_label,
     menu_row,
     nothing,
@@ -46,7 +49,7 @@ from tristhana.bots.telegram.screens import (
 )
 from tristhana.domain.accounts import Account
 from tristhana.domain.days import MIN_LOG_DATE, DateInFuture, DateTooEarly, DayStatus
-from tristhana.domain.journey import OTHER_REASONS
+from tristhana.domain.journey import OTHER_REASONS, NextStep, Step
 from tristhana.domain.locale import Locale
 from tristhana.domain.moon import City
 from tristhana.domain.rest_days import AutoKind
@@ -65,6 +68,13 @@ _WEEK_EMOJI: dict[DayStatus | None, str] = {
     DayStatus.SKIPPED: "🌱",
 }
 _AUTO_STATUS = {AutoKind.MOON: DayStatus.MOON, AutoKind.DAY_OFF: DayStatus.REST}
+# UI-06 stage 6 (B4): the next steps Today offers in the bot, the shala's own; the others stay
+# in the app (the bot has its own offers). No "Not now": a step goes once its data exists.
+_SHALA_STEPS = frozenset({NextStep.ADD_CLASS, NextStep.INVITE_SHALA_STUDENTS})
+
+
+async def _no_steps() -> tuple[Step, ...]:
+    return ()
 
 
 def register(
@@ -182,11 +192,19 @@ class DayScreens:
         lead_row: list[InlineKeyboardButton] | None = None,
         hint: bool = False,
     ) -> Screen:
-        """Today (`day` None) and the day editor: one read."""
+        """Today (`day` None) and the day editor: one read. On Today for someone on a
+        shala's staff, the next steps load alongside it (UI-06 stage 6, B4: +1, in parallel)."""
         today, _ = self._days.get.today(principal)
         editor = day is not None
         day = day or today
-        view = await self._days.get.execute(principal, day, day)
+        shala = principal.account.shala
+        steps = self._days.steps
+        offers = not editor and steps is not None and shala is not None and shala.staff
+        view, due = await asyncio.gather(
+            self._days.get.execute(principal, day, day),
+            steps.execute(principal) if offers and steps is not None else _no_steps(),
+        )
+        step = next((s for s in due if s.kind in _SHALA_STEPS and s.shala_id is not None), None)
         current = view.days[0].status if view.days else None
         locale = principal.account.locale
         label = self.day(locale, day, today)
@@ -199,11 +217,17 @@ class DayScreens:
         shown = preview(self._t, locale, view.notes.get(day)) if editor and self.notes else None
         if shown:  # under the day itself; the editor only (never Today or the week picker)
             lines.append(shown)
+        step_row = self._step_row(locale, step) if step is not None else None
+        if step is not None and step_row is not None:
+            key = "next-class" if step.kind is NextStep.ADD_CLASS else "next-shala-invite"
+            lines.append(self._t.t(locale, key))
         rows = [lead_row] if lead_row else []
         rows += self.choice_rows(locale, day, current, "e" if editor else "t")
         period = view.period_on(day)
         if period is not None and period.end >= today:  # still running: it can end early
             rows.append([self.end_button(locale, period, view.practice_on)])
+        if step_row is not None:  # one row above the last
+            rows.append(step_row)
         if editor:
             if self.notes:
                 rows.append([note_button(self._t, locale, day, "d")])
@@ -215,6 +239,17 @@ class DayScreens:
         else:
             rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+
+    def _step_row(self, locale: Locale, step: Step) -> list[InlineKeyboardButton] | None:
+        """The step's button: the app's new class form, or the shala's student link."""
+        if step.shala_id is None:
+            return None
+        if step.kind is NextStep.ADD_CLASS:
+            if not self.app_url:  # dev without the app: the line would point at nothing
+                return None
+            url = app_url(self.app_url, "class", shala=str(step.shala_id))
+            return [app_button(self._t, locale, "next-class-do", url)]
+        return [self._button(locale, "next-shala-invite-do", scb.on_shala("i", step.shala_id))]
 
     def _day_block(
         self, locale: Locale, view: DaysView, day: date, label: str, current: DayStatus | None
@@ -413,7 +448,7 @@ class DayScreens:
         """[Open the app] while the time zone is unknown: opening it records the zone."""
         if principal.account.timezone is not None or not self.app_url:
             return []
-        return [[app_button(self._t, principal.account.locale, self.app_url)]]
+        return [[app_button(self._t, principal.account.locale, "start-open-app", self.app_url)]]
 
     def saved_lines(self, principal: Principal, day: date, status: DayStatus) -> list[str]:
         """ "✓ Today, Sun, Oct 18: 🧘 Practiced" + the cheer and the privacy note. No time-zone

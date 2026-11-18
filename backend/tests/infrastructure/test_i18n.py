@@ -834,11 +834,44 @@ def test_ui06_keys_exist_and_the_retired_ones_are_gone(locale: str) -> None:
 
 
 def test_the_front_door_labels_in_russian_are_the_approved_ones() -> None:
+    # UI-06 stage 6 (C9, B5): each with its emoji; the invite names whose students.
     t = FluentTranslator()
 
-    assert t.t("ru", "welcome-path-practice") == "Моя практика"
-    assert t.t("ru", "welcome-path-invite") == "Пригласить учеников"
-    assert t.t("ru", "welcome-path-shala") == "Шала и занятия"
+    assert t.t("ru", "welcome-path-practice") == "🧘 Отмечать свою практику"
+    assert t.t("ru", "welcome-path-invite") == "👥 Пригласить своих учеников"
+    assert t.t("ru", "welcome-path-shala") == "🏛 Шала и занятия"
+
+
+@pytest.mark.parametrize(
+    ("key", "en", "ru"),
+    [
+        ("welcome-path-practice", "🧘 Log my practice", "🧘 Отмечать свою практику"),
+        ("welcome-path-invite", "👥 Invite my students", "👥 Пригласить своих учеников"),
+        ("welcome-path-shala", "🏛 Shala and classes", "🏛 Шала и занятия"),
+        # The two invites, named apart (B5): the shala's link and the teacher's own.
+        (
+            "shala-invite-students",
+            "➕ Invite students to the shala",  # noqa: RUF001
+            "➕ Пригласить учеников в шалу",  # noqa: RUF001
+        ),
+        ("next-shala-invite-do", "Invite students to the shala", "Пригласить учеников в шалу"),
+        ("links-invite", "➕ Invite my students", "➕ Пригласить своих учеников"),  # noqa: RUF001
+        (
+            "invite-own-not-shala",
+            "This is your own link, not the shala's.",
+            "Это твоя личная ссылка, не ссылка шалы.",
+        ),
+        ("shala-create-another", "🏛 Create another shala", "🏛 Создать ещё одну шалу"),
+        ("help-shala-classes", "🗓 Shala classes", "🗓 Занятия шалы"),
+        ("app-open-shala", "🏛 Shala in the app", "🏛 Шала в приложении"),
+        ("schedule-full-app", "🗓 Full week in the app", "🗓 Вся неделя в приложении"),
+        ("shala-classes-edit", "🗓 Add or change classes", "🗓 Добавить или изменить занятия"),
+    ],
+)
+def test_ui06_stage6_labels(key: str, en: str, ru: str) -> None:
+    t = FluentTranslator()
+
+    assert (t.t("en", key), t.t("ru", key)) == (en, ru)
 
 
 def test_the_prompt_stays_neutral() -> None:

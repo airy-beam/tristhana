@@ -404,7 +404,9 @@ describe("the shala card", () => {
 
     await screen.findByText(/Ashtanga Almaty/);
     expect(!!screen.queryByRole("button", { name: /👥 Students \(34\)/ })).toBe(students);
-    expect(!!screen.queryByRole("button", { name: "➕ Invite students" })).toBe(students);
+    expect(!!screen.queryByRole("button", { name: "➕ Invite students to the shala" })).toBe(
+      students,
+    );
     expect(!!screen.queryByRole("button", { name: "➕ Invite staff" })).toBe(inviteStaff);
     expect(!!screen.queryByRole("button", { name: /^Leave/ })).toBe(leave);
   });
@@ -617,7 +619,7 @@ describe("opened for one thing", () => {
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="join" />);
 
     const qr = await screen.findByRole("img", { name: "QR code for the shala's link" });
-    expect(screen.queryByRole("button", { name: "➕ Invite students" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "➕ Invite students to the shala" })).toBeNull();
     const posts = calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`);
     expect(posts).toHaveLength(1);
     expect(await posts[0]?.json()).toEqual({ rotate: false }); // the same link, never a new one
@@ -630,7 +632,9 @@ describe("opened for one thing", () => {
     renderWith(card());
 
     await screen.findByRole("button", { name: "➕ Add a class" });
-    expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "➕ Invite students to the shala" }),
+    ).toBeInTheDocument();
     expect(calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`)).toHaveLength(0);
     expect(scrolled).not.toHaveBeenCalled();
   });
@@ -639,7 +643,7 @@ describe("opened for one thing", () => {
     stubApi({ card: shalaOut(TEACHER) });
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
 
-    await screen.findByRole("button", { name: "➕ Invite students" });
+    await screen.findByRole("button", { name: "➕ Invite students to the shala" });
     expect(screen.queryByRole("button", { name: "Save the class" })).toBeNull();
   });
 
@@ -667,7 +671,9 @@ describe("opened for one thing", () => {
 
       // The same card again, as a tap opens it: nothing unfolded.
       expect(await screen.findByRole("button", { name: "➕ Add a class" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "➕ Invite students to the shala" }),
+      ).toBeInTheDocument();
     },
   );
 });
@@ -943,7 +949,9 @@ describe("the setup list", () => {
 
     expect(list()).toBeInTheDocument();
     expect(current()).toEqual(["Add a class"]);
-    expect(screen.getByRole("button", { name: "Invite students" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Invite students to the shala" }),
+    ).toBeInTheDocument();
     // Two or three words on the row; "optional" is its quiet second line.
     const third = screen.getByRole("button", { name: "Invite teachers and staff" });
     expect(third).toHaveAccessibleDescription("Optional");
@@ -960,10 +968,10 @@ describe("the setup list", () => {
     renderWith(card());
     await loaded();
 
-    expect(current()).toEqual(["Invite students"]);
+    expect(current()).toEqual(["Invite students to the shala"]);
     expect(screen.getAllByRole("img", { name: "done" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Add a class" })).toBeNull(); // done: plain text
-    fireEvent.click(screen.getByRole("button", { name: "Invite students" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite students to the shala" }));
 
     const qr = await screen.findByRole("img", { name: "QR code for the shala's link" });
     const made = calls(seen, "POST", `/api/v1/shalas/${SHALA}/join-link`);
@@ -1261,6 +1269,43 @@ describe("the Classes on the card", () => {
     expect(add.closest("section")).toBe((await section()).closest("section"));
   });
 
+  // Spec §13.14: one main action. The owner's setup list leads with "Add a class" while it is
+  // due, so the Classes' own add row is a plain row then.
+  it("with none and the setup list showing Add a class: the add row is plain", async () => {
+    stubApi({
+      card: shalaOut({ ...OWNER, schedule: true }, { setup: ["add_class", "invite_students"] }),
+      classes: [],
+    });
+    renderWith(card());
+
+    const heading = await section();
+    expect(await screen.findByText("No classes yet.")).toBeInTheDocument();
+    const box = heading.closest("section") as HTMLElement;
+    const add = within(box).getByRole("button", { name: "➕ Add a class" });
+    expect(add).not.toHaveClass("btn");
+    expect(add).toHaveClass("lrow");
+    // The setup list's step is the one main action on the card.
+    const steps = screen
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-current") === "step");
+    expect(steps.map((b) => b.textContent)).toEqual(["Add a class"]);
+    expect(screen.getAllByRole("button").filter((b) => b.classList.contains("btn"))).toEqual(steps);
+
+    fireEvent.click(add);
+    expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
+  });
+
+  it("with none and the setup list past that step: the add row is the main one again", async () => {
+    stubApi({
+      card: shalaOut({ ...OWNER, schedule: true }, { setup: ["invite_students"] }),
+      classes: [series(id(2), { ends_on: "2026-01-31" })], // its only class has ended
+    });
+    renderWith(card());
+
+    await screen.findByText("No classes yet.");
+    expect(screen.getByRole("button", { name: "➕ Add a class" })).toHaveClass("btn");
+  });
+
   it.each([
     ["a student", STUDENT],
     ["a teacher who may not manage the schedule", TEACHER],
@@ -1313,10 +1358,10 @@ describe("the Classes on the card", () => {
     renderWith(card());
     fireEvent.click(await screen.findByRole("button", { name: "➕ Add a class" }));
     expect(await screen.findByRole("heading", { level: 1, name: "New class" })).toBeVisible();
-    // B2: what one class is, under the days.
+    // B2: what one class is, under the days (the wording changed after A1).
     expect(
       screen.getByText(
-        /A different time or type is another class: Mysore on weekdays and Led on Sunday are two\./,
+        "Pick the days this class runs at this time. A different time or type is a separate class: Mysore Mon–Fri at 06:00 and Led on Sunday at 08:00 are two. Save this one, then add the next.",
       ),
     ).toBeInTheDocument();
 
@@ -1365,7 +1410,7 @@ describe("opened to edit the shala", () => {
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="edit" />);
 
     await screen.findByText(/Ashtanga Almaty/);
-    await screen.findByRole("button", { name: "➕ Invite students" });
+    await screen.findByRole("button", { name: "➕ Invite students to the shala" });
     expect(screen.queryByLabelText("Name")).toBeNull();
     expect(scrolled).not.toHaveBeenCalled();
   });

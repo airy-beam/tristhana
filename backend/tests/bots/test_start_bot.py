@@ -28,8 +28,13 @@ SECRET = "test-secret_123"
 TOKEN = "123456:TEST-token-for-unit-tests-only_xxxxxxxxxxx"
 APP = "https://tristhana.web.app"
 OTHER = UUID("33333333-3333-4333-8333-333333333333")  # a teacher's or a shala's id
-FRONT = ["My practice", "Invite students", "Shala and classes", "🗣 Русский"]
-FRONT_RU = ["Моя практика", "Пригласить учеников", "Шала и занятия", "🗣 English"]
+FRONT = ["🧘 Log my practice", "👥 Invite my students", "🏛 Shala and classes", "🗣 Русский"]
+FRONT_RU = [
+    "🧘 Отмечать свою практику",
+    "👥 Пригласить своих учеников",
+    "🏛 Шала и занятия",
+    "🗣 English",
+]
 TODAY_ROWS = [["🧘 Practiced"], ["😌 Rest day"], ["Other…"], ["☰ Menu"]]
 HINT = "Everything else is now under ☰ Menu."
 _ids = itertools.count(98_000)
