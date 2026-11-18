@@ -208,13 +208,160 @@ def test_the_card_per_role_has_the_classes_and_the_buttons_into_the_app(
     assert "➕ Add a class" not in _texts(body)
     if manages:
         assert _app(body, "🗓 Add or change classes") == {"open": ["shala"], "shala": [str(shala)]}
-    assert ("✏️ Edit the shala" in _texts(body)) is edits
+    # An owner's and a manager's card has its other actions behind More… (Q373 a).
+    assert "✏️ Edit the shala" not in _texts(body)
     if edits:
-        assert _app(body, "✏️ Edit the shala") == {"open": ["edit-shala"], "shala": [str(shala)]}
+        more = _tap(client, _data(body, "More…"))
+        assert _app(more, "✏️ Edit the shala") == {"open": ["edit-shala"], "shala": [str(shala)]}
     # Below the Schedule, which stays by date for everyone.
     rows = _rows(body)
     if manages:
         assert rows.index(["🗓 Add or change classes"]) == rows.index(["🗓 Schedule"]) + 1
+
+
+# Q373 (a): a card of more than seven action rows keeps the main ones and puts the rest
+# behind More…, whose screen has Back to the card. Cards with fewer rows stay flat.
+CARD_MAIN = [
+    ["🗓 Schedule"],
+    ["🗓 Add or change classes"],
+    ["👥 Students (0)"],
+    ["➕ Invite students to the shala"],
+]
+ANNOUNCE = [["📣 Announcements"], ["📣 Announce to the shala"]]
+
+
+@pytest.mark.parametrize(
+    ("role", "card", "more"),
+    [
+        (
+            "owner",
+            [*CARD_MAIN, ["More…"], ["‹ Back"]],
+            [*ANNOUNCE, ["➕ Invite staff"], ["✏️ Edit the shala"], ["‹ Back"]],
+        ),
+        (
+            "admin",
+            [*CARD_MAIN, ["More…"], ["‹ Back"]],
+            [*ANNOUNCE, ["➕ Invite staff"], ["✏️ Edit the shala"], ["Leave…"], ["‹ Back"]],
+        ),
+        # Seven action rows: the card stays flat.
+        ("teacher", [*ANNOUNCE, *CARD_MAIN, ["Leave…"], ["‹ Back"]], None),
+        ("office", [*ANNOUNCE, *CARD_MAIN, ["Leave…"], ["‹ Back"]], None),
+        (
+            "assistant",
+            [
+                ["📣 Announcements"],
+                ["🗓 Schedule"],
+                ["👥 Students (0)"],
+                ["➕ Invite students to the shala"],
+                ["Leave…"],
+                ["‹ Back"],
+            ],
+            None,
+        ),
+        (
+            None,
+            [["📣 Announcements"], ["🗓 Schedule"], ["🤝 Pick a teacher"], ["Leave…"], ["‹ Back"]],
+            None,
+        ),
+    ],
+)
+def test_the_cards_rows_per_role_and_more(
+    client: TestClient,
+    storage: InMemoryStorage,
+    role: str | None,
+    card: list[list[str]],
+    more: list[list[str]] | None,
+) -> None:
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, role)
+    storage.schedule.add_class(shala, teacher_id=me.id)
+
+    body = _card(client, shala)
+    assert _rows(body) == card
+    assert _data(body, "‹ Back") == "t1:o"
+    if more is None:
+        return
+    assert _data(body, "More…") == f"h1:mo:{short_id(shala)}"
+    inner = _tap(client, _data(body, "More…"))
+    assert _rows(inner) == more
+    assert inner["text"] == "🏛 Ashtanga Almaty"
+    assert _data(inner, "‹ Back") == f"h1:c:{short_id(shala)}"
+
+
+@pytest.mark.parametrize(
+    ("role", "card"),
+    [
+        ("owner", [*CARD_MAIN[:2], ["😌 Make Sunday my day off too"], *CARD_MAIN[2:], ["More…"]]),
+        (
+            "teacher",
+            [
+                *ANNOUNCE,
+                *CARD_MAIN[:2],
+                ["😌 Make Sunday my day off too"],
+                *CARD_MAIN[2:],
+                ["Leave…"],
+            ],
+        ),
+    ],
+)
+def test_the_day_off_row_stays_on_the_card_and_never_flips_it(
+    client: TestClient, storage: InMemoryStorage, role: str, card: list[list[str]]
+) -> None:
+    """Review fix: the shala's day off offered to someone without one comes and goes like the
+    waiting row: on the card, under the Schedule, and not counted for More…"""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, role)
+    storage.shalas.shalas[shala].days_off = frozenset({7})
+    storage.schedule.add_class(shala, teacher_id=me.id)
+
+    body = _card(client, shala)
+
+    assert _rows(body) == [*card, ["‹ Back"]]
+    if role == "owner":
+        more = _tap(client, _data(body, "More…"))
+        assert "😌 Make Sunday my day off too" not in _texts(more)
+
+
+def test_more_in_russian(client: TestClient, storage: InMemoryStorage) -> None:
+    me = _me(client, storage, "ru")
+    shala, _ = _shala(storage, me, "owner")
+
+    body = _card(client, shala, "ru")
+
+    assert ["Ещё…"] in _rows(body)
+
+
+@pytest.mark.parametrize("role", ["teacher", "nobody"])
+def test_an_old_more_lands_on_a_living_screen(
+    client: TestClient, storage: InMemoryStorage, role: str
+) -> None:
+    """More… under an older card, tapped once the card is flat (a role changed): its other
+    actions still, Back to the card; once the shala is not mine: the list."""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, role)
+
+    body = _tap(client, f"h1:mo:{short_id(shala)}")
+
+    if role == "nobody":
+        assert body["text"] != "🏛 Ashtanga Almaty"
+        assert "‹ Back" not in _texts(body) or _data(body, "‹ Back") != f"h1:c:{short_id(shala)}"
+    else:
+        assert _rows(body) == [*ANNOUNCE, ["Leave…"], ["‹ Back"]]
+        assert _data(body, "‹ Back") == f"h1:c:{short_id(shala)}"
+
+
+def test_a_waiting_row_does_not_flip_the_card(client: TestClient, storage: InMemoryStorage) -> None:
+    """The waiting row comes and goes: a teacher's seven rows stay flat beside it."""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, "teacher")
+    zoe = person(storage, "1099", "Zoe")
+    storage.shalas.add_student(shala, zoe.id)
+    storage.teacher_requests.add(zoe.id, me.id, shala)
+
+    rows = _rows(_card(client, shala))
+
+    assert len(rows) == 9  # waiting, the seven, Back
+    assert ["More…"] not in rows
 
 
 def test_a_shala_without_a_current_class_says_so_and_adds_one_in_the_app(
@@ -301,7 +448,7 @@ def test_the_classes_read_in_russian(client: TestClient, storage: InMemoryStorag
         "Майсор · каждый день · 08:00–11:30 · каждые 3 недели",
     ]
     assert "🗓 Настроить занятия" in _texts(body)
-    assert "✏️ Изменить шалу" in _texts(body)
+    assert "✏️ Изменить шалу" in _texts(_tap(client, _data(body, "Ещё…"), "ru"))
 
 
 def test_a_long_list_stops_at_twelve(client: TestClient, storage: InMemoryStorage) -> None:
@@ -545,16 +692,33 @@ def test_today_has_no_shala_step_for_a_student_or_a_staff_teacher(
     assert not any("Your shala" in line for line in _lines(body))
 
 
-def test_today_reads_no_steps_for_someone_off_any_staff(
-    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("role", [None, "teacher", "assistant", "admin", "office"])
+def test_today_reads_no_steps_for_someone_who_owns_no_shala(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch, role: str | None
 ) -> None:
+    """Q373 (c): the shala steps are about owned shalas, so only an owner pays the read."""
     me = _me(client, storage)
-    _shala(storage, me, None)
+    _shala(storage, me, role)
     statements = Statements(monkeypatch, storage)
 
     _tap(client, "w1:n")
 
     assert not [n for n in statements.names if n.endswith("journey_facts")]
+
+
+def test_today_offers_the_step_to_an_owner_whose_main_shala_is_another(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    """Q373 (c): an assistant at Anna's shala (the older seat, so the main one) who also owns
+    a shala of their own still gets its step."""
+    me = _me(client, storage)
+    _shala(storage, me, "assistant")
+    mine = storage.shalas.add_shala(me.id, "My Shala", "almaty").id
+    _owned(storage, me, mine, classes=0)
+
+    body = _tap(client, "w1:n")
+
+    assert _app(body, "Add a class") == {"open": ["class"], "shala": [str(mine)]}
 
 
 def test_the_day_editor_offers_no_step(client: TestClient, storage: InMemoryStorage) -> None:
@@ -640,7 +804,17 @@ def test_teacher_and_shala_opens_the_shala_tab_by_name(
     assert _app(body, "🏛 Shala in the app") == {"open": ["shala"]}
 
 
-@pytest.mark.parametrize(("role", "row"), [("owner", True), ("teacher", True), (None, False)])
+@pytest.mark.parametrize(
+    ("role", "row"),
+    [
+        ("owner", True),
+        ("admin", True),
+        ("teacher", True),
+        ("office", True),
+        ("assistant", False),  # Q373 (d): may not manage the schedule
+        (None, False),
+    ],
+)
 def test_help_offers_shala_staff_their_shalas_classes(
     client: TestClient, storage: InMemoryStorage, role: str | None, row: bool
 ) -> None:

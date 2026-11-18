@@ -109,7 +109,7 @@ shots:
 
   # For shala staff
   - {name: bot-shala, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala], features: [SC-01, ID-07]}
-  - {name: bot-staff-invite, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala, shala-invite-staff], features: [SC-01]}
+  - {name: bot-staff-invite, kind: bot, as: teacher, say: /menu, tap: [menu-teacher, =shala, shala-more-button, shala-invite-staff], features: [SC-01]}
   # The new shala's screen with its setup list (UI-06 stage 4). The owner only looks: a class
   # or a link made here would tick a step off the list.
   - {name: app-shala-setup, kind: app, as: owner, click: [tab-shala, =new-shala], features: [SC-01, UI-06]}

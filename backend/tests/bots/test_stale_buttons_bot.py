@@ -231,7 +231,7 @@ CHECK_IN = f"k1:e:{D}:"  # the check-in screen: the energy chips
 REMINDER = "r1:a:"  # the practice reminder: the send times ("remind me at", stage 6 C10)
 SETTINGS = "s1:lp"
 MOON = ("m1:c:0", "w1:m")
-SHALA_CARD = "h1:k:"  # a shala's card: Leave…
+SHALA_CARD = "h1:mo:"  # a shala's card, a manager's (mine here): More… (Q373 a)
 SCHEDULE = "c1:p:"  # a shala's schedule, as its staff see it
 # With nobody linked: "Teacher and shala" with its quiet invite row, and the empty list.
 NO_TEACHER = ("t1:i:o", "w1:m")
@@ -337,7 +337,7 @@ FULL: dict[str, str | tuple[str, ...]] = {
     "t1:gp": f"t1:r:{frozen.PERSON}",
     "t1:gy": (f"t1:v:{frozen.PERSON}", "w1:m"),
     "h1:a": "h1:ta:",  # joined: "Who is your teacher here?" (ID-07), the owner teaches
-    "h1:b": SHALA_CARD,
+    "h1:b": "h1:k:",  # joined the staff as an assistant: the flat card, Leave…
     "h1:n": TODAY,
     "h1:l": f"h1:a:{frozen.SHALA_CODE}",  # the consent screen
     "h1:c": SHALA_CARD,
@@ -668,6 +668,9 @@ STAGE6: dict[str, tuple[str | tuple[str, ...], str | tuple[str, ...]]] = {
     # C10: the reminder screen's time chips save the time and turn it on (`r1:t` keeps its
     # meaning under older screens: the time only).
     "r1:a:1000": (REMINDER, REMINDER),
+    # Q373 (a): the card's More… (its other actions, Back to the card); the list once the
+    # shala is not mine.
+    f"h1:mo:{_S}": (("h1:e:", "h1:k:", f"h1:c:{_S}"), NO_TEACHER),
 }
 
 

@@ -611,6 +611,52 @@ async def test_staff_memberships_come_first(engine: AsyncEngine) -> None:
     assert (found.shala.id, found.shala.staff) == (mine, True)
 
 
+async def test_the_staff_row_carries_the_seat_and_whether_i_own_a_shala(
+    engine: AsyncEngine,
+) -> None:
+    """Q373: Help reads the seat at the main shala, Today whether I own any shala; both ride
+    the account load. My main shala is the older seat (Anna's, as assistant); I own a newer
+    one."""
+    anna, anna_key = await _person(engine, "Anna")
+    me, key = await _person(engine, "Ash")
+    hers = await _shala(engine, anna.id, "moscow", "Hers")
+    await _staff(engine, hers, anna.id, me.id, ASSISTANT)
+
+    assistant = await _find(engine, key)
+    assert assistant.shala is not None
+    assert (assistant.shala.id, assistant.shala.owner, assistant.shala.roles) == (
+        hers,
+        False,
+        frozenset({"assistant"}),
+    )
+    assert assistant.shala.owns_any is False
+
+    await _shala(engine, me.id, "kyiv", "Mine")
+    both = await _find(engine, key)
+    assert both.shala is not None
+    assert (both.shala.id, both.shala.owner, both.shala.owns_any) == (hers, False, True)
+
+    owner = await _find(engine, anna_key)
+    assert owner.shala is not None
+    assert (owner.shala.id, owner.shala.owner, owner.shala.owns_any) == (hers, True, True)
+
+
+async def test_a_student_row_has_no_seat(engine: AsyncEngine) -> None:
+    anna, _ = await _person(engine, "Anna")
+    me, key = await _person(engine, "Ash")
+    shala = await _shala(engine, anna.id)
+    await _student(engine, shala, anna.id, me.id)
+
+    found = await _find(engine, key)
+
+    assert found.shala is not None
+    assert (found.shala.owner, found.shala.roles, found.shala.owns_any) == (
+        False,
+        frozenset(),
+        False,
+    )
+
+
 async def test_q108_order_and_changes_on_the_next_read_with_no_write(engine: AsyncEngine) -> None:
     """A student in two shalas; the main teacher (Almaty) staffs the newer one. Making another
     teacher main, removing the teacher from staff, unlinking: each changes the next read."""

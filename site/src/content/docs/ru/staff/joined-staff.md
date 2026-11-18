@@ -41,7 +41,7 @@ features: [SC-01, UI-06]
 - :ftl[shala-students]{n=12}: ученики шалы;
 - :ftl[shala-invite-students]: ссылка, по которой ученики присоединяются к шале.
 
-Потом карточка найдётся в :ftl[menu-open] → :ftl[menu-teacher] → шала или в :ftl[menu-help] → :ftl[help-shala-classes]. В приложении открой вкладку :ftl[tab-shala] и нажми на шалу.
+Потом карточка найдётся в :ftl[menu-open] → :ftl[menu-teacher] → шала или, если твоя роль меняет расписание, в :ftl[menu-help] → :ftl[help-shala-classes]. В приложении открой вкладку :ftl[tab-shala] и нажми на шалу.
 
 ## Твоя неделя
 
@@ -60,7 +60,7 @@ features: [SC-01, UI-06]
 
 ## Выйти
 
-На карточке шалы нажми :ftl[shala-leave], а потом :ftl[shala-leave-yes]. Никто не получит сообщения, а журнал останется как есть. С ролью :ftl[shala-role]{role=teacher} в вопросе будет ещё: :ftl[shala-leave-own-students]
+На карточке шалы нажми :ftl[shala-leave] (у управляющего эта кнопка под :ftl[shala-more-button]), а потом :ftl[shala-leave-yes]. Никто не получит сообщения, а журнал останется как есть. С ролью :ftl[shala-role]{role=teacher} в вопросе будет ещё: :ftl[shala-leave-own-students]
 
 ## Полезно знать
 

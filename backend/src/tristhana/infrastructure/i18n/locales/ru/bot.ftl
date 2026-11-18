@@ -114,7 +114,7 @@ status-skipped = 🌱 Без практики
 log-saved =
     ✓ { $day }: { $label }
     { $status ->
-        [practiced] Практика сделана 🙏
+        [practiced] 🙏
         [sick] Выздоравливай 🌿
         [travel] Хорошей дороги ✈️
         [skipped] Каждый день разный 🌱
@@ -985,6 +985,9 @@ shala-already-staff = Ты уже в команде шалы { $shala }, ссы�
 shala-full = Сейчас по этой ссылке не получится присоединиться к шале. Сообщи об этом в шалу.
 shala-joined = ✅ Теперь ты в шале { $shala }. Добро пожаловать 🙏
 shala-leave = Выйти…
+# Q373 (a): on a card with more than seven action rows (an owner's, a manager's), the rest is
+# behind this row; the same word as Settings' More….
+shala-more-button = Ещё…
 shala-leave-ask = Выйти из шалы { $shala }? Сообщений никто не получит, журнал останется как есть.
 # Under shala-leave-ask for someone with the Teacher role there (UI-06 stage 6, polish).
 shala-leave-own-students = Ученики из твоего списка останутся с тобой.

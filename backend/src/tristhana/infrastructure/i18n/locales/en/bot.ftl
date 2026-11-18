@@ -116,7 +116,7 @@ status-skipped = 🌱 No practice
 log-saved =
     ✓ { $day }: { $label }
     { $status ->
-        [practiced] Practice done 🙏
+        [practiced] 🙏
         [sick] Get well soon 🌿
         [travel] Safe travels ✈️
         [skipped] Every day is different 🌱
@@ -994,6 +994,9 @@ shala-already-staff = You're already on the staff of { $shala }, so you don't ne
 shala-full = This link can't add you to the shala right now. Please let the shala know.
 shala-joined = ✅ You're in { $shala }. Welcome 🙏
 shala-leave = Leave…
+# Q373 (a): on a card with more than seven action rows (an owner's, a manager's), the rest is
+# behind this row; the same word as Settings' More….
+shala-more-button = More…
 shala-leave-ask = Leave { $shala }? No one gets a message, and your log stays as it is.
 # Under shala-leave-ask for someone with the Teacher role there (UI-06 stage 6, polish).
 shala-leave-own-students = Your own students stay on your list.

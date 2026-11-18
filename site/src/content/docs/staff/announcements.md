@@ -8,7 +8,7 @@ Tell everyone in the shala about a change, all at once.
 
 ## Send one
 
-1. Open the shala (in the app: the :ftl[tab-shala] tab, then the shala's name) and tap :ftl[ann-announce]. In the bot this button opens the shala in the app, with the form on top.
+1. Open the shala (in the app: the :ftl[tab-shala] tab, then the shala's name) and tap :ftl[ann-announce]. In the bot this button opens the shala in the app, with the form on top; on an owner's or a manager's card it is under :ftl[shala-more-button].
 2. Write the text, up to 1000 characters.
 3. If you like, pin it for a week or a month.
 4. Tap :ftl[ann-send] and confirm.

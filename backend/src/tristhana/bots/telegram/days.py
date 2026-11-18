@@ -218,14 +218,15 @@ class DayScreens:
         lead_row: list[InlineKeyboardButton] | None = None,
         hint: bool = False,
     ) -> Screen:
-        """Today (`day` None) and the day editor: one read. On Today for someone on a
-        shala's staff, the next steps load alongside it (UI-06 stage 6, B4: +1, in parallel)."""
+        """Today (`day` None) and the day editor: one read. On Today for someone who owns a
+        shala, the next steps load alongside it (UI-06 stage 6, B4: +1, in parallel); the
+        shala steps are about owned shalas only, so other staff skip the read (Q373 (c))."""
         today, _ = self._days.get.today(principal)
         editor = day is not None
         day = day or today
         shala = principal.account.shala
         steps = self._days.steps
-        offers = not editor and steps is not None and shala is not None and shala.staff
+        offers = not editor and steps is not None and shala is not None and shala.owns_any
         view, due = await asyncio.gather(
             self._days.get.execute(principal, day, day),
             _steps_or_none(steps, principal) if offers and steps is not None else _no_steps(),

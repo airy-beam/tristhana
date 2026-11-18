@@ -373,7 +373,8 @@ def test_tap_saves_answers_and_edits_in_place(
     assert body["method"] == "editMessageText"
     assert body["text"].startswith("✓ Today, ")
     assert "🧘 Practiced" in body["text"]
-    assert "Practice done 🙏" in body["text"]
+    assert "🧘 Practiced\n🙏" in body["text"]  # Q367 (b): no second "Practice done"
+    assert "Practice done" not in body["text"]
     [(day, _)] = storage.day_repo.rows.values()
     assert (day.local_date, day.status) == (today, DayStatus.PRACTICED)
 

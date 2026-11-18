@@ -655,6 +655,9 @@ def test_the_card_per_role(
 
     body = _open_card(client, shala)
     texts = _texts(body)
+    if "More…" in texts:  # Q373 (a): an owner's and a manager's other actions
+        assert role in ("owner", "admin")
+        texts += _texts(_tap(client, f"h1:mo:{short_id(shala)}"))
 
     assert any(t.startswith("👥 Students") for t in texts) is students
     assert ("➕ Invite students to the shala" in texts) is invite_students

@@ -235,7 +235,7 @@ class InMemoryShalas:
         options: list[tuple[ShalaMoon, datetime]] = []
         for (shala_id, who), row in self.staff.items():
             if who == account and shala_id in self.shalas:
-                options.append((self._moon(shala_id, True, False), row.created_at))
+                options.append((self._moon(shala_id, True, False, account), row.created_at))
         for (shala_id, who), row in self.students_rows.items():
             if who == account and shala_id in self.shalas:
                 on_staff = teacher is not None and (shala_id, teacher.id) in self.staff
@@ -500,10 +500,22 @@ class InMemoryShalas:
             error, self.fail_with = self.fail_with, None
             raise error
 
-    def _moon(self, shala: UUID, staff: bool, teacher_on_staff: bool) -> ShalaMoon:
+    def _moon(
+        self, shala: UUID, staff: bool, teacher_on_staff: bool, account: UUID | None = None
+    ) -> ShalaMoon:
+        """`account`: a staff row's person, for the seat and `owns_any` (Q373)."""
         row = self.shalas[shala]
+        seat = self.staff.get((shala, account)) if account is not None else None
         return ShalaMoon(
-            row.id, row.name, row.moon_city or row.city, staff, teacher_on_staff, row.city
+            row.id,
+            row.name,
+            row.moon_city or row.city,
+            staff,
+            teacher_on_staff,
+            row.city,
+            owner=staff and row.owner_id == account,
+            roles=frozenset(r.value for r in (seat.roles or ())) if seat else frozenset(),
+            owns_any=staff and any(s.owner_id == account for s in self.shalas.values()),
         )
 
     def _card(self, shala: UUID, me: UUID) -> ShalaCard | None:

@@ -122,6 +122,10 @@ def _with(account: Account, card: ShalaCard) -> ShalaMoon:
         # Q108 reads it for student rows only; staff rows carry False, as the account load.
         not card.me.staff and teacher is not None and any(s.id == teacher.id for s in card.staff),
         card.city,
+        # The seat too (Q373), so this account matches what its next load reads.
+        owner=card.me.owner,
+        roles=frozenset(r.value for r in card.me.roles),
+        owns_any=card.me.owner or (account.shala is not None and account.shala.owns_any),
     )
     current = account.shala
     if current is None or current.id == card.id:

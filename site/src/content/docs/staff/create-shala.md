@@ -48,11 +48,11 @@ In the bot, open :ftl[menu-open] → :ftl[menu-teacher] and tap the shala's name
 
 The card shows the place (and the shala's time, if it differs from yours), one line on moon days with their city, the staff, the day off and a pinned announcement if there is one. Those who can change the schedule also see the shala's :ftl[shala-classes-title], one line per class. In the bot, a teacher whose answer students are waiting for also sees :ftl[request-waiting-open]{count=2} there. In the app, those people are at the top of the :ftl[tab-shala] tab.
 
-The forms are in the app, and the bot's card has a button into each: :ftl[shala-classes-edit] for the classes, and :ftl[shala-edit] for the shala's own details, for the owner and managers.
+The forms are in the app, and the bot's card has a button into each: :ftl[shala-classes-edit] for the classes, and :ftl[shala-edit] for the shala's own details, for the owner and managers. On their card the main buttons come first; :ftl[shala-edit], announcements and the staff invite are one tap away, under :ftl[shala-more-button].
 
 ## Invite staff
 
-1. On the card, tap :ftl[shala-invite-staff].
+1. On the card, tap :ftl[shala-more-button] → :ftl[shala-invite-staff].
 2. Choose a role.
 3. Send the link to that person.
 
