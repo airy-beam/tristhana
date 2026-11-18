@@ -26,7 +26,7 @@ Your city sets your clock, so reminders come at the right hour and days get the 
 
 A location you send is used only to find the local time there. It isn't stored.
 
-Travelling? When your phone's time differs, the app asks whether to switch or keep your home time. It never changes it silently.
+Traveling? When your phone's time differs, the app asks whether to switch or keep your home time. It never changes it silently.
 
 ## Whose moon days
 

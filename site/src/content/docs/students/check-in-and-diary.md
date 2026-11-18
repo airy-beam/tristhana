@@ -10,8 +10,8 @@ A few taps on how the practice felt, and a private note for anything you want to
 
 After you log a practice and tap :ftl[practice-done], the bot shows the :ftl[checkin-edit]{from=bot} button. Tap it, or leave it. In the app it is a line on the day's card, once the day says :ftl[status-practiced].
 
-- **Mood:** five faces.
-- **⚡ Energy** and **🔥 Effort:** from 1 to 5.
+- :ftl[checkin-mood]: five faces.
+- :ftl[checkin-energy] and :ftl[checkin-effort].
 - :ftl[checkin-tags-open]: words like :ftl[checkin-tag]{from=bot tag=open}, :ftl[checkin-tag]{from=bot tag=stiff} or :ftl[checkin-tag]{from=bot tag=calm}.
 
 Everything is optional. For an earlier practice day, pick that day, tap :ftl[status-practiced] and then :ftl[practice-done]: the same button is there.

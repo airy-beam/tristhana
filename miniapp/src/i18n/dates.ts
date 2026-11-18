@@ -18,6 +18,32 @@ export function monthTitle(
   return bare.charAt(0).toLocaleUpperCase(locale) + bare.slice(1);
 }
 
+const SHORT = new Map<string, Intl.DateTimeFormat>();
+
+/** A calendar date (YYYY-MM-DD) in short words with its year: "Nov 18, 2026" / «18 нояб. 2026»,
+ * without the «г.» Intl adds in Russian, as `monthTitle`. `weekday` adds the day's short name
+ * ("Thu, Oct 1, 2025" / «чт, 1 окт. 2025»); `year: false` leaves the year out ("Thu, Oct 1").
+ * Read in UTC: a date is not an instant, so no device zone moves it. */
+export function shortDate(
+  day: string,
+  locale: Locale,
+  { weekday = false, year = true }: { weekday?: boolean; year?: boolean } = {},
+): string {
+  const key = `${locale}:${weekday ? "w" : "-"}${year ? "y" : "-"}`;
+  let format = SHORT.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, {
+      ...(weekday ? { weekday: "short" } : {}),
+      day: "numeric",
+      month: "short",
+      ...(year ? { year: "numeric" } : {}),
+      timeZone: "UTC",
+    });
+    SHORT.set(key, format);
+  }
+  return format.format(Date.parse(`${day}T00:00:00Z`)).replace(/\s*г\.$/, "");
+}
+
 const FORMATS = new Map<string, Intl.DateTimeFormat>();
 
 function formatter(locale: Locale, withYear: boolean): Intl.DateTimeFormat {

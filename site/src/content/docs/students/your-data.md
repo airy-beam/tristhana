@@ -11,7 +11,7 @@ What is private, what a teacher sees, how to download everything you logged, and
 - Your log is yours. Without a teacher on your list, nobody else sees any of it.
 - Notes and 🌸 days are stored encrypted.
 - Your answers about how you feel, your notes, badges and the reason for a rest day are never shown to anyone.
-- A teacher you add sees your name, practice or rest from the day you add them, how far you practice and your last asana, and a short note if nothing shows for a while. A shala sees your name and your class attendance marks.
+- A teacher you add sees your name, practice or rest from the day you add them, how far you practice and your last asana, and one short line if nothing shows for a while. A shala sees your name and your class attendance marks.
 
 More detail: [My teacher](../my-teacher/) and [Privacy in plain words](../../reference/privacy/). The app says it in short under the gear → :ftl[settings-more-button] → :ftl[settings-privacy-open].
 

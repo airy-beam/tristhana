@@ -15,6 +15,7 @@ import {
   type ProgressionPosition,
   type ShareSubject,
 } from "../../api/client";
+import { shortDate } from "../../i18n/dates";
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
 import { lengthText } from "../practiceText";
@@ -453,12 +454,6 @@ function History({
   onUndo: (id: number) => void;
 }) {
   const { l10n } = useLocalization();
-  const format = new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
   const [newest] = progression.events;
   // An older payload has no `undoable`: the newest entry, as before (ADR-0026).
   const canUndo = (e: Partial<ProgressionEvent>) => e.undoable ?? e.id === newest?.id;
@@ -477,7 +472,7 @@ function History({
             e.by === "teacher"
               ? ` ${get(l10n, "progression-event-by", { teacher: teacherName(l10n, e.by_name) })}`
               : "";
-          const day = format.format(new Date(`${e.occurred_on}T00:00:00Z`));
+          const day = shortDate(e.occurred_on, locale);
           const line = get(l10n, "progression-event", { kind: e.kind, asana, item }) + by;
           return (
             <li key={e.id}>

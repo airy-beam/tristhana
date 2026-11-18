@@ -34,7 +34,7 @@ Tristhana shows every time by your city's clock, so it needs to know your city. 
 
 - Check that your city is set: reminders start once it is.
 - Practice reminders don't come on moon days, on your days off or on days you have already logged.
-- After ten practice reminders in a row with nothing logged, the bot sends one note and turns them off, so it doesn't nag. Turn them on again under :ftl[menu-help] → :ftl[help-reminder].
+- After ten practice reminders in a row with nothing logged, the bot sends one message and turns them off, so it doesn't nag. Turn them on again under :ftl[menu-help] → :ftl[help-reminder].
 
 ## What does my teacher see?
 

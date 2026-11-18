@@ -49,7 +49,7 @@ There is no setting that shows you more.
 ## Good to know
 
 - The card is for reading. You can't change a student's log. The one thing you can add is a new asana: see the next page.
-- A shala's team sees students' names and nothing from their logs. To see a student's card, confirm them when they pick you at the shala, or send them your own teacher link.
+- A shala's staff sees students' names and nothing from their logs. To see a student's card, confirm them when they pick you at the shala, or send them your own teacher link.
 - A student can remove you from their list at any time. You don't get a message.
 
 ## Next

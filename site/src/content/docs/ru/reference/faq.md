@@ -58,4 +58,4 @@ features: [UI-05, ID-07]
 
 ## Что-то не работает или есть идея
 
-У Tristhana открытый код. Написать о проблеме или идее можно на [GitHub](https://github.com/airy-beam/tristhana/issues).
+Tristhana — проект с открытым кодом. Написать о проблеме или идее можно на [GitHub](https://github.com/airy-beam/tristhana/issues).

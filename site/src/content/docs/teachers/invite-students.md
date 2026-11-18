@@ -8,7 +8,7 @@ Two ways to connect with a student: send your own link, or say yes when they pic
 
 ## Get your link
 
-1. The first time, open :ftl[menu-open] → :ftl[menu-teach] and tap :ftl[welcome-path-invite]. Already on a shala's team? Then the row is :ftl[links-invite-first], under :ftl[menu-teacher].
+1. The first time, open :ftl[menu-open] → :ftl[menu-teach] and tap :ftl[welcome-path-invite]. Already on a shala's staff? Then the row is :ftl[links-invite-first], under :ftl[menu-teacher].
 2. Once you have students, it is :ftl[menu-open] → :ftl[menu-students] → :ftl[links-invite].
 3. :ftl[invite-send] sends your personal link to a chat. :ftl[invite-qr] makes a picture you can show on your phone or print for the shala wall. :ftl[invite-more] shows the link as text.
 

@@ -30,7 +30,7 @@ Saved it and want something different? See [Change, end or delete a class](../ch
 ## How people see it
 
 - Everyone in the shala sees the week by their own city's clock, with the city named. If they live by another city's time, they see the shala's time too.
-- 1:1 classes are shown to the team only.
+- 1:1 classes are shown to the staff only.
 - An online class is marked 🌐, and you can set its time by another city.
 - You set times by the clock in the shala's city, so a 06:00 class stays at 06:00 when the clocks change.
 

@@ -40,7 +40,7 @@ The bot asks the same question right after you join a shala: see [My shala](../m
 - your name;
 - what you log from the day you add them, or the day you asked them at your shala: practice or rest, and how far you went;
 - your last asana;
-- if nothing shows for a while, a short note saying just that.
+- if nothing shows for a while, one short line saying just that.
 
 ## What stays with you
 

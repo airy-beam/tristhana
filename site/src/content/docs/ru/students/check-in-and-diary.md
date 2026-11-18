@@ -10,8 +10,8 @@ features: [PR-06, PR-07]
 
 Когда ты отмечаешь практику и нажимаешь :ftl[practice-done], бот показывает кнопку :ftl[checkin-edit]{from=bot} — нажми её или просто оставь. В приложении это строка на карточке дня, когда день отмечен как :ftl[status-practiced].
 
-- **Настроение:** пять смайликов.
-- **⚡ Энергия** и **🔥 Усилие:** от 1 до 5.
+- :ftl[checkin-mood]: пять смайликов.
+- :ftl[checkin-energy] и :ftl[checkin-effort].
 - :ftl[checkin-tags-open]: слова вроде :ftl[checkin-tag]{from=bot tag=open}, :ftl[checkin-tag]{from=bot tag=stiff} или :ftl[checkin-tag]{from=bot tag=calm}.
 
 Всё по желанию. Для прошлого дня практики выбери этот день, нажми :ftl[status-practiced], а потом :ftl[practice-done]: там та же кнопка.

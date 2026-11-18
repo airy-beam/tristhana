@@ -39,4 +39,4 @@ A person looks your name up in the directory by hand, so it can take a few days.
 
 ## Next
 
-- [Create a shala and invite your team](../../staff/create-shala/)
+- [Create a shala and invite teachers and staff](../../staff/create-shala/)

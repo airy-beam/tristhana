@@ -197,7 +197,7 @@ describe("the form's texts", () => {
 
   it("names a date with its year where the year matters", () => {
     expect(fullDate("2026-01-05", "en")).toBe("Jan 5, 2026");
-    expect(fullDate("2026-01-05", "ru")).toBe("5 янв. 2026 г.");
+    expect(fullDate("2026-01-05", "ru")).toBe("5 янв. 2026");
   });
 
   it("shows an end as a time of day, also one before the start", () => {

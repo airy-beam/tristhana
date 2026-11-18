@@ -24,25 +24,25 @@ Other things you log, such as a single sick or travel day, a moon day and how yo
 
 ## Who sees what
 
-|                               | You | Your teacher | Shala team |
-| ----------------------------- | --- | ------------ | ---------- |
-| Your name                     | ✓   | ✓            | ✓          |
-| Practice or rest, how far     | ✓   | ✓            | –          |
-| Your last asana               | ✓   | ✓            | –          |
-| The reason for a rest         | ✓   | –            | –          |
-| How you feel, and notes       | ✓   | –            | –          |
-| Badges, counts and statistics | ✓   | –            | –          |
-| Marks for classes you came to | ✓   | –            | ✓          |
+|                               | You | Your teacher | Shala staff |
+| ----------------------------- | --- | ------------ | ----------- |
+| Your name                     | ✓   | ✓            | ✓           |
+| Practice or rest, how far     | ✓   | ✓            | –           |
+| Your last asana               | ✓   | ✓            | –           |
+| The reason for a rest         | ✓   | –            | –           |
+| How you feel, and notes       | ✓   | –            | –           |
+| Badges, counts and statistics | ✓   | –            | –           |
+| Marks for classes you came to | ✓   | –            | ✓           |
 
 - A teacher sees your practice and rest only from the day you add them. Earlier days stay with you.
 - If nothing shows for about three weeks, your teacher sees one short line saying just that, with no reason.
 - A teacher on your list can mark a new asana for you. You get a message and can undo it.
-- If you pick a teacher at your shala, only you and that teacher see the request. They see your name and the shala's name, and nothing from your log until they confirm. The shala's owner and the rest of its team don't see who picked whom.
+- If you pick a teacher at your shala, only you and that teacher see the request. They see your name and the shala's name, and nothing from your log until they confirm. The shala's owner and the rest of its staff don't see who picked whom.
 - Students of a teacher or a shala never see each other.
 - A teacher sees all rest as the same thing, whatever the reason.
 - There are no leaderboards and no public profiles.
 
-If you teach or work at a shala: your students see the moon city you chose, everyone in a shala sees the team's names and roles, and a request for the SYC directory line is read by the person who checks it.
+If you teach or work at a shala: your students see the moon city you chose, everyone in a shala sees the staff's names and roles, and a request for the SYC directory line is read by the person who checks it.
 
 ## Links and cards you share
 

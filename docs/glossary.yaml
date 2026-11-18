@@ -228,11 +228,14 @@ concepts:
     en: staff
     ru: команда шалы
     where: [the shala card, setup-staff, consents]
-    note: EN setup-staff says Invite teachers and staff, as the card's Teachers and staff.
+    note: >-
+      EN setup-staff says Invite teachers and staff, as the card's Teachers and staff. EN "team"
+      is in neither product, so the guides say staff too (RU «команда шалы» stays).
     retired:
       en:
         - word: 'invite teachers(?! and staff)'
           in: [setup-staff]
+        - 'teams?'
 
   - concept: Teacher
     en: teacher

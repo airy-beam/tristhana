@@ -29,7 +29,7 @@ The steps above are enough. If you'd like more, tap :ftl[practice-add-details] r
 - **How long:** :ftl[practice-duration]{from=bot}, from 30 minutes to 3 hours.
 - **Start time:** in the app only.
 
-:ftl[practice-same-as-last] copies the details of your previous practice in one tap. A led class doesn't count: after one, the button offers the practice before it. The line above the buttons shows what will be copied, and names the day if that practice was a while ago.
+:ftl[practice-same-as-last] copies the details of your previous practice in one tap. It leaves out a Led class: after one, it offers the practice before it. The line above the buttons shows what will be copied, and names the day if that practice was a while ago.
 
 In the app the card folds into one line that says what you logged, and these are rows under it. Nothing opens until you tap it.
 
