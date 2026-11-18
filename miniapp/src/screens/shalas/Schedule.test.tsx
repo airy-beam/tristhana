@@ -391,7 +391,9 @@ describe("the moon policy (owner, manager)", () => {
       name: /On moon days/,
     });
     expect([...policy.options].map((o) => o.value)).toEqual(["closed", "pranayama", "open"]);
-    expect(pageText()).toContain("Dates follow the shala's moon city (lunar day at sunrise).");
+    expect(pageText()).toContain(
+      "Dates follow the moon at sunrise in the shala's moon city. If your shala keeps another day, use ✅ Hold anyway or ❌ Cancel this date.",
+    );
     fireEvent.change(policy, { target: { value: "pranayama" } });
     fireEvent.submit(policy.closest("form") as HTMLFormElement);
 

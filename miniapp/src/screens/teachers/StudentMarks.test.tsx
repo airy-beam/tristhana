@@ -312,7 +312,9 @@ describe("confirm and mark", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Supta Vajrasana" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("✅ Marked: Supta Vajrasana.");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "✅ Marked: Supta Vajrasana. If it's a mistake, the student can undo it in 🧘 My asanas.",
+    );
   });
 
   test("not optimistic: the card keeps its old line until the response", async () => {

@@ -32,7 +32,7 @@ from tristhana.bots.telegram import moon_callbacks as mcb
 from tristhana.bots.telegram import progression_callbacks as gcb
 from tristhana.bots.telegram import remind_callbacks as rcb
 from tristhana.bots.telegram import settings_callbacks as scb
-from tristhana.bots.telegram import shalas_callbacks as hcb
+from tristhana.bots.telegram import shalas_callbacks as shalas_cb
 from tristhana.bots.telegram import teacher_links_callbacks as tcb
 from tristhana.bots.telegram import tour_callbacks as qcb
 from tristhana.bots.telegram.callbacks import DayCallback
@@ -45,6 +45,7 @@ from tristhana.bots.telegram.screens import (
     answered,
     app_url,
     button,
+    guide_url,
     menu_row,
     nothing,
     show,
@@ -157,7 +158,7 @@ class HomeScreens:
         )
         staff = any(s.me.staff for s in mine)
         rows: list[list[InlineKeyboardButton]] = [
-            [InlineKeyboardButton(text=f"🏛 {s.name}", callback_data=hcb.on_shala("c", s.id))]
+            [InlineKeyboardButton(text=f"🏛 {s.name}", callback_data=shalas_cb.on_shala("c", s.id))]
             for s in mine
         ]
         if self._app:
@@ -211,7 +212,7 @@ class HomeScreens:
         student invite, not the personal one (UI-06 stage 6, B5; spec §13.6)."""
         locale = account.locale
         if account.shala is not None and _staff(account):
-            invite = hcb.on_shala("i", account.shala.id)
+            invite = shalas_cb.on_shala("i", account.shala.id)
             first = self._button(locale, "shala-invite-students", invite)
         else:
             first = self._button(locale, "welcome-path-invite", tcb.plain("i"))
@@ -237,14 +238,14 @@ class HomeScreens:
         ]
         shala = principal.account.shala
         if shala is not None and shala.staff:  # UI-06 stage 6 (C17): the card, its Classes
-            rows.append([self._button(locale, "help-shala-classes", hcb.on_shala("c", shala.id))])
+            rows.append(
+                [self._button(locale, "help-shala-classes", shalas_cb.on_shala("c", shala.id))]
+            )
         rows.append([self._button(locale, "menu-teach", cb.TEACH)])
         if self._site:
-            # The guide's English pages are at the root, the Russian ones under /ru/.
-            path = "/ru/" if locale == "ru" else "/"
-            rows.append(
-                [InlineKeyboardButton(text=self._t.t(locale, "help-guide"), url=self._site + path)]
-            )
+            # Help's own page: the first steps (UI-06 stage 6, polish).
+            url = guide_url(self._site, locale, "start/first-steps/")
+            rows.append([InlineKeyboardButton(text=self._t.t(locale, "help-guide"), url=url)])
         rows.append(menu_row(self._t, locale))
         return Screen(self._t.t(locale, "help-title"), InlineKeyboardMarkup(inline_keyboard=rows))
 

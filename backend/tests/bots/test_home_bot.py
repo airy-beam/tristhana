@@ -320,7 +320,7 @@ def test_invite_then_the_teachers_closing_then_today(client: TestClient) -> None
     closing = _tap(client, "w1:c")
     today = _tap(client, _where(closing)["🧘 Log my own practice"])
 
-    assert "☰ Menu → For teachers and shalas" in closing["text"]  # where the link is now
+    assert "☰ Menu → 🙏 Teacher and shala → I teach: invite my students" in closing["text"]
     assert "☰ Menu → 👥 My students" in closing["text"]  # where students will appear
     assert _where(closing) == {
         "🧘 Log my own practice": "w1:n",
@@ -411,12 +411,15 @@ def test_help_names_no_command(client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     ("lang", "label", "url"),
-    [("en", "📖 Guide", f"{GUIDE}/"), ("ru", "📖 Справка", f"{GUIDE}/ru/")],
+    [
+        ("en", "📖 Guide", f"{GUIDE}/start/first-steps/"),
+        ("ru", "📖 Справка", f"{GUIDE}/ru/start/first-steps/"),
+    ],
 )
 def test_help_links_to_the_guide_in_the_persons_language(
     storage: InMemoryStorage, outbound: list[Any], lang: str, label: str, url: str
 ) -> None:
-    # UI-05: a trailing slash in the setting doesn't double up.
+    # UI-05: a trailing slash in the setting doesn't double up. Help's own page: first steps.
     with _client(storage, public_site_url=f"{GUIDE}/") as client:
         body = _text(client, "/help", lang)
 

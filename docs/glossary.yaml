@@ -308,8 +308,6 @@ concepts:
       en: ['time ?zones?']
       ru: ['часов\p{L}* пояс\p{L}*']
     except:
-      - key: settings-privacy-location
-        reason: The location-privacy line says what the location is used for, exactly.
       - key: settings-zone-utc
         reason: The UTC option (it names no zone today; kept free to).
       - key: settings-city-utc

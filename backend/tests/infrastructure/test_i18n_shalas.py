@@ -91,17 +91,31 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     ),
     (
         "shala-students-not-yours",
-        {},
+        {"teacher": "yes"},
         "These are the shala's students. They show up in 👥 My students once they pick you as "
         "their teacher or open your own link (➕ Invite my students).",
         "Это ученики шалы. В «👥 Мои ученики» они появятся, когда выберут тебя учителем или "
         "откроют твою личную ссылку (➕ Пригласить своих учеников).",
     ),
     (
+        "shala-students-not-yours",
+        {"teacher": "no"},
+        "These are the shala's students. To have students of your own, send them your own link "
+        "(➕ Invite my students).",
+        "Это ученики шалы. Чтобы у тебя были свои ученики, отправь им свою личную ссылку "
+        "(➕ Пригласить своих учеников).",
+    ),
+    (
+        "shala-leave-own-students",
+        {},
+        "Your own students stay on your list.",
+        "Ученики из твоего списка останутся с тобой.",
+    ),
+    (
         "shala-moon-shared",
         {},
-        "🌙 Staff and students follow this calendar unless they chose a city.",
-        "🌙 Команда и ученики шалы следуют этому календарю, если сами не выбрали город.",
+        "🌙 Staff and students follow the shala's moon days unless they chose their own city.",
+        "🌙 Команда и ученики шалы следуют лунным дням шалы, если не выбрали свой город.",
     ),
     ("ann-announce", {}, "📣 Announce to the shala", "📣 Объявление для шалы"),
     ("ann-announce-students", {}, "📣 Announce to my students", "📣 Объявление своим ученикам"),
@@ -133,8 +147,8 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
 # as `application/policies.py` allows it.
 ROLE_HINTS = {
     "admin": (
-        "Everything except deleting the shala and adding managers.",
-        "Всё, кроме удаления шалы и назначения управляющих.",
+        "Everything except deleting the shala and managing other managers.",
+        "Всё, кроме удаления шалы и управления другими управляющими.",
     ),
     "teacher": (
         "Classes and schedule, attendance, announcements, the student list; students can pick "
@@ -148,9 +162,9 @@ ROLE_HINTS = {
     ),
     "office": (
         "Classes and schedule, attendance, announcements, the student list; can remove a "
-        "student; not the shala's settings or roles.",
-        "Занятия и расписание, посещаемость, объявления, список учеников; может убрать ученика; "
-        "без настроек шалы и ролей.",
+        "student from the shala; not the shala's settings or roles.",
+        "Занятия и расписание, посещаемость, объявления, список учеников; может убрать ученика "
+        "из шалы; без настроек шалы и ролей.",
     ),
 }
 ROLES = {

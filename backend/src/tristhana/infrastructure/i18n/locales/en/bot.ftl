@@ -6,11 +6,9 @@ start-greeting =
 
 start-prompt =
     { $day }
-    Practice or rest? Both go in your log.
+    Practice or rest? Both go in your log. Moon day, sick or travel: Other…
 # The other-language button; $language is that language's own name ("Русский").
 start-switch-language = 🗣 { $language }
-# Mini App button: under a practice's details while the time zone is unknown.
-start-open-app = Open the app
 
 ## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
 ## `welcome-ask` and the three front-door labels are fixed by the owner (each with its emoji,
@@ -24,19 +22,20 @@ welcome-path-shala = 🏛 Shala and classes
 # right both before and after the link was sent.
 welcome-later = Continue ›
 # Shown before the first student joins: the Menu has no "My students" row yet, so the link
-# is named where it is now ("For teachers and shalas"), and "My students" as what comes next.
-welcome-teacher-next = Your link is under ☰ Menu → For teachers and shalas. Students who confirm appear under ☰ Menu → 👥 My students.
+# is named where it is now (the overview's "I teach: invite my students": for shala staff,
+# "For teachers and shalas" opens the shala's link), and "My students" as what comes next.
+welcome-teacher-next = Your own link is under ☰ Menu → 🙏 Teacher and shala → I teach: invite my students. Students who confirm appear under ☰ Menu → 👥 My students.
 welcome-own-practice = 🧘 Log my own practice
 welcome-shala-text = A shala here is a page for your students: the class schedule, announcements and one link to join. Tap 🏛 Create a shala: it takes a minute.
 welcome-shala-student = Looking for your shala's classes? Ask your shala for its link. Once you join, the schedule is under ☰ Menu → 🗓 My schedule.
 # "Shala and classes" for someone on a shala's staff, above a row per shala they are in
 # (UI-06 stage 6, B3).
-welcome-shala-mine = Tap a shala below: its classes, invites and settings are there.
+welcome-shala-mine = Tap a shala below: its schedule, the student invite and more are there.
 # Under the shala rows, for someone already on a shala's staff.
 shala-create-another = 🏛 Create another shala
 invite-simple = Send your link to your students. Each one confirms for themselves, and then you see what they share.
 # Under invite-simple for someone on a shala's staff: the shala has a link of its own (B5).
-invite-own-not-shala = This is your own link, not the shala's.
+invite-own-not-shala = This is your own link, not the shala's. The shala's link is on its card: ➕ Invite students to the shala.
 invite-send = ✉️ Send the link
 # Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
 invite-more = More…
@@ -269,7 +268,7 @@ moon-in-days =
     }
 moon-day-line = { $phase } · { $date } · { $in }
 moon-none = No moon days in the next two months yet: the calendar is being prepared.
-moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
+moon-calc-note = Dates are calculated for 📍 { $city }, by the moon at sunrise there. Your shala's calendar may differ by a day; follow your teacher.
 moon-offsets =
     { $code ->
         [731] 7, 3 and 1 day
@@ -427,12 +426,12 @@ settings-city-unlisted = 📍 My city isn't listed
 settings-city-utc = 🌐 UTC
 settings-share-location = Send your location once and I'll set your local time from it. I use it only for that and don't store it. Can't send it from this device? Open the app: it can use your phone's time.
 settings-share-location-button = 📍 Send my location
-settings-location-zone = 🕐 Done: your time is { $zone }. You can change it under ☰ Menu → ⚙️ Settings.
-settings-location-unknown = I couldn't tell the local time from that place. Pick your city under ☰ Menu → ⚙️ Settings, or open the app.
+settings-location-zone = 🕐 Done: your time is { $zone }. You can change it in ⚙️ Settings below.
+settings-location-unknown = I couldn't tell the local time from that place. Pick your city in ⚙️ Settings below.
 settings-open-app = ⚙️ More in the app
 # UI-06 stage 6 (B7): under a saved day while neither a city nor a time zone is known. The
 # home city sets the clock, not the moon city (MD-02), so it promises days and reminders only.
-city-ask = 📍 Which city do you live in? Your days and reminders follow its clock.
+city-ask = 🏙 Which city do you live in? Your days and reminders follow its clock.
 city-ask-button = 🏙 Choose my city
 # On top of Settings after "Not now" under the city question.
 settings-city-later = Pick your city here any time.
@@ -637,7 +636,7 @@ progression-open = 🧘 My asanas
 mark-received = 🎉 New asana: { $asana }. Enjoy it! Marked by { $teacher }.
 mark-received-range = 🎉 New asanas: { $from } → { $asana }. Enjoy them! Marked by { $teacher }.
 mark-received-back = { $asana } is in your practice. Marked by { $teacher }.
-mark-received-undo-hint = If this doesn't match your practice, you can undo it.
+mark-received-undo-hint = If this doesn't match your practice, you can undo it in 🧘 My asanas (↩︎ Undo the mark).
 progression-marked-by = Marked by { $teacher }
 progression-by-teacher = a teacher
 progression-mark-moved-on = Your practice has changed since this mark, so nothing was undone. To set where it ends now, use ✏️ Change.
@@ -676,7 +675,7 @@ data-intro = Download everything you've logged here, or delete your account.
 export-button = ⬇️ Download my data
 export-preparing = Preparing your file…
 # $date = the local date, pre-formatted
-export-caption = Your Tristhana data as of { $date }: data.json for apps, CSV files for spreadsheets.
+export-caption = Your Tristhana data as of { $date }: open the CSV files in a spreadsheet (Excel, Google Sheets); data.json is for apps.
 export-sent = 📦 Sent below. The file includes your private entries (notes, all day statuses): once it's saved, you can delete it from this chat.
 # $minutes = whole minutes until the next export (1–10)
 export-too-soon = A file was sent a moment ago. Again in { $minutes } min.
@@ -771,7 +770,7 @@ invite-accept = ✅ Confirm
 invite-decline = Not now
 invite-linked = ✅ { $name } is on your list of teachers now.
 invite-already = { $name } is already on your list of teachers.
-invite-own = This is your own invite link: share it with your students.
+invite-own = This is your own invite link: send it to your students.
 invite-invalid = This invite link no longer works. The person who shared it can send a new one.
 invite-full = This link can't add a teacher right now. Ask the person who sent it for a new link.
 link-student-joined = 👥 { $name } is on your list of students now.
@@ -880,7 +879,7 @@ export-readme-requests = teacher_requests in data.json: requests to a teacher fr
 export-readme-shalas = shalas in data.json: the shalas you're in. side: "staff" or "student"; owner: the shala is yours; roles: your roles there ("admin" = manager, "office" = front desk). No one else's names.
 links-make-main = ⭐ Make main
 links-remove = Remove…
-links-invite-first = I teach: invite students
+links-invite-first = I teach: invite my students
 links-students = 👥 My students ({ $count })
 links-invite = ➕ Invite my students
 links-remove-yes = Remove
@@ -916,6 +915,8 @@ students-give-ask-across = { $name }: new asanas { $from } ({ $from_series }) �
 students-give-yes = 🎉 Yes, mark
 students-given = ✅ Marked: { $asana }.
 students-given-range = ✅ Marked: { $from } → { $asana }.
+# Under students-given(-range): who can undo a teacher's mark (UI-06 stage 6, polish).
+students-given-undo = If it's a mistake, the student can undo it in 🧘 My asanas.
 students-give-stale = This card was out of date, so nothing was marked. Here it is now.
 students-give-unset = No last asana set yet. Once they set it in My asanas, you can mark new ones here.
 
@@ -979,14 +980,14 @@ shala-role-in-list =
 # changes these lines in the same pull request.
 shala-role-hint =
     { $role ->
-        [admin] Everything except deleting the shala and adding managers.
+        [admin] Everything except deleting the shala and managing other managers.
         [teacher] Classes and schedule, attendance, announcements, the student list; students can pick them as their teacher.
         [assistant] Attendance and the student list; not the schedule or announcements.
-       *[office] Classes and schedule, attendance, announcements, the student list; can remove a student; not the shala's settings or roles.
+       *[office] Classes and schedule, attendance, announcements, the student list; can remove a student from the shala; not the shala's settings or roles.
     }
 # The bot's role picker: $role is shala-role, $hint is shala-role-hint.
 shala-role-hint-line = { $role }: { $hint }
-shala-moon-shared = 🌙 Staff and students follow this calendar unless they chose a city.
+shala-moon-shared = 🌙 Staff and students follow the shala's moon days unless they chose their own city.
 shala-invalid = This shala link no longer works. The person who shared it can send a new one.
 shala-already = You're already in { $shala }.
 shala-already-staff = You're already on the staff of { $shala }, so you don't need a student link.
@@ -994,13 +995,19 @@ shala-full = This link can't add you to the shala right now. Please let the shal
 shala-joined = ✅ You're in { $shala }. Welcome 🙏
 shala-leave = Leave…
 shala-leave-ask = Leave { $shala }? No one gets a message, and your log stays as it is.
+# Under shala-leave-ask for someone with the Teacher role there (UI-06 stage 6, polish).
+shala-leave-own-students = Your own students stay on your list.
 shala-leave-yes = Leave
 shala-remove-ask = Remove { $name } from the shala? No one gets a message.
 shala-remove-yes = Remove
 shala-students = 👥 Students ({ $n })
 shala-no-students = No students in this shala yet.
 # C3 (UI-06 stage 6): under the names, for staff who can't remove a student.
-shala-students-not-yours = These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).
+shala-students-not-yours =
+    { $teacher ->
+        [yes] These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).
+       *[no] These are the shala's students. To have students of your own, send them your own link (➕ Invite my students).
+    }
 shala-staff-title = Teachers and staff: { $people }
 shala-invite-students = ➕ Invite students to the shala
 shala-invite-staff = ➕ Invite staff
@@ -1241,17 +1248,17 @@ listing-open = SYC directory listing
 listing-title = SYC directory listing
 listing-intro = If your name is in the Sharath Yoga Centre teachers directory, I can show that to your students next to your name. A person checks it by hand, so it can take a few days. Many experienced teachers are not in this directory, and everything here works the same without the line.
 listing-how = The form is in the app. It asks for your name, exactly as in the directory, and the country or region.
-listing-pending = Sent: «{ $listed }». A person will look it up by hand.
+listing-pending = Sent: “{ $listed }”. A person will look it up by hand.
 listing-listed-hint = Your students see this line on your invite and next to your name.
-listing-not-found = I couldn't confirm the entry «{ $listed }» for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
+listing-not-found = I couldn't confirm the entry “{ $listed }” for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
 listing-app = ✏️ Open the form
 listing-remove = Remove…
 listing-remove-ask = Remove the directory line? Students will no longer see it. You can ask again later.
 listing-remove-yes = Remove
 listing-removed = Removed. Students don't see the line.
-listing-note-listed = ✔ «{ $listed }» is in the Sharath Yoga Centre teachers directory. Your students now see this next to your name.
-listing-note-not-found = I couldn't confirm the directory entry «{ $listed }» for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
-listing-note-ended = At today's check I couldn't find «{ $listed }» in the Sharath Yoga Centre teachers directory, so that line is no longer shown. The directory changes, and this says nothing about your teaching. Everything else stays as it is: your students, your link, your lists. If the directory shows the name again, or under another spelling, send the details any time.
+listing-note-listed = ✔ “{ $listed }” is in the Sharath Yoga Centre teachers directory. Your students now see this next to your name.
+listing-note-not-found = I couldn't confirm the directory entry “{ $listed }” for this account yet. The name may be spelled differently, or the directory may have changed. You can look over the details and send them again.
+listing-note-ended = At today's check I couldn't find “{ $listed }” in the Sharath Yoga Centre teachers directory, so that line is no longer shown. The directory changes, and this says nothing about your teaching. Everything else stays as it is: your students, your link, your lists. If the directory shows the name again, or under another spelling, send the details any time.
 export-readme-listing = directory_listing in data.json: your request for the Sharath Yoga Centre teachers directory line, if you sent one. status: "pending" = waiting for the check, "listed" = the line is shown, "not_found" = the entry couldn't be confirmed for this account, "withdrawn" = you removed it.
 admin-listing-title = Directory requests: { $waiting } waiting · { $listed } listed
 admin-listing-oldest = Oldest check: { $when }
@@ -1271,10 +1278,10 @@ admin-listing-listed = ✔ Listed
 admin-listing-still-listed = ✔ Still listed
 admin-listing-not-found = Can't confirm…
 admin-listing-ended = No longer listed…
-admin-listing-not-found-ask = Answer «{ $listed }» as not confirmed? The teacher gets one message and can send the details again.
-admin-listing-ended-ask = Remove the line for «{ $listed }»? It hides at once and the teacher gets one message. Students are told nothing.
+admin-listing-not-found-ask = Answer “{ $listed }” as not confirmed? The teacher gets one message and can send the details again.
+admin-listing-ended-ask = Remove the line for “{ $listed }”? It hides at once and the teacher gets one message. Students are told nothing.
 admin-listing-yes = Yes
 admin-listing-stale = This request has changed. Here is the current list.
-admin-listing-done-listed = ✔ Listed: «{ $listed }».
-admin-listing-done-not-found = Done: no line for «{ $listed }». The teacher gets one message.
+admin-listing-done-listed = ✔ Listed: “{ $listed }”.
+admin-listing-done-not-found = Done: no line for “{ $listed }”. The teacher gets one message.
 admin-listing-new = A directory request is waiting: /admin

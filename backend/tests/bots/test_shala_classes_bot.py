@@ -300,7 +300,7 @@ def test_the_classes_read_in_russian(client: TestClient, storage: InMemoryStorag
         "Майсор · пн–пт · 06:00–09:30",
         "Майсор · каждый день · 08:00–11:30 · каждые 3 недели",
     ]
-    assert "🗓 Добавить или изменить занятия" in _texts(body)
+    assert "🗓 Настроить занятия" in _texts(body)
     assert "✏️ Изменить шалу" in _texts(body)
 
 
@@ -328,6 +328,25 @@ def test_the_classes_read_alongside_the_card(
 
     # Spec §8: +1 statement, in parallel with the card's read.
     assert "InMemorySchedule.classes_of" in statements.names
+
+
+def test_a_failed_classes_read_leaves_the_card_without_its_classes(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review fix: the Classes block is optional; the card shows without it."""
+    me = _me(client, storage)
+    shala, _ = _shala(storage, me, "teacher")
+
+    async def broken(*_: object, **__: object) -> None:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(storage.schedule, "classes_of", broken)
+
+    body = _card(client, shala)
+
+    assert body["text"].startswith("🏛 Ashtanga Almaty")
+    assert "Classes" not in _lines(body)
+    assert "🗓 Schedule" in _texts(body)
 
 
 def test_the_no_teachers_hint_says_where_and_opens_the_shala_in_the_app(
@@ -445,7 +464,7 @@ def test_shala_and_classes_for_the_staff_of_two_shalas(
 
     body = _tap(client, "w1:s:o")
 
-    assert body["text"] == "Tap a shala below: its classes, invites and settings are there."
+    assert body["text"] == "Tap a shala below: its schedule, the student invite and more are there."
     rows = _rows(body)
     assert sorted(rows[:2]) == [["🏛 Ashtanga Astana"], ["🏛 Mysore Almaty"]]
     assert rows[2:] == [["🏛 Create another shala"], ["‹ Back"]]
@@ -475,6 +494,25 @@ def test_today_offers_a_new_shalas_owner_to_add_a_class(
     assert rows[-2:] == [["Add a class"], ["📅 Another day", "☰ Menu"]]
     assert _app(body, "Add a class") == {"open": ["class"], "shala": [str(shala)]}
     assert "Not now" not in _texts(body)
+
+
+def test_a_failed_next_steps_read_leaves_today_without_its_step(
+    client: TestClient, storage: InMemoryStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review fix: the step is optional; Today shows without it."""
+    me = _me(client, storage)
+    _shala(storage, me, "owner")
+
+    async def broken(*_: object, **__: object) -> None:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(storage.repo, "journey_facts", broken)
+
+    body = _tap(client, "w1:n")
+
+    assert body["text"].startswith("Today, ")
+    assert _rows(body)[-1] == ["📅 Another day", "☰ Menu"]
+    assert "Add a class" not in _texts(body)
 
 
 def test_today_offers_the_shala_invite_once_it_has_a_class(
@@ -566,7 +604,11 @@ def test_the_personal_invite_tells_shala_staff_it_is_not_the_shalas(
 
     body = _tap(client, "t1:i")
 
-    assert ("This is your own link, not the shala's." in _lines(body)) is line
+    own = (
+        "This is your own link, not the shala's. "
+        "The shala's link is on its card: ➕ Invite students to the shala."
+    )
+    assert (own in _lines(body)) is line
 
 
 def test_the_shala_link_says_what_students_do_next(

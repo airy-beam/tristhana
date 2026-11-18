@@ -15,6 +15,7 @@ import {
   type ClassType,
   type Shala,
 } from "../../api/client";
+import { GUIDE_PAGE } from "../../guide";
 import type { Locale } from "../../i18n/negotiate";
 import {
   backButtonAvailable,
@@ -38,6 +39,7 @@ import {
 } from "../../ui/controls";
 import { More } from "../../ui/More";
 import { cityName } from "../cityName";
+import { GuideLink } from "../GuideLink";
 import { labelOf } from "../settings/zones";
 import {
   LENGTHS,
@@ -698,6 +700,7 @@ function Fields({
           />
         </Localized>
       )}
+      <GuideLink locale={locale} page={GUIDE_PAGE.classes} />
     </form>
   );
 }

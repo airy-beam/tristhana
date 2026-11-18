@@ -20,6 +20,7 @@ import ShalaTab from "./ShalaTab";
 
 const telegram = vi.hoisted(() => ({
   confirmDestructive: vi.fn<(message: string, ok: string, cancel: string) => Promise<boolean>>(),
+  openLink: vi.fn<(url: string) => void>(),
 }));
 
 vi.mock("../../telegram", () => ({
@@ -30,6 +31,7 @@ vi.mock("../../telegram", () => ({
   confirmDestructive: telegram.confirmDestructive,
   confirmAction: vi.fn(() => Promise.resolve(false)),
   openTelegramLink: vi.fn(),
+  openLink: telegram.openLink,
   useMainButton: vi.fn(),
   mainButtonAvailable: vi.fn(() => false),
   enableClosingConfirmation: vi.fn(),
@@ -420,7 +422,9 @@ describe("the shala card", () => {
 
     renderWith(card());
 
-    await screen.findByText("🌙 Staff and students follow this calendar unless they chose a city.");
+    await screen.findByText(
+      "🌙 Staff and students follow the shala's moon days unless they chose their own city.",
+    );
   });
 
   // C14 (UI-06 stage 6): what each role can do, under it, as `application/policies.py` allows.
@@ -429,8 +433,8 @@ describe("the shala card", () => {
       "Classes and schedule, attendance, announcements, the student list; students can pick them as their teacher.",
     Assistant: "Attendance and the student list; not the schedule or announcements.",
     "Front desk":
-      "Classes and schedule, attendance, announcements, the student list; can remove a student; not the shala's settings or roles.",
-    Manager: "Everything except deleting the shala and adding managers.",
+      "Classes and schedule, attendance, announcements, the student list; can remove a student from the shala; not the shala's settings or roles.",
+    Manager: "Everything except deleting the shala and managing other managers.",
   } as const;
 
   it("the staff invite picker says what each role can do", async () => {
@@ -461,10 +465,17 @@ describe("the shala card", () => {
   });
 
   // C3 (UI-06 stage 6): staff who read the names learn whose students they are.
+  const ASSISTANT: MeIn = { owner: false, roles: ["assistant"], student: false };
+  const YOURS =
+    "These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).";
+  const SEND =
+    "These are the shala's students. To have students of your own, send them your own link (➕ Invite my students).";
   it.each([
-    ["a teacher", TEACHER, true],
-    ["the front desk", OFFICE, false],
-  ])("the students list for %s", async (_, me, told) => {
+    ["a teacher", TEACHER, YOURS],
+    ["an assistant", ASSISTANT, SEND],
+    ["the front desk", OFFICE, null],
+  ])("the students list for %s", async (_, me, line) => {
+    const told = line !== null;
     stubApi({ card: shalaOut(me), students: [{ id: BORIS, name: "Bea" }] });
     const onInvite = vi.fn();
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} onInvite={onInvite} />);
@@ -473,9 +484,8 @@ describe("the shala card", () => {
     fireEvent.click(screen.getByRole("button", { name: /👥 Students/ }));
     await screen.findByText("Bea");
 
-    const line =
-      "These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).";
-    expect(!!screen.queryByText(line)).toBe(told);
+    if (line) expect(screen.getByText(line)).toBeVisible();
+    expect(pageText()).not.toContain(line === YOURS ? SEND : YOURS);
     const invite = screen.queryByRole("button", { name: "➕ Invite my students" });
     expect(!!invite).toBe(told);
     if (invite) {
@@ -591,6 +601,25 @@ describe("the shala card", () => {
 
     await screen.findByRole("checkbox", { name: "Teacher" });
     expect(screen.queryByRole("checkbox", { name: "Manager" })).toBeNull();
+  });
+
+  it.each([
+    ["a teacher", TEACHER, true],
+    ["a student", STUDENT, false],
+  ] as const)("leaving as %s says whether their own students stay", async (_, me, says) => {
+    telegram.confirmDestructive.mockResolvedValueOnce(false);
+    stubApi({ card: shalaOut(me) });
+    renderWith(card());
+    await screen.findByText(/Ashtanga Almaty/);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Leave/ }));
+
+    await waitFor(() => {
+      expect(telegram.confirmDestructive).toHaveBeenCalledTimes(1);
+    });
+    const [ask] = telegram.confirmDestructive.mock.calls[0] ?? [""];
+    expect(ask).toMatch(/^Leave .*No one gets a message, and your log stays as it is\./);
+    expect(ask.endsWith(" Your own students stay on your list.")).toBe(says);
   });
 
   it("deletes only after the native confirm", async () => {
@@ -1255,6 +1284,7 @@ describe("the Classes on the card", () => {
     });
     return within(box)
       .getAllByRole("button")
+      .filter((b) => !b.classList.contains("guide")) // the quiet 📖 Guide, tested apart
       .map((b) =>
         [
           b.querySelector(".lrow-label")?.textContent ?? b.textContent,
@@ -1265,6 +1295,16 @@ describe("the Classes on the card", () => {
           .join(" | "),
       );
   };
+
+  it("ends with the guide's page on classes, in the person's language", async () => {
+    stubApi({ card: OWNS, classes: [series(id(1))] });
+    renderWith(card());
+    const box = (await section()).closest("section") as HTMLElement;
+
+    fireEvent.click(within(box).getByRole("button", { name: "📖 Guide" }));
+
+    expect(telegram.openLink).toHaveBeenLastCalledWith("https://tristhana.app/staff/classes/");
+  });
 
   it("lists the current classes in order, each with what else is set; ended ones go", async () => {
     stubApi({

@@ -3,7 +3,8 @@
 
     r1:v                 /remind screen
     r1:o:1 / r1:o:0      turn on / off
-    r1:t:1000            send time 10:00
+    r1:t:1000            send time 10:00 (on or off as it was: old reminder screens)
+    r1:a:1000            "remind me at" 10:00: the time, and the reminder on (UI-06 stage 6, C10)
     r1:w:123457          (retired with PR-09: reminder days follow the day off) → /remind
     r1:y:20261019        the offer under "practice saved": yes (date = the day shown)
     r1:n:20261019        the offer: no, thanks
@@ -29,6 +30,7 @@ type Action = Literal[
     "view",
     "switch",
     "time",
+    "time_on",
     "yes",
     "no",
     "same",
@@ -81,9 +83,10 @@ def encode(cb: RemindCallback) -> str:
             return f"{PREFIX}:v"
         case "switch":
             return f"{PREFIX}:o:{int(cb.on)}"
-        case "time":
+        case "time" | "time_on":
             assert cb.at is not None  # noqa: S101
-            return f"{PREFIX}:t:{cb.at:%H%M}"
+            letter = "a" if cb.action == "time_on" else "t"
+            return f"{PREFIX}:{letter}:{cb.at:%H%M}"
         case "quick":
             assert cb.day is not None  # noqa: S101
             return f"{PREFIX}:q:{cb.day:%Y%m%d}:{int(cb.on)}"
@@ -118,11 +121,12 @@ def decode(data: str | None) -> RemindCallback | None:
             return RemindCallback("view")
         case ["o", "0" | "1" as flag]:
             return RemindCallback("switch", on=flag == "1")
-        case ["t", hhmm] if len(hhmm) == 4 and hhmm.isdigit():
+        case ["t" | "a" as letter, hhmm] if len(hhmm) == 4 and hhmm.isdigit():
             try:
-                return RemindCallback("time", at=datetime.strptime(hhmm, "%H%M").time())
+                at = datetime.strptime(hhmm, "%H%M").time()
             except ValueError:
                 return None
+            return RemindCallback("time_on" if letter == "a" else "time", at=at)
         case ["w", _]:  # an old keyboard: reminder days aren't chosen any more
             return RemindCallback("view")
         case ["y" | "n" | "s" | "p" | "r" as kind, ymd] if (day := _date(ymd)) is not None:

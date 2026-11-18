@@ -163,11 +163,12 @@ def test_turn_on_pick_time_and_days(client: TestClient, storage: InMemoryStorage
 
 
 def test_a_time_tap_turns_the_reminder_on(client: TestClient, storage: InMemoryStorage) -> None:
-    """UI-06 stage 6 (C10): the chip means "remind me at"; the switch beside it stays."""
+    """UI-06 stage 6 (C10): the chip means "remind me at" (`r1:a`); the switch beside it
+    stays."""
     _me(client, storage)
 
     off = _tap(client, "r1:v")
-    body = _tap(client, "r1:t:2000")
+    body = _tap(client, "r1:a:2000")
 
     assert off["text"].startswith("🔕 Practice reminder is off")
     [settings] = storage.notifications.stored.values()
@@ -175,6 +176,32 @@ def test_a_time_tap_turns_the_reminder_on(client: TestClient, storage: InMemoryS
     assert body["text"].startswith("🔔 Practice reminder: every day")
     assert "✓ 20:00" in _texts(body)
     assert "🔕 Turn off" in _texts(body)
+
+
+def test_the_chips_carry_the_letter_that_turns_it_on(
+    client: TestClient, storage: InMemoryStorage
+) -> None:
+    _me(client, storage)
+
+    body = _tap(client, "r1:v")
+
+    rows = body["reply_markup"]["inline_keyboard"]
+    data = [b.get("callback_data", "") for row in rows for b in row]
+    chips = [d for d in data if d.startswith(("r1:a:", "r1:t:"))]
+    assert chips == [f"r1:a:{hh}00" for hh in ("09", "10", "12", "18", "20", "21")]
+
+
+def test_an_old_time_chip_sets_the_time_only(client: TestClient, storage: InMemoryStorage) -> None:
+    """`r1:t` under a reminder screen sent before stage 6 keeps its meaning: the time, with
+    the reminder left off (no shipped button changes what it does)."""
+    _me(client, storage)
+
+    body = _tap(client, "r1:t:2000")
+
+    [settings] = storage.notifications.stored.values()
+    assert (bool(settings.practice.on), settings.practice.at) == (False, time(20))
+    assert body["text"].startswith("🔕 Practice reminder is off")
+    assert "🔔 Turn on" in _texts(body)
 
 
 def test_old_weekday_keyboards_just_reshow_the_screen(
@@ -454,6 +481,8 @@ def test_turn_off_from_a_reminder_and_back(client: TestClient, storage: InMemory
         "r1:x",
         "r1:o:2",
         "r1:t:2561",
+        "r1:a:2561",
+        "r1:a:",
         "r1:s:20261399",
         "r1:q:20261019:2",
         "r0:v",
@@ -469,6 +498,7 @@ def test_every_remind_callback_fits_64_bytes() -> None:
         RemindCallback("view"),
         RemindCallback("switch", on=True),
         RemindCallback("time", at=time(21)),
+        RemindCallback("time_on", at=time(21)),
         RemindCallback("day_off", days_off=frozenset({6, 7})),
         RemindCallback("day_off_toggle", days_off=frozenset()),
         RemindCallback("yes", day=day),

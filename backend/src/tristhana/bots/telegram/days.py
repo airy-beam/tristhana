@@ -14,6 +14,8 @@ screen asks for the city (UI-06 stage 6, B7).
 from __future__ import annotations
 
 import asyncio
+import logging
+from collections.abc import Sequence
 from datetime import date, timedelta
 
 from aiogram import F, Router
@@ -22,12 +24,13 @@ from aiogram.methods import SendMessage
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from tristhana.application.days import DaysView
+from tristhana.application.journey import GetNextSteps
 from tristhana.application.policies import Principal
 from tristhana.application.ports.i18n import DateArg, Translator
-from tristhana.bots.telegram import home_callbacks as hcb
+from tristhana.bots.telegram import home_callbacks as home_cb
 from tristhana.bots.telegram import rest_callbacks as acb
-from tristhana.bots.telegram import settings_callbacks as gcb
-from tristhana.bots.telegram import shalas_callbacks as scb
+from tristhana.bots.telegram import settings_callbacks as settings_cb
+from tristhana.bots.telegram import shalas_callbacks as shalas_cb
 from tristhana.bots.telegram.callbacks import PREFIX, Action, DayCallback, Origin, decode, encode
 from tristhana.bots.telegram.check_in import CheckInScreens, register_check_in
 from tristhana.bots.telegram.diary import DiaryScreens, note_button, preview, register_diary
@@ -60,6 +63,7 @@ from tristhana.domain.moon import City
 from tristhana.domain.rest_days import AutoKind
 from tristhana.domain.rest_periods import PAUSE_DAYS, RestPeriod
 
+log = logging.getLogger(__name__)
 WEEK = 7
 CHIPS_PER_ROW = 3
 # The week picker is glanceable in chat history, so a ladies' holiday shows as rest there.
@@ -80,6 +84,15 @@ _SHALA_STEPS = frozenset({NextStep.ADD_CLASS, NextStep.INVITE_SHALA_STUDENTS})
 
 async def _no_steps() -> tuple[Step, ...]:
     return ()
+
+
+async def _steps_or_none(steps: GetNextSteps, principal: Principal) -> Sequence[Step]:
+    """Today's optional shala step: a failed read shows Today without it."""
+    try:
+        return await steps.execute(principal)
+    except Exception:
+        log.exception("today: the next steps read failed")
+        return ()
 
 
 def register(
@@ -157,8 +170,11 @@ class DayScreens:
             case "set", date() as day, DayStatus() as status:
                 return await self.saved(principal, day, status)
             case "now", date() as day, DayStatus() as status:
-                today, _ = self._days.get.today(principal)
-                if day < today:  # yesterday's Today, tapped this morning (ADR-0051)
+                today, known = self._days.get.today(principal)
+                # Yesterday's Today, tapped this morning (ADR-0051). With the zone unknown,
+                # "today" is a guess: ask only once the date is over everywhere on Earth.
+                over = today if known else self._days.get.earliest_today()
+                if day < over:
                     return self.which_day(principal, day, status)
                 return await self.saved(principal, day, status)  # later: `DateInFuture`
             case "clear", date() as day, _:
@@ -212,7 +228,7 @@ class DayScreens:
         offers = not editor and steps is not None and shala is not None and shala.staff
         view, due = await asyncio.gather(
             self._days.get.execute(principal, day, day),
-            steps.execute(principal) if offers and steps is not None else _no_steps(),
+            _steps_or_none(steps, principal) if offers and steps is not None else _no_steps(),
         )
         step = next((s for s in due if s.kind in _SHALA_STEPS and s.shala_id is not None), None)
         current = view.days[0].status if view.days else None
@@ -245,7 +261,7 @@ class DayScreens:
             if current is not None:
                 last.insert(0, self._button(locale, "log-clear", encode(DayCallback("clear", day))))
             rows.append(last)
-            rows.append([self._button(locale, "today-back", hcb.TODAY)])
+            rows.append([self._button(locale, "today-back", home_cb.TODAY)])
         else:  # UI-06 stage 6 (C8): an earlier day, one tap from Today
             another = self._button(locale, "log-another-day", encode(DayCallback("week", today)))
             rows.append([another, *menu_row(self._t, locale)])
@@ -260,7 +276,9 @@ class DayScreens:
                 return None
             url = app_url(self.app_url, "class", shala=str(step.shala_id))
             return [app_button(self._t, locale, "next-class-do", url)]
-        return [self._button(locale, "next-shala-invite-do", scb.on_shala("i", step.shala_id))]
+        return [
+            self._button(locale, "next-shala-invite-do", shalas_cb.on_shala("i", step.shala_id))
+        ]
 
     def _day_block(
         self, locale: Locale, view: DaysView, day: date, label: str, current: DayStatus | None
@@ -310,7 +328,7 @@ class DayScreens:
             for status in OTHER_REASONS
             if not (status is DayStatus.LADIES and account.hide_ladies)
         ]
-        back = hcb.TODAY if origin == "t" else _open(day)
+        back = home_cb.TODAY if origin == "t" else _open(day)
         rows.append([self._button(locale, "log-back", back)])
         text = self._t.t(locale, "today-reasons-title", day=self.day(locale, day, today))
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
@@ -330,7 +348,7 @@ class DayScreens:
             ]
             for d in (today, day)
         ]
-        rows.append([self._button(locale, "log-back", hcb.TODAY)])
+        rows.append([self._button(locale, "log-back", home_cb.TODAY)])
         text = self._t.t(locale, "today-which-day", label=self.label(locale, status))
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
@@ -343,8 +361,8 @@ class DayScreens:
         if not asks_for_city(account):
             return [], []
         locale = account.locale
-        cities = gcb.encode(gcb.SettingsCallback("cities", page=0))
-        later = gcb.encode(gcb.SettingsCallback("not_now"))
+        cities = settings_cb.encode(settings_cb.SettingsCallback("cities", page=0))
+        later = settings_cb.encode(settings_cb.SettingsCallback("not_now"))
         row = [
             self._button(locale, "city-ask-button", cities),
             self._button(locale, "next-not-now", later),

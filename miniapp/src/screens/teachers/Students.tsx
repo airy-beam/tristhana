@@ -15,6 +15,7 @@ import {
   type ProgressionPosition,
   type StudentCard,
 } from "../../api/client";
+import { GUIDE_PAGE } from "../../guide";
 import type { Locale } from "../../i18n/negotiate";
 import {
   backButtonAvailable,
@@ -23,6 +24,7 @@ import {
   haptics,
   useBackButton,
 } from "../../telegram";
+import { GuideLink } from "../GuideLink";
 import { lengthText } from "../practiceText";
 import { get, isStanding, stopLabel } from "../progression/progressionText";
 import { lazyRetry } from "../../shell/lazyRetry";
@@ -64,6 +66,7 @@ export default function Students({ locale, onBack, onInvite }: Props) {
     />
   ) : (
     <List
+      locale={locale}
       onBack={onBack}
       onInvite={onInvite}
       onOpen={setOpen}
@@ -80,11 +83,13 @@ function useName() {
 }
 
 function List({
+  locale,
   onBack,
   onInvite,
   onOpen,
   onAnnounce,
 }: {
+  locale: Locale;
   onBack: () => void;
   onInvite: (() => void) | undefined;
   onOpen: (id: string) => void;
@@ -156,6 +161,7 @@ function List({
           />
         </Localized>
       )}
+      {first.data && <GuideLink locale={locale} page={GUIDE_PAGE.inviteStudents} />}
     </main>
   );
 }
@@ -380,7 +386,9 @@ function MarkNewAsana({
           haptics.impact("light");
           setOpen(false);
           const id = steps === 1 ? "students-given" : "students-given-range";
-          setLine({ text: get(l10n, id, vars), alert: false });
+          // Who can undo it: the student, in their own My asanas.
+          const text = `${get(l10n, id, vars)} ${get(l10n, "students-given-undo")}`;
+          setLine({ text, alert: false });
         },
         onError: (error) => {
           if (error instanceof ApiError && error.status === 404) {

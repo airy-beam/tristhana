@@ -445,7 +445,7 @@ def test_a_shared_location_sets_the_zone_only(
     # UI-06 stage 6 (C13): the line takes the keyboard away, then Settings follows.
     [line] = outbound
     assert line.text == (
-        "🕐 Done: your time is Bangkok (UTC+7). You can change it under ☰ Menu → ⚙️ Settings."
+        "🕐 Done: your time is Bangkok (UTC+7). You can change it in ⚙️ Settings below."
     )
     assert line.reply_markup.remove_keyboard is True
     assert body["text"] == "⚙️ Settings"

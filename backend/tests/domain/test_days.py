@@ -10,6 +10,7 @@ from tristhana.domain.days import (
     InvalidRange,
     check_loggable,
     check_range,
+    earliest_today,
     latest_loggable,
     local_today,
     provisional_zone,
@@ -51,6 +52,12 @@ def test_latest_loggable_without_a_zone_is_the_latest_date_on_earth() -> None:
 
     assert latest_loggable(now, None) == date(2026, 10, 19)
     assert latest_loggable(now, "Asia/Almaty") == date(2026, 10, 18)
+
+
+def test_earliest_today_is_the_earliest_date_on_earth() -> None:
+    # 11:59 UTC is still the day before at UTC-12; 12:00 UTC is midnight there.
+    assert earliest_today(datetime(2026, 10, 18, 11, 59, tzinfo=UTC)) == date(2026, 10, 17)
+    assert earliest_today(datetime(2026, 10, 18, 12, 0, tzinfo=UTC)) == date(2026, 10, 18)
 
 
 def test_check_loggable() -> None:

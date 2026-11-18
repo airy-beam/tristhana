@@ -156,6 +156,7 @@ describe("Badges screen", () => {
     ]);
     expect(screen.queryByText(/from-the-future/)).toBeNull();
     expect(screen.getByText("Badges are just for you; teachers don't see them.")).toBeVisible();
+    expect(screen.getByText("Tap a badge to see what it's for.")).toBeVisible();
   });
 
   it("shows the meaning on tap, with the count and the threshold", async () => {

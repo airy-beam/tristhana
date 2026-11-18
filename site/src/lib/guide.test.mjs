@@ -100,8 +100,8 @@ describe("the real product files", () => {
 
   it("resolve a bot label in both languages", () => {
     const real = createLabels();
-    expect(real.label("en", "start-open-app")).toBe("Open the app");
-    expect(real.label("ru", "start-open-app")).not.toBe("Open the app");
+    expect(real.label("en", "city-ask-button")).toBe("🏙 Choose my city");
+    expect(real.label("ru", "city-ask-button")).toBe("🏙 Выбрать город");
   });
 
   it("list the bot's five menu commands, and the hidden ones apart (UI-06)", () => {

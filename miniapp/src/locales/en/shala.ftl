@@ -128,10 +128,14 @@ shala-moon-policy-short = { $p ->
 # `application/policies.py`; the bot's bot.ftl names the policies behind each line.
 shala-role-hint =
     { $role ->
-        [admin] Everything except deleting the shala and adding managers.
+        [admin] Everything except deleting the shala and managing other managers.
         [teacher] Classes and schedule, attendance, announcements, the student list; students can pick them as their teacher.
         [assistant] Attendance and the student list; not the schedule or announcements.
-       *[office] Classes and schedule, attendance, announcements, the student list; can remove a student; not the shala's settings or roles.
+       *[office] Classes and schedule, attendance, announcements, the student list; can remove a student from the shala; not the shala's settings or roles.
     }
 # C3: under the shala's students, for staff who can't remove a student.
-shala-students-not-yours = These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).
+shala-students-not-yours =
+    { $teacher ->
+        [yes] These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).
+       *[no] These are the shala's students. To have students of your own, send them your own link (➕ Invite my students).
+    }

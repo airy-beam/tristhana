@@ -167,6 +167,10 @@ async def _zero() -> int:
     return 0
 
 
+async def _none_mine() -> Sequence[MyShala]:
+    return ()
+
+
 def _find(people: tuple[Linked, ...], id: UUID) -> Linked | None:
     return next((p for p in people if p.id == id), None)
 
@@ -378,14 +382,22 @@ class LinkScreens:
         locale = principal.account.locale
         view = self._links.view
         asked = self.requests
-        # ID-07: how many people wait for my answer loads alongside the list.
-        (found, total), waiting = await asyncio.gather(
+        # ID-07: how many people wait for my answer loads alongside the list. So does, for
+        # someone on a shala's staff on the first page, whether a shala's students can pick
+        # me (C6: said only under an empty list; in parallel, so the empty list waits for
+        # no second round trip).
+        staff = principal.account.shala is not None and principal.account.shala.staff
+        (found, total), waiting, mine = await asyncio.gather(
             view.students.execute(principal, page * PAGE, PAGE),
             _zero() if asked is None else asked.waiting_count(principal),
+            self._mine(principal) if staff and page == 0 else _none_mine(),
         )
         if not found and page > 0:
             page = 0
-            found, total = await view.students.execute(principal, 0, PAGE)
+            (found, total), mine = await asyncio.gather(
+                view.students.execute(principal, 0, PAGE),
+                self._mine(principal) if staff else _none_mine(),
+            )
         rows: list[list[InlineKeyboardButton]] = []
         if waiting > 0:  # also above an empty list: the first student may come this way
             rows.append(waiting_row(self._t, locale, waiting))
@@ -416,10 +428,7 @@ class LinkScreens:
                 ]
             )
         else:
-            # C6 (UI-06 stage 6): whether a shala's students can pick me. Read only for an empty
-            # list of someone on a shala's staff (+1 there; the list itself is never slower).
-            staff = principal.account.shala is not None and principal.account.shala.staff
-            mine = await self._mine(principal) if staff else ()
+            # C6 (UI-06 stage 6): whether a shala's students can pick me (read above).
             pickable = any(can_be_asked_as_teacher(s.me) for s in mine)
             text = self._t.t(locale, "links-no-students", shala="yes" if pickable else "no")
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
@@ -639,6 +648,7 @@ class LinkScreens:
         else:
             first = self._stop(locale, targets[0])
             lead = self._t.t(locale, "students-given-range", **{"from": first}, asana=asana)
+        lead = f"{lead}\n{self._t.t(locale, 'students-given-undo')}"  # who can undo it
         return await self.student(principal, step.id, step.page, lead)
 
     async def ask_remove_student(self, principal: Principal, id: UUID) -> Screen:

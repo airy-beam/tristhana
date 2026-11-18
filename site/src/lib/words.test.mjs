@@ -253,6 +253,17 @@ describe("one word per thing (ADR-0050)", () => {
     }
   });
 
+  // UI-06 stage 6 (polish): one kind of quotes per language. Russian quotes with «…», never
+  // „…“; English with “…”, never «…».
+  it("quotes the Russian way in Russian and the English way in English", () => {
+    /** @type {Record<string, RegExp>} */
+    const wrong = { ru: /[„“]/, en: /[«»]/ };
+    const found = units
+      .filter((u) => u.texts.some((text) => wrong[u.locale].test(text)))
+      .map((u) => `${u.file} ${u.key}`);
+    expect(found).toEqual([]);
+  });
+
   it("no retired or banned word in the bot or the Mini App", () => {
     expect(wordsInProducts(rules, units).map(show)).toEqual([]);
   });

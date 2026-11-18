@@ -5,7 +5,7 @@ calls (the parallel answerCallbackQuery) are recorded instead of sent."""
 import itertools
 from collections.abc import Iterator
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from tests.bots.statements import Statements
-from tests.fakes import InMemoryStorage
+from tests.fakes import FixedClock, InMemoryStorage
 from tristhana.domain.days import DayLog, DayStatus
 from tristhana.domain.moon import MoonDay, MoonDayKind
 from tristhana.domain.rest_periods import RestPeriod
@@ -45,7 +45,17 @@ def storage() -> InMemoryStorage:
 
 
 @pytest.fixture
-def client(storage: InMemoryStorage, outbound: list[str]) -> Iterator[TestClient]:
+def clock(monkeypatch: pytest.MonkeyPatch) -> FixedClock:
+    """The app's clock: now, unless a test moves it (B6 with an unknown zone)."""
+    fixed = FixedClock(datetime.now(UTC))
+    monkeypatch.setattr("tristhana.main.SystemClock", lambda: fixed)
+    return fixed
+
+
+@pytest.fixture
+def client(
+    storage: InMemoryStorage, outbound: list[str], clock: FixedClock
+) -> Iterator[TestClient]:
     settings = Settings(
         app_env="test",
         telegram_bot_token=SecretStr(TOKEN),
@@ -59,6 +69,12 @@ def _today(lang: str = "en") -> date:
     """The bot's "today" for a new account (no zone yet → provisional: en UTC, ru Moscow)."""
     zone = ZoneInfo("Europe/Moscow" if lang == "ru" else "UTC")
     return datetime.now(UTC).astimezone(zone).date()
+
+
+def _afternoon(clock: FixedClock) -> None:
+    """13:00 UTC: past midnight at UTC-12, so yesterday (en UTC, ru Moscow) is over
+    everywhere on Earth and a tap on it asks which day even with the zone unknown."""
+    clock.instant = datetime.combine(_today(), time(13), tzinfo=UTC)
 
 
 def _ymd(day: date) -> str:
@@ -135,7 +151,9 @@ def test_log_shows_today_with_its_three_choices_then_another_day_and_the_menu(
 
     assert body["method"] == "sendMessage"
     assert body["text"].startswith("Today, ")
-    assert body["text"].endswith("Practice or rest? Both go in your log.")
+    assert body["text"].endswith(
+        "Practice or rest? Both go in your log. Moon day, sick or travel: Other…"
+    )
     assert _rows(body) == [
         ["🧘 Practiced"],
         ["😌 Rest day"],
@@ -555,9 +573,10 @@ def test_a_tap_from_todays_today_saves_at_once(
 
 @pytest.mark.parametrize("lang", ["en", "ru"])
 def test_a_tap_from_yesterdays_today_asks_which_day_and_saves_nothing(
-    client: TestClient, storage: InMemoryStorage, outbound: list[str], lang: str
+    client: TestClient, storage: InMemoryStorage, outbound: list[str], clock: FixedClock, lang: str
 ) -> None:
-    today = _today(lang)
+    _afternoon(clock)
+    today = _today("en")  # 13:00 UTC is 16:00 in Moscow: the same date
     yesterday = today - timedelta(days=1)
 
     body = _tap(client, f"d1:n:{_ymd(yesterday)}:r", language_code=lang)
@@ -566,7 +585,7 @@ def test_a_tap_from_yesterdays_today_asks_which_day_and_saves_nothing(
     assert body["method"] == "editMessageText"
     expected = {
         "en": "This message is from an earlier day. Which day is it for: 😌 Rest day?",
-        "ru": "Это сообщение с прошлого дня. На какой день записать: 😌 День отдыха?",  # noqa: RUF001
+        "ru": "Это сообщение за прошлый день. На какой день записать: 😌 День отдыха?",  # noqa: RUF001
     }
     assert body["text"] == expected[lang]
     rows = body["reply_markup"]["inline_keyboard"]
@@ -593,7 +612,10 @@ def test_the_question_costs_no_statement(
     assert statements.names == []
 
 
-def test_the_answer_saves_the_date_it_names(client: TestClient, storage: InMemoryStorage) -> None:
+def test_the_answer_saves_the_date_it_names(
+    client: TestClient, storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    _afternoon(clock)
     yesterday = _today() - timedelta(days=1)
     asked = _tap(client, f"d1:n:{_ymd(yesterday)}:k")
 
@@ -602,6 +624,45 @@ def test_the_answer_saves_the_date_it_names(client: TestClient, storage: InMemor
     assert saved["text"].startswith("✓ Yesterday, ")
     [(day, _)] = storage.day_repo.rows.values()
     assert (day.local_date, day.status) == (yesterday, DayStatus.SICK)
+
+
+def test_with_no_zone_a_date_still_today_somewhere_saves_without_asking(
+    client: TestClient, storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    """ADR-0051: an EN person with no zone (provisional UTC) in Los Angeles, 20:00 on Nov 17:
+    04:00 UTC on Nov 18. Their Today of Nov 17 is still today at UTC-12, so it saves."""
+    clock.instant = datetime(2026, 11, 18, 4, 0, tzinfo=UTC)
+
+    body = _tap(client, "d1:n:20261117:r")
+
+    assert body["text"].startswith("✓ Yesterday, ")  # by the provisional zone's calendar
+    [(day, _)] = storage.day_repo.rows.values()
+    assert (day.local_date, day.status) == (date(2026, 11, 17), DayStatus.REST)
+
+
+def test_with_no_zone_a_date_over_everywhere_asks(
+    client: TestClient, storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    """The same tap at 13:00 UTC on Nov 18: Nov 17 is over even at UTC-12."""
+    clock.instant = datetime(2026, 11, 18, 13, 0, tzinfo=UTC)
+
+    body = _tap(client, "d1:n:20261117:r")
+
+    assert body["text"].startswith("This message is from an earlier day.")
+    assert storage.day_repo.rows == {}
+
+
+def test_with_a_known_zone_yesterday_asks_at_any_hour(
+    client: TestClient, storage: InMemoryStorage, clock: FixedClock
+) -> None:
+    clock.instant = datetime(2026, 11, 18, 4, 0, tzinfo=UTC)
+    _command(client, "/moon")
+    _zone(storage, "UTC")
+
+    body = _tap(client, "d1:n:20261117:r")
+
+    assert body["text"].startswith("This message is from an earlier day.")
+    assert storage.day_repo.rows == {}
 
 
 def test_a_tap_from_a_today_in_the_future_is_refused_gently(
@@ -647,7 +708,7 @@ def test_a_saved_rest_day_offers_its_note(client: TestClient, storage: InMemoryS
 
 # UI-06 stage 6 (B7): the city question after a save.
 
-CITY_ASK = "📍 Which city do you live in? Your days and reminders follow its clock."
+CITY_ASK = "🏙 Which city do you live in? Your days and reminders follow its clock."
 CITY_ROW = [("🏙 Choose my city", "s1:cp:0"), ("Not now", "s1:n")]
 
 

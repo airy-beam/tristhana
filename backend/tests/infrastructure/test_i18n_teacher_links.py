@@ -71,8 +71,8 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     (
         "invite-own",
         {},
-        "This is your own invite link: share it with your students.",
-        "Это твоя ссылка-приглашение: поделись ею с учениками.",
+        "This is your own invite link: send it to your students.",
+        "Это твоя личная ссылка-приглашение: отправь её ученикам.",
     ),
     (
         "invite-invalid",
@@ -198,7 +198,7 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     (
         "links-invite-first",
         {},
-        "I teach: invite students",
+        "I teach: invite my students",
         "Я преподаю: пригласить учеников",
     ),
     ("links-students", {"count": 12}, "👥 My students (12)", "👥 Мои ученики (12)"),

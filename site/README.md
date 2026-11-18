@@ -23,7 +23,7 @@ Never type a button label or a command by hand:
 
 | Write                      | Get                                                             |
 | -------------------------- | --------------------------------------------------------------- |
-| `:ftl[start-open-app]`     | the real label in the page's language, in bold                  |
+| `:ftl[city-ask-button]`    | the real label in the page's language, in bold                  |
 | `:ftl[some-key]{n=3}`      | a message with arguments (numbers pick the right plural)        |
 | `:ftl[some-key]{from=app}` | when the bot and the Mini App both have the key with other text |
 | `:cmd[moon]`               | `/moon`, checked against the bot's commands (menu or hidden)    |

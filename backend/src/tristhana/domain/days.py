@@ -18,6 +18,8 @@ MIN_LOG_DATE = date(2000, 1, 1)
 MAX_RANGE_DAYS = 371  # a heatmap year plus a week
 # The latest calendar date anywhere on Earth (UTC+14): an unknown zone never blocks "today".
 _LATEST_ZONE = "Pacific/Kiritimati"
+# The earliest calendar date anywhere on Earth (UTC-12; the Etc sign is inverted).
+_EARLIEST_ZONE = "Etc/GMT+12"
 # A guess used only to pick "today" for people whose device zone we don't know yet. Never
 # stored on the account and never used for reminders (06 Time Zones).
 _PROVISIONAL_ZONES: dict[Locale, str] = {"ru": "Europe/Moscow", "en": "UTC"}
@@ -75,6 +77,12 @@ def latest_loggable(now: datetime, zone: str | None) -> date:
     """Today in the person's zone; with no known zone, the latest date on Earth, so a wrong
     guess can't refuse a real "today"."""
     return local_today(now, zone or _LATEST_ZONE)
+
+
+def earliest_today(now: datetime) -> date:
+    """The earliest date that is still "today" somewhere on Earth (UTC-12): with no known
+    zone, a date from here on may still be the person's today (ADR-0051)."""
+    return local_today(now, _EARLIEST_ZONE)
 
 
 def check_loggable(day: date, now: datetime, zone: str | None) -> None:

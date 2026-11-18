@@ -198,9 +198,10 @@ function Root({
   const students = links?.students.length ?? 0;
   // C16 (UI-06 stage 6): while a shala I run has no class yet (Today's "add a class" step, read
   // from the same cache), its row comes first and is the main one: its card opens with the
-  // setup list on top. Read only for someone on a shala's staff.
+  // setup list on top. Read alongside my shalas, not after them (Today reads it for everyone,
+  // so it is usually cached); only staff wait for it before the rows are drawn.
   const staff = mine.some((s) => s.side === "staff");
-  const steps = useNextSteps(staff);
+  const steps = useNextSteps();
   const setupId = steps.data?.find(
     (step) =>
       step.kind === "add_class" && mine.some((s) => s.side === "staff" && s.id === step.shala_id),

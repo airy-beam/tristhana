@@ -108,7 +108,7 @@ def _practice(storage: InMemoryStorage) -> Any:
 # After "Practiced" (P0). A new account knows neither its zone nor its city, so P0 ends with
 # the city question (UI-06 stage 6, B7).
 CITY = ["🏙 Choose my city", "Not now"]
-CITY_ASK = "\n\n📍 Which city do you live in? Your days and reminders follow its clock."
+CITY_ASK = "\n\n🏙 Which city do you live in? Your days and reminders follow its clock."
 
 
 def test_practiced_shows_two_buttons_without_a_previous_practice(client: TestClient) -> None:

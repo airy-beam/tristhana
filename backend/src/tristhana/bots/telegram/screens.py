@@ -85,6 +85,12 @@ def app_url(base: str, open: str | None = None, **params: str | None) -> str:
     return f"{base}{'&' if '?' in base else '?'}{given}"
 
 
+def guide_url(site: str, locale: Locale, page: str = "") -> str:
+    """A page of the public guide (UI-05) in the person's language: the English pages are at
+    the root, the Russian ones under /ru/. The Mini App's twin is `guideUrl` in `guide.ts`."""
+    return f"{site.rstrip('/')}{'/ru/' if locale == 'ru' else '/'}{page}"
+
+
 def app_button(t: Translator, locale: Locale, key: str, url: str) -> InlineKeyboardButton:
     """Opens the Mini App (which also records the device time zone, ID-01). `key` says what
     opens ("🏛 Shala in the app", UI-06 stage 6 C1)."""

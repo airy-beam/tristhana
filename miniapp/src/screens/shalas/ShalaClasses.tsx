@@ -1,9 +1,11 @@
 import { Localized, useLocalization } from "@fluent/react";
 
 import { useClasses, useMoonCities, type ClassSeries, type Shala } from "../../api/client";
+import { GUIDE_PAGE } from "../../guide";
 import type { Locale } from "../../i18n/negotiate";
 import { haptics } from "../../telegram";
 import { cityName } from "../cityName";
+import { GuideLink } from "../GuideLink";
 import { Row } from "../Row";
 import { labelOf } from "../settings/zones";
 import type { ClassEdit } from "./ClassForm";
@@ -100,6 +102,7 @@ export default function ShalaClasses({ shala, locale, viewer, added, onAdd, onOp
           <Row label={add} action onClick={tapAdd} />
         </div>
       )}
+      <GuideLink locale={locale} page={GUIDE_PAGE.classes} />
     </section>
   );
 }

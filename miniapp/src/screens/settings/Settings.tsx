@@ -2,11 +2,12 @@ import { Localized, useLocalization } from "@fluent/react";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { Me } from "../../api/client";
-import { guideUrl } from "../../guide";
+import { GUIDE_PAGE } from "../../guide";
 import { ChunkGuard } from "../../shell/ChunkGuard";
 import { lazyRetry } from "../../shell/lazyRetry";
 import type { SettingsFocus } from "../../shell/nav";
-import { backButtonAvailable, haptics, openLink, useBackButton } from "../../telegram";
+import { backButtonAvailable, haptics, useBackButton } from "../../telegram";
+import { GuideLink } from "../GuideLink";
 import { labelOf, placeFor } from "./zones";
 
 import "./settingsCopy";
@@ -194,16 +195,7 @@ export default function Settings({ me, onBack, focus, headingRef }: Props) {
             );
           })}
         </div>
-        <Localized id="guide-open">
-          <button
-            type="button"
-            className="link guide"
-            onClick={() => {
-              haptics.selection();
-              openLink(guideUrl(me.locale));
-            }}
-          />
-        </Localized>
+        <GuideLink locale={me.locale} page={GUIDE_PAGE.settings} />
       </main>
     </>
   );

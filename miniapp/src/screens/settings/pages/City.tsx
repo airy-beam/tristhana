@@ -3,10 +3,11 @@ import { useState } from "react";
 
 import { useMoonCities, usePatchMe, type MePatch } from "../../../api/client";
 import { Field, Select } from "../../../ui/controls";
-import { haptics } from "../../../telegram";
+import { haptics, openLink } from "../../../telegram";
 import { deviceZone, labelOf, placeFor } from "../zones";
 import { Page, SaveFailed, type PageProps } from "./Page";
 
+const OSM_COPYRIGHT = "https://www.openstreetmap.org/copyright";
 const UNLISTED = "-"; // the select's "My city isn't listed" (never a slug)
 
 const now = (zone: string) =>
@@ -118,8 +119,22 @@ export default function City({ me, onBack }: PageProps) {
         </Localized>
         <SaveFailed when={patch.isError} />
       </section>
-      {/* The map credit (ODbL, ADR-0029) sits where the location is talked about. */}
-      <Localized id="settings-privacy-location">
+      {/* The map credit (ODbL, ADR-0029) sits where the location is talked about, linked to
+       * OpenStreetMap's own copyright page. */}
+      <Localized
+        id="settings-privacy-location"
+        elems={{
+          osm: (
+            <a
+              href={OSM_COPYRIGHT}
+              onClick={(event) => {
+                event.preventDefault();
+                openLink(OSM_COPYRIGHT);
+              }}
+            />
+          ),
+        }}
+      >
         <p className="hint small" />
       </Localized>
     </Page>

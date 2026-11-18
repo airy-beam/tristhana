@@ -228,7 +228,7 @@ AFTER_PRACTICED = f"p1:v:{D}"  # the buttons after 🧘 (P0): ✓ Done
 DETAILS = f"p1:c:{D}:"  # the details (P1): the class types
 DONE = (f"p1:o:{D}", "w1:m")  # the done screen (V): 📝 Details and the Menu
 CHECK_IN = f"k1:e:{D}:"  # the check-in screen: the energy chips
-REMINDER = "r1:t:"  # the practice reminder: the send times
+REMINDER = "r1:a:"  # the practice reminder: the send times ("remind me at", stage 6 C10)
 SETTINGS = "s1:lp"
 MOON = ("m1:c:0", "w1:m")
 SHALA_CARD = "h1:k:"  # a shala's card: Leave…
@@ -665,6 +665,9 @@ STAGE6: dict[str, tuple[str | tuple[str, ...], str | tuple[str, ...]]] = {
     # C4: the staff consent's language row (`h1:l` stays the join consent's): the consent
     # again with its own confirm, or Today with the invalid line once the link is gone.
     f"h1:ls:ru:{frozen.SHALA_CODE}": (f"h1:b:{frozen.SHALA_CODE}", TODAY),
+    # C10: the reminder screen's time chips save the time and turn it on (`r1:t` keeps its
+    # meaning under older screens: the time only).
+    "r1:a:1000": (REMINDER, REMINDER),
 }
 
 

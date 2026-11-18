@@ -724,6 +724,22 @@ def test_leave_is_ask_then_leave(
     assert [s for s in outbound if s.name == "sendMessage"] == []
 
 
+@pytest.mark.parametrize(
+    ("role", "says"), [(ShalaRole.TEACHER, True), (ShalaRole.ASSISTANT, False)]
+)
+def test_a_teacher_who_leaves_is_told_their_own_students_stay(
+    client: TestClient, storage: InMemoryStorage, role: ShalaRole, says: bool
+) -> None:
+    me = _me(client, storage)
+    shala = _shala(storage, _owner(storage))
+    storage.shalas.add_staff(shala, me.id, role)
+
+    ask = _tap(client, f"h1:k:{short_id(shala)}")
+
+    assert ask["text"].startswith("Leave ")
+    assert ask["text"].endswith(_t("shala-leave-own-students")) is says
+
+
 def test_the_owner_gets_no_leave_even_by_forged_data(
     client: TestClient, storage: InMemoryStorage
 ) -> None:
@@ -1221,12 +1237,22 @@ def test_the_owner_reads_the_one_line_moon_note(
 
     text = _open_card(client, shala)["text"]
 
-    assert "🌙 Staff and students follow this calendar unless they chose a city." in text
+    assert _t("shala-moon-shared") == (
+        "🌙 Staff and students follow the shala's moon days unless they chose their own city."
+    )
+    assert _t("shala-moon-shared") in _flat(text)
 
 
-@pytest.mark.parametrize(("role", "hint"), [(ShalaRole.TEACHER, True), (ShalaRole.OFFICE, False)])
+@pytest.mark.parametrize(
+    ("role", "hint", "teacher"),
+    [
+        (ShalaRole.TEACHER, True, "yes"),
+        (ShalaRole.ASSISTANT, True, "no"),
+        (ShalaRole.OFFICE, False, ""),
+    ],
+)
 def test_staff_who_read_the_names_learn_whose_students_they_are(
-    client: TestClient, storage: InMemoryStorage, role: ShalaRole, hint: bool
+    client: TestClient, storage: InMemoryStorage, role: ShalaRole, hint: bool, teacher: str
 ) -> None:
     """C3: a teacher (names only) reads that these are the shala's students, with "Invite my
     students" (`t1:i`); the front desk, who removes students, gets the plain list."""
@@ -1237,7 +1263,12 @@ def test_staff_who_read_the_names_learn_whose_students_they_are(
 
     body = _tap(client, f"h1:m:{short_id(shala)}:0")
 
-    assert (_t("shala-students-not-yours") in _flat(body["text"])) is hint
+    if hint:  # a teacher waits to be picked; anyone else sends their own link
+        assert _t("shala-students-not-yours", teacher=teacher) in _flat(body["text"])
+        other = "no" if teacher == "yes" else "yes"
+        assert _t("shala-students-not-yours", teacher=other) not in _flat(body["text"])
+    else:
+        assert "These are the shala's students." not in body["text"]
     assert ("t1:i" in [b.get("callback_data") for b in _buttons(body)]) is hint
     assert _rows(body)[-1] == [_t("log-back")]
 

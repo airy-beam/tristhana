@@ -157,13 +157,13 @@ describe("Fluent bundles", () => {
     expect(format(bundleFor("ru"), "pause-end", { reminders: "off" })).toBe("⏹ Закончить раньше");
   });
 
-  it("RU quotes the label with „…“ in the pause question", () => {
+  it("RU quotes the label with «…» in the pause question", () => {
     const text = format(bundleFor("ru"), "pause-ask", {
       label: "🌸 Женские дни",
       rel: "today",
       reminders: "off",
     });
-    expect(text).toBe("Сколько дней отметить как „🌸 Женские дни“, включая сегодня?");
+    expect(text).toBe("Сколько дней отметить как «🌸 Женские дни», включая сегодня?");
   });
 
   it("formats the greeting with the user's name", () => {
@@ -390,8 +390,8 @@ describe("PR-07 diary copy", () => {
     expect(format(en, "diary-title")).toBe("Note");
     expect(format(ru, "diary-title")).toBe("Заметка");
     // The bot's 📓, as every list row has an icon (UI-06).
-    expect(format(en, "diary-add")).toBe("📓 Add a note");
-    expect(format(ru, "diary-add")).toBe("📓 Добавить заметку");
+    expect(format(en, "diary-add")).toBe("📓 Note");
+    expect(format(ru, "diary-add")).toBe("📓 Заметка");
     expect(format(en, "diary-row")).toBe("📓 Note");
     expect(format(ru, "diary-row")).toBe("📓 Заметка");
     expect(format(en, "diary-private-hint")).toBe("Only you see your notes.");

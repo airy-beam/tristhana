@@ -184,8 +184,11 @@ class RemindScreens:
                     patch = ReminderPatch(on=cb.on)
                     saved, pause = await self._r.update.execute_with_pause(principal, patch)
                     return self.settings_screen(principal, saved, pause)
-                case "time":  # "remind me at": the time turns it on (UI-06 stage 6, C10)
-                    patch = ReminderPatch(on=True, at=cb.at)
+                case "time" | "time_on":
+                    # UI-06 stage 6 (C10): today's chips (`r1:a`) mean "remind me at" and turn
+                    # it on; an old screen's `r1:t` keeps its meaning, the time only.
+                    on = True if cb.action == "time_on" else None
+                    patch = ReminderPatch(on=on, at=cb.at)
                     saved, pause = await self._r.update.execute_with_pause(principal, patch)
                     return self.settings_screen(principal, saved, pause)
                 case "yes" | "no":
@@ -376,7 +379,7 @@ class RemindScreens:
         times = [
             InlineKeyboardButton(
                 text=("✓ " if p.enabled and at == p.at else "") + f"{at:%H:%M}",
-                callback_data=_data(action="time", at=at),
+                callback_data=_data(action="time_on", at=at),
             )
             for at in PRACTICE_TIMES
         ]

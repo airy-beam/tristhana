@@ -479,7 +479,7 @@ def test_ones_own_link_says_so(client: TestClient, storage: InMemoryStorage) -> 
 
     body = _command(client, f"/start t_{CODE}")
 
-    _grid_with(body, "This is your own invite link: share it with your students.")
+    _grid_with(body, "This is your own invite link: send it to your students.")
 
 
 def test_an_existing_teacher_says_already(client: TestClient, storage: InMemoryStorage) -> None:
@@ -880,7 +880,7 @@ def test_with_no_students_the_i_teach_label_stays_quiet(
 ) -> None:
     body = _command(client, "/teachers")
 
-    assert _rows(body)[-2:] == [["I teach: invite students"], ["☰ Menu"]]
+    assert _rows(body)[-2:] == [["I teach: invite my students"], ["☰ Menu"]]
     assert _data(body, "I teach") == "t1:i:o"  # the invite, with the way back here
     assert not any("My students" in t for t in _texts(body))
     assert "➕ Invite my students" not in _texts(body)

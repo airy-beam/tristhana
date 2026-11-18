@@ -8,6 +8,8 @@ badges-group-asanas = Asanas
 badges-new = New
 badges-at-start = From the start of your log
 badges-empty = Badges appear here by themselves as you log your practice.
+# Under the badges: a row opens what the badge is for (UI-06 stage 6, polish).
+badges-tap-hint = Tap a badge to see what it's for.
 badges-note = Badges are just for you; teachers don't see them.
 # Not "again" (avoid-word list); "once more" as in checkin-save-failed.
 badges-load-failed = Couldn't load your badges. Try once more in a moment.

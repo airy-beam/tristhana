@@ -53,3 +53,8 @@
   margin-top: -16px;
   border-top: 0;
 }
+
+/* A link inside a hint line (the map credit on My city): the theme's link colour. */
+.hint a {
+  color: var(--c-link);
+}

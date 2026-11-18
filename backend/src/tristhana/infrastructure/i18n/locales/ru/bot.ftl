@@ -6,11 +6,9 @@ start-greeting =
 
 start-prompt =
     { $day }
-    Практика или отдых? В журнал идёт и то, и другое.
+    Практика или отдых? В журнал идёт и то, и другое. Лунный день, болезнь, дорога — в «Другое…».
 # Кнопка другого языка; $language — название языка на нём самом («English»).
 start-switch-language = 🗣 { $language }
-# Кнопка Mini App: под деталями практики, пока часовой пояс неизвестен.
-start-open-app = Открыть приложение
 
 ## The simple journey (UI-06): the front door (once, on the first /start), Today, the Menu, Help.
 ## `welcome-ask` and the three front-door labels are fixed by the owner (each with its emoji,
@@ -24,19 +22,20 @@ welcome-path-shala = 🏛 Шала и занятия
 # right both before and after the link was sent.
 welcome-later = Дальше ›
 # Shown before the first student joins: the Menu has no "My students" row yet, so the link
-# is named where it is now ("For teachers and shalas"), and "My students" as what comes next.
-welcome-teacher-next = Твоя ссылка — в ☰ Меню → Учителям и шалам. Ученики, которые подтвердят, появятся в ☰ Меню → 👥 Мои ученики.
+# is named where it is now (the overview's "I teach: invite my students": for shala staff,
+# "For teachers and shalas" opens the shala's link), and "My students" as what comes next.
+welcome-teacher-next = Твоя личная ссылка — в ☰ Меню → 🙏 Учитель и шала → Я преподаю: пригласить учеников. Ученики, которые подтвердят, появятся в ☰ Меню → 👥 Мои ученики.
 welcome-own-practice = 🧘 Отметить свою практику
 welcome-shala-text = Шала здесь — это страница для учеников: расписание занятий, объявления и одна ссылка, чтобы присоединиться. Нажми «🏛 Создать шалу»: это займёт минуту.
 welcome-shala-student = Ищешь занятия своей шалы? Попроси ссылку в шале. Когда присоединишься, расписание будет в ☰ Меню → 🗓 Моё расписание.
 # "Shala and classes" for someone on a shala's staff, above a row per shala they are in
 # (UI-06 stage 6, B3).
-welcome-shala-mine = Нажми на шалу ниже — там занятия, приглашения и настройки.
+welcome-shala-mine = Нажми на шалу ниже — там расписание, приглашение для учеников и остальное.
 # Under the shala rows, for someone already on a shala's staff.
 shala-create-another = 🏛 Создать ещё одну шалу
 invite-simple = Отправь свою ссылку ученикам. Каждый подтверждает сам, и после этого тебе видно то, чем с тобой делятся.
 # Under invite-simple for someone on a shala's staff: the shala has a link of its own (B5).
-invite-own-not-shala = Это твоя личная ссылка, не ссылка шалы.
+invite-own-not-shala = Это твоя личная ссылка, не ссылка шалы. Ссылка шалы — в её карточке: «➕ Пригласить учеников в шалу».
 invite-send = ✉️ Отправить ссылку
 # Under the invite on the Menu path: the link as text, a new link, the directory line, a shala.
 invite-more = Ещё…
@@ -52,7 +51,7 @@ today-logged = ✓ В журнале: { $label }
 # Once, on the first /start after UI-06 for someone who already uses the bot.
 today-menu-hint = Всё остальное теперь в ☰ Меню.
 today-back = ‹ Сегодня
-today-which-day = Это сообщение с прошлого дня. На какой день записать: { $label }?
+today-which-day = Это сообщение за прошлый день. На какой день записать: { $label }?
 
 # The last row of every top-level screen.
 menu-open = ☰ Меню
@@ -268,7 +267,7 @@ moon-in-days =
     }
 moon-day-line = { $phase } · { $date } · { $in }
 moon-none = В ближайшие два месяца лунных дней пока нет: календарь готовится.
-moon-calc-note = Даты рассчитаны по городу 📍 { $city } (лунные сутки на восходе). Календарь твоей шалы может отличаться на день: ориентируйся на своего учителя.
+moon-calc-note = Даты рассчитаны для 📍 { $city }: по луне на восходе солнца там. Календарь твоей шалы может отличаться на день: ориентируйся на своего учителя.
 moon-offsets =
     { $code ->
         [731] за 7, 3 и 1 день
@@ -310,8 +309,8 @@ moon-keep-city = Оставить 📍 { $city }
 moon-kept = 🌙 Готово: лунные дни остаются по городу 📍 { $city }. Поменять можно в ☰ Меню → 🌙 Лунные дни.
 moon-keep-already = 🌙 Город для лунных дней уже выбран: 📍 { $city }. Поменять можно в ☰ Меню → 🌙 Лунные дни.
 moon-nothing-to-follow = { $source ->
-        [shala] 🏛 Сейчас ты не в шале, поэтому „Как в шале“ пока не выбрать.
-       *[teacher] 👥 Учителя в списке сейчас нет, поэтому „Как у учителя“ пока не выбрать.
+        [shala] 🏛 Сейчас ты не в шале, поэтому «Как в шале» пока не выбрать.
+       *[teacher] 👥 Учителя в списке сейчас нет, поэтому «Как у учителя» пока не выбрать.
     } Город для лунных дней остался прежним.
 moon-offset =
     { $n ->
@@ -424,10 +423,10 @@ settings-city-unlisted = 📍 Моего города нет в списке
 settings-city-utc = 🌐 UTC
 settings-share-location = Пришли геопозицию один раз, и я поставлю по ней твоё местное время. Она нужна только для этого, и я её не храню. Не получается отправить с этого устройства? Открой приложение: оно возьмёт время телефона.
 settings-share-location-button = 📍 Отправить геопозицию
-settings-location-zone = 🕐 Готово: твоё время — { $zone }. Изменить можно в ☰ Меню → ⚙️ Настройки.
-settings-location-unknown = Не удалось понять местное время по этой точке. Выбери город в ☰ Меню → ⚙️ Настройки или открой приложение.
+settings-location-zone = 🕐 Готово: твоё время — { $zone }. Изменить можно в «⚙️ Настройки» ниже.
+settings-location-unknown = Не удалось понять местное время по этой точке. Выбери город в «⚙️ Настройки» ниже.
 settings-open-app = ⚙️ Ещё в приложении
-city-ask = 📍 В каком городе ты живёшь? Дни и напоминания идут по его часам.
+city-ask = 🏙 В каком городе ты живёшь? Дни и напоминания идут по его часам.
 city-ask-button = 🏙 Выбрать город
 settings-city-later = Город можно выбрать здесь в любой момент.
 settings-link = ⚙️ Настройки
@@ -501,8 +500,8 @@ pause-ask = { $reminders ->
         [on] ⏸ На сколько дней приостановить напоминания о практике, включая { $rel ->
             [yesterday] вчерашний день
            *[today] сегодня
-        }? Эти дни отметятся как „{ $label }“, если не отметишь иначе.
-       *[off] Сколько дней отметить как „{ $label }“, включая { $rel ->
+        }? Эти дни отметятся как «{ $label }», если не отметишь иначе.
+       *[off] Сколько дней отметить как «{ $label }», включая { $rel ->
             [yesterday] вчерашний день
            *[today] сегодня
         }?
@@ -521,23 +520,23 @@ pause-only = { $rel ->
 pause-set = ⏸ { $reminders ->
         [on] Напоминания о практике на паузе по { $until } включительно.
        *[off] Готово, по { $until } включительно.
-    } Эти дни отмечаются как „{ $label }“; любой день можно отметить иначе.
-log-auto-period = „{ $label }“ по { $until } включительно. Если день прошёл иначе, отметь ниже.
+    } Эти дни отмечаются как «{ $label }»; любой день можно отметить иначе.
+log-auto-period = «{ $label }» по { $until } включительно. Если день прошёл иначе, отметь ниже.
 pause-end = { $reminders ->
         [on] ⏹ Завершить паузу
        *[off] ⏹ Закончить раньше
     }
 pause-ended = { $reminders ->
         [on] ▶️ Напоминания о практике снова приходят с сегодняшнего дня.
-       *[off] ⏹ Готово: с сегодняшнего дня отметка „{ $label }“ снята.
+       *[off] ⏹ Готово: с сегодняшнего дня отметка «{ $label }» снята.
     }
 pause-cut = ⏸ Практика отмечена на { $rel ->
         [yesterday] вчера
         [other] этот день
        *[today] сегодня
-    }, поэтому следующие дни, по { $until } включительно, больше не отмечены как „{ $label }“. Оставить как было?
+    }, поэтому следующие дни, по { $until } включительно, больше не отмечены как «{ $label }». Оставить как было?
 pause-keep = ⏸ Оставить паузу
-pause-kept = ⏸ Пауза сохранена: „{ $label }“ по { $until } включительно.
+pause-kept = ⏸ Пауза сохранена: «{ $label }» по { $until } включительно.
 pause-too-late = Тот вопрос был про один из прошлых дней, поэтому ничего не изменилось. Вот как этот день выглядит сейчас.
 remind-paused-until = ⏸ На паузе по { $until } включительно
 remind-resume = ▶️ Возобновить сейчас
@@ -637,7 +636,7 @@ progression-open = 🧘 Мои асаны
 mark-received = 🎉 Новая асана: { $asana }. Приятного знакомства! Отметка: { $teacher }.
 mark-received-range = 🎉 Новые асаны: { $from } → { $asana }. Приятного знакомства! Отметка: { $teacher }.
 mark-received-back = { $asana } — в твоей практике. Отметка: { $teacher }.
-mark-received-undo-hint = Если это не совпадает с твоей практикой, отметку можно отменить.
+mark-received-undo-hint = Если это не совпадает с твоей практикой, отметку можно отменить в «🧘 Мои асаны» (↩︎ Отменить отметку).
 progression-marked-by = Отметка: { $teacher }
 progression-by-teacher = учитель
 progression-mark-moved-on = С этой отметки практика уже изменилась, поэтому ничего не отменено. Чтобы указать, где она заканчивается сейчас, нажми ✏️ Изменить.
@@ -677,7 +676,7 @@ data-intro = Здесь можно скачать все свои записи �
 export-button = ⬇️ Скачать мои данные
 export-preparing = Готовлю файл…
 # $date = the local date, pre-formatted
-export-caption = Твои данные из Tristhana на { $date }: data.json для программ, CSV для таблиц.
+export-caption = Твои данные из Tristhana на { $date }: CSV-файлы открываются в таблицах (Excel, Google Таблицы), data.json — для программ.
 export-sent = 📦 Файл ниже. В нём есть личные записи (заметки, все отметки дней): когда сохранишь его, файл можно удалить из чата.
 # $minutes = whole minutes until the next export (1–10)
 export-too-soon = Файл только что отправлен. Ещё раз — через { $minutes } мин.
@@ -772,7 +771,7 @@ invite-accept = ✅ Подтвердить
 invite-decline = Не сейчас
 invite-linked = ✅ { $name } теперь в списке твоих учителей.
 invite-already = { $name } уже в списке твоих учителей.
-invite-own = Это твоя ссылка-приглашение: поделись ею с учениками.
+invite-own = Это твоя личная ссылка-приглашение: отправь её ученикам.
 invite-invalid = Эта ссылка больше не работает. Новую может прислать тот, кто ею поделился.
 invite-full = Сейчас по этой ссылке не получится добавить учителя. Попроси новую ссылку у того, кто её прислал.
 link-student-joined = 👥 { $name } теперь в списке твоих учеников.
@@ -914,8 +913,10 @@ students-give-ask-across = { $name }: новые асаны — { $from } ({ $fr
 students-give-yes = 🎉 Да, отметить
 students-given = ✅ Отмечено: { $asana }.
 students-given-range = ✅ Отмечено: { $from } → { $asana }.
+# Under students-given(-range): who can undo a teacher's mark (UI-06 stage 6, polish).
+students-given-undo = Если это ошибка, ученик может отменить отметку в «🧘 Мои асаны».
 students-give-stale = Карточка устарела, поэтому ничего не отмечено. Вот актуальная.
-students-give-unset = Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, здесь можно будет отмечать новые.
+students-give-unset = Последняя асана пока не указана. Когда она будет указана в разделе «Мои асаны», здесь можно будет отмечать новые.
 
 ## Шалы (SC-01, ADR-0033). Названия шал и имена — как есть, без склонения.
 shala-join-ask = 🏛 Присоединиться к шале { $shala } (📍 { $city })?
@@ -971,13 +972,13 @@ shala-role-in-list =
 # C14 (UI-06 stage 6): what each role can do; see the English file for the policies behind it.
 shala-role-hint =
     { $role ->
-        [admin] Всё, кроме удаления шалы и назначения управляющих.
+        [admin] Всё, кроме удаления шалы и управления другими управляющими.
         [teacher] Занятия и расписание, посещаемость, объявления, список учеников; ученики могут выбрать преподавателя своим учителем.
         [assistant] Посещаемость и список учеников; без расписания и объявлений.
-       *[office] Занятия и расписание, посещаемость, объявления, список учеников; может убрать ученика; без настроек шалы и ролей.
+       *[office] Занятия и расписание, посещаемость, объявления, список учеников; может убрать ученика из шалы; без настроек шалы и ролей.
     }
 shala-role-hint-line = { $role }: { $hint }
-shala-moon-shared = 🌙 Команда и ученики шалы следуют этому календарю, если сами не выбрали город.
+shala-moon-shared = 🌙 Команда и ученики шалы следуют лунным дням шалы, если не выбрали свой город.
 shala-invalid = Эта ссылка на шалу больше не работает. Новую может прислать тот, кто ею поделился.
 shala-already = Ты уже в шале { $shala }.
 shala-already-staff = Ты уже в команде шалы { $shala }, ссылка для учеников тебе не нужна.
@@ -985,6 +986,8 @@ shala-full = Сейчас по этой ссылке не получится п�
 shala-joined = ✅ Теперь ты в шале { $shala }. Добро пожаловать 🙏
 shala-leave = Выйти…
 shala-leave-ask = Выйти из шалы { $shala }? Сообщений никто не получит, журнал останется как есть.
+# Under shala-leave-ask for someone with the Teacher role there (UI-06 stage 6, polish).
+shala-leave-own-students = Ученики из твоего списка останутся с тобой.
 shala-leave-yes = Выйти
 shala-remove-ask = Убрать из шалы: { $name }? Сообщений никто не получит.
 shala-remove-yes = Убрать
@@ -996,7 +999,11 @@ shala-students =
     }
 shala-no-students = В этой шале пока нет учеников.
 # C3 (UI-06 stage 6): под именами, для команды, которая не убирает учеников.
-shala-students-not-yours = Это ученики шалы. В «👥 Мои ученики» они появятся, когда выберут тебя учителем или откроют твою личную ссылку (➕ Пригласить своих учеников).
+shala-students-not-yours =
+    { $teacher ->
+        [yes] Это ученики шалы. В «👥 Мои ученики» они появятся, когда выберут тебя учителем или откроют твою личную ссылку (➕ Пригласить своих учеников).
+       *[no] Это ученики шалы. Чтобы у тебя были свои ученики, отправь им свою личную ссылку (➕ Пригласить своих учеников).
+    }
 shala-staff-title = Преподаватели и команда: { $people }
 shala-invite-students = ➕ Пригласить учеников в шалу
 shala-invite-staff = ➕ Пригласить в команду
@@ -1044,7 +1051,7 @@ class-form-every-n = { $n ->
 class-form-sum-from = с { $date }
 class-form-sum-end = по { $date }
 # Открывает карточку шалы в приложении, где её «Занятия».
-shala-classes-edit = 🗓 Добавить или изменить занятия
+shala-classes-edit = 🗓 Настроить занятия
 # Пока у шалы нет занятий: форма нового занятия в приложении.
 schedule-add-class = ➕ Добавить занятие
 shala-edit = ✏️ Изменить шалу

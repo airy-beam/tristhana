@@ -597,7 +597,7 @@ describe("Settings keeps what it was opened over", () => {
   test("an unsaved note is still there: Back closes Settings first, the note keeps its own", async () => {
     await launch();
     await today();
-    fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📓 Note" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
       target: { value: "Kapotasana felt lighter" },
     });
@@ -724,7 +724,7 @@ describe("Back or tabs, never both", () => {
   test("the bar is absent while a note has unsaved text", async () => {
     await launch();
     await today();
-    fireEvent.click(await screen.findByRole("button", { name: "📓 Add a note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📓 Note" }));
     expect(bar()).not.toBeNull(); // nothing typed yet: nothing to protect
 
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {

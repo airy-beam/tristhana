@@ -136,7 +136,7 @@ today-moon-fact =
        *[amavasya] New moon · { $when }
     }
 moon-none = No moon days in the next two months yet: the calendar is being prepared.
-moon-calc-note = Dates are calculated for 📍 { $city } (lunar day at sunrise). Your shala's calendar may differ by a day; follow your teacher.
+moon-calc-note = Dates are calculated for 📍 { $city }, by the moon at sunrise there. Your shala's calendar may differ by a day; follow your teacher.
 # MD-04: the person's own city, when it isn't the followed one.
 moon-same-as-city = Same as my city ({ $city })
 moon-home-fyi = ℹ In 📍 { $city } it falls on { $date }
@@ -271,8 +271,8 @@ settings-cap = { $n ->
 settings-privacy = Privacy
 settings-privacy-ladies = 🌸 Ladies' holiday is stored encrypted. Others only ever see “Rest day”.
 settings-privacy-sharing = Your log is yours. A teacher on your list sees your name, your last asana and what you log from the day you added them: practice or rest and how far your practice goes. All rest you log looks the same, whatever the reason. If nothing shows for a while, the teacher sees a short note saying just that. A teacher on your list can also mark a new asana for you: you get a message and can undo it. How you feel, your notes and the reason for a rest stay private. You can remove a teacher from your list any time. Teachers on your list and your shalas can send you announcements; you can mute each one.
-# MD-04: tzfpy's zone data is ODbL (ADR-0029), so it is credited here and in the README.
-settings-privacy-location = 📍 A location you send the bot is used only to find your time zone and isn't stored. The lookup runs on our server with tzfpy; its map data is © OpenStreetMap contributors (ODbL).
+# MD-04: the map data behind the zone lookup is ODbL (ADR-0029): credited here, linked, and in the README.
+settings-privacy-location = 📍 A location you send the bot is used only to set your local time and isn't stored. Map data <osm>© OpenStreetMap contributors</osm>.
 settings-save-failed = Couldn't save. Try again in a moment.
 
 ## Weekly day off and auto-rest (PR-09). { $d } is an ISO weekday (1 = Monday).
@@ -405,7 +405,7 @@ settings-checkin-hint = A few short questions on days you practice: mood, energy
 
 ## Diary note (PR-07). Private, per day, any status; never asked for.
 diary-title = Note
-diary-add = 📓 Add a note
+diary-add = 📓 Note
 # The row of a note that exists (the bot's button); its first line shows under it.
 diary-row = 📓 Note
 diary-edit = Edit
@@ -555,6 +555,8 @@ students-give-ask-across = { $name }: new asanas { $from } ({ $from_series }) �
 students-give-yes = 🎉 Yes, mark
 students-given = ✅ Marked: { $asana }.
 students-given-range = ✅ Marked: { $from } → { $asana }.
+# Under students-given(-range): who can undo a teacher's mark (UI-06 stage 6, polish).
+students-given-undo = If it's a mistake, the student can undo it in 🧘 My asanas.
 students-give-stale = This card was out of date, so nothing was marked. Here it is now.
 students-give-unset = No last asana set yet. Once they set it in My asanas, you can mark new ones here.
 links-students = 👥 My students ({ $count })
@@ -596,7 +598,7 @@ shala-place = 📍 { $city }
 shala-time = { $place } · shala time: { $zone }
 shala-moon-city = City for the shala's moon days
 shala-moon-same = Same as the shala's city
-shala-moon-shared = 🌙 Staff and students follow this calendar unless they chose a city.
+shala-moon-shared = 🌙 Staff and students follow the shala's moon days unless they chose their own city.
 shala-staff-title = Teachers and staff
 shala-edit = ✏️ Edit the shala
 shala-roles-save = Save
@@ -614,6 +616,8 @@ shala-remove-ask = Remove { $name } from the shala? No one gets a message.
 shala-remove-yes = Remove
 shala-leave = Leave…
 shala-leave-ask = Leave { $shala }? No one gets a message, and your log stays as it is.
+# Under shala-leave-ask for someone with the Teacher role there (UI-06 stage 6, polish).
+shala-leave-own-students = Your own students stay on your list.
 shala-leave-yes = Leave
 shala-delete = Delete the shala…
 shala-delete-ask = Delete { $shala } for everyone in it? Everyone's own logs stay. No one gets a message. This can't be undone.
@@ -647,7 +651,7 @@ shala-moon-policy-option = { $p ->
         [open] Classes as usual
        *[closed] The shala is closed
     }
-shala-moon-policy-note = Dates follow the shala's moon city (lunar day at sunrise). If your shala observes another day, use "Hold anyway" or "Cancel this class".
+shala-moon-policy-note = Dates follow the moon at sunrise in the shala's moon city. If your shala keeps another day, use ✅ Hold anyway or ❌ Cancel this date.
 shala-day-off-label = 😌 Day off (up to two)
 shala-day-off-line = 😌 Day off: { $days }
 shala-day-off-adopt = 😌 Make { $days } my day off too
@@ -765,7 +769,7 @@ links-make-main = ⭐ Make main
 links-remove = Remove…
 links-remove-yes = Remove
 links-invite = ➕ Invite my students
-links-invite-first = I teach: invite students
+links-invite-first = I teach: invite my students
 link-no-name = (no name)
 link-unlink-ask = Remove { $name } from your teachers? They won't get a message, but you'll no longer be on their list.
 link-next-main = { $name } becomes your main teacher.

@@ -40,7 +40,7 @@ TODAY = date(2026, 11, 8)
 LINKED = date(2026, 6, 1)
 UNSET_EN = "No last asana set yet. Once they set it in My asanas, you can mark new ones here."
 UNSET_RU = (
-    "Последняя асана пока не указана. Когда она будет указана в разделе „Мои асаны“, "
+    "Последняя асана пока не указана. Когда она будет указана в разделе «Мои асаны», "
     "здесь можно будет "
     "отмечать новые."
 )
@@ -53,8 +53,11 @@ ITEMS = frozenset({"drop-backs"})
 UUID_RE = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 STALE = "This card was out of date, so nothing was marked. Here it is now."
 # The single-sentence hint (owner, 2026-11-08), as pinned in test_i18n_teacher_marks.py.
-HINT_EN = "If this doesn't match your practice, you can undo it."
-HINT_RU = "Если это не совпадает с твоей практикой, отметку можно отменить."
+HINT_EN = "If this doesn't match your practice, you can undo it in 🧘 My asanas (↩︎ Undo the mark)."
+HINT_RU = (
+    "Если это не совпадает с твоей практикой, отметку можно отменить в «🧘 Мои асаны» "
+    "(↩︎ Отменить отметку)."
+)
 _ids = itertools.count(260_000)
 _people = itertools.count(6_000)
 
@@ -384,8 +387,9 @@ def test_yes_marks_and_shows_the_refreshed_card_with_the_line_on_top(
     body = _mark(client, student)
 
     assert body["method"] == "editMessageText"
-    assert _lines(body)[:3] == [
+    assert _lines(body)[:4] == [
         "✅ Marked: Supta Vajrasana.",
+        "If it's a mistake, the student can undo it in 🧘 My asanas.",  # who can undo it
         "Anna",
         "Last asana, as marked in their log: Supta Vajrasana (Intermediate)",
     ]

@@ -168,9 +168,9 @@ WH01_KEYS = [
 ]
 RU_ASK_ON = (
     "⏸ На сколько дней приостановить напоминания о практике, включая сегодня? "  # noqa: RUF001
-    "Эти дни отметятся как „🌸 Женские дни“, если не отметишь иначе."
+    "Эти дни отметятся как «🌸 Женские дни», если не отметишь иначе."
 )
-RU_ASK_OFF = "Сколько дней отметить как „🌸 Женские дни“, включая вчерашний день?"
+RU_ASK_OFF = "Сколько дней отметить как «🌸 Женские дни», включая вчерашний день?"
 RU_PAUSED = "⏸ На паузе по чт, 29 окт. включительно"  # noqa: RUF001
 EN_ASK_ON = (
     "⏸ Pause practice reminders for how many days, including today? Those days show "
@@ -280,7 +280,7 @@ def test_pause_cut_and_kept_name_the_period_gently() -> None:
         "⏸ Pause kept: 🤒 Sick / injury through Thu, Oct 29."
     )
     assert _t("ru", "pause-kept", label=ru, until=_until()) == (
-        "⏸ Пауза сохранена: „🤒 Болезнь / травма“ по чт, 29 окт. включительно."
+        "⏸ Пауза сохранена: «🤒 Болезнь / травма» по чт, 29 окт. включительно."
     )
     for locale, label in (("en", en), ("ru", ru)):
         text = _t(locale, "pause-cut", label=label, until=_until(), rel="today").lower()
@@ -858,22 +858,24 @@ def test_the_front_door_labels_in_russian_are_the_approved_ones() -> None:
         ("links-invite", "➕ Invite my students", "➕ Пригласить своих учеников"),  # noqa: RUF001
         (
             "invite-own-not-shala",
-            "This is your own link, not the shala's.",
-            "Это твоя личная ссылка, не ссылка шалы.",
+            "This is your own link, not the shala's. The shala's link is on its card: "
+            "➕ Invite students to the shala.",  # noqa: RUF001
+            "Это твоя личная ссылка, не ссылка шалы. Ссылка шалы — в её карточке: "
+            "«➕ Пригласить учеников в шалу».",  # noqa: RUF001
         ),
         ("shala-create-another", "🏛 Create another shala", "🏛 Создать ещё одну шалу"),
         ("help-shala-classes", "🗓 Shala classes", "🗓 Занятия шалы"),
         ("app-open-shala", "🏛 Shala in the app", "🏛 Шала в приложении"),
         ("schedule-full-app", "🗓 Full week in the app", "🗓 Вся неделя в приложении"),
-        ("shala-classes-edit", "🗓 Add or change classes", "🗓 Добавить или изменить занятия"),
+        ("shala-classes-edit", "🗓 Add or change classes", "🗓 Настроить занятия"),
         # Slice B: the student journey.
         ("menu-asanas", "🧘 My asanas", "🧘 Мои асаны"),
         ("city-ask-button", "🏙 Choose my city", "🏙 Выбрать город"),
         ("next-not-now", "Not now", "Не сейчас"),  # noqa: RUF001
         (
             "city-ask",
-            "📍 Which city do you live in? Your days and reminders follow its clock.",
-            "📍 В каком городе ты живёшь? Дни и напоминания идут по его часам.",  # noqa: RUF001
+            "🏙 Which city do you live in? Your days and reminders follow its clock.",
+            "🏙 В каком городе ты живёшь? Дни и напоминания идут по его часам.",  # noqa: RUF001
         ),
         (
             "settings-city-later",
@@ -906,7 +908,7 @@ def test_ui06_stage6_labels(key: str, en: str, ru: str) -> None:
         (
             "ru",
             "🧘 Практика",
-            "Это сообщение с прошлого дня. На какой день записать: 🧘 Практика?",  # noqa: RUF001
+            "Это сообщение за прошлый день. На какой день записать: 🧘 Практика?",  # noqa: RUF001
         ),
     ],
 )
@@ -924,10 +926,19 @@ def test_the_city_question_promises_days_and_reminders_not_moon_days() -> None:
 
 
 def test_the_prompt_stays_neutral() -> None:
-    # Spec §7: "Practice or rest? Both go in your log.", never "Did you practice today?".
-    text = FluentTranslator().t("en", "start-prompt", day="Today, Mon, Nov 16")
+    # Spec §7: "Practice or rest? Both go in your log.", never "Did you practice today?";
+    # stage 6 (polish): it names what Other… holds.
+    t = FluentTranslator()
+    text = t.t("en", "start-prompt", day="Today, Mon, Nov 16")
+    ru = t.t("ru", "start-prompt", day="Сегодня, пн, 16 нояб.")
 
-    assert text == "Today, Mon, Nov 16\nPractice or rest? Both go in your log."
+    assert text == (
+        "Today, Mon, Nov 16\n"
+        "Practice or rest? Both go in your log. Moon day, sick or travel: Other…"
+    )
+    assert ru.endswith("Лунный день, болезнь, дорога — в «Другое…».")
+    assert t.t("en", "today-other") == "Other…"
+    assert t.t("ru", "today-other") == "Другое…"
 
 
 @pytest.mark.parametrize("locale", ["en", "ru"])

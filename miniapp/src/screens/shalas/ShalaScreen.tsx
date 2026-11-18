@@ -71,6 +71,8 @@ const canEditRoles = (me: Me, target: Shala["staff"][number]) =>
     : grantable(me).length > 0 && (me.owner || !target.roles.includes("admin"));
 /** What an owner may hold beside owning: never Manager (they already manage). */
 const OWN_ROLES: ShalaRole[] = ["teacher", "assistant", "office"];
+/** `can_be_asked_as_teacher`: on the staff with the Teacher role (students can pick them). */
+const teaches = (me: Me) => isStaff(me) && me.roles.includes("teacher");
 const canRemoveStudents = (me: Me) =>
   isStaff(me) && (me.owner || me.roles.includes("admin") || me.roles.includes("office"));
 
@@ -869,7 +871,10 @@ function Students({ shala, onInvite }: { shala: Shala; onInvite?: (() => void) |
       {/* C3 (UI-06 stage 6): staff who only read the names learn whose students they are, and
           how their own students reach them. */}
       {open && !canRemoveStudents(shala.me) && page && page.students.length > 0 && (
-        <Localized id="shala-students-not-yours">
+        <Localized
+          id="shala-students-not-yours"
+          vars={{ teacher: teaches(shala.me) ? "yes" : "no" }}
+        >
           <p className="hint" />
         </Localized>
       )}
@@ -1091,8 +1096,11 @@ function Leave({
   const remove = useRemoveShalaMember(shala.id);
   if (shala.me.owner || !myId) return null; // Q102: the owner can't leave
   const leave = async () => {
+    const ask = l10n.getString("shala-leave-ask", { shala: short(shala.name) });
+    // A teacher's own students are theirs, not the shala's: say they stay.
+    const own = teaches(shala.me) ? ` ${l10n.getString("shala-leave-own-students")}` : "";
     const ok = await confirmDestructive(
-      l10n.getString("shala-leave-ask", { shala: short(shala.name) }),
+      ask + own,
       l10n.getString("shala-leave-yes"),
       l10n.getString("delete-cancel"),
     );

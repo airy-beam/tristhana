@@ -25,6 +25,7 @@ const telegram = vi.hoisted(() => ({
   back: vi.fn() as () => void,
   confirmDestructive: vi.fn<(message: string, ok: string, cancel: string) => Promise<boolean>>(),
   confirmAction: vi.fn<(message: string, ok: string, cancel: string) => Promise<boolean>>(),
+  openLink: vi.fn<(url: string) => void>(),
 }));
 const { confirmDestructive, confirmAction } = telegram;
 
@@ -36,6 +37,7 @@ vi.mock("../../telegram", () => ({
   },
   useBackShown: vi.fn(() => false),
   backButtonAvailable: vi.fn(() => true),
+  openLink: telegram.openLink,
   markReady: vi.fn(),
   useMainButton: vi.fn(),
   useSettingsButton: (open: () => void) => {
@@ -427,6 +429,18 @@ describe("the list", () => {
     await screen.findByRole("button", { name: /Maria/ });
     expect(screen.getAllByLabelText("🧘 Practiced")).toHaveLength(1);
     expect(screen.getAllByLabelText("😌 Rest day")).toHaveLength(1);
+  });
+
+  test("ends with the guide's page on inviting students", async () => {
+    stubApi();
+
+    await openList();
+    await screen.findByRole("button", { name: /Maria/ });
+    fireEvent.click(screen.getByRole("button", { name: "📖 Guide" }));
+
+    expect(telegram.openLink).toHaveBeenLastCalledWith(
+      "https://tristhana.app/teachers/invite-students/",
+    );
   });
 
   test("has the title and the local time note", async () => {

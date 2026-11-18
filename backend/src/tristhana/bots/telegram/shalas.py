@@ -7,8 +7,9 @@ other students.
 """
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Sequence
-from datetime import date, datetime, timedelta
+from datetime import date
 from typing import TYPE_CHECKING
 from urllib.parse import quote, urlencode
 from uuid import UUID
@@ -27,6 +28,7 @@ from tristhana.application.policies import (
     NotFound,
     Principal,
     can_announce_to_shala,
+    can_be_asked_as_teacher,
     can_edit_shala,
     can_manage_schedule,
     can_remove_staff,
@@ -83,7 +85,10 @@ CLASS_LINES = 12  # the Classes block on the card, then "…" (the rest is in th
 DASH = "\u2013"  # en dash: Mon-Fri, 06:00-09:30
 QR_FILE = "tristhana-shala.png"
 QR_TIMEOUT_S = 10
+MINUTES_PER_DAY = 24 * 60
 _ROLE_ORDER = (ShalaRole.TEACHER, ShalaRole.ASSISTANT, ShalaRole.OFFICE, ShalaRole.ADMIN)
+
+log = logging.getLogger(__name__)
 
 
 async def _given[T](value: T) -> T:
@@ -435,7 +440,7 @@ class ShalaScreens:
                 return self._t.t(locale, "remind-weekday", d=d)
 
             days = ", ".join(day(a) if a == b else f"{day(a)}{DASH}{day(b)}" for a, b in runs)
-        end = datetime.combine(today, c.start) + timedelta(minutes=c.minutes)
+        ends = (c.start.hour * 60 + c.start.minute + c.minutes) % MINUTES_PER_DAY
         parts = [
             self._t.t(
                 locale,
@@ -443,7 +448,7 @@ class ShalaScreens:
                 **{"class": f"{name} {c.title}" if c.title else name},
                 days=days,
                 start=f"{c.start:%H:%M}",
-                end=f"{end:%H:%M}",
+                end=f"{ends // 60:02d}:{ends % 60:02d}",
             )
         ]
         teacher = next((s for s in card.staff if s.id == c.teacher_id), None)
@@ -516,6 +521,9 @@ class ShalaScreens:
             return await self._h.classes.classes.execute(principal, shala)
         except (NotAllowed, NotFound):
             return None
+        except Exception:  # an optional block: the card shows without it
+            log.exception("shala card: the classes read failed")
+            return None
 
     # Students (staff only)
 
@@ -557,7 +565,9 @@ class ShalaScreens:
             text = self._t.t(locale, "shala-students", n=found.total)  # type: ignore[arg-type]
             if not removes:  # names only: nothing to tap, and whose students they are
                 names = "\n".join([text, *(self._name(locale, s.name) for s in found.students)])
-                text = f"{names}\n\n{self._t.t(locale, 'shala-students-not-yours')}"
+                teacher = "yes" if can_be_asked_as_teacher(found.me) else "no"
+                hint = self._t.t(locale, "shala-students-not-yours", teacher=teacher)
+                text = f"{names}\n\n{hint}"
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def ask_remove(self, principal: Principal, shala: UUID, target: UUID) -> Screen:
@@ -612,6 +622,8 @@ class ShalaScreens:
             [self._button(locale, "log-back", cb.on_shala("c", shala))],
         ]
         text = self._t.t(locale, "shala-leave-ask", shala=card.name)
+        if can_be_asked_as_teacher(card.me):  # their own students are not the shala's
+            text = f"{text} {self._t.t(locale, 'shala-leave-own-students')}"
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def leave(self, principal: Principal, shala: UUID) -> Screen:
