@@ -9,9 +9,9 @@ What is private, what a teacher sees, how to download everything you logged, and
 ## Private by default
 
 - Your log is yours. Without a teacher on your list, nobody else sees any of it.
-- Diary notes and 🌸 days are stored encrypted.
-- Check-ins, diary notes, badges and the reason for a rest day are never shown to anyone.
-- A teacher you add sees your name, practice or rest from the day you add them, your practice length and your last asana, and a short note if nothing shows for a while. A shala sees your name and your class attendance marks.
+- Notes and 🌸 days are stored encrypted.
+- Your answers about how you feel, your notes, badges and the reason for a rest day are never shown to anyone.
+- A teacher you add sees your name, practice or rest from the day you add them, how far you practice and your last asana, and a short note if nothing shows for a while. A shala sees your name and your class attendance marks.
 
 More detail: [My teacher](../my-teacher/) and [Privacy in plain words](../../reference/privacy/). The app says it in short under the gear → :ftl[settings-more-button] → :ftl[settings-privacy-open].
 
@@ -28,7 +28,7 @@ The bot sends one ZIP file to your chat. Inside are a `data.json` for apps and C
 
 On the same screen, tap :ftl[delete-button] and confirm.
 
-- Everything is deleted right away: days, practices, check-ins, diary notes, your asanas, teacher and student lists, settings.
+- Everything is deleted right away: days, practices, your answers about how you feel, notes, your asanas, teacher and student lists, settings.
 - It can't be undone. Download your data first if you want to keep it.
 - Copies in backups disappear within 30 days.
 - Messages in your Telegram chat stay until you clear the chat.

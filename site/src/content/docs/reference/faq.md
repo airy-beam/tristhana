@@ -28,17 +28,17 @@ Moon days depend on the place, so two cities can differ by a day. Your dates als
 
 ## The times look wrong
 
-Tristhana shows every time in your own time zone, and it needs your city for that. Open :ftl[menu-open] → :ftl[menu-settings] in the bot, or the gear in the app, and choose your city in the second row. See [Settings and your city](../../students/settings/).
+Tristhana shows every time by your city's clock, so it needs to know your city. Open :ftl[menu-open] → :ftl[menu-settings] in the bot, or the gear in the app, and choose your city in the second row. See [Settings and your city](../../students/settings/).
 
 ## My reminders stopped coming
 
 - Check that your city is set: reminders start once it is.
-- Practice reminders skip moon days, your days off and days you have already logged.
+- Practice reminders don't come on moon days, on your days off or on days you have already logged.
 - After ten practice reminders in a row with nothing logged, the bot sends one note and turns them off, so it doesn't nag. Turn them on again under :ftl[menu-help] → :ftl[help-reminder].
 
 ## What does my teacher see?
 
-Your name, practice or rest from the day you added them, your practice length and your last asana. After about three weeks with nothing to show, they see one short line saying so. They can also mark a new asana for you, and you can undo it. They never see your check-ins, diary notes or the reason for a rest. See [My teacher](../../students/my-teacher/).
+Your name, practice or rest from the day you added them, how far you practice and your last asana. After about three weeks with nothing to show, they see one short line saying so. They can also mark a new asana for you, and you can undo it. They never see how you feel, your notes or the reason for a rest. See [My teacher](../../students/my-teacher/).
 
 ## How do I pick my teacher at my shala?
 

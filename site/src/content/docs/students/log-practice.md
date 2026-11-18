@@ -10,7 +10,7 @@ Log today, yesterday or any earlier day, and add as much detail as you like: whe
 
 ### In the bot
 
-1. Send :cmd[start], or tap :ftl[menu-open] → :ftl[menu-today].
+1. Tap :ftl[menu-open] → :ftl[menu-today].
 2. Tap how the day went: :ftl[status-practiced], :ftl[status-rest], or :ftl[today-other] for a moon day and everything else.
 3. After a practice, tap :ftl[practice-done]. The bot shows what it saved.
 
@@ -51,9 +51,9 @@ Under a saved day, tap :ftl[log-change]. Then pick another status, or tap :ftl[l
 - A short practice counts. Sun salutations, standing and finishing are a practice.
 - :ftl[status-skipped] is an honest answer, not a mark against you. Days you don't log aren't counted anywhere.
 - One practice per day.
-- If dates look a day off, open the app once so the bot learns your time zone.
+- If dates look a day off, open the app once so the bot learns your city's time.
 
 ## Next
 
 - [Rest days, moon days and 🌸](../rest-and-moon-days/)
-- [My asanas](../my-asanas/): log your length in fewer taps.
+- [My asanas](../my-asanas/): say how far you went in fewer taps.

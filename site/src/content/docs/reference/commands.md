@@ -13,7 +13,7 @@ The menu next to the message field lists five.
 | Command        | What it does                                                          |
 | -------------- | --------------------------------------------------------------------- |
 | :cmd[start]    | Today: practice or rest? The first time, the bot asks where to start. |
-| :cmd[schedule] | Classes of all your shalas, shown in your time zone.                  |
+| :cmd[schedule] | :ftl[menu-classes]: this week's classes at all your shalas.           |
 | :cmd[moon]     | Upcoming moon days and their reminders.                               |
 | :cmd[settings] | Language, city, day off, reminders and the rest.                      |
 | :cmd[help]     | The things people ask most, one tap each, and a link to this guide.   |

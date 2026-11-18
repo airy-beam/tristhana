@@ -8,31 +8,31 @@ What Tristhana stores, who can see it, and what is encrypted.
 
 ## What Tristhana stores
 
-- What you log: days, practices, check-ins, diary notes, your asanas.
+- What you log: days, practices, your answers about how you feel, notes, your asanas.
 - Your Telegram name and language, and the name you choose in the settings.
-- Your settings: city and time zone, day off, reminders.
+- Your settings: your city and its time, day off, reminders.
 - Your lists: teachers, students and shalas, and your attendance marks.
 - Requests to a teacher at a shala: who picked whom, and on which day. They are kept for 30 days and are in the file you download.
 
-A location you send to the bot is used once to find your time zone and isn't stored.
+A location you send to the bot is used once to find the local time there and isn't stored.
 
 ## What is encrypted
 
-Diary notes and 🌸 days are stored encrypted. In the database a 🌸 day looks like any other rest day, and neither can be read without the application's key. For a rest over several days (sick, traveling or 🌸) the reason is encrypted too.
+Notes and 🌸 days are stored encrypted. In the database a 🌸 day looks like any other rest day, and neither can be read without the application's key. For a rest over several days (sick, traveling or 🌸) the reason is encrypted too.
 
-Other things you log, such as a single sick or travel day, a moon day and check-ins, are stored without this extra encryption. Nobody else in Tristhana can see them.
+Other things you log, such as a single sick or travel day, a moon day and how you feel, are stored without this extra encryption. Nobody else in Tristhana can see them.
 
 ## Who sees what
 
-|                                   | You | Your teacher | Shala team |
-| --------------------------------- | --- | ------------ | ---------- |
-| Your name                         | ✓   | ✓            | ✓          |
-| Practice or rest, practice length | ✓   | ✓            | –          |
-| Your last asana                   | ✓   | ✓            | –          |
-| The reason for a rest             | ✓   | –            | –          |
-| Check-ins and diary notes         | ✓   | –            | –          |
-| Badges, counts and statistics     | ✓   | –            | –          |
-| Marks for classes you came to     | ✓   | –            | ✓          |
+|                               | You | Your teacher | Shala team |
+| ----------------------------- | --- | ------------ | ---------- |
+| Your name                     | ✓   | ✓            | ✓          |
+| Practice or rest, how far     | ✓   | ✓            | –          |
+| Your last asana               | ✓   | ✓            | –          |
+| The reason for a rest         | ✓   | –            | –          |
+| How you feel, and notes       | ✓   | –            | –          |
+| Badges, counts and statistics | ✓   | –            | –          |
+| Marks for classes you came to | ✓   | –            | ✓          |
 
 - A teacher sees your practice and rest only from the day you add them. Earlier days stay with you.
 - If nothing shows for about three weeks, your teacher sees one short line saying just that, with no reason.

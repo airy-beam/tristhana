@@ -1,14 +1,14 @@
 ---
 title: "My shala: schedule, calendar, attendance"
-description: "Join a shala, see its classes in your own time zone, add them to your calendar and mark the classes you came to."
+description: "Join a shala, see its classes in your own city's time, add them to your calendar and mark the classes you came to."
 features: [SC-01, SC-03, SC-05, SC-06, ID-07, UI-06]
 ---
 
-Join a shala, see its classes in your own time zone, add them to your calendar and mark the classes you came to.
+Join a shala, see its classes in your own city's time, add them to your calendar and mark the classes you came to.
 
 ## Join
 
-1. Your shala shares a link or a QR code.
+1. Your shala sends you a link or shows a QR code.
 2. Open it. The bot shows the shala and, in short, what joining means. :ftl[consent-details] has the full text.
 3. Tap :ftl[shala-join-yes].
 
@@ -35,12 +35,12 @@ What comes next, and how to take a request back: [My teacher](../my-teacher/).
 
 ## Your schedule
 
-- **In the bot:** :ftl[menu-open] → :ftl[menu-classes] (or :cmd[schedule]) shows this week's classes at all your shalas.
+- **In the bot:** :ftl[menu-open] → :ftl[menu-classes] shows this week's classes at all your shalas.
 - **In the app:** on the :ftl[tab-shala] tab, tap :ftl[my-schedule-open]{from=app} for the whole week, and the weeks after it. Today's class is also a line on the :ftl[tab-today] tab.
 
 ![This week's classes in the bot](../../../assets/shots/en/bot-schedule.webp)
 
-Times are shown in your own time zone, with its name. If a shala is in another zone, you see both times. A 🌙 next to a date is one of your moon days.
+Times are shown by your city's clock, with the city named. If a shala keeps another city's time, you see both times. A 🌙 next to a date is one of your moon days.
 
 ![My schedule in the app](../../../assets/shots/en/app-schedule.webp)
 

@@ -10,7 +10,7 @@ Tristhana has two parts that share one log. The bot is for quick taps and remind
 
 It's the chat with [@tristhana_bot](https://t.me/tristhana_bot). Use it to:
 
-- log today in two taps (:cmd[start] opens today);
+- log today in two taps;
 - get a gentle daily reminder and a heads-up before moon days;
 - see the next moon days and your classes;
 - mark a new asana;
@@ -25,7 +25,7 @@ You don't need to type commands. :ftl[menu-open] is the last button under today'
 It opens inside Telegram: tap the button next to the message field, or :ftl[menu-open] → :ftl[menu-practice] in the bot. It has three tabs at the bottom:
 
 - :ftl[tab-today]: log the day in one tap, and see your class and the next moon day;
-- :ftl[tab-practice]: this month's calendar, earlier days, your year, badges, check-ins over time and your asanas;
+- :ftl[tab-practice]: this month's calendar, earlier days, your year, badges, how you've felt over the year and your asanas;
 - :ftl[tab-shala]: your shalas and their schedule, your teachers and your students. What there is to do comes first, like picking a teacher or answering students who picked you.
 
 The gear :ftl[settings-open] in the top corner opens the settings: the same five rows as in the bot, from language to :ftl[settings-more-button].

@@ -9,7 +9,7 @@ Set up your shala in a few minutes and invite the other teachers and helpers.
 ## Create your shala
 
 1. In the bot, open :ftl[menu-open] → :ftl[menu-teach] → :ftl[welcome-path-shala] and tap :ftl[shala-create]: the app opens straight on the form. Already have students or a shala? Then that Menu row is gone. In the app, open the :ftl[tab-shala] tab and tap :ftl[shala-start-shala], under :ftl[shala-starts-title] at the bottom.
-2. Fill in :ftl[shala-name-label] and :ftl[shala-city-label]. The city sets the shala's time zone and its moon days.
+2. Fill in :ftl[shala-name-label] and :ftl[shala-city-label]. The city sets the shala's clock and its moon days.
 3. Tap :ftl[shala-create-submit]. Your shala's screen opens.
 
 ![The form for a new shala in the app: a name and a city](../../../assets/shots/en/app-shala-new.webp)
@@ -38,7 +38,7 @@ In the bot, open :ftl[menu-open] → :ftl[menu-teacher] and tap the shala's name
 
 ![The shala card in the bot](../../../assets/shots/en/bot-shala.webp)
 
-The card shows the place and the shala's time, the city for moon days, the team, the day off and a pinned announcement if there is one. In the bot, a teacher whose answer students are waiting for also sees :ftl[request-waiting-open]{count=2} there. In the app, those people are at the top of the :ftl[tab-shala] tab.
+The card shows the place (and the shala's time, if it differs from yours), the city for moon days, the team, the day off and a pinned announcement if there is one. In the bot, a teacher whose answer students are waiting for also sees :ftl[request-waiting-open]{count=2} there. In the app, those people are at the top of the :ftl[tab-shala] tab.
 
 ## Invite your team
 

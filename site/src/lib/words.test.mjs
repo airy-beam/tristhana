@@ -210,16 +210,18 @@ describe("sameKeyDifferences", () => {
   });
 });
 
-// The real files. Today's offenders wait in `pending` (slice 1); slices 2–4 work through them, and
-// each entry that no longer matches must go, so the list only shrinks.
+// The real files. A word is fixed where it is, or kept with an `except` and its reason; there is
+// no waiting list (slice 1 had one, `pending`, emptied by the end of UI-06 stage 5).
 describe("one word per thing (ADR-0050)", () => {
   const glossary = readGlossary();
   const rules = rulesOf(glossary);
   const units = productUnits();
-  const pending = glossary.pending ?? {};
   const show = (/** @type {{ file: string, key?: string, word: string }} */ o) =>
     `${o.file}${o.key ? ` ${o.key}` : ""}: "${o.word}"`;
-  const waiting = new Set((pending.words ?? []).map(show));
+
+  it("has no waiting list: every word is fixed or kept with a reason", () => {
+    expect(glossary.pending ?? {}).toEqual({});
+  });
 
   it("describes every concept, with a reason for every exception", () => {
     for (const concept of glossary.concepts) {
@@ -251,19 +253,12 @@ describe("one word per thing (ADR-0050)", () => {
     }
   });
 
-  it("no retired or banned word in the bot or the Mini App, outside pending", () => {
-    const found = wordsInProducts(rules, units).map(show);
-    expect(found.filter((o) => !waiting.has(o))).toEqual([]);
+  it("no retired or banned word in the bot or the Mini App", () => {
+    expect(wordsInProducts(rules, units).map(show)).toEqual([]);
   });
 
-  it("no retired or banned word in the guides, outside pending", () => {
-    const found = wordsInGuides(rules).map(show);
-    expect(found.filter((o) => !waiting.has(o))).toEqual([]);
-  });
-
-  it("pending lists only words still there: remove an entry once it is fixed", () => {
-    const found = new Set([...wordsInProducts(rules, units), ...wordsInGuides(rules)].map(show));
-    expect([...waiting].filter((o) => !found.has(o))).toEqual([]);
+  it("no retired or banned word in the guides", () => {
+    expect(wordsInGuides(rules).map(show)).toEqual([]);
   });
 
   it("a key both products define reads the same, unless the glossary says why", () => {
@@ -274,21 +269,14 @@ describe("one word per thing (ADR-0050)", () => {
         (/** @type {any} */ e) =>
           e.key === key.split(".")[0] && (e.locale === undefined || e.locale === locale),
       );
-    const later = new Set(
-      (pending["same-key"] ?? []).map((/** @type {any} */ e) => `${e.key} (${e.locale})`),
-    );
     const differ = sameKeyDifferences();
     const found = differ.filter((d) => !ok(d.key, d.locale)).map((d) => `${d.key} (${d.locale})`);
     const shown = differ.map(
       (d) => `${d.key} (${d.locale}) ${JSON.stringify(d.args)}: bot "${d.bot}" · app "${d.app}"`,
     );
-    expect(
-      found.filter((k) => !later.has(k)),
-      shown.join("\n"),
-    ).toEqual([]);
-    // Each allowance and each pending entry must still be needed, in each language it covers:
-    // an allowance for both languages whose texts now agree in one must name the other.
-    expect([...later].filter((k) => !found.includes(k))).toEqual([]);
+    expect(found, shown.join("\n")).toEqual([]);
+    // Each allowance must still be needed, in each language it covers: an allowance for both
+    // languages whose texts now agree in one must name the other.
     const differing = new Set(differ.map((d) => `${d.key.split(".")[0]} (${d.locale})`));
     expect(
       allowed.flatMap((/** @type {any} */ e) =>

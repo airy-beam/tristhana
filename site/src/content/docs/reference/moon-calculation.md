@@ -39,4 +39,4 @@ Sometimes the full or new moon lunar day begins after one sunrise and ends befor
 
 ## If your shala says something else
 
-Follow your teacher. Shalas sometimes observe a moon day a day earlier or later, and a calculation can't know that. :cmd[moon] lets you choose another city, and a shala can hold or cancel classes on any date.
+Follow your teacher. Shalas sometimes observe a moon day a day earlier or later, and a calculation can't know that. :ftl[menu-moon] in the bot lets you choose another city, and a shala can hold or cancel classes on any date.

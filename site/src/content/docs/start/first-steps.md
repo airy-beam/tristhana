@@ -21,10 +21,10 @@ _Pictures of the bot are drawn from its real messages._
 
 ## Good to know
 
-- **Three taps today, two from tomorrow.** The first question comes only once. After that :cmd[start] opens today straight away.
+- **Three taps today, two from tomorrow.** The first question comes only once. After that the bot opens on today straight away.
 - **No sign-up, no commands to learn.** Your account is created the moment you start the bot. Everything else is behind :ftl[menu-open].
 - **Language.** The bot starts in your Telegram language. The button with the other language's name on the first screen switches it, and you can change it later in :ftl[menu-settings].
-- **Your time zone.** Open the app once: :ftl[menu-open] → :ftl[menu-practice]. The app tells the bot your phone's time zone, so your days land on the right date.
+- **Your city's time.** Open the app once: :ftl[menu-open] → :ftl[menu-practice]. The app tells the bot your phone's time, so your days land on the right date.
 
 ## The app's three tabs
 

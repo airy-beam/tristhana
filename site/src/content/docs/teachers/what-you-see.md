@@ -1,10 +1,10 @@
 ---
 title: "What you see, and what you never see"
-description: "Your students list and each student's card. Diary notes, check-ins and the reason for a rest always stay with the student."
+description: "Your students list and each student's card. Notes, how they feel and the reason for a rest always stay with the student."
 features: [ST-06, WH-02, ID-07, UI-06]
 ---
 
-Your students list and each student's card. Diary notes, check-ins and the reason for a rest always stay with the student.
+Your students list and each student's card. Notes, how they feel and the reason for a rest always stay with the student.
 
 ## Your students
 
@@ -23,9 +23,9 @@ Tap a name to open the card.
 ![A student's card in the bot: the last asana and the last 7 days](../../../assets/shots/en/bot-student-card.webp)
 
 - **The last asana**, as the student marked it in their own log.
-- **The last 7 days**: practice or rest, and for a practice its length, for example Full Primary.
+- **The last 7 days**: practice or rest, and for a practice how far it went, for example Full Primary.
 
-Days follow each student's own time zone, so their "today" may not be yours.
+Days follow the clock of each student's own city, so their "today" may not be yours.
 
 ![The same card in the app](../../../assets/shots/en/app-student-card.webp)
 
@@ -37,7 +37,7 @@ After about three weeks with nothing to show, the card adds one line: :ftl[stude
 
 ## What you never see
 
-- Check-ins and diary notes.
+- Their notes and their answers about how they feel.
 - The reason for a rest. A moon day, a day off, travel, a sick day and 🌸 all look the same to you: 😌 rest.
 - Any day before the date they added you or picked you at a shala, even if they fill it in later.
 - Anything from the log of someone who picked you, until you confirm. You see their name and their shala.
@@ -49,7 +49,7 @@ There is no setting that shows you more.
 ## Good to know
 
 - The card is for reading. You can't change a student's log. The one thing you can add is a new asana: see the next page.
-- A shala's team sees students' names and nothing from their logs. To see a student's card, confirm them when they pick you at the shala, or share your own teacher link with them.
+- A shala's team sees students' names and nothing from their logs. To see a student's card, confirm them when they pick you at the shala, or send them your own teacher link.
 - A student can remove you from their list at any time. You don't get a message.
 
 ## Next

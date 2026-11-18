@@ -8,6 +8,8 @@ New things in Tristhana, newest first.
 
 ## November 2026
 
+- **The same simple words in the bot and the app.** :ftl[diary-button] (was Diary), :ftl[checkin-edit] (was Check-in), :ftl[trends-open] (was Check-ins over time), :ftl[practice-length]{from=bot} and :ftl[practice-duration]{from=bot} (were Length and Duration), :ftl[menu-classes] (was Classes) and :ftl[invite-send] (was Share). Times name your city instead of a time zone.
+- **The bot points to buttons, not commands.** Its messages say where to tap, for example :ftl[menu-open] → :ftl[menu-moon]. The commands still work as shortcuts: see [All bot commands](../commands/).
 - **What there is to do comes first** on the :ftl[tab-shala] tab: :ftl[request-open]{from=app} if you have no teacher yet, or, if you teach, the people waiting for your answer. Your students are one row, :ftl[link-students-open]{from=app}.
 - **Pick your teacher in the app too**, in the same words as the bot, on the :ftl[tab-shala] tab or the shala's card. :ftl[request-withdraw-short] takes a request back.
 - **:ftl[ann-announce] on a shala's card in the bot** opens that shala in the app, with the form on top.

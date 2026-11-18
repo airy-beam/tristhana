@@ -1,10 +1,10 @@
 ---
 title: "Invite your students"
-description: "Two ways to connect with a student: share your own link, or say yes when they pick you at your shala."
+description: "Two ways to connect with a student: send your own link, or say yes when they pick you at your shala."
 features: [ID-03, ID-04, ID-07, UI-06]
 ---
 
-Two ways to connect with a student: share your own link, or say yes when they pick you at your shala.
+Two ways to connect with a student: send your own link, or say yes when they pick you at your shala.
 
 ## Get your link
 
@@ -18,7 +18,7 @@ In the app the same link is on the :ftl[tab-shala] tab: tap :ftl[shala-start-inv
 
 ![The Shala tab in the app before anyone is on it, with Invite students and Shala and classes](../../../assets/shots/en/app-shala-empty.webp)
 
-There is no teacher account to apply for. If you teach, you share your link, and that's all.
+There is no teacher account to apply for. If you teach, you send your link, and that's all.
 
 ## What your student does
 

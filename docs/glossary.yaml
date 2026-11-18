@@ -20,7 +20,7 @@
 # `except` (per concept, and under `banned`): `key` (optionally `source: bot | app`) or `page`
 # (as below), always with a `reason`.
 #
-# File names in `pending` and `except`:
+# File names in `except`:
 #   bot/<locale>/…     backend/src/tristhana/infrastructure/i18n/locales/<locale>/…
 #   app/<locale>/…     miniapp/src/locales/<locale>/…
 #   guides/…           site/src/content/docs/… (Russian pages under guides/ru/…)
@@ -395,54 +395,3 @@ same-key-different-text:
     reason: The bot's heading names the shala and the week; the app shows both on the card.
   - key: shala-staff-title
     reason: The bot lists the people on the heading's line; the app lists them under it.
-
-# Today's offenders (slice 1). Slices 2–4 work through them; slice 4 adds "pending is empty".
-pending:
-  words:
-    # guides EN: 28
-    - { file: guides/index.mdx, word: "diary" }
-    - { file: guides/index.mdx, word: "time zone" }
-    - { file: guides/reference/commands.md, word: "time zone" }
-    - { file: guides/reference/faq.md, word: "check-ins" }
-    - { file: guides/reference/faq.md, word: "diary" }
-    - { file: guides/reference/faq.md, word: "time zone" }
-    - { file: guides/reference/privacy.md, word: "check-ins" }
-    - { file: guides/reference/privacy.md, word: "diary" }
-    - { file: guides/reference/privacy.md, word: "time zone" }
-    - { file: guides/staff/classes.md, word: "time zone" }
-    - { file: guides/staff/create-shala.md, word: "time zone" }
-    - { file: guides/start/bot-and-app.md, word: "check-ins" }
-    - { file: guides/start/first-steps.md, word: "time zone" }
-    - { file: guides/students/check-in-and-diary.md, word: "check-in" }
-    - { file: guides/students/check-in-and-diary.md, word: "check-ins" }
-    - { file: guides/students/check-in-and-diary.md, word: "diary" }
-    - { file: guides/students/log-practice.md, word: "time zone" }
-    - { file: guides/students/my-practice.md, word: "check-ins" }
-    - { file: guides/students/my-shala.md, word: "time zone" }
-    - { file: guides/students/my-teacher.md, word: "check-ins" }
-    - { file: guides/students/my-teacher.md, word: "diary" }
-    - { file: guides/students/reminders.md, word: "time zone" }
-    - { file: guides/students/settings.md, word: "time zone" }
-    - { file: guides/students/your-data.md, word: "check-ins" }
-    - { file: guides/students/your-data.md, word: "diary" }
-    - { file: guides/teachers/what-you-see.md, word: "check-ins" }
-    - { file: guides/teachers/what-you-see.md, word: "diary" }
-    - { file: guides/teachers/what-you-see.md, word: "time zone" }
-    # guides RU: 17
-    - { file: guides/ru/index.mdx, word: "дневника" }
-    - { file: guides/ru/reference/faq.md, word: "дневника" }
-    - { file: guides/ru/reference/faq.md, word: "часовом поясе" }
-    - { file: guides/ru/reference/privacy.md, word: "дневника" }
-    - { file: guides/ru/reference/privacy.md, word: "часовой пояс" }
-    - { file: guides/ru/staff/classes.md, word: "часовом поясе" }
-    - { file: guides/ru/start/first-steps.md, word: "часовой пояс" }
-    - { file: guides/ru/students/check-in-and-diary.md, word: "дневник" }
-    - { file: guides/ru/students/check-in-and-diary.md, word: "дневника" }
-    - { file: guides/ru/students/log-practice.md, word: "часовой пояс" }
-    - { file: guides/ru/students/my-shala.md, word: "часовом поясе" }
-    - { file: guides/ru/students/my-teacher.md, word: "дневника" }
-    - { file: guides/ru/students/reminders.md, word: "часовой пояс" }
-    - { file: guides/ru/students/settings.md, word: "часовой пояс" }
-    - { file: guides/ru/students/your-data.md, word: "дневника" }
-    - { file: guides/ru/teachers/what-you-see.md, word: "дневника" }
-    - { file: guides/ru/teachers/what-you-see.md, word: "часовому поясу" }
