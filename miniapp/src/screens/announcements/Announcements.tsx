@@ -24,6 +24,8 @@ import {
   haptics,
   useBackButton,
 } from "../../telegram";
+import { Field, Select, TextArea } from "../../ui/controls";
+import "./announcements.css";
 
 export const TEXT_MAX = 1000;
 type PinDays = 0 | 7 | 30;
@@ -148,11 +150,8 @@ function Compose({
         </p>
       )}
       <form className="announce-form" onSubmit={(e) => void submit(e)}>
-        <label className="label">
-          <Localized id="ann-text-label">
-            <span />
-          </Localized>
-          <textarea
+        <Field label={l10n.getString("ann-text-label")}>
+          <TextArea
             value={text}
             rows={6}
             onChange={(e) => {
@@ -160,17 +159,24 @@ function Compose({
               setSent(false);
             }}
             aria-invalid={tooLong}
-            aria-describedby="ann-count"
+            aria-describedby={
+              shala === null ? "ann-count ann-hint" : "ann-count ann-hint ann-hint-shala"
+            }
           />
-        </label>
-        <p id="ann-count" className={tooLong ? "hint small error" : "hint small"}>
-          {counter}
-        </p>
-        <label className="label">
-          <Localized id="ann-pin-label">
-            <span />
+          <p id="ann-count" className={tooLong ? "field-error count" : "field-hint count"}>
+            {counter}
+          </p>
+          <Localized id="ann-hint">
+            <p id="ann-hint" className="field-hint" />
           </Localized>
-          <select
+          {shala !== null && (
+            <Localized id="ann-hint-shala">
+              <p id="ann-hint-shala" className="field-hint" />
+            </Localized>
+          )}
+        </Field>
+        <Field label={l10n.getString("ann-pin-label")}>
+          <Select
             value={pin}
             onChange={(e) => {
               setPin(Number(e.target.value) as PinDays);
@@ -179,16 +185,8 @@ function Compose({
             <option value={0}>{l10n.getString("ann-pin-none")}</option>
             <option value={7}>{l10n.getString("ann-pin-week")}</option>
             <option value={30}>{l10n.getString("ann-pin-month")}</option>
-          </select>
-        </label>
-        <Localized id="ann-hint">
-          <p className="hint small" />
-        </Localized>
-        {shala !== null && (
-          <Localized id="ann-hint-shala">
-            <p className="hint small" />
-          </Localized>
-        )}
+          </Select>
+        </Field>
         {limited && (
           <Localized id="ann-limit">
             <p className="hint" role="alert" />
@@ -207,7 +205,7 @@ function Compose({
         <Localized id="ann-send">
           <button
             type="submit"
-            className="primary"
+            className="btn"
             disabled={send.isPending || length === 0 || tooLong || count === 0}
           />
         </Localized>
@@ -263,12 +261,12 @@ function SentList({ shala, locale }: { shala: string | null; locale: Locale }) {
               ].join(" · ")}
             </p>
             <p className="announcement-text clamp">{item.text}</p>
-            <div className="row">
+            <div className="ann-actions">
               {item.pinned_until ? (
                 <Localized id="ann-unpin">
                   <button
                     type="button"
-                    className="link"
+                    className="link tap"
                     onClick={() => {
                       pin.mutate({ id: item.id, days: 0 });
                     }}
@@ -278,7 +276,7 @@ function SentList({ shala, locale }: { shala: string | null; locale: Locale }) {
                 <Localized id="ann-pin-week">
                   <button
                     type="button"
-                    className="link"
+                    className="link tap"
                     onClick={() => {
                       pin.mutate({ id: item.id, days: 7 });
                     }}
@@ -286,7 +284,7 @@ function SentList({ shala, locale }: { shala: string | null; locale: Locale }) {
                 </Localized>
               )}
               <Localized id="ann-delete">
-                <button type="button" className="link danger" onClick={() => void del(item)} />
+                <button type="button" className="link tap danger" onClick={() => void del(item)} />
               </Localized>
             </div>
           </li>
@@ -452,12 +450,12 @@ function Moderate({ item }: { item: Announcement }) {
     if (ok) remove.mutate(item.id);
   };
   return (
-    <div className="row" aria-busy={pin.isPending || remove.isPending}>
+    <div className="ann-actions" aria-busy={pin.isPending || remove.isPending}>
       {item.pinned_until && (
         <Localized id="ann-unpin">
           <button
             type="button"
-            className="link"
+            className="link tap"
             onClick={() => {
               pin.mutate({ id: item.id, days: 0 });
             }}
@@ -465,7 +463,7 @@ function Moderate({ item }: { item: Announcement }) {
         </Localized>
       )}
       <Localized id="ann-delete">
-        <button type="button" className="link danger" onClick={() => void del()} />
+        <button type="button" className="link tap danger" onClick={() => void del()} />
       </Localized>
       {(pin.isError || remove.isError) && (
         <Localized id="feed-failed">

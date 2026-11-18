@@ -84,6 +84,11 @@ export function DateInput(props: InputProps) {
   return <input type="date" className="control" {...useWiring()} {...props} />;
 }
 
+/** Several lines of text, full width; grows only by the person's own drag (down). */
+export function TextArea(props: Omit<ComponentProps<"textarea">, "className">) {
+  return <textarea className="control" {...useWiring()} {...props} />;
+}
+
 export function Select(props: Omit<ComponentProps<"select">, "className">) {
   return <select className="control" {...useWiring()} {...props} />;
 }

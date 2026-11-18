@@ -1,0 +1,83 @@
+/* NT-03: the announcement composer, my sent list and the feed. Loaded with the lazy screen,
+   never with the first chunk. The fields are the shared `ui/` controls (`ui/form.css`); this
+   file only lays out what is the composer's own. Theme tokens only. */
+
+.announcements h1 {
+  margin-bottom: 4px;
+}
+
+.announcements h1 + p {
+  margin: 0 0 var(--space);
+}
+
+/* "120 / 1000" sits at the right under the text; what to write follows it. */
+.announce-form .count {
+  margin-top: 4px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.announce-form .field-hint + .field-hint {
+  margin-top: 8px;
+}
+
+.announce-form > .hint {
+  margin: 0 0 12px;
+}
+
+/* One announcement per entry, hairlines between them; no bullets. */
+.announcements-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.announcements-list > li {
+  padding: 12px 0;
+}
+
+.announcements-list > li + li {
+  border-top: 1px solid var(--c-line);
+}
+
+.card .announcements-list > li:first-child {
+  padding-top: 0;
+}
+
+.card .announcements-list > li:last-child {
+  padding-bottom: 0;
+}
+
+.announcements-list .hint {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+/* Plain text, relayed as written: its line breaks kept, a long link wrapped. */
+.announcement-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* My own sent text: the first four lines are enough to know it again. */
+.announcement-text.clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+/* Unpin and Delete: two quiet text buttons, apart, each a full tap target. */
+.ann-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 24px;
+  margin-top: 4px;
+}
+
+.ann-actions .hint {
+  flex-basis: 100%;
+}
