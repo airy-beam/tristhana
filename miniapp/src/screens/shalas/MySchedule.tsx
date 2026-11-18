@@ -19,7 +19,7 @@ import { lengthOf, useRowMarks, useTypeName } from "./classText";
 import { DASH, addDays, dateIn, dayName, hmOf, minutesOf, plain, timeIn } from "./scheduleText";
 import { lazyRetry } from "../../shell/lazyRetry";
 
-// The shala card is its own lazy chunk (as from Links).
+// The shala card is its own lazy chunk (as from the Shala tab).
 const ShalaScreen = lazyRetry(() => import("./ShalaScreen"));
 // SC-05: "🧘 Log this day" opens the day editor of the month calendar (its own chunk).
 const DayEditor = lazyRetry(async () => ({

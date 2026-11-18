@@ -1,7 +1,7 @@
 ---
 title: "My shala: schedule, calendar, attendance"
 description: "Join a shala, see its classes in your own time zone, add them to your calendar and mark the classes you came to."
-features: [SC-01, SC-03, SC-05, SC-06, ID-07]
+features: [SC-01, SC-03, SC-05, SC-06, ID-07, UI-06]
 ---
 
 Join a shala, see its classes in your own time zone, add them to your calendar and mark the classes you came to.
@@ -24,8 +24,12 @@ Right after you join, the bot asks :ftl[request-ask] and shows the shala's teach
 ![The bot asking who your teacher is, with the shala's teachers to pick from](../../../assets/shots/en/bot-ask-teacher.webp)
 
 - Until your teacher confirms, they see nothing from your log.
-- Not sure yet? Tap :ftl[invite-decline]. The question stays on the shala's card, under :ftl[request-open]. It is there too if you joined a while ago.
+- Not sure yet? Tap :ftl[invite-decline]. The question stays on the shala's card, under :ftl[request-open]{from=bot}. It is there too if you joined a while ago.
 - No question? Then there is nobody to pick at this shala right now.
+
+In the app, while you have no teacher, :ftl[request-open]{from=app} is the first row of the :ftl[tab-shala] tab. It asks the same question.
+
+![The Shala tab in the app for someone with no teacher yet: Pick a teacher first, then My schedule and the shala](../../../assets/shots/en/app-shala-pick.webp)
 
 What comes next, and how to take a request back: [My teacher](../my-teacher/).
 

@@ -2,7 +2,9 @@
 student's side with no state and no date (a quiet "no" serialises exactly as waiting), the
 teacher's waiting list with `as_of`, approve / decline / reopen as 204, 404 `request_gone`
 identical for every reason, 409 `list_full`, approve-all honouring `as_of`, ids that are no
-capability, `no-store`, and the OpenAPI contract.
+capability, `no-store`, and the OpenAPI contract. Asking from the app (UI-06 stage 4B §8,
+ADR-0049): the choices and the ask, which names its consent and never tells a "no" from
+silence.
 
 A waiting or declined request grants nothing a link grants: the student is absent from
 `GET /me/students` and their card is 404 `not_linked`."""
@@ -11,23 +13,31 @@ import itertools
 import json
 import time
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
-from tests.fakes import InMemoryStorage
+from tests.fakes import FakeNotifier, InMemoryStorage
 from tests.shala_fakes import shala_storage
 from tests.teacher_link_fakes import add_person
 from tristhana.api.initdata import sign
 from tristhana.domain.accounts import Account, IdentityKey, IdentityProvider
 from tristhana.domain.shalas import ShalaRole
-from tristhana.domain.teacher_links import MAX_TEACHERS
-from tristhana.domain.teacher_requests import ANSWER_WITHIN, RequestState
+from tristhana.domain.teacher_links import MAX_STUDENTS, MAX_TEACHERS
+from tristhana.domain.teacher_requests import (
+    ANSWER_WITHIN,
+    MAX_ASKING,
+    AskState,
+    RequestConsent,
+    RequestState,
+)
 from tristhana.main import create_app
 from tristhana.settings import Settings
 
@@ -38,6 +48,7 @@ LINKS = "/api/v1/me/links"
 MINE = "/api/v1/me/teacher-requests"
 THEIRS = "/api/v1/me/student-requests"
 ALL = f"{THEIRS}/approve-all"
+CONSENT = RequestConsent.FIRST.value  # "request-1": what the app's picker showed
 GONE = (404, {"code": "request_gone"})
 A_WHILE = timedelta(hours=1)
 _ids = itertools.count(270_000)
@@ -59,13 +70,18 @@ def storage() -> InMemoryStorage:
 
 
 @pytest.fixture
-def api(storage: InMemoryStorage) -> Iterator[TestClient]:
+def notifier() -> FakeNotifier:
+    return FakeNotifier()
+
+
+@pytest.fixture
+def api(storage: InMemoryStorage, notifier: FakeNotifier) -> Iterator[TestClient]:
     settings = Settings(
         app_env="test",
         telegram_bot_token=SecretStr(TOKEN),
         telegram_bot_username=BOT,  # pyright: ignore[reportCallIssue]
     )
-    with TestClient(create_app(settings, storage)) as client:
+    with TestClient(create_app(settings, storage, notifier)) as client:
         yield client
 
 
@@ -149,6 +165,21 @@ class World:
         response = self.post(f"{THEIRS}/{student}/{action}")
         return response.status_code, response.json() if response.content else None
 
+    def choices(self, shala: UUID | None = None) -> Any:
+        return self.get(_choices_url(shala or self.shala))
+
+    def ask(self, teacher: UUID, shala: UUID | None = None, consent: str = CONSENT) -> Any:
+        body = {"shala_id": str(shala or self.shala), "teacher_id": str(teacher)}
+        return self.post(MINE, body | {"consent": consent})
+
+    def my_zone(self, zone: str) -> None:
+        accounts = self.storage.repo.accounts
+        accounts[self.me] = replace(accounts[self.me], timezone=zone)
+
+
+def _choices_url(shala: UUID) -> str:
+    return f"/api/v1/shalas/{shala}/teacher-choices"
+
 
 @pytest.fixture
 def world(api: TestClient, storage: InMemoryStorage) -> World:
@@ -156,6 +187,8 @@ def world(api: TestClient, storage: InMemoryStorage) -> World:
 
 
 ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
+    ("GET", _choices_url(uuid4()), None),
+    ("POST", MINE, {"shala_id": str(uuid4()), "teacher_id": str(uuid4()), "consent": CONSENT}),
     ("DELETE", f"{MINE}/{uuid4()}", None),
     ("GET", THEIRS, None),
     ("POST", f"{THEIRS}/{uuid4()}/approve", None),
@@ -667,6 +700,284 @@ def test_the_student_reads_nothing_of_the_teacher_before_the_yes(world: World) -
     }
 
 
+# Asking from the app (UI-06 stage 4B §8, ADR-0049): the choices and the ask
+
+
+NOT_FOUND = (404, {"code": "not_found"})
+NOT_ALLOWED = (403, {"code": "not_allowed"})
+RESULTS = {"created", "linked", "waiting", "recent", "too_many", "full"}
+
+
+def _answer(response: Any) -> tuple[int, Any]:
+    return response.status_code, response.json()
+
+
+def test_a_student_gets_the_teachers_to_ask_and_the_ones_they_wait_for(world: World) -> None:
+    world.i_study()
+    vera, anna, boris = (world.person(name) for name in ("Vera", "Anna", "Boris"))
+    for n, teacher in enumerate((vera, anna, boris)):  # Vera joined the staff first
+        at = world.joined + timedelta(minutes=n)
+        world.storage.shalas.add_staff(world.shala, teacher.id, ShalaRole.TEACHER, at=at)
+    world.asked(world.me, boris.id)
+
+    response = world.choices()
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {
+        "offer": [{"id": str(vera.id), "name": "Vera"}, {"id": str(anna.id), "name": "Anna"}],
+        "waiting": [{"id": str(boris.id), "name": "Boris"}],
+    }  # oldest staff first, not by name
+
+
+def test_choices_offer_nobody_who_is_no_teacher_or_already_mine(world: World) -> None:
+    world.i_study()
+    anna, linked = world.teacher("Anna"), world.teacher("Linked")
+    world.storage.teacher_links.add(world.me, linked.id)
+    for role in (ShalaRole.ASSISTANT, ShalaRole.ADMIN, ShalaRole.OFFICE):
+        world.storage.shalas.add_staff(world.shala, world.person(role.value).id, role)
+
+    body = world.choices().json()
+
+    assert body == {"offer": [{"id": str(anna.id), "name": "Anna"}], "waiting": []}
+
+
+def _nobody_to_ask(world: World, who: str) -> UUID:
+    if who == "staff":
+        world.i_teach()
+        world.teacher("Anna")
+        return world.shala
+    if who == "not a member":
+        world.teacher("Anna")
+        return world.shala
+    return uuid4()  # an unknown shala
+
+
+@pytest.mark.parametrize("who", ["staff", "not a member", "unknown shala"])
+def test_choices_are_one_404_for_everyone_but_a_student(world: World, who: str) -> None:
+    shala = _nobody_to_ask(world, who)
+
+    response = world.choices(shala)
+
+    assert _answer(response) == NOT_FOUND
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_asking_creates_a_request_and_tells_the_teacher_once(
+    world: World, notifier: FakeNotifier
+) -> None:
+    world.i_study()
+    anna = world.teacher("Anna")
+
+    first = world.ask(anna.id)
+    second = world.ask(anna.id)  # a double tap
+
+    assert _answer(first) == (200, {"result": "created"})
+    assert _answer(second) == (200, {"result": "waiting"})
+    assert first.headers["cache-control"] == second.headers["cache-control"] == "no-store"
+    assert world.state(world.me, anna.id) is RequestState.WAITING
+    assert len(notifier.asked) == 1  # awaited inside the request, as the bot's tap
+    [(_, asked)] = notifier.asked
+    assert (asked.student_id, asked.shala_name) == (world.me, "Ashtanga Almaty")
+    assert world.storage.teacher_links.rows == {}  # a request is not a link
+
+
+def test_the_named_consent_grants_the_quiet_note(world: World) -> None:
+    world.i_study()
+    anna = world.teacher("Anna")
+
+    world.ask(anna.id, consent="request-1")
+
+    assert world.requests.rows[(world.me, anna.id)].quiet_note_agreed is True
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"consent": "request-0"},  # unknown: a set of promises the server never made
+        {"consent": "Request-1"},
+        {"consent": True},
+        {"consent": None},
+        {"consent": ""},
+        {},  # no consent named: no tap agreed to anything
+        {"quiet_note_agreed": True},  # the client never sends a flag
+    ],
+)
+def test_a_consent_the_server_does_not_know_is_422_and_asks_nobody(
+    world: World, notifier: FakeNotifier, body: dict[str, Any]
+) -> None:
+    world.i_study()
+    anna = world.teacher("Anna")
+    sent = {"shala_id": str(world.shala), "teacher_id": str(anna.id)} | body
+
+    response = world.post(MINE, sent)
+
+    assert response.status_code == 422
+    assert world.requests.rows == {}
+    assert notifier.asked == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"shala_id": "nope", "teacher_id": str(uuid4()), "consent": CONSENT},
+        {"teacher_id": str(uuid4()), "consent": CONSENT},
+        {"shala_id": str(uuid4()), "consent": CONSENT},
+        None,
+    ],
+)
+def test_a_bad_ask_body_is_422(world: World, body: dict[str, Any] | None) -> None:
+    assert world.post(MINE, body).status_code == 422
+
+
+def _make_result(world: World, result: str) -> UUID:
+    anna = world.teacher("Anna")
+    if result == "linked":
+        world.storage.teacher_links.add(world.me, anna.id)
+    elif result == "waiting":
+        world.asked(world.me, anna.id)
+    elif result == "recent":
+        world.asked(world.me, anna.id, RequestState.WITHDRAWN)
+    elif result == "too_many":
+        for n in range(MAX_ASKING):
+            world.asked(world.me, world.teacher(f"T{n}").id, RequestState.WITHDRAWN)
+    elif result == "full":
+        for _ in range(MAX_STUDENTS):
+            world.storage.teacher_links.add(uuid4(), anna.id)
+    return anna.id
+
+
+@pytest.mark.parametrize("result", sorted(RESULTS))
+def test_every_result_is_200_with_one_word(
+    world: World, notifier: FakeNotifier, result: str
+) -> None:
+    world.i_study()
+    teacher = _make_result(world, result)
+
+    response = world.ask(teacher)
+
+    assert _answer(response) == (200, {"result": result})
+    assert len(notifier.asked) == (result == "created")
+
+
+def test_the_results_are_the_bots_ask_states() -> None:
+    assert {state.value for state in AskState} == RESULTS
+
+
+def test_asked_on_is_the_callers_own_date(world: World) -> None:
+    """ "From today on" in the consent is the student's today: Kiritimati and Honolulu are a
+    day apart at every moment."""
+    world.i_study()
+    days: list[date] = []
+    for zone in ("Pacific/Kiritimati", "Pacific/Honolulu"):
+        world.my_zone(zone)
+        teacher = world.teacher(zone)
+
+        assert world.ask(teacher.id).json() == {"result": "created"}
+
+        asked_on: date = world.requests.rows[(world.me, teacher.id)].asked_on
+        assert asked_on == datetime.now(ZoneInfo(zone)).date(), zone
+        days.append(asked_on)
+    assert days[0] - days[1] == timedelta(days=1)
+
+
+def test_asking_in_a_shala_i_am_not_a_student_of_is_404(world: World) -> None:
+    anna = world.teacher("Anna")
+
+    assert _answer(world.ask(anna.id)) == NOT_FOUND
+    assert _answer(world.ask(anna.id, shala=uuid4())) == NOT_FOUND
+    assert world.requests.rows == {}
+
+
+@pytest.mark.parametrize("role", [ShalaRole.ASSISTANT, ShalaRole.ADMIN, ShalaRole.OFFICE, None])
+def test_asking_someone_without_the_teacher_role_is_403(
+    world: World, notifier: FakeNotifier, role: ShalaRole | None
+) -> None:
+    """An assistant, a manager, the front desk, or the owner without the Teacher role."""
+    world.i_study()
+    if role is None:
+        other = world.owner.id
+    else:
+        other = world.person(role.value).id
+        world.storage.shalas.add_staff(world.shala, other, role, at=world.joined)
+
+    response = world.ask(other)
+
+    assert _answer(response) == NOT_ALLOWED
+    assert response.headers["cache-control"] == "no-store"
+    assert world.requests.rows == {}
+    assert notifier.asked == []
+
+
+def test_staff_cannot_ask_a_teacher_of_their_own_shala(world: World) -> None:
+    world.i_teach()
+    anna = world.teacher("Anna")
+
+    assert _answer(world.ask(anna.id)) == NOT_ALLOWED
+    assert world.requests.rows == {}
+
+
+def test_asking_a_teacher_of_another_shala_is_403(world: World, notifier: FakeNotifier) -> None:
+    """A teacher, but not in the shala named: the request is about this shala's teachers."""
+    world.i_study()
+    other = world.storage.shalas.add_shala(world.person("Elsewhere").id, roles=frozenset()).id
+    anna = world.person("Anna")
+    world.storage.shalas.add_staff(other, anna.id, ShalaRole.TEACHER, at=world.joined)
+
+    response = world.ask(anna.id)
+
+    assert _answer(response) == NOT_ALLOWED
+    assert world.requests.rows == {}
+    assert notifier.asked == []
+
+
+def test_asking_myself_is_403(world: World, notifier: FakeNotifier) -> None:
+    world.i_study()
+    world.teacher("Anna")
+
+    assert _answer(world.ask(world.me)) == NOT_ALLOWED
+    assert world.requests.rows == {}
+    assert notifier.asked == []
+
+
+def test_a_no_and_silence_answer_alike_on_both_routes(world: World) -> None:
+    """ID-07: the student's side never tells a teacher's "no" from silence. A declined pair
+    and a waiting pair give the same bytes from the choices, the ask and the links."""
+    world.i_study()
+    anna, boris = world.teacher("Anna"), world.teacher("Boris")
+    row = world.asked(world.me, anna.id)
+
+    def answers() -> list[tuple[int, bytes]]:
+        found = [world.choices(), world.ask(anna.id), world.get(LINKS)]
+        return [(r.status_code, r.content) for r in found]
+
+    waiting = answers()
+    row.state = RequestState.DECLINED
+    declined = answers()
+
+    assert declined == waiting
+    assert waiting[1] == (200, b'{"result":"waiting"}')
+    assert json.loads(waiting[0][1])["waiting"] == [{"id": str(anna.id), "name": "Anna"}]
+    assert json.loads(waiting[0][1])["offer"] == [{"id": str(boris.id), "name": "Boris"}]
+    for _, content in declined:
+        text = content.decode().lower()
+        for word in ("declin", "state", "asked_on", "created_at", "status"):
+            assert word not in text, word
+
+
+def test_after_the_week_a_no_and_silence_still_answer_alike(world: World) -> None:
+    world.i_study()
+    anna = world.teacher("Anna")
+    row = world.asked(world.me, anna.id, ago=ANSWER_WITHIN + A_WHILE)
+
+    waiting = [(r.status_code, r.content) for r in (world.choices(), world.ask(anna.id))]
+    row.state = RequestState.DECLINED
+    declined = [(r.status_code, r.content) for r in (world.choices(), world.ask(anna.id))]
+
+    assert declined == waiting
+    assert waiting[1] == (200, b'{"result":"recent"}')
+
+
 # Headers and the contract
 
 
@@ -738,12 +1049,38 @@ def test_no_request_schema_could_carry_a_no(api: TestClient) -> None:
         "StudentRequestsOut",
         "ApproveAllIn",
         "ApprovedAllOut",
+        "TeacherChoicesOut",
+        "TeacherChoiceOut",
+        "AskIn",
+        "AskOut",
+        "AskResultName",
+        "RequestConsent",
     )
 
     for name in ours:
         text = json.dumps(schemas[name]).lower()
         assert "declin" not in text, name
         assert "state" not in text, name
+
+
+def test_the_ask_schemas_are_the_agreed_ones(api: TestClient) -> None:
+    """`AskOut` is what this tap came to, already projected: no state, no date, no name."""
+    schema = _schema(api)
+    schemas = schema["components"]["schemas"]
+
+    assert _properties(schema, "TeacherChoicesOut") == {"offer", "waiting"}
+    assert _properties(schema, "TeacherChoiceOut") == {"id", "name"}
+    assert _properties(schema, "AskIn") == {"shala_id", "teacher_id", "consent"}
+    assert set(schemas["AskIn"]["required"]) == {"shala_id", "teacher_id", "consent"}
+    assert schemas["RequestConsent"]["enum"] == ["request-1"]
+    assert _properties(schema, "AskOut") == {"result"}
+    result = schemas["AskOut"]["properties"]["result"]
+    assert result == {"$ref": "#/components/schemas/AskResultName"}
+    assert set(schemas["AskResultName"]["enum"]) == RESULTS
+    for name in ("TeacherChoicesOut", "TeacherChoiceOut", "AskOut", "AskResultName"):
+        text = json.dumps(schemas[name]).lower()
+        for word in ("state", "declin", "date", "asked_on", "_at"):
+            assert word not in text, (name, word)
 
 
 def test_the_routes_and_their_errors_are_in_the_contract(api: TestClient) -> None:
@@ -758,8 +1095,13 @@ def test_the_routes_and_their_errors_are_in_the_contract(api: TestClient) -> Non
         responses = paths[f"{THEIRS}/{{student_id}}/{action}"]["post"]["responses"]
         assert {"204", "404"} <= set(responses)
         assert "409" not in responses
-    # No ask route yet (§2): the consent text lives in one place, the bot.
-    assert not any(p.startswith(MINE) and "post" in ops for p, ops in paths.items())
+    # Asking from the app (ADR-0049): the request names the consent the picker showed.
+    assert set(paths[MINE]) == {"post"}
+    assert {"200", "403", "404", "422"} <= set(paths[MINE]["post"]["responses"])
+    choices = paths["/api/v1/shalas/{id}/teacher-choices"]
+    assert set(choices) == {"get"}
+    assert {"200", "404"} <= set(choices["get"]["responses"])
+    assert "403" not in choices["get"]["responses"]  # staff get the one 404
 
 
 def test_the_mini_apps_contract_has_the_routes() -> None:
@@ -774,7 +1116,13 @@ def test_the_mini_apps_contract_has_the_routes() -> None:
         f"{THEIRS}/{{student_id}}/approve",
         f"{THEIRS}/{{student_id}}/decline",
         f"{THEIRS}/{{student_id}}/reopen",
+        MINE,
+        "/api/v1/shalas/{id}/teacher-choices",
     } <= contract["paths"].keys()
+    assert set(contract["paths"][MINE]) == {"post"}
+    ask = contract["components"]["schemas"]["AskOut"]
+    assert set(ask["properties"]) == {"result"}
+    assert contract["components"]["schemas"]["RequestConsent"]["enum"] == ["request-1"]
     links = contract["components"]["schemas"]["LinksOut"]
     assert {"asked", "waiting"} <= set(links["properties"])
     codes = contract["components"]["schemas"]["ErrorCode"]["enum"]

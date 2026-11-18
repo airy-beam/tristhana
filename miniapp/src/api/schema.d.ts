@@ -1074,6 +1074,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/teacher-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Teacher Request
+         * @description The student's consent tap: asks the teacher, who gets one silent note (sent inside
+         *     this request, at most 3 s; a failure fails nothing). 404 `not_found`: not a student of
+         *     the shala. 403 `not_allowed`: that person holds no Teacher role there, or the caller is
+         *     on its staff.
+         */
+        post: operations["post_teacher_request_api_v1_me_teacher_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/teacher-requests/{teacher_id}": {
         parameters: {
             query?: never;
@@ -1463,6 +1486,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shalas/{id}/teacher-choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Teacher Choices
+         * @description The teachers a student of the shala can ask, and the ones they wait for there. 404
+         *     `not_found`: no such shala, not a member, or on its staff (one body for all three).
+         */
+        get: operations["get_teacher_choices_api_v1_shalas__id__teacher_choices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1554,6 +1598,31 @@ export interface components {
              */
             kind: "asana";
         };
+        /** AskIn */
+        AskIn: {
+            /** @description The consent text the picker showed (ADR-0049); it decides what the tap grants. Unknown values are 422 */
+            consent: components["schemas"]["RequestConsent"];
+            /**
+             * Shala Id
+             * Format: uuid
+             */
+            shala_id: string;
+            /**
+             * Teacher Id
+             * Format: uuid
+             */
+            teacher_id: string;
+        };
+        /**
+         * AskOut
+         * @description What this tap came to, as the student may see it, and nothing else: never the
+         *     teacher's answer (a quiet "no" gives `waiting` or `recent`, as silence does).
+         */
+        AskOut: {
+            result: components["schemas"]["AskResultName"];
+        };
+        /** @enum {string} */
+        AskResultName: "created" | "linked" | "waiting" | "recent" | "too_many" | "full";
         /**
          * AskedTeacherOut
          * @description A teacher the caller asked and is waiting for. Nothing else, on purpose.
@@ -3415,6 +3484,15 @@ export interface components {
             start: string;
         };
         /**
+         * RequestConsent
+         * @description ADR-0049: the consent the student's tap gave, named by the client that showed it (the
+         *     app's ask, the bot's `h1:ta`). A value names a set of promises, not a wording: a change of
+         *     promises is a new value, and an old one keeps its grants while an old client may send it.
+         *     The client never sends a flag; `grants_quiet_note` says what each value grants.
+         * @enum {string}
+         */
+        RequestConsent: "request-1";
+        /**
          * RequestShalaOut
          * @description The shala a request came through.
          */
@@ -4225,6 +4303,36 @@ export interface components {
              * Format: date
              */
             to: string;
+        };
+        /**
+         * TeacherChoiceOut
+         * @description A teacher of the shala, as its members already see them on the card.
+         */
+        TeacherChoiceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string | null;
+        };
+        /**
+         * TeacherChoicesOut
+         * @description Who a student of the shala can ask, and who they wait for there. A quiet "no" is in
+         *     `waiting`, exactly as silence is.
+         */
+        TeacherChoicesOut: {
+            /**
+             * Offer
+             * @description Oldest staff first
+             */
+            offer: components["schemas"]["TeacherChoiceOut"][];
+            /**
+             * Waiting
+             * @description Asked through this shala, no answer
+             */
+            waiting: components["schemas"]["TeacherChoiceOut"][];
         };
         /** TeacherOut */
         TeacherOut: {
@@ -7667,6 +7775,75 @@ export interface operations {
             };
         };
     };
+    post_teacher_request_api_v1_me_teacher_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     delete_teacher_request_api_v1_me_teacher_requests__teacher_id__delete: {
         parameters: {
             query?: never;
@@ -9443,6 +9620,64 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_teacher_choices_api_v1_shalas__id__teacher_choices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeacherChoicesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

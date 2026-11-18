@@ -780,7 +780,7 @@ request-yes = ✅ Yes
 request-consent-short =
     • The teacher you pick sees your name{ $me } and what you log from today on: practice or rest, your practice length and your last asana. If nothing shows for a while, they see a short note saying just that.
     • Check-ins, diary notes and the reason for a rest stay private.
-    • You can remove a teacher from your list any time in /teachers. No one gets a message.
+    • You can remove a teacher from your list any time. No one gets a message.
 request-until-yes = Nothing is shown until they confirm. They get one message with your name.
 request-know-them = Pick only a teacher you know.
 # The consent record: the items and rights of `invite-consent` in fewer bullets. The first
@@ -793,9 +793,9 @@ request-consent =
     • Any teacher on your list can mark a new asana for you. You get a message and can undo it. They can also send announcements through the bot. You can mute them.
     • Nothing is shown until they confirm. They get one message with your name.
     • Days count from today, even if they confirm a few days later.
-    • Until they confirm, you can withdraw your request on the shala's card. You can remove a teacher from your list any time in /teachers. No one gets a message.
+    • Until they confirm, you can withdraw your request. You can remove a teacher from your list any time. No one gets a message.
 # One line above Today after the tap.
-request-asked = ✉️ Request sent to { $name }. Nothing is shown until they confirm.
+request-asked = ✉️ Request sent to { $name }. Nothing from your log is shown until they confirm.
 request-waiting = You've already asked { $name }. No answer yet.
 request-recent = You asked { $name } not long ago. Try again later, or ask them for their invite link.
 # At most three teachers in any 7 days; withdrawing frees no slot, so it is not offered here.

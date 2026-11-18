@@ -4,12 +4,12 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { Me } from "../../api/client";
 import { L10nProvider } from "../../i18n/L10nProvider";
 import type { Locale } from "../../i18n/negotiate";
-import Links from "../settings/Links";
 import More from "../settings/pages/More";
-import { useBackButton } from "../../telegram";
+import { confirmAction, useBackButton } from "../../telegram";
 import ShalaScreen from "./ShalaScreen";
+import ShalaTab from "./ShalaTab";
 
-// SC-01 (spec §2, §4, §7): the 🏛 Shalas part of 👥 Teachers and students, the create form
+// SC-01 (spec §2, §4, §7): my shalas on the Shala tab (a row each; UI-06 stage 4B), the create form
 // (UI-06 stage 4: two fields, name 1–64 and a listed city preselected with home_city; the
 // owner starts as its teacher and changes the rest on the card, their own roles too), the
 // owner's setup list (add a class, invite students, invite teachers), the card
@@ -27,6 +27,7 @@ vi.mock("../../telegram", () => ({
   useBackButton: vi.fn(),
   backButtonAvailable: vi.fn(() => true),
   confirmDestructive: telegram.confirmDestructive,
+  confirmAction: vi.fn(() => Promise.resolve(false)),
   openTelegramLink: vi.fn(),
   useMainButton: vi.fn(),
   mainButtonAvailable: vi.fn(() => false),
@@ -61,6 +62,7 @@ interface MeIn {
   roles: Role[];
   student: boolean;
   schedule?: boolean; // SC-02
+  announce?: boolean; // NT-03
 }
 const STAFF = [
   { id: ANNA, name: "Anna", owner: true, roles: ["teacher"] as Role[] },
@@ -106,6 +108,10 @@ interface Stub {
   create?: (body: unknown) => Response;
   /** My account's home city. */
   home?: unknown;
+  /** UI-06 stage 4B: who I can pick here, read again after each write. */
+  choices?: () => unknown;
+  /** What an ask comes to. */
+  ask?: () => Response;
 }
 
 function stubApi(stub: Stub = {}): Request[] {
@@ -121,6 +127,12 @@ function stubApi(stub: Stub = {}): Request[] {
         const body: unknown = await request.json();
         return stub.create?.(body) ?? json(shalaOut(OWNER), 201);
       }
+      if (path === `/api/v1/shalas/${SHALA}/teacher-choices`)
+        return json(stub.choices?.() ?? { offer: [], waiting: [] });
+      if (path === "/api/v1/me/teacher-requests" && request.method === "POST")
+        return stub.ask?.() ?? json({ result: "created" });
+      if (path.startsWith("/api/v1/me/teacher-requests/") && request.method === "DELETE")
+        return new Response(null, { status: 204 });
       if (path === `/api/v1/shalas/${SHALA}` && request.method === "DELETE")
         return new Response(null, { status: 204 });
       if (path.startsWith(`/api/v1/shalas/${SHALA}/staff/`) && request.method === "PUT")
@@ -166,6 +178,7 @@ function stubApi(stub: Stub = {}): Request[] {
       if (path === `/api/v1/shalas/${SHALA}/staff-invites`)
         return json({ url: "https://t.me/x?start=i_a", qr: "data:image/png;base64,AA==" });
       if (path === `/api/v1/shalas/${SHALA}/classes`) return json([]);
+      if (path === "/api/v1/me/announcements/sent") return json([]); // NT-03
       if (path === "/api/v1/me") return json({ ...ME, day_off: [6], home_city: stub.home ?? null });
       return json({});
     }),
@@ -193,35 +206,41 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("the Shalas part of Teachers and students", () => {
-  it("lists my shalas, then Create a shala", async () => {
+describe("my shalas on the Shala tab", () => {
+  // UI-06 stage 4B: a row per shala (no card title), and creating one is the group's
+  // "Shala and classes", last.
+  it("lists my shalas, then the group's Shala and classes", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
-    await screen.findByText(/Ashtanga Almaty/);
-    expect(screen.getByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    const row = await screen.findByRole("button", { name: /Ashtanga Almaty/ });
+    const create = screen.getByRole("button", { name: "Shala and classes" });
+    expect(row.compareDocumentPosition(create)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByRole("heading", { name: "🏛 Shalas" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
   });
 
   // UI-06 stage 2: with nobody on the lists and no shala there are no empty cards; the quiet
-  // "Shala and classes" start opens the layout with the form.
+  // "Shala and classes" start opens the form under it.
   it("with no shalas and nobody on the lists, Shala and classes leads to the form", async () => {
     stubApi({ mine: [] });
 
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
     const start = await screen.findByRole("button", { name: "Shala and classes" });
-    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
     fireEvent.click(start);
 
-    expect(await screen.findByRole("textbox")).toHaveFocus();
-    expect(screen.getByRole("heading", { name: "🏛 Shalas" })).toBeInTheDocument();
+    const name = await screen.findByRole("textbox");
+    expect(name).toHaveFocus();
+    expect(start).toHaveAttribute("aria-expanded", "true");
+    expect(name.closest("section.card")).toBe(start.closest("section.card"));
   });
 });
 
 describe("the create form", () => {
   /** Someone with nobody on the lists yet: the quiet start opens the form. */
   async function openForm() {
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Shala and classes" }));
     return screen.findByRole("textbox");
   }
@@ -288,24 +307,31 @@ describe("the create form", () => {
   it("starts open with the name focused when asked to (create)", async () => {
     stubApi({ mine: MINE });
 
-    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
 
     expect(await screen.findByRole("textbox")).toHaveFocus();
-    expect(screen.queryByRole("button", { name: "🏛 Create a shala" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Shala and classes" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
-  it("doesn't take the focus when the form is opened by its button", async () => {
+  // UI-06 stage 4B: one row opens it, from a start or a tap, and either way it is to type in.
+  it("opened by its row, it is ready to type too; a second tap closes it", async () => {
     stubApi({ mine: MINE });
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    const row = await screen.findByRole("button", { name: "Shala and classes" });
 
-    fireEvent.click(await screen.findByRole("button", { name: "🏛 Create a shala" }));
+    fireEvent.click(row);
 
-    expect(await screen.findByRole("textbox")).not.toHaveFocus();
+    expect(await screen.findByRole("textbox")).toHaveFocus();
+    fireEvent.click(row);
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("opens only once: back from the new shala's card the form is closed", async () => {
     stubApi();
-    renderWith(<Links start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    renderWith(<ShalaTab start="create" onSchedule={vi.fn()} onStudents={vi.fn()} />);
     const name = await screen.findByRole("textbox");
     fireEvent.change(name, { target: { value: "Ashtanga Almaty" } });
     fireEvent.submit(name.closest("form") as HTMLFormElement);
@@ -315,7 +341,10 @@ describe("the create form", () => {
       vi.mocked(useBackButton).mock.lastCall?.[0]();
     });
 
-    expect(await screen.findByRole("button", { name: "🏛 Create a shala" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Shala and classes" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
@@ -553,6 +582,20 @@ describe("opened for one thing", () => {
     expect(scrolled).not.toHaveBeenCalled();
   });
 
+  it("class: Back from the form focuses the card's title (nothing on the card had it)", async () => {
+    stubApi({ card: OWNS });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="class" />);
+    await form();
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+
+    const title = await screen.findByRole("heading", { level: 1, name: /Ashtanga Almaty/ });
+    await waitFor(() => {
+      expect(title).toHaveFocus();
+    });
+  });
+
   it("join: the student invite is made and shown at once, in view", async () => {
     const seen = stubApi({ card: OWNS });
     renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="join" />);
@@ -588,7 +631,7 @@ describe("opened for one thing", () => {
     "the Shala tab's start %s:<id> opens that card so, once",
     async (open) => {
       stubApi({ mine: MINE, card: OWNS });
-      renderWith(<Links start={`${open}:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+      renderWith(<ShalaTab start={`${open}:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
       const opened = () =>
         open === "class"
           ? form()
@@ -611,6 +654,248 @@ describe("opened for one thing", () => {
       expect(screen.getByRole("button", { name: "➕ Invite students" })).toBeInTheDocument();
     },
   );
+});
+
+// ID-07, UI-06 stage 4B (spec §4): the bot's student part of the card, under its title: one
+// line per teacher I wait for here, each with Withdraw, then "🤝 Pick a teacher" while someone
+// can be picked. The picker opens over the card; its line stays on the card (QE).
+describe("the card's student part", () => {
+  const ANNA_C = { id: ANNA, name: "Anna" };
+  const BORIS_C = { id: BORIS, name: "Boris" };
+  const CHOICES = `/api/v1/shalas/${SHALA}/teacher-choices`;
+  it("a student: the waiting lines with Withdraw, then Pick a teacher, right under the title", async () => {
+    stubApi({ card: shalaOut(STUDENT), choices: () => ({ offer: [BORIS_C], waiting: [ANNA_C] }) });
+    renderWith(card());
+
+    const pick = await screen.findByRole("button", { name: "🤝 Pick a teacher" });
+    const line = screen.getByText((t) => plain(t) === "⏳ Waiting for an answer: Anna");
+    const withdraw = screen.getByRole("button", {
+      name: (n) => plain(n) === "Withdraw: Anna…",
+    });
+    const heading = screen.getByRole("heading", { level: 1 });
+    // The title, the waiting line and its Withdraw, then the row, before the rest of the card.
+    expect(heading.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.compareDocumentPosition(withdraw) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(withdraw.compareDocumentPosition(pick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const place = screen.getByText(/shala time/);
+    expect(pick.compareDocumentPosition(place) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // No state, date or count: the name, and nothing else.
+    const box = line.closest(".card");
+    expect(plain(box?.textContent)).toBe("⏳ Waiting for an answer: AnnaWithdraw…");
+    // The name stands on the line: the button reads "Withdraw…", named in full for a screen reader.
+    expect(withdraw.textContent).toBe("Withdraw…");
+  });
+
+  it("nobody to pick and nobody waited for: nothing at all", async () => {
+    stubApi({ card: shalaOut(STUDENT) });
+    renderWith(card());
+
+    await screen.findByText(/shala time/);
+    expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
+    expect(pageText()).not.toContain("Waiting");
+  });
+
+  it.each([
+    ["owner", OWNER],
+    ["teacher", TEACHER],
+    ["admin", ADMIN],
+  ] as const)("staff (%s) never read who can be picked", async (_, me) => {
+    const seen = stubApi({ card: shalaOut(me), choices: () => ({ offer: [ANNA_C], waiting: [] }) });
+    renderWith(card());
+
+    await screen.findByText(/shala time/);
+    expect(calls(seen, "GET", CHOICES)).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /Pick a teacher/ })).toBeNull();
+  });
+
+  it("Withdraw asks once, takes it back, and the card says so", async () => {
+    telegram.confirmDestructive.mockResolvedValue(true);
+    let withdrawn = false;
+    const seen = stubApi({
+      card: shalaOut(STUDENT),
+      choices: () => (withdrawn ? { offer: [], waiting: [] } : { offer: [], waiting: [ANNA_C] }),
+    });
+    renderWith(card());
+
+    const withdraw = await screen.findByRole("button", {
+      name: (n) => plain(n) === "Withdraw: Anna…",
+    });
+    withdrawn = true;
+    fireEvent.click(withdraw);
+
+    const said = await screen.findByRole("status");
+    expect(plain(said.textContent)).toBe("Request withdrawn.");
+    expect(pageText()).not.toContain("Waiting for an answer");
+    const [message] = telegram.confirmDestructive.mock.calls[0] ?? [];
+    expect(plain(message)).toMatch(/^Withdraw your request to Anna\? No one gets a message\./);
+    expect(calls(seen, "DELETE", `/api/v1/me/teacher-requests/${ANNA}`)).toHaveLength(1);
+  });
+
+  it("Pick opens the picker over the card; the line and the new waiting line stay on the card", async () => {
+    let asked = false;
+    const seen = stubApi({
+      card: shalaOut(STUDENT),
+      choices: () =>
+        asked ? { offer: [], waiting: [BORIS_C] } : { offer: [BORIS_C], waiting: [] },
+      ask: () => {
+        asked = true;
+        return json({ result: "created" });
+      },
+    });
+    renderWith(card());
+
+    fireEvent.click(await screen.findByRole("button", { name: "🤝 Pick a teacher" }));
+
+    await screen.findByText((t) => plain(t) === "Is Boris your teacher?");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(screen.getByText(/shala time/)).not.toBeVisible(); // the card is under the layer
+    fireEvent.click(screen.getByRole("button", { name: "✅ Yes" }));
+
+    const said = await screen.findByRole("status");
+    expect(plain(said.textContent)).toBe(
+      "✉️ Request sent to Boris. Nothing from your log is shown until they confirm.",
+    );
+    // A result, not an error or an aside: normal text, not the small grey status style.
+    expect(said).not.toHaveClass("status");
+    expect(said).not.toHaveClass("hint");
+    const line = await screen.findByText((t) => plain(t) === "⏳ Waiting for an answer: Boris");
+    expect(said.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "🤝 Pick a teacher" })).toBeNull();
+    expect(calls(seen, "POST", "/api/v1/me/teacher-requests")).toHaveLength(1);
+    // Right under the card's title.
+    expect(said.previousElementSibling).toBe(
+      screen.getByRole("heading", { level: 1, name: /Ashtanga Almaty/ }),
+    );
+  });
+
+  it("Russian: the bot's words", async () => {
+    stubApi({ card: shalaOut(STUDENT), choices: () => ({ offer: [BORIS_C], waiting: [ANNA_C] }) });
+    renderWith(card(), "ru");
+
+    expect(await screen.findByRole("button", { name: "🤝 Выбрать учителя" })).toBeVisible();
+    expect(screen.getByText((t) => plain(t) === "⏳ Ждём ответа: Anna")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: (n) => plain(n) === "Отозвать: Anna…" }),
+    ).toBeVisible();
+  });
+});
+
+// UI-06 stage 4B (QF): the bot's "📣 Announce" from a shala (`?open=announce&shala=`) opens
+// that shala's card with the message form over it; Back finds the card, where its
+// announcements are, and then the list.
+describe("opened to announce", () => {
+  const ANNOUNCES = shalaOut({ ...OWNER, announce: true });
+  const back = () => {
+    act(() => {
+      vi.mocked(useBackButton).mock.lastCall?.[0]();
+    });
+  };
+  const composer = () => screen.findByRole("heading", { level: 1, name: "📣 Announcement" });
+
+  it("someone who may announce gets the form over the card; Back shows the card", async () => {
+    stubApi({ card: ANNOUNCES });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="announce" />);
+
+    expect(await composer()).toBeVisible();
+    // The card is there under it, hidden.
+    expect(
+      screen.getByRole("button", { name: "📣 Announcements", hidden: true }),
+    ).not.toBeVisible();
+    back();
+
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
+
+  // Opened from a link, nothing on the card had the focus: Back gives it to the card's title,
+  // never to the page's body.
+  it("Back from the form opened by the link focuses the card's title", async () => {
+    stubApi({ card: ANNOUNCES });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="announce" />);
+    await composer();
+    back();
+
+    const title = await screen.findByRole("heading", { level: 1, name: /Ashtanga Almaty/ });
+    await waitFor(() => {
+      expect(title).toHaveFocus();
+    });
+  });
+
+  // QF is for sending to this shala: the form sends with its id, not to all my students.
+  it("the form opened by the link sends to this shala", async () => {
+    vi.mocked(confirmAction).mockResolvedValueOnce(true);
+    const seen = stubApi({ card: ANNOUNCES });
+    renderWith(<ShalaTab start={`announce:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+    await composer();
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Led class at 7" } });
+    const send = screen.getByRole("button", { name: "Send" });
+    await waitFor(() => {
+      expect(send).toBeEnabled(); // once the shala's audience is known
+    });
+    fireEvent.click(send);
+
+    await waitFor(() => {
+      expect(calls(seen, "POST", "/api/v1/me/announcements")).toHaveLength(1);
+    });
+    const [post] = calls(seen, "POST", "/api/v1/me/announcements");
+    expect(await post?.json()).toEqual({
+      to: "shala",
+      shala_id: SHALA,
+      text: "Led class at 7",
+      pin_days: 0,
+    });
+  });
+
+  it("once: the card's own Announce opens the form again, plainly", async () => {
+    stubApi({ card: ANNOUNCES });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="announce" />);
+    await composer();
+    back();
+
+    fireEvent.click(await screen.findByRole("button", { name: "📣 Announce" }));
+
+    expect(await composer()).toBeVisible();
+    back();
+    expect(await screen.findByRole("button", { name: "📣 Announce" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
+
+  it.each([
+    ["a student", STUDENT],
+    ["staff without the right", TEACHER],
+  ])("%s gets the card, no form", async (_who, me) => {
+    stubApi({ card: shalaOut(me) });
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} open="announce" />);
+
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
+
+  it("the Shala tab's start announce:<id> for someone who may not announce: the card, no form", async () => {
+    const seen = stubApi({ mine: MINE, card: shalaOut(TEACHER) });
+    renderWith(<ShalaTab start={`announce:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "📣 Announce" })).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(calls(seen, "POST", "/api/v1/me/announcements")).toHaveLength(0);
+  });
+
+  it("the Shala tab's start announce:<id>: form, then the card, then the list", async () => {
+    stubApi({ mine: MINE, card: ANNOUNCES });
+    renderWith(<ShalaTab start={`announce:${SHALA}`} onSchedule={vi.fn()} onStudents={vi.fn()} />);
+
+    expect(await composer()).toBeVisible();
+    back();
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    back();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Ashtanga Almaty/ }));
+    expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
+  });
 });
 
 // UI-06 stage 4 (Q340): the owner's first steps, from the server's `setup` (the same rule as

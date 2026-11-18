@@ -105,10 +105,16 @@ UI-05:
 UI-06:
   - reference/commands
   - reference/whats-new
+  - staff/announcements
+  - staff/create-shala
   - start/bot-and-app
   - start/first-steps
   - students/my-practice
+  - students/my-shala
+  - students/my-teacher
   - students/settings
+  - teachers/invite-students
+  - teachers/what-you-see
 WH-01:
   - students/rest-and-moon-days
 WH-02:

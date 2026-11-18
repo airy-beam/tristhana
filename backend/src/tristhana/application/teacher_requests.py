@@ -1,6 +1,6 @@
 """Teacher requests (ID-07, ADR-0046): a student of a shala asks, the teacher confirms. Both
-adapters use these, except `GetTeacherChoices` and `AskTeacher`: the consent text lives in
-one place, the bot (as ID-04's Q12).
+adapters use these. The consent text is the bot's in both (ADR-0049): the app shows a copy
+under the same keys, and the ask names the consent it showed, never a flag.
 
 A request is not a link. No use case here reads a log, and none grants a view of one: the
 link, and with it the teacher view, exists only after `ApproveRequest`. Every write is keyed
@@ -36,7 +36,7 @@ from tristhana.application.ports.teacher_requests import (
     Withdrawn,
 )
 from tristhana.application.settings import caller_today
-from tristhana.domain.teacher_requests import CAPS, AskState
+from tristhana.domain.teacher_requests import CAPS, AskState, RequestConsent, grants_quiet_note
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,17 +83,19 @@ class AskTeacher:
         self._clock = clock
 
     async def execute(
-        self, principal: Principal, shala: UUID, teacher_id: UUID, *, quiet_note_agreed: bool
+        self, principal: Principal, shala: UUID, teacher_id: UUID, *, consent: RequestConsent
     ) -> AskResult:
         """The student's consent tap. `asked_on` is their local date, the boundary of "from
-        today on" in the consent, stored now and copied by the approval. `quiet_note_agreed`
-        is what the tapped screen's text granted. The teacher's note is best effort: the
+        today on" in the consent, stored now and copied by the approval. `consent` names the
+        text the tapped screen showed (ADR-0049); the domain says what it grants, so
+        `quiet_note_agreed` is never a client's flag. The teacher's note is best effort: the
         waiting list is the record, so a blocked bot fails nothing. Raises `NotFound` (not a
         member), `NotAllowed` (not a student, or the other person holds no Teacher role)."""
         account = principal.account
         asked_on = caller_today(principal, self._clock)
+        agreed = grants_quiet_note(consent)
         guarded = await self._requests.ask(
-            shala, account.id, teacher_id, asked_on, quiet_note_agreed, CAPS, self._clock.now()
+            shala, account.id, teacher_id, asked_on, agreed, CAPS, self._clock.now()
         )
         if guarded.me is None:
             raise NotFound

@@ -14,7 +14,8 @@
 #   tap       bot: then the buttons they tap, each by a bot Fluent key; `=student`, `=teacher`
 #             or `=shala` is that name in the demo cast, "#2" is the second button
 #   click     app: the things they tap after Today loads, each by a Mini App Fluent key or
-#             `=name`: a tab first (`tab-practice`, `tab-shala`), then the rows. A control with
+#             `=name` (the button that carries that name): a tab first (`tab-practice`,
+#             `tab-shala`), then the rows. A control with
 #             no visible words is found by its accessible name (`settings-open` is the gear).
 #             `=new-shala` is the owner's new shala. "css=<selector>" is for a thing with no
 #             label of its own: a class on the shala's week (`>> nth=-1` picks the last match)
@@ -67,6 +68,11 @@ shots:
   - {name: bot-ask-teacher, kind: bot, as: member, say: /menu, tap: [menu-teacher, =shala, request-open], features: [ID-07]}
   - {name: bot-schedule, kind: bot, as: student, say: /schedule, features: [SC-03, SC-05, SC-06]}
   - {name: app-shala-tab, kind: app, as: student, click: [tab-shala], features: [UI-06, ID-04, SC-01]}
+  # UI-06 stage 4B (QA): the member has a shala and no teacher, so her Shala tab begins with
+  # "🤝 Pick a teacher", and the picker it opens is the bot's question with its short consent.
+  # She only looks: a name tapped there would pick a teacher for her.
+  - {name: app-shala-pick, kind: app, as: member, click: [tab-shala], features: [UI-06, ID-07]}
+  - {name: app-ask-teacher, kind: app, as: member, click: [tab-shala, request-open], features: [ID-07, UI-06]}
   - {name: app-schedule, kind: app, as: student, click: [tab-shala, my-schedule-open], features: [SC-03]}
   - {name: bot-settings, kind: bot, as: student, say: /settings, features: [ID-06]}
   - {name: bot-help, kind: bot, as: student, say: /help, features: [UI-06, UI-01]}
@@ -87,7 +93,9 @@ shots:
   - {name: bot-students, kind: bot, as: teacher, say: /menu, tap: [menu-students], features: [ST-06, ID-07]}
   - {name: bot-request-note, kind: bot, as: teacher, say: /menu, tap: [menu-students, "#1", "#1"], features: [ID-07]}
   - {name: bot-requests, kind: bot, as: teacher, say: /menu, tap: [menu-students, "#1"], features: [ID-07]}
-  - {name: app-requests, kind: app, as: teacher, click: [tab-shala, link-students-open], features: [ID-07]}
+  # In the app the people waiting are on top of the Shala tab (UI-06 stage 4B, QC); the picture
+  # begins at that block, once it has loaded.
+  - {name: app-requests, kind: app, as: teacher, click: [tab-shala], top: "css=section.card.waiting", features: [ID-07, UI-06]}
   - {name: bot-student-card, kind: bot, as: teacher, say: /menu, tap: [menu-students, =student], features: [ST-06, WH-02]}
   - {name: app-student-card, kind: app, as: teacher, click: [tab-shala, link-students-open, =student], features: [ST-06]}
   - {name: bot-mark-asana, kind: bot, as: teacher, say: /menu, tap: [menu-students, =student, students-give], features: [PR-08]}

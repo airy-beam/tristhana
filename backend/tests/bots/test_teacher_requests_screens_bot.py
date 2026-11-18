@@ -23,13 +23,14 @@ from tests.bots.statements import Statements
 from tests.fakes import FixedClock, InMemoryStorage
 from tests.moon_follow_fakes import person
 from tests.shala_fakes import shala_storage
+from tristhana.application.teacher_requests import AskTeacher
 from tristhana.bots.telegram import shalas_callbacks as shala_cb
 from tristhana.bots.telegram import teacher_links_callbacks as link_cb
 from tristhana.bots.telegram.shalas_callbacks import short_id
 from tristhana.domain.accounts import Account
 from tristhana.domain.locale import Locale
 from tristhana.domain.shalas import ShalaRole
-from tristhana.domain.teacher_requests import RequestCaps, RequestState
+from tristhana.domain.teacher_requests import RequestCaps, RequestConsent, RequestState
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
 from tristhana.main import create_app
 from tristhana.settings import Settings
@@ -396,6 +397,27 @@ def test_a_name_sends_the_request_and_shows_today(
     assert row.quiet_note_agreed is True  # both layers of the consent name the quiet note
     assert w.storage.teacher_links.rows == {}  # a request is not a link
     assert statements.count == 2, statements.names  # the ask, Today's read
+
+
+def test_the_consent_tap_names_the_request_consent_the_app_names_too(
+    w: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-0049: `h1:ta` sends `request-1`, never a flag; the domain grants the note."""
+    shala, (anna,) = _shala(w, "Anna")
+    _join(w, shala)
+    named: list[object] = []
+    original = AskTeacher.execute
+
+    async def spy(self: AskTeacher, *args: Any, **kwargs: Any) -> Any:
+        named.append(kwargs.get("consent"))
+        return await original(self, *args, **kwargs)
+
+    monkeypatch.setattr(AskTeacher, "execute", spy)
+
+    _tap(w, _member("ta", shala, anna.id))
+
+    assert named == [RequestConsent.FIRST]
+    assert w.requests.rows[(w.me.id, anna.id)].quiet_note_agreed is True
 
 
 def test_the_teacher_gets_one_silent_note_in_their_language(w: World) -> None:

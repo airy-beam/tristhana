@@ -1,6 +1,7 @@
 import { FluentResource } from "@fluent/bundle";
 
 import enApp from "../locales/en/app.ftl?raw";
+import enAsk from "../locales/en/ask.ftl?raw";
 import enClassRow from "../locales/en/class-row.ftl?raw";
 import enDetails from "../locales/en/details.ftl?raw";
 import enPractice from "../locales/en/practice.ftl?raw";
@@ -8,6 +9,7 @@ import enRequests from "../locales/en/requests.ftl?raw";
 import enSettings from "../locales/en/settings.ftl?raw";
 import enShala from "../locales/en/shala.ftl?raw";
 import ruApp from "../locales/ru/app.ftl?raw";
+import ruAsk from "../locales/ru/ask.ftl?raw";
 import ruClassRow from "../locales/ru/class-row.ftl?raw";
 import ruDetails from "../locales/ru/details.ftl?raw";
 import ruPractice from "../locales/ru/practice.ftl?raw";
@@ -26,6 +28,8 @@ const CLASS_ROW = { en: enClassRow, ru: ruClassRow };
 const SHALA = { en: enShala, ru: ruShala };
 // ID-07: the waiting block and the waiting line (`requests.ftl`).
 const REQUESTS = { en: enRequests, ru: ruRequests };
+// UI-06 stage 4B: the picker's copy, the bot's own messages (`ask.ftl`, ADR-0049).
+const ASK = { en: enAsk, ru: ruAsk };
 addMessages(DETAILS);
 addMessages(CLASS_ROW);
 addMessages(SHALA);
@@ -34,6 +38,7 @@ const PRACTICE = { en: enPractice, ru: ruPractice };
 // UI-06 stage 3: Settings' rows and pages (`settings.ftl`).
 const SETTINGS = { en: enSettings, ru: ruSettings };
 addMessages(REQUESTS);
+addMessages(ASK);
 addMessages(PRACTICE);
 addMessages(SETTINGS);
 
@@ -57,6 +62,7 @@ describe.each([
   ["class-row.ftl", CLASS_ROW],
   ["shala.ftl", SHALA],
   ["requests.ftl", REQUESTS],
+  ["ask.ftl", ASK],
   ["practice.ftl", PRACTICE],
   ["settings.ftl", SETTINGS],
 ])("%s (lazy copy)", (_file, sources) => {

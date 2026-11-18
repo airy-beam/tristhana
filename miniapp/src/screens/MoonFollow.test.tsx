@@ -5,8 +5,8 @@ import type { Me } from "../api/client";
 import { L10nProvider } from "../i18n/L10nProvider";
 import type { Locale } from "../i18n/negotiate";
 import MoonScreen from "./moon/MoonScreen";
-import Links from "./settings/Links";
 import More from "./settings/pages/More";
+import ShalaTab from "./shalas/ShalaTab";
 
 // MD-02 (spec §2, §4, §7): "👥 Follow my teacher" as the first option of the moon city select,
 // only with a main teacher, sending `{slug: null}`; the source line on the card and in
@@ -370,7 +370,7 @@ describe("Make main and Remove refetch the moon days, days and stats", () => {
     stubApi(FOLLOWING, links);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const spy = vi.spyOn(client, "invalidateQueries");
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />, "en", client);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />, "en", client);
 
     fireEvent.click(await screen.findByRole("button", { name: (n) => /Make main/.test(plain(n)) }));
 
@@ -384,7 +384,7 @@ describe("Make main and Remove refetch the moon days, days and stats", () => {
     stubApi(FOLLOWING);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const spy = vi.spyOn(client, "invalidateQueries");
-    renderWith(<Links onSchedule={vi.fn()} onStudents={vi.fn()} />, "en", client);
+    renderWith(<ShalaTab onSchedule={vi.fn()} onStudents={vi.fn()} />, "en", client);
 
     fireEvent.click(await screen.findByRole("button", { name: (n) => /Remove/.test(plain(n)) }));
 

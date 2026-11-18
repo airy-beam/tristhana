@@ -1,7 +1,7 @@
 ---
 title: "What you see, and what you never see"
 description: "Your students list and each student's card. Diary notes, check-ins and the reason for a rest always stay with the student."
-features: [ST-06, WH-02, ID-07]
+features: [ST-06, WH-02, ID-07, UI-06]
 ---
 
 Your students list and each student's card. Diary notes, check-ins and the reason for a rest always stay with the student.
@@ -14,7 +14,7 @@ In the bot, open :ftl[menu-open] → :ftl[menu-students]. In the app, open the :
 
 Next to each name is today's mark: 🧘 for practice, 😌 for rest. A name with no mark means there is nothing to show for today.
 
-A row :ftl[request-waiting-open]{count=2} at the top means students of your shala picked you and are waiting for your answer: see [Invite your students](../invite-students/).
+In the bot, a row :ftl[request-waiting-open]{count=2} at the top means students of your shala picked you and are waiting for your answer. In the app they are at the top of the :ftl[tab-shala] tab. See [Invite your students](../invite-students/).
 
 ## A student's card
 
