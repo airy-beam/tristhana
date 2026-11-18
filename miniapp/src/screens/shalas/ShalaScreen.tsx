@@ -3,6 +3,7 @@ import {
   Fragment,
   Suspense,
   useEffect,
+  useId,
   useRef,
   useState,
   type Ref,
@@ -53,6 +54,7 @@ import ShalaSchedule from "./ShalaSchedule";
 import { WEEKDAYS, weekdayShort } from "./scheduleText";
 import { SetupList, type SetupStep } from "./SetupList";
 import "./shala.css";
+import "./shalaCopy";
 
 const ROLES: ShalaRole[] = ["teacher", "assistant", "office", "admin"];
 type Me = Shala["me"];
@@ -87,6 +89,9 @@ interface Props {
    * shala" from this shala): the class form, the student invite, the message form or the edit
    * form is open and in view. Once: not again after the announcements were opened from here. */
   open?: ShalaOpen | undefined;
+  /** C3 (UI-06 stage 6): "➕ Invite my students" under the shala's students opens my own
+   * invite on the Shala tab. Without it the row is not drawn. */
+  onInvite?: (() => void) | undefined;
 }
 
 /** The shala card (SC-01): the place, its zone, its moon city and its staff for every member;
@@ -101,7 +106,7 @@ const AskTeacher = lazyRetry(() => import("../teachers/AskTeacher"));
 /** The class form: a new class, or a saved one opened from a date. */
 type Form = { edit?: ClassEdit };
 
-export default function ShalaScreen({ id, onBack, week, open }: Props) {
+export default function ShalaScreen({ id, onBack, week, open, onInvite }: Props) {
   const me = useMe().data;
   const locale: Locale = me?.locale ?? "en";
   const shala = useShala(id).data;
@@ -166,6 +171,7 @@ export default function ShalaScreen({ id, onBack, week, open }: Props) {
         <Card
           id={id}
           onBack={onBack}
+          onInvite={onInvite}
           week={week}
           open={opened}
           gone={gone}
@@ -240,6 +246,7 @@ interface CardProps extends Props {
 function Card({
   id,
   onBack,
+  onInvite,
   week,
   open,
   gone,
@@ -329,7 +336,7 @@ function Card({
             }}
           />
           <Staff shala={shala} />
-          {isStaff(shala.me) && <Students shala={shala} />}
+          {isStaff(shala.me) && <Students shala={shala} onInvite={onInvite} />}
           {isStaff(shala.me) && <JoinLink shala={shala} ask={ask.join} />}
           {grantable(shala.me).length > 0 && <StaffInvite shala={shala} ask={ask.staff} />}
           <Leave shala={shala} myId={me?.id} onDone={onBack} />
@@ -415,8 +422,15 @@ function Place({
   return (
     <section className="card">
       <p>{line}</p>
-      <p>{l10n.getString("shala-moon-line", { city: moonName })}</p>
-      <p>{l10n.getString("shala-moon-policy", { p: shala.moon_policy })}</p>
+      {/* C15 (UI-06 stage 6): one moon line, the policy included, as the bot's card has it. */}
+      <p>
+        {plain(
+          l10n.getString("shala-moon-summary", {
+            city: moonName,
+            policy: l10n.getString("shala-moon-policy-short", { p: shala.moon_policy }),
+          }),
+        )}
+      </p>
       {days && <p>{plain(l10n.getString("shala-day-off-line", { days }))}</p>}
       {manages(shala.me) && (
         <Localized id="shala-moon-shared">
@@ -626,6 +640,15 @@ function useRoleLabel() {
   return (role: ShalaRole | "owner") => l10n.getString("shala-role", { role });
 }
 
+/** C14 (UI-06 stage 6): what a role can do, one line under it wherever a role is picked. */
+function RoleHint({ id, role }: { id: string; role: ShalaRole }) {
+  return (
+    <Localized id="shala-role-hint" vars={{ role }}>
+      <p id={id} className="hint small role-hint" />
+    </Localized>
+  );
+}
+
 function Staff({ shala }: { shala: Shala }) {
   const { l10n } = useLocalization();
   const label = useRoleLabel();
@@ -692,6 +715,7 @@ function RoleEditor({
   const save = useSetStaffRoles(shala.id);
   const remove = useRemoveShalaMember(shala.id);
   const [roles, setRoles] = useState<ShalaRole[]>(person.roles);
+  const hintId = `role-${useId()}`;
   // My own row as the owner (Q338): what I do here beside owning it; nobody removes an owner.
   const mine = person.owner;
   const allowed = mine ? OWN_ROLES : grantable(shala.me);
@@ -717,14 +741,17 @@ function RoleEditor({
         </Localized>
       )}
       {ROLES.filter((r) => allowed.includes(r)).map((role) => (
-        <Check
-          key={role}
-          label={label(role)}
-          checked={roles.includes(role)}
-          onChange={() => {
-            toggle(role);
-          }}
-        />
+        <Fragment key={role}>
+          <Check
+            label={label(role)}
+            checked={roles.includes(role)}
+            aria-describedby={`${hintId}-${role}`}
+            onChange={() => {
+              toggle(role);
+            }}
+          />
+          <RoleHint id={`${hintId}-${role}`} role={role} />
+        </Fragment>
       ))}
       <Localized id="shala-roles-save">
         <button
@@ -761,7 +788,7 @@ function RoleEditor({
   );
 }
 
-function Students({ shala }: { shala: Shala }) {
+function Students({ shala, onInvite }: { shala: Shala; onInvite?: (() => void) | undefined }) {
   const { l10n } = useLocalization();
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -838,6 +865,25 @@ function Students({ shala }: { shala: Shala }) {
             </Localized>
           )}
         </div>
+      )}
+      {/* C3 (UI-06 stage 6): staff who only read the names learn whose students they are, and
+          how their own students reach them. */}
+      {open && !canRemoveStudents(shala.me) && page && page.students.length > 0 && (
+        <Localized id="shala-students-not-yours">
+          <p className="hint" />
+        </Localized>
+      )}
+      {open && !canRemoveStudents(shala.me) && onInvite && (
+        <Localized id="links-invite">
+          <button
+            type="button"
+            className="row-button"
+            onClick={() => {
+              haptics.selection();
+              onInvite();
+            }}
+          />
+        </Localized>
       )}
     </section>
   );
@@ -944,6 +990,7 @@ function StaffInvite({ shala, ask }: { shala: Shala; ask: number }) {
   const { l10n } = useLocalization();
   const label = useRoleLabel();
   const invite = useShalaStaffInvite(shala.id);
+  const hintId = `pick-${useId()}`;
   const [picking, setPicking] = useState(false);
   const [shown, setShown] = useState<{ link: ShalaLink; role: ShalaRole } | null>(null);
   // UI-06 stage 4: the setup list's third step ("Invite teachers") opens the role picker, in
@@ -996,19 +1043,22 @@ function StaffInvite({ shala, ask }: { shala: Shala; ask: number }) {
             <p className="hint" />
           </Localized>
           {grantable(shala.me).map((role) => (
-            <button
-              key={role}
-              ref={suggest && role === "teacher" ? suggested : undefined}
-              type="button"
-              className={suggest && role === "teacher" ? "chip primary" : "chip"}
-              aria-current={suggest && role === "teacher" ? "true" : undefined}
-              disabled={invite.isPending}
-              onClick={() => {
-                create(role);
-              }}
-            >
-              {label(role)}
-            </button>
+            <div key={role} className="role-pick">
+              <button
+                ref={suggest && role === "teacher" ? suggested : undefined}
+                type="button"
+                className={suggest && role === "teacher" ? "chip primary" : "chip"}
+                aria-current={suggest && role === "teacher" ? "true" : undefined}
+                aria-describedby={`${hintId}-${role}`}
+                disabled={invite.isPending}
+                onClick={() => {
+                  create(role);
+                }}
+              >
+                {label(role)}
+              </button>
+              <RoleHint id={`${hintId}-${role}`} role={role} />
+            </div>
           ))}
         </>
       )}

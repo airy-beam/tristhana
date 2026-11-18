@@ -88,6 +88,7 @@ const OWNER: MeIn = { owner: true, roles: ["teacher"], student: false };
 const ADMIN: MeIn = { owner: false, roles: ["admin"], student: false };
 const TEACHER: MeIn = { owner: false, roles: ["teacher"], student: false };
 const STUDENT: MeIn = { owner: false, roles: [], student: true };
+const OFFICE: MeIn = { owner: false, roles: ["office"], student: false };
 const MINE = [
   {
     id: SHALA,
@@ -118,6 +119,8 @@ interface Stub {
   classes?: unknown[];
   /** My account's language; English unless given. */
   locale?: Locale;
+  /** The shala's students page (staff); none unless given. */
+  students?: { id: string; name: string | null }[];
 }
 
 function stubApi(stub: Stub = {}): Request[] {
@@ -154,6 +157,10 @@ function stubApi(stub: Stub = {}): Request[] {
           occurrences: [],
           closures: [],
         }); // SC-02
+      if (path === `/api/v1/shalas/${SHALA}/students`) {
+        const students = stub.students ?? [];
+        return json({ students, total: students.length });
+      }
       if (path === `/api/v1/shalas/${SHALA}/join-link`)
         return json({ url: "https://t.me/x?start=s_a", qr: "data:image/png;base64,AA==" });
       if (path === "/api/v1/me/links") return json({ teachers: [], students: [] });
@@ -389,7 +396,92 @@ describe("the shala card", () => {
     // UI-06 stage 5: no "shala time" in my own zone; the place alone, as in the bot.
     expect(screen.getByText((t) => plain(t) === "📍 Almaty")).toBeInTheDocument();
     expect(pageText()).not.toContain("shala time");
-    expect(pageText()).toContain("🌙 Moon days: 📍 Almaty");
+    // C15 (UI-06 stage 6): one moon line, the policy included, as the bot's card has it.
+    expect(pageText()).toContain("🌙 Moon days (📍 Almaty): shala closed");
+    expect(pageText()).not.toContain("🌙 Moon days: ");
+  });
+
+  it.each([
+    ["open", "🌙 Moon days (📍 Almaty): classes as usual"],
+    ["pranayama", "🌙 Moon days (📍 Almaty): pranayama, chanting and talks only"],
+  ])("names the moon policy %s on the same line", async (policy, line) => {
+    stubApi({ card: shalaOut(STUDENT, { moon_policy: policy }) });
+
+    renderWith(card());
+
+    await screen.findByText(/Ashtanga Almaty/);
+    await waitFor(() => {
+      expect(screen.getByText((t) => plain(t) === line)).toBeInTheDocument();
+    });
+  });
+
+  it("says in one line whom the moon calendar is for, to those who set it", async () => {
+    stubApi({ card: shalaOut(OWNER) });
+
+    renderWith(card());
+
+    await screen.findByText("🌙 Staff and students follow this calendar unless they chose a city.");
+  });
+
+  // C14 (UI-06 stage 6): what each role can do, under it, as `application/policies.py` allows.
+  const HINTS = {
+    Teacher:
+      "Classes and schedule, attendance, announcements, the student list; students can pick them as their teacher.",
+    Assistant: "Attendance and the student list; not the schedule or announcements.",
+    "Front desk":
+      "Classes and schedule, attendance, announcements, the student list; can remove a student; not the shala's settings or roles.",
+    Manager: "Everything except deleting the shala and adding managers.",
+  } as const;
+
+  it("the staff invite picker says what each role can do", async () => {
+    stubApi({ card: shalaOut(OWNER) });
+    renderWith(card());
+    await screen.findByText(/Ashtanga Almaty/);
+
+    fireEvent.click(await screen.findByRole("button", { name: "➕ Invite staff" }));
+
+    for (const [role, hint] of Object.entries(HINTS)) {
+      expect(await screen.findByRole("button", { name: role })).toHaveAccessibleDescription(hint);
+    }
+  });
+
+  it("the role editor says what each role it offers can do", async () => {
+    stubApi({ card: shalaOut(ADMIN) });
+    renderWith(card());
+    await screen.findByText(/Boris/);
+
+    fireEvent.click(screen.getByRole("button", { name: /Boris/ }));
+
+    for (const role of ["Teacher", "Assistant", "Front desk"] as const) {
+      expect(await screen.findByRole("checkbox", { name: role })).toHaveAccessibleDescription(
+        HINTS[role],
+      );
+    }
+    expect(screen.queryByText(HINTS.Manager)).toBeNull(); // a manager can't make a manager
+  });
+
+  // C3 (UI-06 stage 6): staff who read the names learn whose students they are.
+  it.each([
+    ["a teacher", TEACHER, true],
+    ["the front desk", OFFICE, false],
+  ])("the students list for %s", async (_, me, told) => {
+    stubApi({ card: shalaOut(me), students: [{ id: BORIS, name: "Bea" }] });
+    const onInvite = vi.fn();
+    renderWith(<ShalaScreen id={SHALA} onBack={vi.fn()} onInvite={onInvite} />);
+    await screen.findByText(/Ashtanga Almaty/);
+
+    fireEvent.click(screen.getByRole("button", { name: /👥 Students/ }));
+    await screen.findByText("Bea");
+
+    const line =
+      "These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).";
+    expect(!!screen.queryByText(line)).toBe(told);
+    const invite = screen.queryByRole("button", { name: "➕ Invite my students" });
+    expect(!!invite).toBe(told);
+    if (invite) {
+      fireEvent.click(invite);
+      expect(onInvite).toHaveBeenCalledOnce();
+    }
   });
 
   it.each([
@@ -875,11 +967,11 @@ describe("opened to announce", () => {
     await composer();
     back();
 
-    fireEvent.click(await screen.findByRole("button", { name: "📣 Announce" }));
+    fireEvent.click(await screen.findByRole("button", { name: "📣 Announce to the shala" }));
 
     expect(await composer()).toBeVisible();
     back();
-    expect(await screen.findByRole("button", { name: "📣 Announce" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "📣 Announce to the shala" })).toBeVisible();
     expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
   });
 
@@ -900,7 +992,7 @@ describe("opened to announce", () => {
 
     expect(await screen.findByRole("button", { name: "📣 Announcements" })).toBeVisible();
     expect(screen.queryByRole("heading", { level: 1, name: "📣 Announcement" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "📣 Announce" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "📣 Announce to the shala" })).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(calls(seen, "POST", "/api/v1/me/announcements")).toHaveLength(0);
   });

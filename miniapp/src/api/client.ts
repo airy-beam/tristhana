@@ -1246,8 +1246,9 @@ export type NewShala = components["schemas"]["ShalaIn"];
 const SHALAS_KEY = ["shalas"];
 export const SHALA_STUDENTS_PAGE = 20;
 
-export function useMyShalas() {
+export function useMyShalas(enabled = true) {
   return useQuery({
+    enabled,
     staleTime: 60_000,
     queryKey: [...SHALAS_KEY, "mine"],
     queryFn: async (): Promise<MyShala[]> => {

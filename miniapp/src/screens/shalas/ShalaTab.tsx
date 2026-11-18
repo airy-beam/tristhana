@@ -123,6 +123,11 @@ export default function ShalaTab({ onStudents, onSchedule, start = null, heading
           onBack={() => {
             setShala(null);
           }}
+          onInvite={() => {
+            // C3 (UI-06 stage 6): my own invite, open in the group on this list.
+            setShala(null);
+            setIntent("invite");
+          }}
         />
       </Suspense>
     );

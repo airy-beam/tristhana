@@ -340,7 +340,7 @@ def test_with_no_students_the_list_says_so(client: TestClient, storage: InMemory
 
     body = _tap(client, "t1:s:0")
 
-    assert body["text"] == "No students on your list."
+    assert body["text"] == "No students yet. Send them your link."  # UI-06 stage 6 (C6)
     assert storage.teacher_view.reads == ["page"]  # an empty first page isn't a stale one
 
 

@@ -83,8 +83,10 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
     (
         "invite-full",
         {},
-        "This link can't add a teacher right now.",
-        "Сейчас по этой ссылке не получится добавить учителя.",
+        # UI-06 stage 6 (C19): with the next step.
+        "This link can't add a teacher right now. Ask the person who sent it for a new link.",
+        "Сейчас по этой ссылке не получится добавить учителя. Попроси новую ссылку у того, "
+        "кто её прислал.",
     ),
     (
         "link-student-joined",
@@ -142,7 +144,28 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой "
         "ссылку, которую они пришлют. Журнал практики работает и так.",
     ),
-    ("links-no-students", {}, "No students on your list.", "Учеников в списке нет."),
+    (
+        "links-empty-staff",
+        {},
+        # UI-06 stage 6 (C2): no "join a shala" line above a shala I'm on the staff of.
+        "No teacher on your list.",
+        "Учителя в списке нет.",
+    ),
+    (
+        "links-no-students",
+        {"shala": "no"},
+        # UI-06 stage 6 (C6): what to do next, and the shala's students for a shala's teacher.
+        "No students yet. Send them your link.",
+        "Учеников пока нет. Отправь им свою ссылку.",
+    ),
+    (
+        "links-no-students",
+        {"shala": "yes"},
+        "No students yet. Send them your link; students of your shala can also pick you as "
+        "their teacher.",
+        "Учеников пока нет. Отправь им свою ссылку; ученики шалы также могут выбрать тебя "
+        "учителем.",
+    ),
     (
         "links-primary-hint",
         {},

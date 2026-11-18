@@ -256,16 +256,15 @@ def can_pin_announcement(
     return actor.id == author_id and (not shala_source or can_announce_to_shala(shala))
 
 
-def can_ask_teacher(actor: Membership | None, target: Membership | None) -> bool:
-    """ID-07: a student of a shala asks someone on its staff who holds the Teacher role. An
+def can_be_asked_as_teacher(target: Membership | None) -> bool:
+    """ID-07: whom a shala's students may ask: someone on its staff with the Teacher role. An
     owner counts only with that role; assistants, managers and the front desk never."""
-    return (
-        actor is not None
-        and actor.student
-        and target is not None
-        and target.staff
-        and ShalaRole.TEACHER in target.roles
-    )
+    return target is not None and target.staff and ShalaRole.TEACHER in target.roles
+
+
+def can_ask_teacher(actor: Membership | None, target: Membership | None) -> bool:
+    """ID-07: a student of a shala asks someone on its staff who holds the Teacher role."""
+    return actor is not None and actor.student and can_be_asked_as_teacher(target)
 
 
 def can_answer_request(actor: Account, teacher_id: UUID) -> bool:

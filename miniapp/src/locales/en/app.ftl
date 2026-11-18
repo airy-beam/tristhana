@@ -576,7 +576,7 @@ shala-online-only = 🌐 Online classes only
 shala-my-roles = My roles in the shala
 shala-create-submit = Create
 shala-name-invalid = The shala needs a name, up to 64 characters.
-shala-caps = No more shalas or staff links for now: that's the limit.
+shala-caps = No more shalas or staff links for now: that's the limit. A staff link works for 7 days; after that you can make a new one.
 shala-save-failed = Couldn't save. Try again in a moment.
 shala-load-failed = Couldn't load the shala. Try again in a moment.
 shala-role =
@@ -594,10 +594,9 @@ shala-online = 🌐 Online
 # otherwise inside shala-time, whose $zone carries the offset (ADR-0044).
 shala-place = 📍 { $city }
 shala-time = { $place } · shala time: { $zone }
-shala-moon-line = 🌙 Moon days: 📍 { $city }
 shala-moon-city = City for the shala's moon days
 shala-moon-same = Same as the shala's city
-shala-moon-shared = 🌙 Staff, and members whose teacher works here, follow this calendar unless they chose a city. Other members follow it unless they or their teacher chose one.
+shala-moon-shared = 🌙 Staff and students follow this calendar unless they chose a city.
 shala-staff-title = Teachers and staff
 shala-edit = ✏️ Edit the shala
 shala-roles-save = Save
@@ -643,11 +642,6 @@ class-type = { $type ->
     }
 class-led-hint = Often Friday or Sunday
 shala-moon-policy-label = 🌙 On moon days
-shala-moon-policy = { $p ->
-        [pranayama] 🌙 Moon days: pranayama, chanting and talks only
-        [open] 🌙 Moon days: classes as usual
-       *[closed] 🌙 Moon days: the shala is closed
-    }
 shala-moon-policy-option = { $p ->
         [pranayama] Pranayama, chanting and talks only
         [open] Classes as usual
@@ -758,7 +752,12 @@ shala-empty = Nobody here yet. To add a teacher or join a shala, open the link t
 shala-starts-title = For teachers and shalas
 shala-start-invite = Invite my students
 shala-start-shala = Shala and classes
-links-no-students = No students on your list.
+# C6 (UI-06 stage 6): $shala is "yes" for someone with the Teacher role in a shala, whose
+# students can pick them there, else "no".
+links-no-students = No students yet. Send them your link{ $shala ->
+        [yes] ; students of your shala can also pick you as their teacher
+       *[no] {""}
+    }.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
@@ -783,7 +782,9 @@ invite-qr-alt = QR code for your invite link
 links-load-failed = Couldn't load your lists. Try again in a moment.
 
 ## NT-03: announcements from a teacher or a shala
-ann-announce = 📣 Announce
+ann-announce = 📣 Announce to the shala
+# C20 (UI-06 stage 6): a teacher's own students, on My students.
+ann-announce-students = 📣 Announce to my students
 ann-compose-title = 📣 Announcement
 ann-to-students = To: all your students ({ $count })
 ann-to-shala = To: everyone in { $shala } ({ $count })

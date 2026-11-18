@@ -203,6 +203,10 @@ async def _seed_for(w: World, data: str) -> None:
     if (prefix, letter) in (("h1", "a"), ("h1", "b"), ("h1", "l")):
         # ... and a shala's to someone who is not in it yet.
         del w.storage.shalas.staff[(frozen.SHALA, w.me)]
+    if (prefix, letter) == ("h1", "ls") and frozen.SHALA in w.storage.shalas.shalas:
+        # The staff consent's language row (stage 6): not in the shala yet, the link open.
+        del w.storage.shalas.staff[(frozen.SHALA, w.me)]
+        w.storage.shalas.add_invite(frozen.SHALA, frozen.SHALA_CODE, ShalaRole.ASSISTANT)
     if (prefix, letter) == ("h1", "b"):
         w.storage.shalas.add_invite(frozen.SHALA, frozen.SHALA_CODE, ShalaRole.ASSISTANT)
     if (prefix, letter) == ("a1", "k"):
@@ -658,6 +662,9 @@ STAGE6: dict[str, tuple[str | tuple[str, ...], str | tuple[str, ...]]] = {
     f"d1:n:{YESTERDAY}:p": (WHICH_DAY, WHICH_DAY),
     f"n1:o:{D}:v": (f"n1:w:{D}:v", f"n1:w:{D}:v"),
     f"n1:b:{D}:v": (DONE, DONE),
+    # C4: the staff consent's language row (`h1:l` stays the join consent's): the consent
+    # again with its own confirm, or Today with the invalid line once the link is gone.
+    f"h1:ls:ru:{frozen.SHALA_CODE}": (f"h1:b:{frozen.SHALA_CODE}", TODAY),
 }
 
 

@@ -67,7 +67,7 @@ class-form-end-early = Последняя дата раньше первой. В
 class-form-end-before-applies = Последняя дата раньше той, с которой действуют изменения. Поправь одну из них.
 class-form-save = Сохранить занятие
 class-form-failed = Не получилось сохранить занятие. Проверь время и попробуй ещё раз.
-class-form-caps = Для этой шалы это пока предел.
+class-form-caps = Для этой шалы это пока предел. Считаются только идущие занятия: укажи окончание тому, что больше не проводится.
 class-form-gone = Это занятие уже изменилось или удалено. Вот актуальное расписание.
 # «Назад», когда что-то введено и не сохранено.
 class-form-discard-ask = Выйти, не сохранив занятие?
@@ -122,3 +122,22 @@ shala-class-every-day = каждый день
 class-form-saved = ✓ Занятие сохранено.
 # Строка добавления в «Занятиях» после сохранения, до ухода с карточки (до этого schedule-add-class).
 class-add-another = ➕ Добавить ещё занятие
+
+## The shala card (UI-06 stage 6). Copies of the bot's texts (ADR-0050: a key in both reads the same).
+# C15: the card's one moon line, the policy included ($policy is shala-moon-policy-short).
+shala-moon-summary = 🌙 Лунные дни (📍 { $city }): { $policy }
+shala-moon-policy-short = { $p ->
+        [pranayama] только пранаяма, чантинг и конференции
+        [open] занятия как обычно
+       *[closed] шала закрыта
+    }
+# C14: under each role in the staff invite picker and the role editor (see the English file).
+shala-role-hint =
+    { $role ->
+        [admin] Всё, кроме удаления шалы и назначения управляющих.
+        [teacher] Занятия и расписание, посещаемость, объявления, список учеников; ученики могут выбрать преподавателя своим учителем.
+        [assistant] Посещаемость и список учеников; без расписания и объявлений.
+       *[office] Занятия и расписание, посещаемость, объявления, список учеников; может убрать ученика; без настроек шалы и ролей.
+    }
+# C3: under the shala's students, for staff who can't remove a student.
+shala-students-not-yours = Это ученики шалы. В «👥 Мои ученики» они появятся, когда выберут тебя учителем или откроют твою личную ссылку (➕ Пригласить своих учеников).

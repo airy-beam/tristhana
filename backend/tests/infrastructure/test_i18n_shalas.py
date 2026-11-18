@@ -1,8 +1,10 @@
+# ruff: noqa: RUF001
 """SC-01 copy (spec §2): every new key in both languages, the drafted rows exactly, the role
 select (Q104), and the glossary split: «Преподаватель» is the shala role, «учитель» the
 personal teacher. No copy implies SYC authorisation."""
 
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 
@@ -78,7 +80,79 @@ COPY: list[tuple[str, dict[str, str | int], str, str]] = [
         "🌙 Moon days: 📍 Almaty (as S)",
         "🌙 Лунные дни: 📍 Almaty (как в шале: S)",
     ),
+    # UI-06 stage 6 (spec §6 and the ux-writer's review).
+    (
+        "shala-staff-welcome",
+        {"shala": "S", "role": "Teacher"},
+        "✅ You're on the staff now: S. Role: Teacher. The shala's card is below. Your week of "
+        "classes is under ☰ Menu → 🗓 My schedule.",
+        "✅ Теперь ты в команде шалы: S. Роль: Teacher. Карточка шалы — ниже. Неделя занятий — "
+        "в ☰ Меню → 🗓 Моё расписание.",
+    ),
+    (
+        "shala-students-not-yours",
+        {},
+        "These are the shala's students. They show up in 👥 My students once they pick you as "
+        "their teacher or open your own link (➕ Invite my students).",
+        "Это ученики шалы. В «👥 Мои ученики» они появятся, когда выберут тебя учителем или "
+        "откроют твою личную ссылку (➕ Пригласить своих учеников).",
+    ),
+    (
+        "shala-moon-shared",
+        {},
+        "🌙 Staff and students follow this calendar unless they chose a city.",
+        "🌙 Команда и ученики шалы следуют этому календарю, если сами не выбрали город.",
+    ),
+    ("ann-announce", {}, "📣 Announce to the shala", "📣 Объявление для шалы"),
+    ("ann-announce-students", {}, "📣 Announce to my students", "📣 Объявление своим ученикам"),
+    # C19: each dead end says what to do next.
+    (
+        "shala-full",
+        {},
+        "This link can't add you to the shala right now. Please let the shala know.",
+        "Сейчас по этой ссылке не получится присоединиться к шале. Сообщи об этом в шалу.",
+    ),
+    (
+        "shala-caps",
+        {},
+        "No more shalas or staff links for now: that's the limit. A staff link works for 7 "
+        "days; after that you can make a new one.",
+        "Больше шал или ссылок для команды пока не получится: это предел. Ссылка для команды "
+        "действует 7 дней, потом можно создать новую.",
+    ),
+    (
+        "class-invalid",
+        {},
+        "That change doesn't fit the schedule. Open the class in the app and check its days "
+        "and times.",
+        "Такое изменение не вписывается в расписание. Открой занятие в приложении и проверь "
+        "дни и время.",
+    ),
 ]
+# C14 (UI-06 stage 6, the owner kept «Администратор»): what each role a picker offers can do,
+# as `application/policies.py` allows it.
+ROLE_HINTS = {
+    "admin": (
+        "Everything except deleting the shala and adding managers.",
+        "Всё, кроме удаления шалы и назначения управляющих.",
+    ),
+    "teacher": (
+        "Classes and schedule, attendance, announcements, the student list; students can pick "
+        "them as their teacher.",
+        "Занятия и расписание, посещаемость, объявления, список учеников; ученики могут выбрать "
+        "преподавателя своим учителем.",
+    ),
+    "assistant": (
+        "Attendance and the student list; not the schedule or announcements.",
+        "Посещаемость и список учеников; без расписания и объявлений.",
+    ),
+    "office": (
+        "Classes and schedule, attendance, announcements, the student list; can remove a "
+        "student; not the shala's settings or roles.",
+        "Занятия и расписание, посещаемость, объявления, список учеников; может убрать ученика; "
+        "без настроек шалы и ролей.",
+    ),
+}
 ROLES = {
     "owner": ("Owner", "Владелец"),
     "admin": ("Manager", "Управляющий"),
@@ -111,6 +185,38 @@ def test_the_role_select(role: str, labels: tuple[str, str]) -> None:
     t = FluentTranslator()
 
     assert (t.t("en", "shala-role", role=role), t.t("ru", "shala-role", role=role)) == labels
+
+
+@pytest.mark.parametrize(("role", "lines"), list(ROLE_HINTS.items()))
+def test_each_role_says_what_it_can_do(role: str, lines: tuple[str, str]) -> None:
+    t = FluentTranslator()
+
+    assert (t.t("en", "shala-role-hint", role=role), t.t("ru", "shala-role-hint", role=role)) == (
+        lines
+    )
+
+
+def test_the_role_hints_follow_the_policies() -> None:
+    """The schedule and announcements for exactly `can_manage_schedule`'s roles (the front desk
+    included), a student's removal for the front desk, and the student list for every seat."""
+    from tristhana.application.policies import (
+        can_manage_schedule,
+        can_remove_student,
+        can_view_shala_students,
+    )
+    from tristhana.domain.shalas import Membership, ShalaRole
+
+    t = FluentTranslator()
+    for role in ShalaRole:
+        seat = Membership(UUID(int=1), False, frozenset({role}), False)
+        hint = t.t("en", "shala-role-hint", role=role.value)
+        schedule = hint.startswith(("Classes and schedule", "Everything"))
+        assert schedule == can_manage_schedule(seat), role
+        assert ("remove a student" in hint or hint.startswith("Everything")) == (
+            can_remove_student(seat, own=False)
+        ), role
+        assert can_view_shala_students(seat)
+        assert "student list" in hint or hint.startswith("Everything"), role
 
 
 def test_the_student_count_is_a_plural_in_russian() -> None:

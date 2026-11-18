@@ -774,7 +774,7 @@ invite-linked = ✅ { $name } теперь в списке твоих учите
 invite-already = { $name } уже в списке твоих учителей.
 invite-own = Это твоя ссылка-приглашение: поделись ею с учениками.
 invite-invalid = Эта ссылка больше не работает. Новую может прислать тот, кто ею поделился.
-invite-full = Сейчас по этой ссылке не получится добавить учителя.
+invite-full = Сейчас по этой ссылке не получится добавить учителя. Попроси новую ссылку у того, кто её прислал.
 link-student-joined = 👥 { $name } теперь в списке твоих учеников.
 link-students-open = 👥 Мои ученики
 invite-moon-hint = У учеников, которые не выбрали город, лунные дни будут считаться по городу, который ты выберешь в ☰ Меню → 🌙 Лунные дни.
@@ -785,7 +785,14 @@ link-unlink-ask = Убрать из списка учителей: { $name }? С
 link-next-main = Основным учителем станет: { $name }.
 link-remove-ask = Убрать из списка учеников: { $name }? Сообщений никто не получит.
 links-empty = Учителя в списке нет. Чтобы добавить учителя или присоединиться к шале, открой ссылку, которую они пришлют. Журнал практики работает и так.
-links-no-students = Учеников в списке нет.
+# C2 (UI-06 stage 6): for someone on a shala's staff, who has no join line to read.
+links-empty-staff = Учителя в списке нет.
+# C6 (UI-06 stage 6): $shala is "yes" for someone with the Teacher role in a shala, whose
+# students can pick them there (`can_be_asked_as_teacher`), else "no".
+links-no-students = Учеников пока нет. Отправь им свою ссылку{ $shala ->
+        [yes] ; ученики шалы также могут выбрать тебя учителем
+       *[no] {""}
+    }.
 links-primary-hint = ⭐ — твой основной учитель. Поменять можно в любой момент.
 links-main-chosen = ⭐ Основной учитель: { $name }
 links-main-auto = ⭐ Основной учитель: { $name } (в начале списка)
@@ -941,6 +948,8 @@ shala-staff-consent-short =
     • Выйти можно в любой момент: ☰ Меню → 🙏 Учитель и шала.
 shala-staff-yes = ✅ Подтвердить
 shala-staff-joined = 🏛 { $name } теперь в шале { $shala }. Роль: { $role }.
+# C4 (UI-06 stage 6): над карточкой после принятой ссылки для команды. $role — shala-role.
+shala-staff-welcome = ✅ Теперь ты в команде шалы: { $shala }. Роль: { $role }. Карточка шалы — ниже. Неделя занятий — в ☰ Меню → 🗓 Моё расписание.
 shala-staff-link-hint = Эта ссылка добавит одного человека. Роль: { $role }. Работает один раз, 7 дней.
 shala-staff-pick = Выбери роль. Ссылка добавит одного человека с этой ролью.
 shala-role =
@@ -959,11 +968,20 @@ shala-role-in-list =
         [assistant] ассистент
        *[office] администратор
     }
-shala-moon-shared = 🌙 Команда шалы и участники, чей учитель преподаёт здесь, следуют этому календарю, если сами не выбрали город. Остальные — если город не выбран ни ими, ни их учителем.
+# C14 (UI-06 stage 6): what each role can do; see the English file for the policies behind it.
+shala-role-hint =
+    { $role ->
+        [admin] Всё, кроме удаления шалы и назначения управляющих.
+        [teacher] Занятия и расписание, посещаемость, объявления, список учеников; ученики могут выбрать преподавателя своим учителем.
+        [assistant] Посещаемость и список учеников; без расписания и объявлений.
+       *[office] Занятия и расписание, посещаемость, объявления, список учеников; может убрать ученика; без настроек шалы и ролей.
+    }
+shala-role-hint-line = { $role }: { $hint }
+shala-moon-shared = 🌙 Команда и ученики шалы следуют этому календарю, если сами не выбрали город.
 shala-invalid = Эта ссылка на шалу больше не работает. Новую может прислать тот, кто ею поделился.
 shala-already = Ты уже в шале { $shala }.
 shala-already-staff = Ты уже в команде шалы { $shala }, ссылка для учеников тебе не нужна.
-shala-full = Сейчас по этой ссылке не получится присоединиться к шале.
+shala-full = Сейчас по этой ссылке не получится присоединиться к шале. Сообщи об этом в шалу.
 shala-joined = ✅ Теперь ты в шале { $shala }. Добро пожаловать 🙏
 shala-leave = Выйти…
 shala-leave-ask = Выйти из шалы { $shala }? Сообщений никто не получит, журнал останется как есть.
@@ -977,6 +995,8 @@ shala-students =
        *[many] 👥 { $n } учеников
     }
 shala-no-students = В этой шале пока нет учеников.
+# C3 (UI-06 stage 6): под именами, для команды, которая не убирает учеников.
+shala-students-not-yours = Это ученики шалы. В «👥 Мои ученики» они появятся, когда выберут тебя учителем или откроют твою личную ссылку (➕ Пригласить своих учеников).
 shala-staff-title = Преподаватели и команда: { $people }
 shala-invite-students = ➕ Пригласить учеников в шалу
 shala-invite-staff = ➕ Пригласить в команду
@@ -989,10 +1009,17 @@ shala-online = 🌐 Онлайн
 # otherwise inside shala-time, whose $zone carries the offset (ADR-0044).
 shala-place = 📍 { $city }
 shala-time = { $place } · время шалы: { $zone }
-shala-moon-line = 🌙 Лунные дни: 📍 { $city }
+# C15 (UI-06 stage 6): the card's one moon line, the policy included ($policy is
+# shala-moon-policy-short).
+shala-moon-summary = 🌙 Лунные дни (📍 { $city }): { $policy }
+shala-moon-policy-short = { $p ->
+        [pranayama] только пранаяма, чантинг и конференции
+        [open] занятия как обычно
+       *[closed] шала закрыта
+    }
 shala-delete-ask = Удалить шалу { $shala } для всех участников? Журналы у всех останутся. Сообщений никто не получит. Отменить это нельзя.
 shala-name-invalid = Шале нужно название, до 64 символов.
-shala-caps = Больше шал или ссылок для команды пока не получится: это предел.
+shala-caps = Больше шал или ссылок для команды пока не получится: это предел. Ссылка для команды действует 7 дней, потом можно создать новую.
 moon-source-shala = 🏛 Как в шале: { $shala }. Можно выбрать другой город.
 moon-follow-shala = 🏛 Как в шале ({ $shala })
 settings-moon-line-shala = 🌙 Лунные дни: 📍 { $city } (как в шале: { $shala })
@@ -1056,11 +1083,6 @@ schedule-moved = ↪ перенесено с { $day } { $time }
 schedule-substitute = { $name } (замена)
 schedule-day-off = 😌 Выходной в шале
 schedule-empty = В эти дни занятий нет.
-shala-moon-policy = { $p ->
-        [pranayama] 🌙 В лунные дни только пранаяма, чантинг и конференции
-        [open] 🌙 В лунные дни занятия как обычно
-       *[closed] 🌙 В лунные дни шала закрыта
-    }
 shala-day-off-line = 😌 Выходной: { $days }
 shala-day-off-adopt = 😌 Мой выходной тоже: { $days }
 class-cancel-ask = Отменить { $class } { $day }? Отмена будет видна в расписании. Сообщений никто не получит.
@@ -1072,7 +1094,7 @@ class-pick-title = Какое занятие? Ближайшие 48 часов:
 class-pick-empty = В ближайшие 48 часов занятий нет.
 class-gone = Это занятие уже изменилось. Вот актуальное расписание.
 class-caps = Для этой шалы это пока предел.
-class-invalid = Такое изменение не вписывается в расписание.
+class-invalid = Такое изменение не вписывается в расписание. Открой занятие в приложении и проверь дни и время.
 # Своя неделя учителя (/classes): все шалы, где он в команде. Время в поясе каждой шалы.
 my-classes-covered = тебя заменяет { $name }
 my-classes-covering = ты заменяешь: { $name }
@@ -1163,7 +1185,9 @@ ann-list-title = 📣 Объявления: { $source }
 ann-list-empty = За последние 30 дней объявлений нет.
 ann-item = 📅 { $date } · { $name }
 ann-pinned-until = 📌 Закреплено до { $date }
-ann-announce = 📣 Сделать объявление
+ann-announce = 📣 Объявление для шалы
+# C20 (UI-06 stage 6): a teacher's own students, on My students.
+ann-announce-students = 📣 Объявление своим ученикам
 
 ## SC-05: посещение занятий (только присутствие; не запись в журнале и не пропуск)
 attend-me-open = 🙋 Отметиться…

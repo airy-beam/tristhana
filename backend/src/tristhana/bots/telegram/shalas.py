@@ -43,6 +43,7 @@ from tristhana.application.shalas import ShalaUseCases
 from tristhana.bots.telegram import classes_callbacks as classes_cb
 from tristhana.bots.telegram import moon_callbacks
 from tristhana.bots.telegram import shalas_callbacks as cb
+from tristhana.bots.telegram import teacher_links_callbacks as links_cb
 from tristhana.bots.telegram.runtime import SettingsUseCases
 from tristhana.bots.telegram.screens import (
     Reply,
@@ -190,26 +191,27 @@ class ShalaScreens:
         else:
             more = cb.consent(invite.code, invite.staff, details=True)
             rows.append([self._button(locale, "consent-details", more)])
-            if role is None:  # as before UI-06: the staff link's screen has no language row
-                other = self._other(locale)
-                switch = self._t.t(
-                    locale, "start-switch-language", language=self._t.t(other, f"language-{other}")
-                )
-                rows.append(
-                    [
-                        InlineKeyboardButton(
-                            text=switch, callback_data=cb.language(other, invite.code)
-                        )
-                    ]
-                )
+            # The staff link's language row has its own letter (UI-06 stage 6, C4): `h1:l`
+            # keeps meaning the join consent's.
+            other = self._other(locale)
+            switch = self._t.t(
+                locale, "start-switch-language", language=self._t.t(other, f"language-{other}")
+            )
+            data = cb.language(other, invite.code, staff=role is not None)
+            rows.append([InlineKeyboardButton(text=switch, callback_data=data)])
         text = "\n\n".join([ask, consent, self._t.t(locale, "shala-know-them")])
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def language(
-        self, principal: Principal, locale: Locale, code: str, client: ExternalProfile
+        self,
+        principal: Principal,
+        locale: Locale,
+        code: str,
+        client: ExternalProfile,
+        staff: bool = False,
     ) -> Screen:
         account = await self._s.profile.execute(principal, ProfilePatch(locale=locale), client)
-        return await self.invited(Principal(account), ShalaInvite(code, False))
+        return await self.invited(Principal(account), ShalaInvite(code, staff))
 
     async def join(self, principal: Principal, code: str) -> Screen:
         locale = principal.account.locale
@@ -235,7 +237,17 @@ class ShalaScreens:
             return await self._start.start(principal, self._t.t(locale, "shala-invalid"))
         if accepted.card is None:
             return await self._start.start(principal, self._t.t(locale, "shala-full"))
-        screen = self._card(principal, accepted.card, self._moved(locale, accepted.moon))
+        welcome = None
+        if accepted.created:  # UI-06 stage 6 (C4): where things are, above the card
+            welcome = self._t.t(
+                locale,
+                "shala-staff-welcome",
+                shala=accepted.card.name,
+                role=self._role(locale, accepted.role),
+            )
+        screen = self._card(
+            principal, accepted.card, self._moved(locale, accepted.moon), lead=welcome
+        )
         if accepted.keep is None:
             return screen
         return self._with_keep(locale, screen, accepted.keep)
@@ -271,10 +283,12 @@ class ShalaScreens:
         asked: Choices | None = None,
         waiting: int = 0,
         classes: Sequence[StoredClass] | None = None,
+        lead: str | None = None,
     ) -> Screen:
         """`asked`: the student's requests in this shala (ID-07); `waiting`: how many people
         wait for the caller's answer as a teacher; `classes`: the shala's classes, read for
-        those who may manage the schedule (None: not read, or not theirs to read)."""
+        those who may manage the schedule (None: not read, or not theirs to read); `lead`: a
+        line above the card."""
         locale = principal.account.locale
         today: date = caller_today(principal, self._clock)
         city = self._cities.find(card.city)
@@ -301,8 +315,11 @@ class ShalaScreens:
         lines = [f"🏛 {card.name}", place]
         # A moon city since removed from the list falls back to the shala's own city (Q111).
         moon = self._cities.find(card.moon_city or card.city) or self._cities.find(card.city)
-        if moon is not None:
-            lines.append(self._t.t(locale, "shala-moon-line", city=moon.name(locale)))
+        if moon is not None:  # UI-06 stage 6 (C15): one line, the policy included
+            policy = self._t.t(locale, "shala-moon-policy-short", p=str(card.moon_policy))
+            lines.append(
+                self._t.t(locale, "shala-moon-summary", city=moon.name(locale), policy=policy)
+            )
         lines.append(self._t.t(locale, "shala-staff-title", people=people))
         days_off = self._days_off(locale, card.days_off)
         if days_off is not None:
@@ -332,6 +349,8 @@ class ShalaScreens:
             text = f"{text}\n\n{pin}"
         if note:
             text = f"{text}\n\n{note}"
+        if lead:
+            text = f"{lead}\n\n{text}"
         rows: list[list[InlineKeyboardButton]] = []
         if waiting > 0:  # ID-07: people waiting for my answer, in any shala
             rows.append(waiting_row(self._t, locale, waiting))
@@ -529,13 +548,16 @@ class ShalaScreens:
             turn.append(self._button(locale, "page-next", cb.students(shala, page + 1)))
         if turn:
             rows.append(turn)
+        if not removes and self._username:  # C3 (UI-06 stage 6): my own students' way in
+            rows.append([self._button(locale, "links-invite", links_cb.plain("i"))])
         rows.append([self._button(locale, "log-back", cb.on_shala("c", shala))])
         if not found.students:
             text = self._t.t(locale, "shala-no-students")
         else:
             text = self._t.t(locale, "shala-students", n=found.total)  # type: ignore[arg-type]
-            if not removes:  # names only: nothing to tap
-                text = "\n".join([text, *(self._name(locale, s.name) for s in found.students)])
+            if not removes:  # names only: nothing to tap, and whose students they are
+                names = "\n".join([text, *(self._name(locale, s.name) for s in found.students)])
+                text = f"{names}\n\n{self._t.t(locale, 'shala-students-not-yours')}"
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def ask_remove(self, principal: Principal, shala: UUID, target: UUID) -> Screen:
@@ -680,19 +702,28 @@ class ShalaScreens:
         allowed = grantable(card.me)
         if not allowed or not self._username:
             return self._card(principal, card)
+        offered = [role for role in _ROLE_ORDER if role in allowed]
         rows = [
             [
                 InlineKeyboardButton(
                     text=self._role(locale, role), callback_data=cb.staff_link(shala, role)
                 )
             ]
-            for role in _ROLE_ORDER
-            if role in allowed
+            for role in offered
         ]
         rows.append([self._button(locale, "log-back", cb.on_shala("c", shala))])
-        return Screen(
-            self._t.t(locale, "shala-staff-pick"), InlineKeyboardMarkup(inline_keyboard=rows)
-        )
+        # C14 (UI-06 stage 6): what each role offered can do, as `application/policies` says.
+        hints = [
+            self._t.t(
+                locale,
+                "shala-role-hint-line",
+                role=self._role(locale, role),
+                hint=self._t.t(locale, "shala-role-hint", role=role.value),
+            )
+            for role in offered
+        ]
+        text = "\n\n".join([self._t.t(locale, "shala-staff-pick"), "\n".join(hints)])
+        return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def staff_link(self, principal: Principal, shala: UUID, role: ShalaRole) -> Screen:
         locale = principal.account.locale
@@ -726,8 +757,9 @@ class ShalaScreens:
                 return self.join(principal, code)
             case cb.AcceptStaff(code):
                 return self.accept_staff(principal, code)
-            case cb.Language(locale, code):
-                return self.language(principal, locale, code, client_profile(callback.from_user))
+            case cb.Language(locale, code, staff):
+                client = client_profile(callback.from_user)
+                return self.language(principal, locale, code, client, staff)
             case cb.Consent(code, staff, details):
                 return self.invited(principal, ShalaInvite(code, staff), details)
             case cb.NotNow():

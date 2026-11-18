@@ -587,7 +587,7 @@ shala-online-only = 🌐 Только онлайн-занятия
 shala-my-roles = Мои роли в шале
 shala-create-submit = Создать
 shala-name-invalid = Шале нужно название, до 64 символов.
-shala-caps = Больше шал или ссылок для команды пока не получится: это предел.
+shala-caps = Больше шал или ссылок для команды пока не получится: это предел. Ссылка для команды действует 7 дней, потом можно создать новую.
 shala-save-failed = Не получилось сохранить. Попробуй ещё раз чуть позже.
 shala-load-failed = Не получилось загрузить шалу. Попробуй ещё раз чуть позже.
 shala-role =
@@ -605,10 +605,9 @@ shala-online = 🌐 Онлайн
 # иначе внутри shala-time, где в $zone есть смещение (ADR-0044).
 shala-place = 📍 { $city }
 shala-time = { $place } · время шалы: { $zone }
-shala-moon-line = 🌙 Лунные дни: 📍 { $city }
 shala-moon-city = Город для лунных дней шалы
 shala-moon-same = По городу шалы
-shala-moon-shared = 🌙 Команда шалы и участники, чей учитель преподаёт здесь, следуют этому календарю, если сами не выбрали город. Остальные — если город не выбран ни ими, ни их учителем.
+shala-moon-shared = 🌙 Команда и ученики шалы следуют этому календарю, если сами не выбрали город.
 shala-staff-title = Преподаватели и команда
 shala-edit = ✏️ Изменить шалу
 shala-roles-save = Сохранить
@@ -659,11 +658,6 @@ class-type = { $type ->
     }
 class-led-hint = Часто в пятницу или воскресенье
 shala-moon-policy-label = 🌙 В лунные дни
-shala-moon-policy = { $p ->
-        [pranayama] 🌙 В лунные дни только пранаяма, чантинг и конференции
-        [open] 🌙 В лунные дни занятия как обычно
-       *[closed] 🌙 В лунные дни шала закрыта
-    }
 shala-moon-policy-option = { $p ->
         [pranayama] Только пранаяма, чантинг и конференции
         [open] Занятия как обычно
@@ -780,7 +774,12 @@ shala-empty = Здесь пока никого нет. Чтобы добавит
 shala-starts-title = Учителям и шалам
 shala-start-invite = Пригласить своих учеников
 shala-start-shala = Шала и занятия
-links-no-students = Учеников в списке нет.
+# C6 (UI-06 stage 6): $shala is "yes" for someone with the Teacher role in a shala, whose
+# students can pick them there, else "no".
+links-no-students = Учеников пока нет. Отправь им свою ссылку{ $shala ->
+        [yes] ; ученики шалы также могут выбрать тебя учителем
+       *[no] {""}
+    }.
 links-primary-hint = ⭐ — твой основной учитель. Поменять можно в любой момент.
 links-main-chosen = ⭐ Основной учитель: { $name }
 links-main-auto = ⭐ Основной учитель: { $name } (в начале списка)
@@ -805,7 +804,9 @@ invite-qr-alt = QR-код твоей ссылки-приглашения
 links-load-failed = Не получилось загрузить списки. Попробуй ещё раз чуть позже.
 
 ## NT-03: объявления от учителя или шалы
-ann-announce = 📣 Сделать объявление
+ann-announce = 📣 Объявление для шалы
+# C20 (UI-06 stage 6): a teacher's own students, on My students.
+ann-announce-students = 📣 Объявление своим ученикам
 ann-compose-title = 📣 Объявление
 ann-to-students = Кому: всем твоим ученикам ({ $count })
 ann-to-shala = Кому: всем в шале { $shala } ({ $count })

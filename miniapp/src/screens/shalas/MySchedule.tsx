@@ -44,6 +44,8 @@ function span(data: Week, locale: Locale): string {
 interface Props {
   locale: Locale;
   onBack: () => void;
+  /** C3 (UI-06 stage 6): a shala card's "➕ Invite my students" (my own invite, Shala tab). */
+  onInvite?: (() => void) | undefined;
 }
 
 interface Choice {
@@ -77,7 +79,7 @@ function remember(choice: Choice) {
 /** "🗓 My schedule" (SC-03, ADR-0035): every shala I'm in, a week at a time (0-3), in my zone,
  * with the class's own time when its offset differs. Filters and shala chips work on the same
  * answer. A row opens its shala's week. Read only. Loaded lazily. */
-export default function MySchedule({ locale, onBack }: Props) {
+export default function MySchedule({ locale, onBack, onInvite }: Props) {
   const [open, setOpen] = useState<{ id: string; week: number } | null>(null);
   if (open)
     return (
@@ -85,6 +87,7 @@ export default function MySchedule({ locale, onBack }: Props) {
         <ShalaScreen
           id={open.id}
           week={open.week}
+          onInvite={onInvite}
           onBack={() => {
             setOpen(null);
           }}

@@ -773,7 +773,7 @@ invite-linked = ✅ { $name } is on your list of teachers now.
 invite-already = { $name } is already on your list of teachers.
 invite-own = This is your own invite link: share it with your students.
 invite-invalid = This invite link no longer works. The person who shared it can send a new one.
-invite-full = This link can't add a teacher right now.
+invite-full = This link can't add a teacher right now. Ask the person who sent it for a new link.
 link-student-joined = 👥 { $name } is on your list of students now.
 link-students-open = 👥 My students
 invite-moon-hint = Students who haven't chosen a moon city will follow the city you choose under ☰ Menu → 🌙 Moon days.
@@ -784,7 +784,14 @@ link-unlink-ask = Remove { $name } from your teachers? They won't get a message,
 link-next-main = { $name } becomes your main teacher.
 link-remove-ask = Remove { $name } from your students? They won't get a message.
 links-empty = No teacher on your list. To add a teacher or join a shala, open the link they send you. Your log works the same either way.
-links-no-students = No students on your list.
+# C2 (UI-06 stage 6): for someone on a shala's staff, who has no join line to read.
+links-empty-staff = No teacher on your list.
+# C6 (UI-06 stage 6): $shala is "yes" for someone with the Teacher role in a shala, whose
+# students can pick them there (`can_be_asked_as_teacher`), else "no".
+links-no-students = No students yet. Send them your link{ $shala ->
+        [yes] ; students of your shala can also pick you as their teacher
+       *[no] {""}
+    }.
 links-primary-hint = ⭐ marks your main teacher. You can change it any time.
 links-main-chosen = ⭐ Main teacher: { $name }
 links-main-auto = ⭐ Main teacher: { $name } (first on your list)
@@ -943,6 +950,8 @@ shala-staff-consent-short =
     • You can leave any time under ☰ Menu → 🙏 Teacher and shala.
 shala-staff-yes = ✅ Confirm
 shala-staff-joined = 🏛 { $name } joined { $shala } as { $role }.
+# C4 (UI-06 stage 6): above the card, after a staff link is accepted. $role is shala-role.
+shala-staff-welcome = ✅ You're on the staff now: { $shala }. Role: { $role }. The shala's card is below. Your week of classes is under ☰ Menu → 🗓 My schedule.
 shala-staff-link-hint = This link adds one person as { $role }. It works once, for 7 days.
 shala-staff-pick = Choose a role. The link adds one person with that role.
 shala-role =
@@ -961,11 +970,27 @@ shala-role-in-list =
         [assistant] assistant
        *[office] front desk
     }
-shala-moon-shared = 🌙 Staff, and members whose teacher works here, follow this calendar unless they chose a city. Other members follow it unless they or their teacher chose one.
+# C14 (UI-06 stage 6): what each role can do, one line per role on a role picker. These restate
+# `application/policies.py`: Manager = `_manages` (`can_edit_shala`, `can_set_roles` and
+# `can_invite_staff` but Manager, `can_remove_staff` for non-managers, `can_moderate_announcements`);
+# Teacher and Front desk = `can_manage_schedule` and `can_announce_to_shala`; Teacher =
+# `can_be_asked_as_teacher`; Front desk also `can_remove_student`; every staff seat =
+# `can_view_shala_students`, `can_show_join_link`, `can_take_attendance`. A policy change
+# changes these lines in the same pull request.
+shala-role-hint =
+    { $role ->
+        [admin] Everything except deleting the shala and adding managers.
+        [teacher] Classes and schedule, attendance, announcements, the student list; students can pick them as their teacher.
+        [assistant] Attendance and the student list; not the schedule or announcements.
+       *[office] Classes and schedule, attendance, announcements, the student list; can remove a student; not the shala's settings or roles.
+    }
+# The bot's role picker: $role is shala-role, $hint is shala-role-hint.
+shala-role-hint-line = { $role }: { $hint }
+shala-moon-shared = 🌙 Staff and students follow this calendar unless they chose a city.
 shala-invalid = This shala link no longer works. The person who shared it can send a new one.
 shala-already = You're already in { $shala }.
 shala-already-staff = You're already on the staff of { $shala }, so you don't need a student link.
-shala-full = This link can't add you to the shala right now.
+shala-full = This link can't add you to the shala right now. Please let the shala know.
 shala-joined = ✅ You're in { $shala }. Welcome 🙏
 shala-leave = Leave…
 shala-leave-ask = Leave { $shala }? No one gets a message, and your log stays as it is.
@@ -974,6 +999,8 @@ shala-remove-ask = Remove { $name } from the shala? No one gets a message.
 shala-remove-yes = Remove
 shala-students = 👥 Students ({ $n })
 shala-no-students = No students in this shala yet.
+# C3 (UI-06 stage 6): under the names, for staff who can't remove a student.
+shala-students-not-yours = These are the shala's students. They show up in 👥 My students once they pick you as their teacher or open your own link (➕ Invite my students).
 shala-staff-title = Teachers and staff: { $people }
 shala-invite-students = ➕ Invite students to the shala
 shala-invite-staff = ➕ Invite staff
@@ -986,10 +1013,17 @@ shala-online = 🌐 Online
 # otherwise inside shala-time, whose $zone carries the offset (ADR-0044).
 shala-place = 📍 { $city }
 shala-time = { $place } · shala time: { $zone }
-shala-moon-line = 🌙 Moon days: 📍 { $city }
+# C15 (UI-06 stage 6): the card's one moon line, the policy included ($policy is
+# shala-moon-policy-short).
+shala-moon-summary = 🌙 Moon days (📍 { $city }): { $policy }
+shala-moon-policy-short = { $p ->
+        [pranayama] pranayama, chanting and talks only
+        [open] classes as usual
+       *[closed] shala closed
+    }
 shala-delete-ask = Delete { $shala } for everyone in it? Everyone's own logs stay. No one gets a message. This can't be undone.
 shala-name-invalid = The shala needs a name, up to 64 characters.
-shala-caps = No more shalas or staff links for now: that's the limit.
+shala-caps = No more shalas or staff links for now: that's the limit. A staff link works for 7 days; after that you can make a new one.
 moon-source-shala = 🏛 Same as your shala, { $shala }. You can choose another city.
 moon-follow-shala = 🏛 Follow my shala ({ $shala })
 settings-moon-line-shala = 🌙 Moon days: 📍 { $city } (as { $shala })
@@ -1052,11 +1086,6 @@ schedule-moved = ↪ moved from { $day } { $time }
 schedule-substitute = { $name } (substitute)
 schedule-day-off = 😌 Shala day off
 schedule-empty = No classes these days.
-shala-moon-policy = { $p ->
-        [pranayama] 🌙 Moon days: pranayama, chanting and talks only
-        [open] 🌙 Moon days: classes as usual
-       *[closed] 🌙 Moon days: the shala is closed
-    }
 shala-day-off-line = 😌 Day off: { $days }
 shala-day-off-adopt = 😌 Make { $days } my day off too
 class-cancel-ask = Cancel { $class } on { $day }? It shows on the schedule. No one gets a message.
@@ -1068,7 +1097,7 @@ class-pick-title = Which class? The next 48 hours:
 class-pick-empty = No classes in the next 48 hours.
 class-gone = This class has just changed. Here's the current schedule.
 class-caps = That's the limit for this shala for now.
-class-invalid = That change doesn't fit the schedule.
+class-invalid = That change doesn't fit the schedule. Open the class in the app and check its days and times.
 # A teacher's own week (/classes), every shala where they're on the staff. Times in each shala's zone.
 my-classes-covered = { $name } is covering
 my-classes-covering = you're covering for { $name }
@@ -1154,7 +1183,9 @@ ann-list-title = 📣 Announcements: { $source }
 ann-list-empty = No announcements in the last 30 days.
 ann-item = 📅 { $date } · { $name }
 ann-pinned-until = 📌 Pinned until { $date }
-ann-announce = 📣 Announce
+ann-announce = 📣 Announce to the shala
+# C20 (UI-06 stage 6): a teacher's own students, on My students.
+ann-announce-students = 📣 Announce to my students
 
 ## SC-05: class attendance (presence only; never a log entry, never an absence)
 attend-me-open = 🙋 I was there…

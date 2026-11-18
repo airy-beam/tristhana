@@ -473,7 +473,7 @@ def test_unlinked_meanwhile_goes_back_to_the_list(
 
     body = _tap(client, _data(confirm, "🎉 Yes, mark"))
 
-    assert body["text"] == "No students on your list."
+    assert body["text"] == "No students yet. Send them your link."  # UI-06 stage 6 (C6)
     assert _notes(outbound, _tg(student, storage)) == []
     assert storage.day_repo.progression_rows[student.id].position == KAPOTASANA_B
 

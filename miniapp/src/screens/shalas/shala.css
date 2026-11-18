@@ -168,3 +168,16 @@
   margin-top: 8px;
   border-top: 1px solid var(--c-line);
 }
+
+/* C14 (UI-06 stage 6): a role to pick, with what it can do under it. */
+.role-pick {
+  margin: 8px 0;
+}
+
+.role-pick .chip {
+  margin: 0;
+}
+
+.role-hint {
+  margin: 2px 0 8px;
+}

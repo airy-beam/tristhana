@@ -7,7 +7,7 @@ main.
 """
 
 import asyncio
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Sequence
 from contextlib import suppress
 from datetime import date
 from typing import TYPE_CHECKING
@@ -26,9 +26,10 @@ from aiogram.types import (
     WebAppInfo,
 )
 
-from tristhana.application.policies import Principal
+from tristhana.application.policies import Principal, can_be_asked_as_teacher
 from tristhana.application.ports.i18n import Translator
 from tristhana.application.ports.notifications import KeepOffer, RequestClosed
+from tristhana.application.ports.shalas import MyShala
 from tristhana.application.ports.teacher_links import LinksChanged, NotLinked
 from tristhana.application.progression import ProgressionChanged
 from tristhana.application.teacher_links import LinkUseCases
@@ -194,13 +195,13 @@ class LinkScreens:
     def announce_button(
         self, locale: Locale, shala: UUID | None = None
     ) -> InlineKeyboardButton | None:
-        """NT-03: `[📣 Announce]` opens the Mini App's compose screen (Q176)."""
+        """NT-03: `[📣 Announce …]` opens the Mini App's compose screen (Q176), named by its
+        audience (UI-06 stage 6, C20): the shala's, or my own students without one."""
         if not self._app or self.announcements is None:
             return None
         url = app_url(self._app, "announce", shala=str(shala) if shala else None)
-        return InlineKeyboardButton(
-            text=self._t.t(locale, "ann-announce"), web_app=WebAppInfo(url=url)
-        )
+        key = "ann-announce" if shala else "ann-announce-students"
+        return InlineKeyboardButton(text=self._t.t(locale, key), web_app=WebAppInfo(url=url))
 
     def _button(self, locale: Locale, key: str, data: str) -> InlineKeyboardButton:
         return button(self._t, locale, key, data)
@@ -314,19 +315,28 @@ class LinkScreens:
 
     async def overview(self, principal: Principal, lead: str | None = None) -> Screen:
         """ "My teacher" (`/teachers`, `t1:o`): my teachers and my shalas. Students have their
-        own Menu row (UI-06); someone without students keeps one quiet row to invite them."""
+        own Menu row (UI-06); someone without students keeps one quiet row to invite them.
+        Someone people wait for (ID-07) finds that row on top (UI-06 stage 6, C5)."""
         locale = principal.account.locale
-        # SC-01: the shala rows load alongside the lists, not after them.
-        found, shala_rows = await asyncio.gather(
-            self._links.get.execute(principal), self._shala_rows(principal)
+        asked = self.requests
+        # SC-01: the shala rows load alongside the lists, not after them; so does the count of
+        # people waiting for my answer (C5: +1, in parallel).
+        found, mine, waiting = await asyncio.gather(
+            self._links.get.execute(principal),
+            self._mine(principal),
+            _zero() if asked is None else asked.waiting_count(principal),
         )
         several = len(found.teachers) >= 2
         main = effective_primary(found.teachers)
         lines = [lead] if lead else []
         lines.append(self._t.t(locale, "menu-teacher"))
         if not found.teachers:
-            lines.append(self._t.t(locale, "links-empty"))
+            # C2: no "join a shala" line above a shala I'm on the staff of.
+            staff = any(s.me.staff for s in mine)
+            lines.append(self._t.t(locale, "links-empty-staff" if staff else "links-empty"))
         rows: list[list[InlineKeyboardButton]] = []
+        if waiting > 0:
+            rows.append(waiting_row(self._t, locale, waiting))
         for teacher in found.teachers:
             star = "⭐ " if several and teacher.id == main else ""
             label = f"{star}{_name(self._t, locale, teacher.name)}"
@@ -337,7 +347,14 @@ class LinkScreens:
                 key = "links-main-chosen" if teacher.chosen_primary else "links-main-auto"
                 lines.append(self._t.t(locale, key, name=_name(self._t, locale, teacher.name)))
                 lines.append(self._t.t(locale, "links-primary-hint"))
-        rows += shala_rows
+        rows += [
+            [
+                InlineKeyboardButton(
+                    text=f"🏛 {s.name}", callback_data=shalas_callbacks.on_shala("c", s.id)
+                )
+            ]
+            for s in mine
+        ]
         if self._app:  # UI-06 stage 6 (C1): says what opens, and opens it
             url = app_url(self._app, "shala")
             rows.append([app_button(self._t, locale, "app-open-shala", url)])
@@ -347,19 +364,12 @@ class LinkScreens:
         rows.append(menu_row(self._t, locale))
         return Screen("\n\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
 
-    async def _shala_rows(self, principal: Principal) -> list[list[InlineKeyboardButton]]:
-        """SC-01: my shalas as `🏛 Name` rows, above [🏛 Shala in the app]."""
+    async def _mine(self, principal: Principal) -> Sequence[MyShala]:
+        """SC-01: the shalas I'm in (none while shalas are not wired)."""
         shalas = self._links.shalas
         if shalas is None:
-            return []
-        return [
-            [
-                InlineKeyboardButton(
-                    text=f"🏛 {s.name}", callback_data=shalas_callbacks.on_shala("c", s.id)
-                )
-            ]
-            for s in await shalas.mine.execute(principal)
-        ]
+            return ()
+        return await shalas.mine.execute(principal)
 
     def qr_png(self, url: str) -> bytes:
         return self._links.qr.png(url)
@@ -406,7 +416,12 @@ class LinkScreens:
                 ]
             )
         else:
-            text = self._t.t(locale, "links-no-students")
+            # C6 (UI-06 stage 6): whether a shala's students can pick me. Read only for an empty
+            # list of someone on a shala's staff (+1 there; the list itself is never slower).
+            staff = principal.account.shala is not None and principal.account.shala.staff
+            mine = await self._mine(principal) if staff else ()
+            pickable = any(can_be_asked_as_teacher(s.me) for s in mine)
+            text = self._t.t(locale, "links-no-students", shala="yes" if pickable else "no")
         return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def teacher(self, principal: Principal, id: UUID, already: bool = False) -> Screen:
