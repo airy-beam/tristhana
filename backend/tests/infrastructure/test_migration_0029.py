@@ -1,5 +1,5 @@
-"""Migration 0029 `teacher_request` (ID-07 spec §6; ADR-0046), without a database: the head,
-the columns, the key, the three cascades, the indexes, the wider delivery category, the
+"""Migration 0029 `teacher_request` (ID-07 spec §6; ADR-0046), without a database: the
+revision, the columns, the key, the three cascades, the indexes, the wider delivery category, the
 export coverage, the storage wiring and `is_account_gone`. CHECKs, up/down and
 `alembic check` run on Postgres in `test_db_teacher_requests.py`."""
 
@@ -30,12 +30,11 @@ def _checks(table: Any) -> list[str]:
     return [str(c.sqltext) for c in table.constraints if isinstance(c, CheckConstraint)]
 
 
-def test_0029_follows_0028_and_is_the_head() -> None:
+def test_0029_follows_0028() -> None:
     script = ScriptDirectory.from_config(alembic_config("postgresql://unused"))
     revision = script.get_revision("0029")
-    assert revision is not None
+    assert revision is not None  # the head is checked by the newest migration's test
     assert revision.down_revision == "0028"
-    assert script.get_current_head() == "0029"
 
 
 def test_the_columns_and_the_pair_as_the_key() -> None:

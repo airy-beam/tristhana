@@ -89,6 +89,14 @@ def sunrise_jd(day: dt.date, location: MoonLocation) -> float:
     return _julian_day(rise)
 
 
+def utc_of(jd: float) -> dt.datetime:
+    """The UTC instant of a Julian day (UT), to the whole second."""
+    swe = _lib()
+    y, m, d, h = swe.revjul(jd, swe.GREG_CAL)
+    seconds = round(h * 3600)
+    return dt.datetime(y, m, d, tzinfo=dt.UTC) + dt.timedelta(seconds=seconds)
+
+
 def tithi_at(jd: float) -> int:
     swe = _lib()
     try:

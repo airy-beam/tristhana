@@ -1,7 +1,7 @@
 ---
 title: "Rest days, moon days and 🌸"
 description: "Rest is part of the practice. Here is how days off, moon days, 🌸 days, sick days and travel work."
-features: [PR-09, WH-01, WH-02, MD-03, MD-04, UI-06]
+features: [PR-09, WH-01, WH-02, MD-03, MD-04, UI-06, ST-10]
 ---
 
 Rest is part of the practice. Here is how days off, moon days, 🌸 days, sick days and travel work.
@@ -28,6 +28,14 @@ In Ashtanga we traditionally rest on full and new moon days. Tristhana fills the
 ![The next moon days in the bot, with the city and the reminders line](../../../assets/shots/en/bot-moon.webp)
 
 Moon days depend on the place, so two cities can differ by a day. If your shala or your teacher announces another day, go by what they say.
+
+## Share a moon day card
+
+For the 3 days before a moon day and on the day itself, :ftl[share-open] appears next to the moon line on the :ftl[tab-today] tab, and next to that day on the app's moon days screen. It makes a picture for a story or a post: Full moon or New moon, the moon day's date, the sunrise time in the city your moon days are counted for, and a simple drawing of the Sun, Earth and Moon. Share it to a story, save it, or send it to your own chat, as with [practice cards](../my-practice/#share-a-card).
+
+![A moon day card: the full moon in Mysuru on 24 November, sunrise at 06:25, and a simple drawing of the Sun, Earth and Moon](../../../assets/cards/en/moon-day.webp)
+
+The card shows that city, because moon days depend on the place. It never shows your name or your practice.
 
 ## Several days: sick, traveling or 🌸
 

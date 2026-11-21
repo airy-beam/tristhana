@@ -39,7 +39,7 @@ The screen shows your numbers and draws no conclusions from them. Averages appea
 
 ## Share a card
 
-:ftl[share-open] next to the month's practices or the year's total makes a picture for a story or a post. You can share it to a story, save it, or send it to your own chat. The card shows your practice days and nothing else: no name, no notes, no reasons for rest.
+:ftl[share-open] next to the month's practices or the year's total makes a picture for a story or a post. You can share it to a story, save it, or send it to your own chat. The card shows your practice days and nothing else: no name, no notes, no reasons for rest. From 3 days before a moon day there is a moon day card too: see [Rest days, moon days and 🌸](../rest-and-moon-days/#share-a-moon-day-card).
 
 ## Good to know
 

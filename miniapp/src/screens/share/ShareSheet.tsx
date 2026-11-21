@@ -109,7 +109,7 @@ export default function ShareSheet({
             </Localized>
           )}
         </div>
-        <Localized id="share-privacy-note">
+        <Localized id={subject.kind === "moon" ? "share-privacy-note-moon" : "share-privacy-note"}>
           <p className="hint small" />
         </Localized>
         {data && (
@@ -121,7 +121,14 @@ export default function ShareSheet({
                   className="row-button primary"
                   onClick={() => {
                     haptics.impact("light");
-                    shareToStory(data.image_url, l10n.getString("share-story-caption"));
+                    shareToStory(
+                      data.image_url,
+                      l10n.getString(
+                        subject.kind === "moon"
+                          ? "share-story-caption-moon"
+                          : "share-story-caption",
+                      ),
+                    );
                   }}
                 />
               </Localized>

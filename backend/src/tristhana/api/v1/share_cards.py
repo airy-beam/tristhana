@@ -3,6 +3,7 @@ URL as a preview and hands it to Telegram (`shareToStory`, `downloadFile`); "Sen
 chat" makes the bot post the same PNG. The image itself is served at `/share/v1/` (outside
 `/api/v1`): the URL is the capability."""
 
+import datetime as dt
 from datetime import datetime
 from typing import Annotated, Literal, cast
 
@@ -19,6 +20,7 @@ from tristhana.application.share_cards import (
     CountSubject,
     InvalidPeriod,
     MonthSubject,
+    MoonSubject,
     NothingToShare,
     RateLimited,
     SendFailed,
@@ -61,10 +63,22 @@ class CountCardIn(BaseModel):
     count: int = Field(ge=1, le=100_000, description="A practice count already reached (GM-01)")
 
 
+class MoonCardIn(BaseModel):
+    kind: Literal["moon"]
+    date: dt.date = Field(
+        description="A moon day of the caller's followed city, 0 to 3 days from today (ST-10)"
+    )
+
+
+# The same union is spelled out in `ShareCardIn`: Pydantic's discriminator wants it literal.
+type CardIn = MonthCardIn | YearCardIn | AsanaCardIn | CountCardIn | MoonCardIn
+
+
 class ShareCardIn(BaseModel):
     format: Literal["story", "square"]
     card: Annotated[
-        MonthCardIn | YearCardIn | AsanaCardIn | CountCardIn, Field(discriminator="kind")
+        MonthCardIn | YearCardIn | AsanaCardIn | CountCardIn | MoonCardIn,
+        Field(discriminator="kind"),
     ]
 
 
@@ -81,7 +95,7 @@ class ShareSentOut(BaseModel):
     sent: bool
 
 
-def _subject(card: MonthCardIn | YearCardIn | AsanaCardIn | CountCardIn) -> Subject:
+def _subject(card: CardIn) -> Subject:
     match card:
         case MonthCardIn():
             return MonthSubject(card.year, card.month)
@@ -91,6 +105,8 @@ def _subject(card: MonthCardIn | YearCardIn | AsanaCardIn | CountCardIn) -> Subj
             return AsanaSubject(card.event_id)
         case CountCardIn():
             return CountSubject(card.count)
+        case MoonCardIn():
+            return MoonSubject(card.date)
 
 
 @router.post("", status_code=201, responses=error_responses(404, 422, 429))
@@ -98,9 +114,11 @@ async def create_share_card(
     body: ShareCardIn, principal: CurrentPrincipal, use_cases: UseCases
 ) -> ShareCardOut:
     """Renders one card of the caller's own data (two tones only: no rest, 🌸 or unlogged
-    days; no name). 404 `not_found` (an event or count that isn't the caller's or can't be
-    shared); 422 `invalid_period` (future), `nothing_to_share` (no practice); 429
-    `rate_limited` (50 cards per 24 h); 503 `unavailable` when cards are off."""
+    days; no name). The moon card shows the followed city's coming moon day (ST-10). 404
+    `not_found` (an event or count that isn't the caller's or can't be shared; a date that
+    isn't one of the caller's moon days 0 to 3 days ahead); 422 `invalid_period` (future),
+    `nothing_to_share` (no practice); 429 `rate_limited` (50 cards per 24 h); 503
+    `unavailable` when cards are off."""
     if not use_cases.available:
         raise ApiError(503, "unavailable")
     try:

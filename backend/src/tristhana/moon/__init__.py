@@ -1,12 +1,13 @@
 """Moon-day computation: a 1:1 port of the owner-verified generator.py (Swiss Ephemeris).
 
-Offline/pre-compute use only, never on a tap path. See ADR-0006 and ADR-0009.
+Moon days are computed offline/pre-computed only, never on a tap path (ADR-0006, ADR-0009).
+The one exception is `sunrise_at` for a single day, when a moon card is made (ADR-0052).
 """
 
 from importlib.metadata import version as _version
 
 from tristhana.moon._ephemeris import set_ephemeris_path
-from tristhana.moon.compute import compute_moon_days
+from tristhana.moon.compute import compute_moon_days, sunrise_at
 from tristhana.moon.errors import (
     EphemerisMissingError,
     MoonError,
@@ -26,4 +27,5 @@ __all__ = [
     "NoSunriseError",
     "compute_moon_days",
     "set_ephemeris_path",
+    "sunrise_at",
 ]

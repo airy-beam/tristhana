@@ -4,13 +4,14 @@ that never addresses the reader (strangers see it) or uses competitive words."""
 
 import asyncio
 import re
-from datetime import date
+from datetime import date, time
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
 
 import pytest
 
+from tristhana.domain.moon import MoonDay, MoonDayKind, MoonPhase
 from tristhana.domain.practice import PracticeCatalog
 from tristhana.domain.share_cards import (
     AsanaCard,
@@ -20,13 +21,16 @@ from tristhana.domain.share_cards import (
     CardTone,
     CountCard,
     MonthCard,
+    MoonCard,
     YearCard,
 )
 from tristhana.infrastructure.cards.pillow_renderer import PillowCardRenderer
 from tristhana.infrastructure.i18n.fluent import FluentTranslator
+from tristhana.infrastructure.seed.cities_yaml import load_cities
 from tristhana.infrastructure.seed.practice_catalog import load_practice_catalog
 
 SEED = Path(__file__).resolve().parents[3] / "data" / "seed"
+CITIES = load_cities(SEED / "cities.yaml")
 P, N = CardTone.PRACTICE, CardTone.NO_PRACTICE
 PNG = b"\x89PNG\r\n\x1a\n"
 
@@ -53,6 +57,32 @@ CARDS: dict[str, Card] = {
     "count": CountCard(1000),
     # RU groups 1 214 with a no-break space: never split inside the number.
     "year-1214": YearCard(2026, (P,) * 313, frozenset(), 1214, False),
+    # ST-10: real dates (Mysuru's full moon of 24 Nov 2026, a new moon of 8 Dec 2026, the
+    # Kshaya Purnima of 4 Dec 2025), with other cities to cover long and Cyrillic names.
+    "moon-full": MoonCard(
+        date(2026, 11, 24),
+        MoonPhase.PURNIMA,
+        False,
+        CITIES.get("mysuru"),  # type: ignore[arg-type]
+        time(6, 24),
+        MoonDay(date(2026, 12, 8), MoonDayKind.AMAVASYA),
+    ),
+    "moon-new": MoonCard(
+        date(2026, 12, 8),
+        MoonPhase.AMAVASYA,
+        False,
+        CITIES.get("saint-petersburg"),  # type: ignore[arg-type]
+        None,
+        None,
+    ),
+    "moon-kshaya": MoonCard(
+        date(2025, 12, 4),
+        MoonPhase.PURNIMA,
+        True,
+        CITIES.get("krasnaya-polyana"),  # type: ignore[arg-type]
+        time(7, 51),
+        MoonDay(date(2025, 12, 19), MoonDayKind.AMAVASYA),
+    ),
 }
 
 
@@ -130,6 +160,7 @@ def _card_strings() -> set[str]:
             out |= {text.title, text.headline, text.subline, text.number, text.footer}
             out |= {*text.lines, *text.weekdays, *text.months}
             out |= {text.legend_practice, text.legend_moon, text.title.upper()}
+            out |= {text.iast, *text.notes, *text.diagram}
         for n in range(1, 7):
             for key in ("card-series-name", "card-series-begins", "card-series-complete"):
                 out.add(t.t(locale, key, n=n))  # type: ignore[arg-type]
@@ -232,3 +263,56 @@ def test_a_grouped_number_is_never_split() -> None:
     headline = renderer().text(CARDS["year-1214"], "ru").headline
     lines = _Canvas(CardFormat.STORY).wrap(headline, font("serif", 80), 904)
     assert any("1\xa0214" in line for line in lines), lines
+
+
+def test_moon_card_text() -> None:
+    r = renderer()
+    en = r.text(CARDS["moon-full"], "en")
+    assert (en.title, en.headline, en.subline, en.iast) == (
+        "Moon day",
+        "Full moon",
+        "Purnima",
+        "pūrṇimā",
+    )
+    assert en.lines == ("Tuesday, 24 November 2026", "Sunrise 06:24 Mysuru")
+    assert en.notes == (
+        "A traditional rest day in Ashtanga",
+        "Moon days follow the tithi at local sunrise",
+        "Next: New moon · 8 December",
+    )
+    assert en.diagram == ("Sun", "Earth", "Moon")
+    ru = r.text(CARDS["moon-kshaya"], "ru")
+    assert (ru.headline, ru.subline, ru.iast) == ("Полнолуние", "Кшая Пурнима", "kṣaya pūrṇimā")
+    assert ru.lines == ("Четверг, 4 декабря 2025", "Восход солнца 07:51 Красная Поляна")
+    assert "Титхи начинается и заканчивается между двумя восходами" in ru.notes
+    assert ru.notes[-1] == "Далее: новолуние · 19 декабря"
+    new = r.text(CARDS["moon-new"], "ru")
+    assert (new.headline, new.subline) == ("Новолуние", "Амавасья")
+    assert new.lines == ("Вторник, 8 декабря 2026",)  # no sunrise line
+    assert not any(n.startswith("Далее") for n in new.notes)  # no next moon day
+
+
+def test_moon_card_text_never_says_today() -> None:
+    for name in ("moon-full", "moon-new", "moon-kshaya"):
+        for locale in ("en", "ru"):
+            text = renderer().text(CARDS[name], locale)  # type: ignore[arg-type]
+            words = " ".join((text.title, text.headline, *text.lines, *text.notes)).lower()
+            assert not re.search(r"today|tomorrow|in \d+ days?|сегодня|завтра|через", words)
+
+
+def test_a_moon_card_renders_quickly() -> None:
+    """The review found a whole-image filter taking ~3.5 s and holding the GIL: guard it."""
+    import time as clock
+
+    r = renderer()
+    asyncio.run(r.render(CARDS["moon-kshaya"], CardFormat.SQUARE, "ru"))  # warm: imports, fonts
+    start = clock.perf_counter()
+    asyncio.run(r.render(CARDS["moon-kshaya"], CardFormat.STORY, "ru"))
+    assert clock.perf_counter() - start < 1.0
+
+
+def test_the_same_moon_card_draws_the_same_stars() -> None:
+    r = renderer()
+    a = asyncio.run(r.render(CARDS["moon-full"], CardFormat.STORY, "en"))
+    b = asyncio.run(r.render(CARDS["moon-full"], CardFormat.STORY, "en"))
+    assert a == b

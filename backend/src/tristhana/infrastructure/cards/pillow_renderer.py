@@ -13,6 +13,7 @@ from tristhana.domain.share_cards import (
     CardFormat,
     CountCard,
     MonthCard,
+    MoonCard,
     YearCard,
 )
 from tristhana.infrastructure.cards.text import CardText, resolve
@@ -42,3 +43,5 @@ def draw_card(card: Card, format: CardFormat, text: CardText) -> bytes:
             return draw.draw_asana(card, format, text)
         case CountCard():
             return draw.draw_count(card, format, text)
+        case MoonCard():
+            return draw.draw_moon(card, format, text)

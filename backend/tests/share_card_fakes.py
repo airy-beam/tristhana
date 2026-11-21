@@ -2,12 +2,13 @@
 insert, expiry on read, one send per card), a spy renderer and fixed tokens."""
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
 from tristhana.application.ports.share_cards import NewShareCard, SendClaim
 from tristhana.domain.locale import Locale
+from tristhana.domain.moon import MoonLocation
 from tristhana.domain.share_cards import Card, CardFormat
 
 
@@ -95,3 +96,15 @@ class CountingTokens:
     def new(self) -> str:
         self.n += 1
         return f"tok{self.n:019d}"  # 22 URL-safe characters
+
+
+@dataclass
+class FakeSunrise:
+    """ST-10: a fixed sunrise (a UTC instant), or None as when the ephemeris fails."""
+
+    at: datetime | None = datetime(2026, 11, 12, 1, 30, tzinfo=UTC)
+    calls: list[tuple[MoonLocation, date]] = field(default_factory=list[tuple[MoonLocation, date]])
+
+    async def sunrise(self, location: MoonLocation, day: date) -> datetime | None:
+        self.calls.append((location, day))
+        return self.at

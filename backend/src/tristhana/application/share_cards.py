@@ -5,14 +5,19 @@ own chat on request.
 Privacy: every day is projected to two tones (`card_tone`) here, before a domain builder
 runs, so the renderer never sees a status (Q209). Moon rings come from the account's own
 effective calendar (MD-02 via `GetYearStats`), never computed or defaulted here.
+
+The moon day card (ST-10) reads the same effective city's stored calendar and one sunrise
+(ADR-0052); it holds no practice data.
 """
 
 import hashlib
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from tristhana.application.policies import Principal
+from tristhana.application.ports.moon import MoonCalendarRepository, SunriseCalculator
 from tristhana.application.ports.notifications import DeliveryStatus, Notifier, Recipient
 from tristhana.application.ports.progression import ProgressionRepository
 from tristhana.application.ports.share_cards import (
@@ -22,9 +27,13 @@ from tristhana.application.ports.share_cards import (
     ShareTokens,
 )
 from tristhana.application.ports.storage import Clock
+from tristhana.application.settings import caller_today
 from tristhana.application.stats import GetYearStats, InvalidYear, YearStatsView
+from tristhana.domain.accounts import moon_follow_of
+from tristhana.domain.moon import Cities
 from tristhana.domain.progression import Track
 from tristhana.domain.share_cards import (
+    MOON_CARD_LEAD,
     Card,
     CardFormat,
     asana_card,
@@ -32,11 +41,14 @@ from tristhana.domain.share_cards import (
     count_card,
     is_empty,
     month_card,
+    moon_card,
     year_card,
 )
 
 KEEP = timedelta(hours=24)  # Q205
 DAILY_LIMIT = 50  # cards per person per rolling 24 h (Q205)
+# ST-10: how far ahead the moon card looks for the next moon day after the shared one.
+_NEXT_WITHIN = timedelta(days=35)
 TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{22}")
 
 
@@ -89,7 +101,12 @@ class CountSubject:
     count: int
 
 
-type Subject = MonthSubject | YearSubject | AsanaSubject | CountSubject
+@dataclass(frozen=True, slots=True)
+class MoonSubject:
+    date: date
+
+
+type Subject = MonthSubject | YearSubject | AsanaSubject | CountSubject | MoonSubject
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +132,8 @@ def _kind(subject: Subject) -> str:
             return "asana"
         case CountSubject():
             return "count"
+        case MoonSubject():
+            return "moon"
 
 
 def _file_name(subject: Subject, format: CardFormat) -> str:
@@ -127,6 +146,8 @@ def _file_name(subject: Subject, format: CardFormat) -> str:
             name = "asana"
         case CountSubject(count):
             name = str(count)
+        case MoonSubject(day):
+            name = f"moon-{day.isoformat()}"
     return f"tristhana-{name}-{format.value}.png"
 
 
@@ -140,9 +161,13 @@ class CreateShareCard:
         tokens: ShareTokens,
         track: Track,
         clock: Clock,
+        cities: Cities,
+        moon: MoonCalendarRepository,
+        sunrise: SunriseCalculator,
     ) -> None:
         self._stats, self._progression, self._cards = stats, progression, cards
         self._renderer, self._tokens, self._track, self._clock = renderer, tokens, track, clock
+        self._cities, self._moon, self._sunrise = cities, moon, sunrise
 
     async def execute(
         self, principal: Principal, subject: Subject, format: CardFormat
@@ -217,6 +242,30 @@ class CreateShareCard:
                 if card is None:
                     raise CardNotFound
                 return card
+            case MoonSubject(day):
+                return await self._moon_card(principal, day)
+
+    async def _moon_card(self, principal: Principal, day: date) -> Card:
+        """One of the followed city's stored moon days, from `MOON_CARD_LEAD` days before it
+        through the day itself (ST-10). The city is the one Today shows (MD-02)."""
+        today = caller_today(principal, self._clock)
+        if not today <= day <= today + timedelta(days=MOON_CARD_LEAD):
+            raise CardNotFound  # before the read: nothing to look up
+        city = moon_follow_of(principal.account, self._cities).city
+        days = await self._moon.days(city.slug, day, day + _NEXT_WITHIN)
+        found = next((d for d in days if d.date == day), None)
+        if found is None:
+            raise CardNotFound
+        following = next((d for d in days if d.date > day), None)
+        instant = await self._sunrise.sunrise(city.location, day)
+        sunrise = None
+        if instant is not None:  # to the nearest minute, as almanacs give it
+            local = (instant + timedelta(seconds=30)).astimezone(ZoneInfo(city.location.tz))
+            sunrise = local.time().replace(second=0, microsecond=0)
+        card = moon_card(today, found, city, sunrise, following)
+        if card is None:
+            raise CardNotFound
+        return card
 
     async def _year(self, principal: Principal, year: int) -> YearStatsView:
         try:

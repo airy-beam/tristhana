@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 from typing import Protocol
 
 from tristhana.domain.moon import MoonDay, MoonLocation
@@ -31,3 +31,11 @@ class MoonCalculator(Protocol):
     version: str  # changes when the algorithm, ephemeris library or tz data change
 
     async def compute_year(self, location: MoonLocation, year: int) -> list[MoonDay]: ...
+
+
+class SunriseCalculator(Protocol):
+    """One sunrise for one day (ST-10, ADR-0052), off the event loop. Never moon days."""
+
+    async def sunrise(self, location: MoonLocation, day: date) -> datetime | None:
+        """The UTC instant of sunrise on `day` at `location`; None if it can't be computed."""
+        ...

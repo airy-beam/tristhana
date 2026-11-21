@@ -15,6 +15,7 @@ from tristhana.domain.share_cards import (
     Card,
     CountCard,
     MonthCard,
+    MoonCard,
     YearCard,
 )
 
@@ -33,6 +34,9 @@ class CardText:
     months: tuple[str, ...] = ()  # 12 short month names (the year card)
     number: str = ""  # the count card's "1,000" / «1 000»
     footer: str = ""
+    iast: str = ""  # the moon card's pūrṇimā / amāvasyā
+    notes: tuple[str, ...] = ()  # the moon card's small lines under the diagram
+    diagram: tuple[str, ...] = ()  # the moon card's labels: Sun, Earth, Moon
 
 
 def _cap(s: str) -> str:
@@ -90,6 +94,39 @@ def resolve(t: Translator, catalog: PracticeCatalog, card: Card, locale: Locale)
                 headline=t.t(locale, "card-count", count=card.count),
                 footer=footer,
             )
+        case MoonCard():
+            return _moon(t, card, locale, footer)
+
+
+def _moon(t: Translator, card: MoonCard, locale: Locale, footer: str) -> CardText:
+    from babel.dates import format_date
+
+    phase = card.phase.value
+    city = card.city.name(locale)
+    lines = [_cap(str(format_date(card.date, "EEEE, d MMMM y", locale=locale)))]
+    if card.sunrise is not None:
+        lines.append(t.t(locale, "card-moon-sunrise", time=f"{card.sunrise:%H:%M}", city=city))
+    # The rest-day line first: the square card has room for that one only.
+    notes = [t.t(locale, "card-moon-rest"), t.t(locale, "card-moon-why")]
+    if card.kshaya:
+        notes.append(t.t(locale, "card-moon-kshaya"))
+    if card.next is not None:
+        when = str(format_date(card.next.date, "d MMMM", locale=locale))
+        notes.append(t.t(locale, "card-moon-next", phase=card.next.kind.phase.value, date=when))
+    return CardText(
+        title=t.t(locale, "card-moon-kicker"),
+        headline=t.t(locale, "card-moon-phase", phase=phase),
+        subline=t.t(locale, "card-moon-name", phase=phase, kshaya="yes" if card.kshaya else "no"),
+        iast=t.t(locale, "card-moon-iast", phase=phase, kshaya="yes" if card.kshaya else "no"),
+        lines=tuple(lines),
+        notes=tuple(notes),
+        diagram=(
+            t.t(locale, "card-moon-sun"),
+            t.t(locale, "card-moon-earth"),
+            t.t(locale, "card-moon-moon"),
+        ),
+        footer=footer,
+    )
 
 
 def _asana(

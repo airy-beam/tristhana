@@ -4,9 +4,12 @@ import { useMoonCities, useMoonDays, type MoonDays } from "../../api/client";
 import type { Locale } from "../../i18n/negotiate";
 import { backButtonAvailable, useBackButton } from "../../telegram";
 import { cityName } from "../cityName";
-import { moonDate, moonDayLine } from "../moonText";
+import { moonDate, moonDayLine, moonShareable } from "../moonText";
+import { ShareButton } from "../share/ShareButton";
 
 const UPCOMING = 3;
+// Fluent's bidi isolation marks around variables: noise in an accessible name.
+const plain = (text: string) => text.replace(/[\u2068\u2069]/g, "");
 
 /** Where the city comes from (MD-02): the main teacher, and for a teacher what students get. */
 export function MoonSource({
@@ -112,9 +115,26 @@ export default function MoonScreen({ locale, onBack }: Props) {
         />
         {upcoming.length ? (
           <ul className="moon-days">
-            {upcoming.map((d) => (
+            {upcoming.map((d, i) => (
               <li key={d.date}>
                 {moonDayLine(l10n, d, moon.today, date)}
+                {/* ST-10: the coming moon day's card, from 3 days before it. */}
+                {i === 0 && moonShareable(moon.today, d.date) && (
+                  <>
+                    {" "}
+                    <ShareButton
+                      subject={{ kind: "moon", date: d.date }}
+                      label={plain(
+                        l10n.getString("share-entry", {
+                          entry: l10n.getString("today-moon-fact", {
+                            phase: d.phase,
+                            when: date(d.date),
+                          }),
+                        }),
+                      )}
+                    />
+                  </>
+                )}
                 {/* MD-04: the person's own city, only where its date differs (±1 day). */}
                 {moon.home && d.home_date && (
                   <Localized

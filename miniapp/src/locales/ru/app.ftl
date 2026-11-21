@@ -894,6 +894,9 @@ share-send-chat = Прислать в чат
 share-sent = ✓ Отправлено в чат
 share-send-unreachable = Бот пока не может тебе написать. Открой @tristhana_bot, нажми «Старт» и попробуй ещё раз.
 share-story-caption = Моя практика · @tristhana_bot
+# ST-10: на карточке лунного дня город, по которому он считается, и никакой практики.
+share-story-caption-moon = Лунный день · @tristhana_bot
+share-privacy-note-moon = На карточке — лунный день и город, по которому он считается: без имени и твоей практики.
 share-entry = Поделиться: { $entry }
 
 ## ID-05: строка о списке SYC (форма — в listing.ftl)

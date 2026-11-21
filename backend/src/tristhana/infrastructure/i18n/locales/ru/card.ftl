@@ -109,3 +109,45 @@ card-series-other-name =
         [5] Advanced C
        *[6] Advanced D
     }
+
+# ST-10: карточка лунного дня. Дата, никогда «сегодня» или «через 3 дня»: карточка остаётся верной.
+card-moon-kicker = Лунный день
+card-moon-phase =
+    { $phase ->
+        [purnima] Полнолуние
+       *[amavasya] Новолуние
+    }
+card-moon-name =
+    { $kshaya ->
+        [yes] { $phase ->
+            [purnima] Кшая Пурнима
+           *[amavasya] Кшая Амавасья
+        }
+       *[no] { $phase ->
+            [purnima] Пурнима
+           *[amavasya] Амавасья
+        }
+    }
+card-moon-iast =
+    { $kshaya ->
+        [yes] { $phase ->
+            [purnima] kṣaya pūrṇimā
+           *[amavasya] kṣaya amāvasyā
+        }
+       *[no] { $phase ->
+            [purnima] pūrṇimā
+           *[amavasya] amāvasyā
+        }
+    }
+card-moon-sunrise = Восход солнца { $time } { $city }
+card-moon-why = Лунные дни считаются по титхи на местном восходе
+card-moon-kshaya = Титхи начинается и заканчивается между двумя восходами
+card-moon-rest = Традиционный день отдыха в аштанге
+card-moon-next =
+    Далее: { $phase ->
+        [purnima] полнолуние
+       *[amavasya] новолуние
+    } · { $date }
+card-moon-sun = Солнце
+card-moon-earth = Земля
+card-moon-moon = Луна

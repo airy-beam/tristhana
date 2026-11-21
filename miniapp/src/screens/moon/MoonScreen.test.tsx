@@ -131,10 +131,22 @@ describe("MoonScreen", () => {
     expect(visible(await screen.findByRole("heading"))).toBe("🌙 Moon days · 📍 Mysuru");
     const items = screen.getAllByRole("listitem").map(visible);
     expect(items).toEqual([
-      "🌕 Full moon (Purnima) · Thu, Oct 22 · in 3 days",
+      // ST-10: 3 days away, so its card can be shared; the later one can't yet.
+      "🌕 Full moon (Purnima) · Thu, Oct 22 · in 3 days Share",
       "🌑 New moon (Amavasya) · Fri, Nov 6 · in 18 days",
     ]);
     expect(screen.getByText(/follow your teacher/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Share: / })).toEqual([
+      screen.getByRole("button", { name: "Share: Full moon · Thu, Oct 22" }),
+    ]);
+  });
+
+  it("offers no card while the next moon day is more than 3 days away (ST-10)", async () => {
+    stubApi({ ...MOON, today: "2026-10-18" });
+    renderWith(<MoonScreen locale="en" onBack={vi.fn()} />);
+
+    await screen.findByRole("heading");
+    expect(screen.queryByRole("button", { name: /^Share: / })).toBeNull();
   });
 
   it("adds the home city's date under a day only where it differs (MD-04)", async () => {

@@ -7,22 +7,27 @@ palette whatever the Telegram theme (`docs/brand/`). Output is deterministic for
 """
 
 import io
+import random
+import zlib
 from calendar import monthrange
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import date, timedelta
 from functools import cache
 from importlib.resources import files
+from math import cos, radians, sin
 from typing import Literal
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
+from tristhana.domain.moon import MoonPhase
 from tristhana.domain.share_cards import (
     AsanaCard,
     CardFormat,
     CardTone,
     CountCard,
     MonthCard,
+    MoonCard,
     YearCard,
 )
 from tristhana.infrastructure.cards.text import CardText
@@ -372,6 +377,232 @@ def draw_count(card: CountCard, fmt: CardFormat, text: CardText) -> bytes:
         y = round(int(nf.size) * 1.05)
         c.text(y, text.headline, font("serif", 72 if c.story else 56), PAPER, center=True)
     c.footer(text.footer)
+    return c.png()
+
+
+# ST-10: the moon day card. Everything below is drawn from the card's phase alone: a simplified
+# picture (not to scale, no real angles), the same for every date of that phase.
+MOON_LIGHT: RGB = (250, 245, 232)
+MOON_EDGE: RGB = (222, 210, 186)
+MARE: RGB = (196, 186, 166)
+NEW_MOON: RGB = (16, 18, 44)
+EARTH: RGB = (92, 150, 204)
+EARTH_NIGHT: RGB = (36, 52, 102)
+_SS = 3  # supersampling for round shapes
+
+
+def _stars(c: _Canvas, seed: int, keep_out: tuple[tuple[float, float, float], ...]) -> None:
+    """A sparse starfield, the same for the same card (seeded), drawn on the background last:
+    never within 15 px of anything already drawn (text, bodies), nor inside `keep_out` discs
+    (the Moon's orbit, where a star would read as a body). Each star looks only at its own
+    neighbourhood: a filter over the whole image took seconds and held the GIL (review)."""
+    rng = random.Random(seed)  # noqa: S311 - a picture, not a secret
+    alpha = c.layer.getchannel("A")
+    d = ImageDraw.Draw(c.base)
+    for _ in range(170 if c.story else 110):
+        x, y = rng.uniform(0, c.w), rng.uniform(0, c.h)
+        r = rng.choice((1.0, 1.2, 1.5, 1.5, 2.0, 2.6))
+        a = rng.uniform(0.18, 0.75)
+        px, py = int(x), int(y)
+        if alpha.crop((px - 15, py - 15, px + 16, py + 16)).getbbox() or any(
+            (x - kx) ** 2 + (y - ky) ** 2 < kr**2 for kx, ky, kr in keep_out
+        ):
+            continue  # the draw still uses the same random numbers: stable for a card
+        d.ellipse(_box(x, y, r), fill=_alpha(PAPER, a))
+        if r >= 2.6:  # a few brighter ones get a faint cross
+            d.line((x - 7, y, x + 7, y), fill=_alpha(PAPER, a * 0.35), width=1)
+            d.line((x, y - 7, x, y + 7), fill=_alpha(PAPER, a * 0.35), width=1)
+
+
+def _glow(c: _Canvas, cx: float, cy: float, r: float, color: RGB, a: float, blur: float) -> None:
+    pad = int(blur * 3)
+    size = int(2 * r) + 2 * pad
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((pad, pad, pad + 2 * r, pad + 2 * r), fill=round(255 * a))
+    mask = mask.filter(ImageFilter.GaussianBlur(blur))
+    c.layer.alpha_composite(
+        Image.composite(
+            Image.new("RGBA", (size, size), (*color, 255)),
+            Image.new("RGBA", (size, size), (*color, 0)),
+            mask,
+        ),
+        (int(cx - r - pad), int(cy - r - pad)),
+    )
+
+
+def _disc(r: int, phase: MoonPhase) -> Image.Image:
+    """The big moon, drawn supersampled: full = a lit disc with faint maria; new = a dark disc
+    with a thin saffron rim."""
+    n = 2 * r * _SS
+    mask = Image.new("L", (n, n), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, n - 1, n - 1), fill=255)
+    if phase is MoonPhase.PURNIMA:
+        ramp = Image.radial_gradient("L").resize((n, n))  # pyright: ignore[reportUnknownMemberType]
+        ramp = ramp.point([min(255, round(v * 1.25)) for v in range(256)])  # pyright: ignore[reportUnknownMemberType]
+        body = ImageOps.colorize(ramp, MOON_LIGHT, MOON_EDGE).convert("RGBA")
+        maria = Image.new("L", (n, n), 0)
+        md = ImageDraw.Draw(maria)
+        for fx, fy, fr, a in (
+            (0.36, 0.34, 0.15, 0.55),
+            (0.56, 0.30, 0.11, 0.45),
+            (0.62, 0.50, 0.13, 0.5),
+            (0.42, 0.58, 0.10, 0.4),
+            (0.30, 0.50, 0.07, 0.35),
+            (0.55, 0.70, 0.06, 0.3),
+            (0.72, 0.36, 0.05, 0.3),
+        ):
+            md.ellipse(_box(fx * n, fy * n, fr * n), fill=round(255 * a * 0.55))
+        maria = maria.filter(ImageFilter.GaussianBlur(n * 0.02))
+        body.paste(Image.new("RGBA", (n, n), (*MARE, 255)), (0, 0), maria)
+    else:
+        ramp = Image.radial_gradient("L").resize((n, n))  # pyright: ignore[reportUnknownMemberType]
+        body = ImageOps.colorize(ramp, (30, 34, 76), NEW_MOON).convert("RGBA")
+        rim = Image.new("L", (n, n), 0)
+        width = max(2, round(n * 0.012))
+        ImageDraw.Draw(rim).ellipse((0, 0, n - 1, n - 1), outline=200, width=width)
+        body.paste(Image.new("RGBA", (n, n), (*SAFFRON, 255)), (0, 0), rim)
+    out = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    out.paste(body, (0, 0), mask)
+    return out.resize((2 * r, 2 * r), Image.Resampling.LANCZOS)  # pyright: ignore[reportUnknownMemberType]
+
+
+def _big_moon(c: _Canvas, cx: int, cy: int, r: int, phase: MoonPhase) -> None:
+    if phase is MoonPhase.PURNIMA:
+        _glow(c, cx, cy, r * 1.25, PAPER, 0.16, r * 0.35)
+        _glow(c, cx, cy, r * 1.04, MOON_LIGHT, 0.35, r * 0.12)
+    else:
+        _glow(c, cx, cy, r * 1.06, SAFFRON, 0.22, r * 0.10)
+    c.layer.alpha_composite(_disc(r, phase), (cx - r, cy - r))
+
+
+def _body(c: _Canvas, cx: float, cy: float, r: float, lit: RGB, dark: RGB) -> None:
+    """A small sphere lit from the left (where the Sun is): left half lit."""
+    n = int(2 * r * _SS)
+    im = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((0, 0, n - 1, n - 1), fill=(*dark, 255))
+    d.pieslice((0, 0, n - 1, n - 1), 90, 270, fill=(*lit, 255))
+    im = im.resize((int(2 * r), int(2 * r)), Image.Resampling.LANCZOS)  # pyright: ignore[reportUnknownMemberType]
+    c.layer.alpha_composite(im, (int(cx - r), int(cy - r)))
+
+
+def _diagram_scale(c: _Canvas) -> float:
+    return 1.0 if c.story else 0.8
+
+
+def _diagram_height(c: _Canvas) -> int:
+    """The height `_diagram` takes, from its top to below its labels."""
+    s = _diagram_scale(c)
+    return round(2 * _ORBIT * s + 10 + 14 * s + round(28 * s) * 1.3)
+
+
+_ORBIT = 96  # the Moon's orbit radius in the diagram, at scale 1
+
+
+def _diagram(
+    c: _Canvas, y: int, phase: MoonPhase, labels: tuple[str, ...]
+) -> tuple[int, tuple[float, float, float]]:
+    """Sun, Earth and Moon on one line in the right order: at full moon the Earth is between
+    the Sun and the Moon, at new moon the Moon is between them. Each is lit on the Sun side.
+    Not to scale. Returns the y below the labels and the orbit's disc (centre x, y, radius)."""
+    s = _diagram_scale(c)
+    sun_r, earth_r, moon_r, orbit = 40 * s, 23 * s, 12 * s, _ORBIT * s
+    cy = y + orbit + 10
+    sun_x = c.pad + sun_r + 24 * s
+    earth_x = c.w - c.pad - orbit - moon_r - 12
+    moon_x = earth_x + orbit if phase is MoonPhase.PURNIMA else earth_x - orbit
+    c.d.line((sun_x + sun_r + 26 * s, cy, c.w - c.pad, cy), fill=_alpha(SAFFRON, 0.22), width=2)
+    for i in range(0, 72, 2):  # the Moon's orbit, dotted
+        c.d.arc(_box(earth_x, cy, orbit), i * 5, i * 5 + 5, fill=_alpha(PAPER, 0.35), width=2)
+    _glow(c, sun_x, cy, sun_r * 1.5, SAFFRON, 0.45, sun_r * 0.5)
+    for i in range(12):  # short rays
+        a = radians(i * 30)
+        r0, r1 = sun_r + 8 * s, sun_r + 20 * s
+        c.d.line(
+            (sun_x + r0 * cos(a), cy + r0 * sin(a), sun_x + r1 * cos(a), cy + r1 * sin(a)),
+            fill=_alpha(SAFFRON, 0.8),
+            width=max(2, round(3 * s)),
+        )
+    c.d.ellipse(_box(sun_x, cy, sun_r), fill=SAFFRON)
+    _body(c, earth_x, cy, earth_r, EARTH, EARTH_NIGHT)
+    _body(c, moon_x, cy, moon_r, MOON_LIGHT, (70, 72, 100))
+    f = font("sans", round(28 * s))
+    ly = round(cy + orbit + 14 * s)  # below the orbit
+    ink = _alpha(SOFT, 0.72)
+    for x, label in zip((sun_x, earth_x, moon_x), labels, strict=False):
+        c.d.text((x, ly), label, font=f, fill=ink, anchor="mt")
+    return ly + round(int(f.size) * 1.3), (earth_x, cy, orbit + moon_r + 6)
+
+
+def _pill(c: _Canvas, left: float | None, y: int, text: str, size: int) -> int:
+    """A saffron kicker; centred when `left` is None. Returns the y below it."""
+    kf = font("sans-bold", size)
+    label = text.upper()
+    ph = round(size * 1.85)
+    w = c.d.textlength(label, font=kf) + 2 * round(size * 0.8)
+    x = (c.w - w) / 2 if left is None else left
+    c.d.rounded_rectangle((x, y, x + w, y + ph), ph // 2, fill=SAFFRON)
+    c.d.text((x + w / 2, y + ph / 2), label, font=kf, fill=INDIGO, anchor="mm")
+    return y + ph
+
+
+def draw_moon(card: MoonCard, fmt: CardFormat, text: CardText) -> bytes:
+    """ST-10. The story shows every note; the square only the first (the rest-day line)."""
+    c = _Canvas(fmt)
+    seed = card.date.toordinal() * 7919 + zlib.crc32(card.city.slug.encode())
+    if c.story:
+        r, cx = 165, c.w // 2
+        y = _pill(c, None, c.header(), text.title, 30)
+        cy = y + 44 + r
+        _big_moon(c, cx, cy, r, card.phase)
+        y = cy + r + 48
+        y = c.text(y, text.headline, font("serif", 100), PAPER, center=True, max_lines=1)
+        y = c.text(y, text.subline, font("serif", 50), SAFFRON, center=True, max_lines=1)
+        y = c.text(y + 4, text.iast, font("sans", 30), _alpha(SOFT, 0.6), center=True)
+        y += 22
+        for i, line in enumerate(text.lines):
+            f = c.fit(line, "sans", 40 if i == 0 else 34, c.inner)
+            y = c.text(y, line, f, PAPER if i == 0 else SOFT, center=True, spacing=1.4)
+        y, orbit = _diagram(c, y + 4, card.phase, text.diagram)
+        y += 4
+        step = round(28 * 1.38)
+        # The notes come most important first; any that would reach the footer are left out.
+        for note in text.notes[: max(0, (c.limit - y) // step)]:
+            f = c.fit(note, "sans", 28, c.inner)
+            y = c.text(y, note, f, _alpha(SOFT, 0.72), center=True, spacing=1.38, max_lines=1)
+    else:
+        r = 170
+        cx, cy = c.pad + r + 6, c.header() + 40 + r
+        _big_moon(c, cx, cy, r, card.phase)
+        col = cx + r + 64
+        width = c.w - c.pad - col
+        y = _pill(c, col, cy - r + 4, text.title, 24) + 22
+        hf = c.fit(text.headline, "serif", 76, width)
+        c.d.text((col, y), text.headline, font=hf, fill=PAPER)
+        y += round(int(hf.size) * 1.22)
+        sf = c.fit(text.subline, "serif", 42, width)
+        c.d.text((col, y), text.subline, font=sf, fill=SAFFRON)
+        y += round(int(sf.size) * 1.3)
+        af = c.fit(text.iast, "sans", 26, width)
+        c.d.text((col, y), text.iast, font=af, fill=_alpha(SOFT, 0.6))
+        y += 58
+        for i, line in enumerate(text.lines):
+            f = font("sans", 30 if i == 0 else 27)
+            for part in c.wrap(line, f, width):
+                c.d.text((col, y), part, font=f, fill=PAPER if i == 0 else SOFT)
+                y += round(int(f.size) * 1.3)
+            y += 8
+        # The diagram and the rest-day line share the room left above the footer.
+        top = max(cy + r, y) + 16
+        block = _diagram_height(c) + 14 + 40  # the diagram, then one note
+        y = top + max(0, (c.limit - top - block) // 2)
+        y, orbit = _diagram(c, y, card.phase, text.diagram)
+        y += 14
+        if text.notes and y + 28 <= c.limit:
+            f = c.fit(text.notes[0], "sans", 28, c.inner)
+            c.text(y, text.notes[0], f, _alpha(SOFT, 0.72), center=True, max_lines=1)
+    c.footer(text.footer)
+    _stars(c, seed, (orbit,))
     return c.png()
 
 

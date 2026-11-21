@@ -621,7 +621,7 @@ share_card = Table(
     Column("sent_at", DateTime(timezone=True), nullable=True),
     PrimaryKeyConstraint("token_hash"),
     CheckConstraint("octet_length(token_hash) = 32", name="token_hash_length"),
-    CheckConstraint("kind IN ('month', 'year', 'asana', 'count')", name="kind"),
+    CheckConstraint("kind IN ('month', 'year', 'asana', 'count', 'moon')", name="kind"),
     CheckConstraint("format IN ('story', 'square')", name="format"),
     CheckConstraint("octet_length(png) <= 2000000", name="png_size"),
     Index("share_card_account_id_created_at_idx", "account_id", "created_at"),

@@ -172,3 +172,22 @@ def test_empty_cards() -> None:
     assert is_empty(year_card(2026, TODAY, [N, N], [], 0))
     assert not is_empty(month_card(2026, 11, TODAY, [P], [], Summary(practiced=1)))
     assert not is_empty(CountCard(100))
+
+
+@pytest.mark.parametrize(("days_ahead", "made"), [(-1, False), (0, True), (3, True), (4, False)])
+def test_moon_card_window(days_ahead: int, made: bool) -> None:
+    """ST-10: from 3 days before a moon day through the day itself."""
+    from datetime import timedelta
+
+    from tristhana.domain.moon import City, MoonDay, MoonDayKind, MoonLocation
+    from tristhana.domain.share_cards import MOON_CARD_LEAD, is_empty, moon_card
+
+    assert MOON_CARD_LEAD == 3
+    city = City("mysuru", "Mysuru", "Майсур", MoonLocation(12.3, 76.6, "Asia/Kolkata"))
+    today = date(2026, 11, 21)
+    day = MoonDay(today + timedelta(days=days_ahead), MoonDayKind.KSHAYA_AMAVASYA)
+    card = moon_card(today, day, city, None, None)
+    assert (card is not None) == made
+    if card is not None:
+        assert (card.phase.value, card.kshaya, card.city) == ("amavasya", True, city)
+        assert not is_empty(card)
