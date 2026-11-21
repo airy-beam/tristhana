@@ -8,6 +8,7 @@ New things in Tristhana, newest first.
 
 ## November 2026
 
+- **A moon day card to share.** For the 3 days before a moon day and on the day itself, :ftl[share-open] next to the moon line on :ftl[tab-today] makes a picture with the moon day's date, the local sunrise time and a simple drawing of the Sun, Earth and Moon. See [Rest days, moon days and 🌸](../../students/rest-and-moon-days/#share-a-moon-day-card).
 - **A shorter shala card in the bot** for the owner and managers: the main buttons first, the rest under :ftl[shala-more-button]. After :ftl[status-practiced], the bot no longer says it twice. In the app's :ftl[progression-open], :ftl[progression-change] sits right under your practice, and the date with the new-asana buttons.
 - **Ready for launch.** The shala's card lists its classes, and in the bot :ftl[shala-classes-edit] opens them in the app. A different time is another class: save one, then :ftl[class-add-another]. The two invites have clear names, :ftl[shala-invite-students] and :ftl[links-invite]. The bot asks which day a tap on an old Today message is for, and asks which city you live in. Today has :ftl[log-another-day], and the Menu has :ftl[menu-asanas].
 - **Clearer words, the same in the bot and the app.** Diary is now :ftl[diary-button], Check-in is :ftl[checkin-edit], Check-ins over time is :ftl[trends-open], Classes is :ftl[menu-classes], Share is :ftl[invite-send], and Length and Duration are :ftl[practice-length]{from=bot} and :ftl[practice-duration]{from=bot}. Times show your city, like 07:00 Almaty, instead of a time zone.

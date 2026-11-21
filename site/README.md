@@ -54,4 +54,5 @@ Needs the local Postgres container (`tristhana-pg`), `uv` and Google Chrome. The
 - The demo people and what they logged are in `shots/lib/cast.mjs` and `shots/lib/seed.mjs`. Everything is entered through the real REST API and the real bot webhook.
 - Mini App pictures are a phone-sized Chrome looking at the real app. Bot pictures are drawn from the bot's real reply (text and buttons) in the site's own style; they are drawings, and the guide says so.
 - Dates in the pictures follow the day you run it, so a full re-run changes every file. Use `--only` after a feature change.
+- Card examples (`src/assets/cards/<lang>/`, ST-10) are not screenshots: the backend's card renderer draws them, `cd backend && uv run python ../tools/cards/render_guide_examples.py`. Re-run it after a card's look changes.
 - Files land in `src/assets/shots/<lang>/<name>.webp` and are committed. A page shows one as `![what it shows](../../../assets/shots/en/<name>.webp)` (one more `../` under `ru/`). `npm run check:guide` fails on a shot that is unlisted, unused, in the wrong language, missing or over 120 KB.
