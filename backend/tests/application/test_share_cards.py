@@ -3,7 +3,7 @@ subject, the two-tone projection before rendering (Q209), moon rings from the ef
 calendar (MD-02), periods, emptiness, ownership, the rate limit, expiry and the one send."""
 
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from functools import cache
 from pathlib import Path
 from uuid import uuid4
@@ -18,7 +18,7 @@ from tests.fakes import (
     InMemoryMoon,
     InMemoryProgression,
 )
-from tests.share_card_fakes import CountingTokens, InMemoryShareCards, SpyRenderer
+from tests.share_card_fakes import CountingTokens, FakeSunrise, InMemoryShareCards, SpyRenderer
 from tristhana.application.policies import Principal
 from tristhana.application.ports.notifications import DeliveryResult, DeliveryStatus
 from tristhana.application.share_cards import (
@@ -32,6 +32,7 @@ from tristhana.application.share_cards import (
     GetShareCardImage,
     InvalidPeriod,
     MonthSubject,
+    MoonSubject,
     NothingToShare,
     RateLimited,
     SendFailed,
@@ -50,6 +51,7 @@ from tristhana.domain.share_cards import (
     CardTone,
     CountCard,
     MonthCard,
+    MoonCard,
     YearCard,
 )
 from tristhana.infrastructure.seed.cities_yaml import load_cities
@@ -71,7 +73,7 @@ class Env:
         self.accounts, self.days, self.moon = InMemoryAccounts(), InMemoryDays(), InMemoryMoon()
         self.progression = InMemoryProgression(self.days)
         self.cards = InMemoryShareCards(now)
-        self.renderer, self.notifier = SpyRenderer(), FakeNotifier()
+        self.renderer, self.notifier, self.sunrise = SpyRenderer(), FakeNotifier(), FakeSunrise()
         self.clock = FixedClock(now)
         stats = GetYearStats(self.days, self.moon, CITIES, track().catalog, self.clock)
         self.create = CreateShareCard(
@@ -82,6 +84,9 @@ class Env:
             CountingTokens(),
             track(),
             self.clock,
+            CITIES,
+            self.moon,
+            self.sunrise,
         )
         self.image = GetShareCardImage(self.cards, self.clock)
         self.send = SendShareCard(self.cards, self.notifier, self.clock)
@@ -341,3 +346,135 @@ async def test_the_rate_limit_is_checked_before_rendering() -> None:
     with pytest.raises(RateLimited):
         await env.create.execute(me, CountSubject(100), CardFormat.STORY)
     assert len(env.renderer.calls) == rendered
+
+
+# ST-10: the moon day card. NOW is Mon 9 Nov 2026 in Almaty; cards from 9 to 12 Nov.
+_FULL = MoonDay(date(2026, 11, 12), MoonDayKind.PURNIMA)
+_NEW = MoonDay(date(2026, 11, 27), MoonDayKind.KSHAYA_AMAVASYA)
+
+
+async def test_moon_card_shows_my_citys_moon_day_with_its_sunrise_and_the_next_one() -> None:
+    env = Env()
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL, _NEW]
+    env.moon.days_by_location["mysuru"] = [MoonDay(date(2026, 11, 11), MoonDayKind.PURNIMA)]
+    created = await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)
+    card = env.rendered()
+    assert isinstance(card, MoonCard)
+    assert (card.date, card.phase.value, card.kshaya) == (date(2026, 11, 12), "purnima", False)
+    assert card.city.slug == "almaty"
+    assert card.sunrise == time(6, 30)  # 01:30 UTC in Almaty's wall clock (UTC+5)
+    assert card.next == _NEW
+    assert env.sunrise.calls == [(CITIES.get("almaty").location, date(2026, 11, 12))]  # type: ignore[union-attr]
+    assert created.file_name == "tristhana-moon-2026-11-12-story.png"
+    assert env.cards.rows[card_token_hash(created.token)].card.kind == "moon"
+
+
+async def test_moon_card_follows_the_main_teacher_and_the_default_city() -> None:
+    env = Env()
+    teacher = TeacherMoon(uuid4(), "T", "almaty")
+    env.moon.days_by_location["almaty"] = [_FULL]
+    env.moon.days_by_location["mysuru"] = [MoonDay(date(2026, 11, 11), MoonDayKind.AMAVASYA)]
+    student = await env.me(moon_location=FOLLOW_TEACHER, main_teacher=teacher)
+    await env.create.execute(student, MoonSubject(date(2026, 11, 12)), CardFormat.SQUARE)
+    card = env.rendered()
+    assert isinstance(card, MoonCard)
+    assert card.city.slug == "almaty"
+    nobody = await env.me()  # nothing chosen: the default city, as Today shows
+    await env.create.execute(nobody, MoonSubject(date(2026, 11, 11)), CardFormat.SQUARE)
+    card = env.rendered()
+    assert isinstance(card, MoonCard)
+    assert (card.city.slug, card.phase.value, card.next) == ("mysuru", "amavasya", None)
+
+
+async def test_moon_card_carries_kshaya() -> None:
+    env = Env(datetime(2026, 11, 25, 5, tzinfo=UTC))
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL, _NEW]
+    await env.create.execute(me, MoonSubject(date(2026, 11, 27)), CardFormat.STORY)
+    card = env.rendered()
+    assert isinstance(card, MoonCard)
+    assert (card.phase.value, card.kshaya, card.next) == ("amavasya", True, None)
+
+
+@pytest.mark.parametrize(
+    ("day", "why"),
+    [
+        (date(2026, 11, 13), "3 days away but not a moon day"),
+        (date(2026, 11, 8), "a moon day, but yesterday"),
+        (date(2026, 11, 27), "a moon day, 18 days away"),
+        (date(2026, 11, 11), "another city's moon day"),
+    ],
+)
+async def test_moon_card_needs_one_of_my_moon_days_within_three_days(day: date, why: str) -> None:
+    env = Env()
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [
+        MoonDay(date(2026, 11, 8), MoonDayKind.AMAVASYA),
+        _FULL,
+        _NEW,
+    ]
+    env.moon.days_by_location["mysuru"] = [MoonDay(date(2026, 11, 11), MoonDayKind.PURNIMA)]
+    with pytest.raises(CardNotFound):
+        await env.create.execute(me, MoonSubject(day), CardFormat.STORY)
+    assert env.renderer.calls == [], why
+
+
+async def test_moon_card_window_counts_from_my_local_today() -> None:
+    # 20:00 UTC on 8 Nov is already 9 Nov in Almaty: the 12th is 3 days away there.
+    env = Env(datetime(2026, 11, 8, 20, tzinfo=UTC))
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL]
+    await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)
+    assert isinstance(env.rendered(), MoonCard)
+
+
+async def test_moon_card_on_the_day_itself() -> None:
+    env = Env(datetime(2026, 11, 12, 5, tzinfo=UTC))
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL]
+    await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)
+    assert isinstance(env.rendered(), MoonCard)
+
+
+@pytest.mark.parametrize(("utc", "shown"), [((1, 30, 29), time(6, 30)), ((1, 30, 30), time(6, 31))])
+async def test_moon_card_sunrise_is_rounded_to_the_minute(
+    utc: tuple[int, int, int], shown: time
+) -> None:
+    env = Env()
+    env.sunrise.at = datetime(2026, 11, 12, *utc, tzinfo=UTC)
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL]
+    await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)
+    card = env.rendered()
+    assert isinstance(card, MoonCard)
+    assert card.sunrise == shown
+
+
+async def test_moon_card_without_a_sunrise_is_still_made() -> None:
+    env = Env()
+    env.sunrise.at = None
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL]
+    await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)
+    card = env.rendered()
+    assert isinstance(card, MoonCard)
+    assert card.sunrise is None
+
+
+async def test_moon_card_reads_the_calendar_once() -> None:
+    env = Env()
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL, _NEW]
+    await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)
+    assert env.moon.statements == 1
+
+
+async def test_moon_cards_count_towards_the_daily_limit() -> None:
+    env = Env()
+    me = await env.me(moon_location="almaty")
+    env.moon.days_by_location["almaty"] = [_FULL]
+    for _ in range(DAILY_LIMIT):
+        await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)
+    with pytest.raises(RateLimited):
+        await env.create.execute(me, MoonSubject(date(2026, 11, 12)), CardFormat.STORY)

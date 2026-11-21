@@ -8,6 +8,14 @@ const DAY_MS = 86_400_000;
 export const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 
+/** ST-10: a moon day card can be shared from this many days before the day through the day. */
+export const MOON_CARD_LEAD = 3;
+/** Whether the moon day card for `day` can be made, counted from the server's today. */
+export const moonShareable = (today: string, day: string) => {
+  const away = daysBetween(today, day);
+  return away >= 0 && away <= MOON_CARD_LEAD;
+};
+
 /** "Thu, 5 Nov" for a calendar date (no zone: a date is not an instant). */
 export const moonDate = (locale: Locale) => {
   const format = new Intl.DateTimeFormat(locale, {

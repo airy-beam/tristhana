@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from tristhana.domain.moon import MoonDay, MoonLocation
 from tristhana.moon import _ephemeris
@@ -39,6 +39,21 @@ def compute_moon_days(location: MoonLocation, start: date, end: date) -> list[Mo
             day, t0 = next_day, t1
 
     return [d for d in dedup(candidates) if d.date >= start]
+
+
+def sunrise_at(location: MoonLocation, day: date) -> datetime:
+    """The sunrise on `day` at `location` as a UTC instant, from the same function the moon
+    days are computed with (whole seconds, as generator.py). One call: cheap enough for a
+    card (ST-10, ADR-0052). Raises `NoSunriseError`, `MoonRangeError` or `MoonError`.
+
+    Unlike `compute_moon_days` it never reaches `tithi_at`'s check that the Swiss Ephemeris
+    files are there: without them `rise_trans` quietly uses Moshier, a sunrise within seconds.
+    The calendar job would fail loudly in that case anyway."""
+    if not FIRST_SUPPORTED <= day <= LAST_SUPPORTED:
+        raise MoonRangeError(f"unsupported date {day}")
+    with _ephemeris.lock:
+        jd = _ephemeris.sunrise_jd(day, location)
+        return _ephemeris.utc_of(jd)
 
 
 def _local_days(first: date, location: MoonLocation) -> Iterator[date]:

@@ -294,6 +294,13 @@ concepts:
     where: [moon-*]
     expert: true
 
+  - concept: Tithi and kshaya (the moon day card)
+    en: tithi · Kshaya Purnima / Kshaya Amavasya
+    ru: титхи · Кшая Пурнима / Кшая Амавасья
+    where: [card-moon-*]
+    expert: true
+    note: ST-10. First reach users on the moon day card; the app's own screens still say "by the moon at sunrise".
+
   - concept: Rest, day off, ladies' holiday, no practice
     en: Rest day · Day off · Ladies' holiday · No practice
     ru: День отдыха · Выходной · Женские дни · Без практики

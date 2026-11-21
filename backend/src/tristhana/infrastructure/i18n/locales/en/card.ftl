@@ -92,3 +92,45 @@ card-series-other-name =
         [5] Fifth series
        *[6] Sixth series
     }
+
+# ST-10: the moon day card. A date, never "today" or "in 3 days": the card stays true later.
+card-moon-kicker = Moon day
+card-moon-phase =
+    { $phase ->
+        [purnima] Full moon
+       *[amavasya] New moon
+    }
+card-moon-name =
+    { $kshaya ->
+        [yes] { $phase ->
+            [purnima] Kshaya Purnima
+           *[amavasya] Kshaya Amavasya
+        }
+       *[no] { $phase ->
+            [purnima] Purnima
+           *[amavasya] Amavasya
+        }
+    }
+card-moon-iast =
+    { $kshaya ->
+        [yes] { $phase ->
+            [purnima] kṣaya pūrṇimā
+           *[amavasya] kṣaya amāvasyā
+        }
+       *[no] { $phase ->
+            [purnima] pūrṇimā
+           *[amavasya] amāvasyā
+        }
+    }
+card-moon-sunrise = Sunrise { $time } { $city }
+card-moon-why = Moon days follow the tithi at local sunrise
+card-moon-kshaya = The tithi begins and ends between two sunrises
+card-moon-rest = A traditional rest day in Ashtanga
+card-moon-next =
+    Next: { $phase ->
+        [purnima] Full moon
+       *[amavasya] New moon
+    } · { $date }
+card-moon-sun = Sun
+card-moon-earth = Earth
+card-moon-moon = Moon

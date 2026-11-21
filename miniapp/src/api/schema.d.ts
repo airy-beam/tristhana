@@ -858,9 +858,11 @@ export interface paths {
         /**
          * Create Share Card
          * @description Renders one card of the caller's own data (two tones only: no rest, 🌸 or unlogged
-         *     days; no name). 404 `not_found` (an event or count that isn't the caller's or can't be
-         *     shared); 422 `invalid_period` (future), `nothing_to_share` (no practice); 429
-         *     `rate_limited` (50 cards per 24 h); 503 `unavailable` when cards are off.
+         *     days; no name). The moon card shows the followed city's coming moon day (ST-10). 404
+         *     `not_found` (an event or count that isn't the caller's or can't be shared; a date that
+         *     isn't one of the caller's moon days 0 to 3 days ahead); 422 `invalid_period` (future),
+         *     `nothing_to_share` (no practice); 429 `rate_limited` (50 cards per 24 h); 503
+         *     `unavailable` when cards are off.
          */
         post: operations["create_share_card_api_v1_me_share_cards_post"];
         delete?: never;
@@ -2772,6 +2774,20 @@ export interface components {
             /** Year */
             year: number;
         };
+        /** MoonCardIn */
+        MoonCardIn: {
+            /**
+             * Date
+             * Format: date
+             * @description A moon day of the caller's followed city, 0 to 3 days from today (ST-10)
+             */
+            date: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "moon";
+        };
         /**
          * MoonDayKind
          * @enum {string}
@@ -4020,7 +4036,7 @@ export interface components {
         /** ShareCardIn */
         ShareCardIn: {
             /** Card */
-            card: components["schemas"]["MonthCardIn"] | components["schemas"]["YearCardIn"] | components["schemas"]["AsanaCardIn"] | components["schemas"]["CountCardIn"];
+            card: components["schemas"]["MonthCardIn"] | components["schemas"]["YearCardIn"] | components["schemas"]["AsanaCardIn"] | components["schemas"]["CountCardIn"] | components["schemas"]["MoonCardIn"];
             /**
              * Format
              * @enum {string}

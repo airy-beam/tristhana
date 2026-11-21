@@ -813,3 +813,24 @@ body {
 .listing-form .row-button {
   margin-top: var(--space);
 }
+
+/* ST-10: the moon row on Today with its "Share" beside it: two controls, one row, one hairline. */
+.lrow-share {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.list > .lrow-share:not(:first-child) {
+  border-top: 1px solid var(--c-line);
+}
+
+.lrow-share > .lrow {
+  flex: 1;
+  min-width: 0;
+}
+
+.lrow-share > .share-open {
+  flex: none;
+  min-height: 44px;
+}

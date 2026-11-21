@@ -144,6 +144,25 @@ async def test_0026_up_down_up_and_no_drift(migrated_url: str, engine: AsyncEngi
     await asyncio.to_thread(migrate.check, migrated_url)
 
 
+async def test_0030_moon_kind_up_down_up(migrated_url: str, engine: AsyncEngine) -> None:
+    """ST-10: 'moon' is a kind from 0030; the downgrade drops moon cards and narrows the CHECK."""
+    me, _ = await _person(engine, "Moon")
+    repo = SqlShareCardRepository(engine)
+    moon = NewShareCard(
+        me.id, _hash("moon"), "moon", CardFormat.SQUARE, PNG, NOW + timedelta(hours=1)
+    )
+    assert await repo.insert(moon, NOW - timedelta(hours=24), 50)
+    await asyncio.to_thread(migrate.downgrade, migrated_url, "0029")
+    try:
+        assert await repo.image(_hash("moon"), NOW) is None
+        with pytest.raises(IntegrityError):
+            await repo.insert(moon, NOW - timedelta(hours=24), 50)
+    finally:
+        await asyncio.to_thread(migrate.upgrade, migrated_url)
+    assert await repo.insert(moon, NOW - timedelta(hours=24), 50)
+    await asyncio.to_thread(migrate.check, migrated_url)
+
+
 async def test_share_cards_work_as_the_app_role(app_engine: AsyncEngine) -> None:  # noqa: F811
     me, _ = await _person(app_engine, "Sam")
     repo = SqlShareCardRepository(app_engine)

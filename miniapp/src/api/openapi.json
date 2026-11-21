@@ -3018,6 +3018,27 @@
         "title": "MonthCardIn",
         "type": "object"
       },
+      "MoonCardIn": {
+        "properties": {
+          "date": {
+            "description": "A moon day of the caller's followed city, 0 to 3 days from today (ST-10)",
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "kind": {
+            "const": "moon",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "date"
+        ],
+        "title": "MoonCardIn",
+        "type": "object"
+      },
       "MoonDayKind": {
         "enum": [
           "purnima",
@@ -6062,6 +6083,7 @@
                 "asana": "#/components/schemas/AsanaCardIn",
                 "count": "#/components/schemas/CountCardIn",
                 "month": "#/components/schemas/MonthCardIn",
+                "moon": "#/components/schemas/MoonCardIn",
                 "year": "#/components/schemas/YearCardIn"
               },
               "propertyName": "kind"
@@ -6078,6 +6100,9 @@
               },
               {
                 "$ref": "#/components/schemas/CountCardIn"
+              },
+              {
+                "$ref": "#/components/schemas/MoonCardIn"
               }
             ],
             "title": "Card"
@@ -10680,7 +10705,7 @@
     },
     "/api/v1/me/share-cards": {
       "post": {
-        "description": "Renders one card of the caller's own data (two tones only: no rest, 🌸 or unlogged\ndays; no name). 404 `not_found` (an event or count that isn't the caller's or can't be\nshared); 422 `invalid_period` (future), `nothing_to_share` (no practice); 429\n`rate_limited` (50 cards per 24 h); 503 `unavailable` when cards are off.",
+        "description": "Renders one card of the caller's own data (two tones only: no rest, 🌸 or unlogged\ndays; no name). The moon card shows the followed city's coming moon day (ST-10). 404\n`not_found` (an event or count that isn't the caller's or can't be shared; a date that\nisn't one of the caller's moon days 0 to 3 days ahead); 422 `invalid_period` (future),\n`nothing_to_share` (no practice); 429 `rate_limited` (50 cards per 24 h); 503\n`unavailable` when cards are off.",
         "operationId": "create_share_card_api_v1_me_share_cards_post",
         "requestBody": {
           "content": {

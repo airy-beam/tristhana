@@ -199,3 +199,33 @@ def test_token_never_logged(api: TestClient, env: Env, caplog: pytest.LogCapture
     MaskFeedTokens().filter(record)
     assert card["id"] not in record.getMessage()
     assert card["id"] not in caplog.text
+
+
+def test_moon_day_card(api: TestClient, env: Env) -> None:
+    """ST-10: one of the caller's moon days (here the default city, Mysuru) 0 to 3 days ahead,
+    drawn with the real sunrise; any other date is a 404."""
+    from tristhana.domain.moon import MoonDay, MoonDayKind
+
+    _me(api, env, practiced=0)  # the moon card needs no practice
+    env.storage.moon_repo.days_by_location["mysuru"] = [
+        MoonDay(date(2026, 11, 10), MoonDayKind.PURNIMA),
+        MoonDay(date(2026, 11, 24), MoonDayKind.AMAVASYA),
+    ]
+    moon = {"format": "square", "card": {"kind": "moon", "date": "2026-11-10"}}
+    r = api.post(URL, json=moon, headers=_auth())
+    assert r.status_code == 201, r.text
+    assert r.json()["file_name"] == "tristhana-moon-2026-11-10-square.png"
+    assert api.get(f"/share/v1/{r.json()['id']}.png").content.startswith(PNG)
+    for day in ("2026-11-11", "2026-11-24", "2026-11-08"):
+        other = {"format": "square", "card": {"kind": "moon", "date": day}}
+        miss = api.post(URL, json=other, headers=_auth())
+        assert (miss.status_code, miss.json()["code"]) == (404, "not_found"), day
+    bad = {"format": "square", "card": {"kind": "moon", "date": "soon"}}
+    assert api.post(URL, json=bad, headers=_auth()).status_code == 422
+
+
+def test_moon_card_is_in_the_openapi_union(api: TestClient) -> None:
+    schemas = api.get("/openapi.json").json()["components"]["schemas"]
+    assert schemas["MoonCardIn"]["properties"]["date"]["format"] == "date"
+    kinds = schemas["ShareCardIn"]["properties"]["card"]["discriminator"]["mapping"]
+    assert set(kinds) == {"month", "year", "asana", "count", "moon"}

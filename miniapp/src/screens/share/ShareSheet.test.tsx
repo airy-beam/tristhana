@@ -66,12 +66,12 @@ const cards = async (request: Request) => {
 
 const MONTH: ShareSubject = { kind: "month", year: 2026, month: 10 };
 
-function renderSheet(locale: Locale = "en", onClose = vi.fn()) {
+function renderSheet(locale: Locale = "en", onClose = vi.fn(), subject: ShareSubject = MONTH) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <L10nProvider locale={locale}>
-        <ShareSheet subject={MONTH} onClose={onClose} />
+        <ShareSheet subject={subject} onClose={onClose} />
       </L10nProvider>
     </QueryClientProvider>,
   );
@@ -199,4 +199,15 @@ test("a modal: focus moves to the title, Escape closes", () => {
   expect(screen.getByRole("heading", { name: "Share a card" })).toHaveFocus();
   fireEvent.keyDown(document, { key: "Escape" });
   expect(onClose).toHaveBeenCalledOnce();
+});
+
+test("the moon day card has its own caption and privacy note (ST-10)", async () => {
+  const seen = stubApi(cards);
+  const moon: ShareSubject = { kind: "moon", date: "2026-11-24" };
+  renderSheet("en", vi.fn(), moon);
+  await screen.findByRole("img", { name: "Card preview" });
+  expect(await seen[0]?.json()).toEqual({ format: "story", card: moon });
+  expect(screen.getByText(/the city it's counted for/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Share to story" }));
+  expect(shareToStory).toHaveBeenCalledWith(card("story").image_url, "Moon day · @tristhana_bot");
 });

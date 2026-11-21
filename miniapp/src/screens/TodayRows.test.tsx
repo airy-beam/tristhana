@@ -282,7 +282,28 @@ describe("MoonRow", () => {
     stubApi({ moon: [{ date, phase: "purnima" }] });
     renderMoon();
 
-    expect(await screen.findByRole("button")).toHaveAccessibleDescription(fact);
+    expect(
+      await screen.findByRole("button", { name: /Next moon day/ }),
+    ).toHaveAccessibleDescription(fact);
+  });
+
+  // ST-10: the moon day card, from 3 days before the moon day through the day itself.
+  it.each([
+    [TODAY, true],
+    ["2026-11-10", true],
+    ["2026-11-11", false],
+  ])("a moon day on %s: Share beside the row is %s", async (date, shown) => {
+    stubApi({ moon: [{ date, phase: "purnima" }] });
+    const onOpen = vi.fn();
+    renderMoon(onOpen);
+
+    const row = await screen.findByRole("button", { name: /Next moon day/ });
+    const share = screen.queryByRole("button", { name: /^Share: Full moon/ });
+    expect(Boolean(share)).toBe(shown);
+    // Two controls side by side: the share button is not inside the row.
+    if (share) expect(row.contains(share)).toBe(false);
+    fireEvent.click(row);
+    expect(onOpen).toHaveBeenCalledOnce();
   });
 
   it("with no moon day in the window the row is the screen's title", async () => {

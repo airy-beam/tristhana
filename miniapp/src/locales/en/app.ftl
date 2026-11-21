@@ -878,6 +878,9 @@ share-send-chat = Send to my chat
 share-sent = ✓ Sent to your chat
 share-send-unreachable = The bot can't write to you yet. Open @tristhana_bot, tap Start, then try again.
 share-story-caption = My practice · @tristhana_bot
+# ST-10: the moon day card shows the city its moon days are counted for, and no practice.
+share-story-caption-moon = Moon day · @tristhana_bot
+share-privacy-note-moon = The card shows the moon day and the city it's counted for: never your name or your practice.
 share-entry = Share: { $entry }
 
 ## ID-05: the SYC directory line (the form is in listing.ftl)

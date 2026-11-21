@@ -5,16 +5,19 @@ A card is meant to be seen by strangers, so it holds less than any private scree
   auto-rest, pauses, "No practice" and unmarked days all look the same, so neither a 🌸
   pattern nor an "unlogged" day can be read from a card. The projection happens in the use
   case, before any builder here runs; builders accept tones only.
-- No name, city, teacher, note, check-in, run, rest count or percentage (Q201, Q202).
+- No name, city, teacher, note, check-in, run, rest count or percentage (Q201, Q202). The
+  one exception is the moon day card (ST-10): it names the followed city, because moon days
+  differ by place, and holds no practice data at all.
 - Moon days are rings from the account's own stored calendar (passed in, never computed).
 """
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, time, timedelta
 from enum import StrEnum
 
 from tristhana.domain.days import DayStatus
+from tristhana.domain.moon import City, MoonDay, MoonPhase
 from tristhana.domain.progression import (
     Celebration,
     CelebrationKind,
@@ -89,7 +92,24 @@ class CountCard:
     count: int
 
 
-type Card = MonthCard | YearCard | AsanaCard | CountCard
+# ST-10: a moon day card can be made from this many days before the day through the day itself.
+MOON_CARD_LEAD = 3
+
+
+@dataclass(frozen=True, slots=True)
+class MoonCard:
+    """A coming moon day of the followed city (ST-10). Holds no practice data at all. The
+    city is shown on purpose (moon days differ by place), never a teacher or shala."""
+
+    date: date
+    phase: MoonPhase
+    kshaya: bool
+    city: City
+    sunrise: time | None  # wall clock in the city's zone; None when it couldn't be computed
+    next: MoonDay | None  # the following moon day of the same calendar, if known
+
+
+type Card = MonthCard | YearCard | AsanaCard | CountCard | MoonCard
 
 
 def _check_tones(tones: Sequence[CardTone]) -> tuple[CardTone, ...]:
@@ -182,6 +202,19 @@ def asana_card(track: Track, event: ProgressionEvent) -> AsanaCard | None:
 def count_card(count: int, seen: bool) -> CountCard | None:
     """Only a threshold already in the person's GM-01 ledger."""
     return CountCard(count) if seen else None
+
+
+def moon_card(
+    today: date,
+    day: MoonDay,
+    city: City,
+    sunrise: time | None,
+    following: MoonDay | None,
+) -> MoonCard | None:
+    """The card for `day`, only from `MOON_CARD_LEAD` days before it through the day itself."""
+    if not today <= day.date <= today + timedelta(days=MOON_CARD_LEAD):
+        return None
+    return MoonCard(day.date, day.kind.phase, day.kind.is_kshaya, city, sunrise, following)
 
 
 def is_empty(card: Card) -> bool:
