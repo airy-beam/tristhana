@@ -41,3 +41,4 @@ cities:
   - {slug: bali, names: {en: Bali, ru: Бали}, lat: -8.6705, lon: 115.2126, tz: Asia/Makassar}
   - {slug: new-york, names: {en: New York, ru: Нью-Йорк}, lat: 40.7128, lon: -74.006, tz: America/New_York}
   - {slug: los-angeles, names: {en: Los Angeles, ru: Лос-Анджелес}, lat: 34.0522, lon: -118.2437, tz: America/Los_Angeles}
+  - {slug: borovoe, names: {en: Borovoe, ru: Боровое}, lat: 53.0833, lon: 70.3, tz: Asia/Almaty}

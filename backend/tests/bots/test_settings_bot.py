@@ -280,7 +280,7 @@ def test_an_old_switch_button_writes_and_shows_more(
 
 
 def _all_picker_texts(client: TestClient) -> list[str]:
-    """Every button text on all pages of the city picker (34 cities, 12 per page)."""
+    """Every button text on all pages of the city picker (35 cities, 12 per page)."""
     texts: list[str] = []
     for page in range(3):
         texts += _texts(_tap(client, f"s1:cp:{page}"))
